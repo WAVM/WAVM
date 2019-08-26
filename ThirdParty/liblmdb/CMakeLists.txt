@@ -23,7 +23,7 @@ target_include_directories(lmdb PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_
 # When using static linking for the WAVM libraries, the lmdb library needs to be
 # installed. Otherwise, it will just be linked into the WAVM .so/.dylib files.
 if(WAVM_ENABLE_STATIC_LINKING)
-	install(TARGETS lmdb DESTINATION lib/WAVM EXPORT WAVMInstallTargets)
+	WAVM_INSTALL_TARGET(lmdb)
 endif()
 
 WAVM_SET_TARGET_SANITIZER_OPTIONS(lmdb)

@@ -1,5 +1,5 @@
 parameters:
-  buildConfiguration: Release
+  buildConfiguration: RelWithDebInfo
   name: ''
   vmImage: 'VS2017-Win2016'
   cmakeArgs: '-G "Visual Studio 15 2017 Win64"'

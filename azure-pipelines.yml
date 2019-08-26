@@ -1,65 +1,95 @@
 jobs:
-  - template: Build/azure-windows-build-job-template.yml
+  # Win64 VS2017
+  - template: Build/azure-build-job-template.yml
     parameters:
-      name: Win64_VS2017_LLVM6_Release
-      buildConfiguration: Release
+      name: Win64_VS2017_RelWithDebInfo
       vmImage: 'VS2017-Win2016'
-      cmakeArgs: '-G "Visual Studio 15 2017 Win64"'
-      llvmBranch: release/6.x
-  - template: Build/azure-windows-build-job-template.yml
+      cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
+      cmakeBuildArgs: '--config RelWithDebInfo'
+      ctestArgs: '-C RelWithDebInfo'
+      llvmBuildAssetName: Win64_VS2017_Release.zip
+      packageSuffix: '-windows-vs2017-x64'
+      cpackGenerators: 'ZIP'
+  - template: Build/azure-build-job-template.yml
     parameters:
-      name: Win64_VS2017_LLVM6_Debug
-      buildConfiguration: Debug
+      name: Win64_VS2017_Debug
       vmImage: 'VS2017-Win2016'
-      cmakeArgs: '-G "Visual Studio 15 2017 Win64"'
-      llvmBranch: release/6.x
-  - template: Build/azure-windows-build-job-template.yml
+      cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
+      cmakeBuildArgs: '--config Debug'
+      ctestArgs: '-C Debug'
+      llvmBuildAssetName: Win64_VS2017_Debug.zip
+      packageSuffix: '-windows-vs2017-x64-debug'
+      cpackGenerators: 'ZIP'
+
+  # Win64 VS2019
+  - template: Build/azure-build-job-template.yml
     parameters:
-      name: Win64_VS2019_LLVM6_Release
-      buildConfiguration: Release
+      name: Win64_VS2019_RelWithDebInfo
+      buildConfiguration: RelWithDebInfo
       vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
-      llvmBranch: release/6.x
-  - template: Build/azure-windows-build-job-template.yml
+      cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
+      cmakeBuildArgs: '--config RelWithDebInfo'
+      ctestArgs: '-C RelWithDebInfo'
+      llvmBuildAssetName: Win64_VS2019_Release.zip
+      packageSuffix: '-windows-x64'
+      cpackGenerators: 'ZIP;NSIS64'
+  - template: Build/azure-build-job-template.yml
     parameters:
-      name: Win64_VS2019_LLVM6_Debug
-      buildConfiguration: Debug
-      vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
-      llvmBranch: release/6.x
-  - template: Build/azure-windows-build-job-template.yml
-    parameters:
-      name: Win64_VS2017_LLVM9_Release
-      buildConfiguration: Release
-      vmImage: 'VS2017-Win2016'
-      cmakeArgs: '-G "Visual Studio 15 2017 Win64"'
-      llvmBranch: release/9.x
-  - template: Build/azure-windows-build-job-template.yml
-    parameters:
-      name: Win64_VS2017_LLVM9_Debug
-      buildConfiguration: Debug
-      vmImage: 'VS2017-Win2016'
-      cmakeArgs: '-G "Visual Studio 15 2017 Win64"'
-      llvmBranch: release/9.x
-  - template: Build/azure-windows-build-job-template.yml
-    parameters:
-      name: Win64_VS2019_LLVM9_Release
-      buildConfiguration: Release
-      vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
-      llvmBranch: release/9.x
-  - template: Build/azure-windows-build-job-template.yml
-    parameters:
-      name: Win64_VS2019_LLVM9_Debug
+      name: Win64_VS2019_Debug
       buildConfiguration: Debug
       vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
-      llvmBranch: release/9.x
+      cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
+      cmakeBuildArgs: '--config Debug'
+      ctestArgs: '-C Debug'
+      llvmBuildAssetName: Win64_VS2019_Debug.zip
+      packageSuffix: '-windows-x64-debug'
+      cpackGenerators: 'ZIP'
+
+  # Ubuntu 16.04
+  - template: Build/azure-build-job-template.yml
+    parameters:
+      name: Ubuntu1604_RelWithDebInfo
+      vmImage: 'ubuntu-16.04'
+      cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo'
+      cmakeBuildArgs: ''
+      llvmBuildAssetName: Ubuntu1604_Release.zip
+      packageSuffix: '-linux'
+      cpackGenerators: 'TGZ;DEB'
+  - template: Build/azure-build-job-template.yml
+    parameters:
+      name: Ubuntu1604_Debug
+      vmImage: 'ubuntu-16.04'
+      cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
+      cmakeBuildArgs: ''
+      llvmBuildAssetName: Ubuntu1604_Debug.zip
+      packageSuffix: '-linux-debug'
+      cpackGenerators: 'TGZ'
+
+  # MacOS 10.14
+  - template: Build/azure-build-job-template.yml
+    parameters:
+      name: MacOSX14_RelWithDebInfo
+      vmImage: 'macOS-10.14'
+      cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo'
+      cmakeBuildArgs: ''
+      llvmBuildAssetName: MacOSX14_Release.zip
+      packageSuffix: '-macos10.14'
+      cpackGenerators: 'ZIP'
+  - template: Build/azure-build-job-template.yml
+    parameters:
+      name: MacOSX14_Debug
+      vmImage: 'macOS-10.14'
+      cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
+      cmakeBuildArgs: ''
+      llvmBuildAssetName: MacOSX14_Debug.zip
+      packageSuffix: '-macos10.14-debug'
+      cpackGenerators: 'ZIP'
+
+  # Win32
   - template: Build/azure-windows-build-job-template-no-llvm.yml
     parameters:
       name: Win32_VS2019
-      buildConfiguration: Release
+      buildConfiguration: RelWithDebInfo
       vmImage: 'windows-2019'
       cmakeArgs: '-G "Visual Studio 16 2019" -A Win32'
-      buildLLVM: false
       vsPlatform: Win32

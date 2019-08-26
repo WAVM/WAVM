@@ -41,7 +41,7 @@ target_compile_definitions(gdtoa PRIVATE "-DMULTIPLE_THREADS")
 # When using static linking for the WAVM libraries, the gdtoa library needs to be
 # installed. Otherwise, it will just be linked into the WAVM .so/.dylib files.
 if(WAVM_ENABLE_STATIC_LINKING)
-	install(TARGETS gdtoa DESTINATION lib/WAVM EXPORT WAVMInstallTargets)
+	WAVM_INSTALL_TARGET(gdtoa)
 endif()
 
 WAVM_SET_TARGET_SANITIZER_OPTIONS(gdtoa)

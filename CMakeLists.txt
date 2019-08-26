@@ -4,16 +4,32 @@ project (WAVM C CXX ASM)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-# Specify the WAVM version.
-if(NOT DEFINED WAVM_VERSION_MAJOR)
-	set(WAVM_VERSION_MAJOR 1)
+# Parse the VERSION file.
+file(READ "VERSION" VERSION_FILE_CONTENTS)
+string(REGEX MATCH "([0-9]+)\.([0-9]+)\.([0-9]+)" WAVM_VERSION ${VERSION_FILE_CONTENTS})
+if(NOT WAVM_VERSION)
+	message(FATAL_ERROR "Could not parse 'VERSION' file")
 endif()
-if(NOT DEFINED WAVM_VERSION_MINOR)
-	set(WAVM_VERSION_MINOR 0)
-endif()
-if(NOT DEFINED WAVM_VERSION_PATCH)
-	set(WAVM_VERSION_PATCH 0)
-endif()
+set(WAVM_VERSION_MAJOR ${CMAKE_MATCH_1})
+set(WAVM_VERSION_MINOR ${CMAKE_MATCH_2})
+set(WAVM_VERSION_PATCH ${CMAKE_MATCH_3})
+
+# Configure CPack
+set(CPACK_PACKAGE_NAME "WAVM")
+set(CPACK_PACKAGE_VENDOR "Andrew Scheidecker")
+set(CPACK_PACKAGE_CONTACT "andrew@scheidecker.net")
+set(CPACK_PACKAGE_VERSION_MAJOR ${WAVM_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${WAVM_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${WAVM_VERSION_PATCH})
+set(CPACK_PACKAGE_DESCRIPTION "WebAssembly virtual machine")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://wavm.github.io")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "WAVM")
+set(CPACK_NSIS_MODIFY_PATH ON)
+set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libgcc1 (>= 1:3.3), libstdc++6 (>= 5.2), libtinfo5 (>= 6), zlib1g (>= 1:1.1.4)")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://wavm.github.io")
+include(CPack)
 
 if(MSVC)
 	enable_language(ASM_MASM)
@@ -147,6 +163,10 @@ configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Version.h.in
 			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h)
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
 		DESTINATION include/WAVM/Inline)
+
+# Install LICENSE to <install root> on Windows and <install root>/share/wavm on other systems.
+install(FILES ${WAVM_SOURCE_DIR}/LICENSE
+		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,share/wavm>)
 
 set(OPTIONAL_C_FLAGS)
 set(OPTIONAL_CXX_FLAGS)
@@ -314,6 +334,15 @@ function(WAVM_INSTALL_TARGET TARGET_NAME)
 			ARCHIVE DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,lib,lib/WAVM/$<CONFIG>>
 			# Install RelWithDebInfo binaries to bin, and all others to bin/WAVM/config
 			RUNTIME DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>)
+
+	# Install PDB files to the same directory as the binaries.
+	# Exclude static libraries as TARGET_PDB_FILE only works for linked targets.
+	get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
+	if(MSVC AND NOT ${TARGET_TYPE} STREQUAL "STATIC_LIBRARY")
+		install(FILES $<TARGET_PDB_FILE:${TARGET_NAME}>
+				DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>
+				OPTIONAL)
+	endif()
 endfunction()
 
 # Older versions of CMake can't handle target_link_libraries on the monolithic WAVM library
@@ -415,6 +444,7 @@ WAVM_SET_TARGET_COMPILE_OPTIONS(WAVM)
 WAVM_INSTALL_TARGET(WAVM)
 set_target_properties(WAVM PROPERTIES FOLDER Libraries)
 set_target_properties(WAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+set_target_properties(WAVM PROPERTIES SOVERSION ${WAVM_VERSION_MAJOR})
 
 # Process the CMake scripts in subdirectories.
 add_subdirectory(Examples)
@@ -479,7 +509,7 @@ add_custom_target(RootFiles SOURCES
 	.clang-format
 	.travis.yml
 	azure-pipelines.yml
-	Build/azure-windows-build-job-template.yml
+	Build/azure-build-job-template.yml
 	Build/notify-discord.sh
 	Build/travis-build.sh
 	LICENSE
