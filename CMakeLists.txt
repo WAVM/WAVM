@@ -381,7 +381,7 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	endforeach()
 	
 	# Directly add the component's source files to the monolithic WAVM library.
-	target_sources(WAVM PRIVATE ${COMPONENT_SOURCES_ABSOLUTE} ${CMAKE_CURRENT_LIST_FILE})
+	target_sources(libWAVM PRIVATE ${COMPONENT_SOURCES_ABSOLUTE} ${CMAKE_CURRENT_LIST_FILE})
 
 	# Add the non-compiled source files to a global list that will be flagged as "header-only".
 	list(APPEND WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES ${COMPONENT_NONCOMPILED_SOURCES_ABSOLUTE})
@@ -395,19 +395,19 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	set(WAVM_MONOLIB_PUBLIC_LIBS ${WAVM_MONOLIB_PUBLIC_LIBS} CACHE INTERNAL "" FORCE)
 	
 	# Add the component's include directories and definitions.
-	target_include_directories(WAVM PRIVATE ${COMPONENT_PRIVATE_INCLUDE_DIRECTORIES})
-	target_include_directories(WAVM SYSTEM PRIVATE ${COMPONENT_PRIVATE_SYSTEM_INCLUDE_DIRECTORIES})
-	target_compile_definitions(WAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
-	target_compile_definitions(WAVM PUBLIC ${COMPONENT_PUBLIC_DEFINITIONS})
+	target_include_directories(libWAVM PRIVATE ${COMPONENT_PRIVATE_INCLUDE_DIRECTORIES})
+	target_include_directories(libWAVM SYSTEM PRIVATE ${COMPONENT_PRIVATE_SYSTEM_INCLUDE_DIRECTORIES})
+	target_compile_definitions(libWAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
+	target_compile_definitions(libWAVM PUBLIC ${COMPONENT_PUBLIC_DEFINITIONS})
 
 	# Set up the component's API definitions.
 	string(TOUPPER ${COMPONENT_NAME} COMPONENT_C_NAME)
 	string(REPLACE "-" "_" COMPONENT_C_NAME ${COMPONENT_C_NAME})
 	if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
-		target_compile_definitions(WAVM PRIVATE "\"${COMPONENT_C_NAME}_API=__declspec(dllexport)\"")
-		target_compile_definitions(WAVM INTERFACE "\"${COMPONENT_C_NAME}_API=__declspec(dllimport)\"")
+		target_compile_definitions(libWAVM PRIVATE "\"${COMPONENT_C_NAME}_API=__declspec(dllexport)\"")
+		target_compile_definitions(libWAVM INTERFACE "\"${COMPONENT_C_NAME}_API=__declspec(dllimport)\"")
 	else()
-		target_compile_definitions(WAVM PUBLIC "${COMPONENT_C_NAME}_API=")
+		target_compile_definitions(libWAVM PUBLIC "${COMPONENT_C_NAME}_API=")
 	endif()
 endfunction()
 
@@ -427,7 +427,7 @@ function(WAVM_ADD_EXECUTABLE EXE_NAME)
 
 	# Ignore the PRIVATE_LIB_COMPONENTS and PUBLIC_LIB_COMPONENTS, and just link the executable with
 	# the monolithic WAVM library.
-	target_link_libraries(${EXE_NAME} PRIVATE WAVM)
+	target_link_libraries(${EXE_NAME} PRIVATE libWAVM)
 
 	if(EXE_FOLDER)
 		set_target_properties(${EXE_NAME} PROPERTIES FOLDER ${EXE_FOLDER})
@@ -436,15 +436,16 @@ endfunction()
 
 # Create a WAVM library that will include all WAVM library components.
 if(WAVM_ENABLE_STATIC_LINKING)
-	add_library(WAVM STATIC)
+	add_library(libWAVM STATIC)
 else()
-	add_library(WAVM SHARED)
+	add_library(libWAVM SHARED)
 endif()
-WAVM_SET_TARGET_COMPILE_OPTIONS(WAVM)
-WAVM_INSTALL_TARGET(WAVM)
-set_target_properties(WAVM PROPERTIES FOLDER Libraries)
-set_target_properties(WAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-set_target_properties(WAVM PROPERTIES SOVERSION ${WAVM_VERSION_MAJOR})
+WAVM_SET_TARGET_COMPILE_OPTIONS(libWAVM)
+WAVM_INSTALL_TARGET(libWAVM)
+set_target_properties(libWAVM PROPERTIES FOLDER Libraries)
+set_target_properties(libWAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+set_target_properties(libWAVM PROPERTIES SOVERSION ${WAVM_VERSION_MAJOR})
+set_target_properties(libWAVM PROPERTIES OUTPUT_NAME "WAVM")
 
 # Process the CMake scripts in subdirectories.
 add_subdirectory(Examples)
@@ -480,12 +481,12 @@ endif()
 
 # Add the library dependencies accumulated from the various library components as link dependencies
 # of the monolithic WAVM library.
-target_link_libraries(WAVM PRIVATE ${WAVM_MONOLIB_PRIVATE_LIBS})
-target_link_libraries(WAVM PUBLIC ${WAVM_MONOLIB_PUBLIC_LIBS})
+target_link_libraries(libWAVM PRIVATE ${WAVM_MONOLIB_PRIVATE_LIBS})
+target_link_libraries(libWAVM PUBLIC ${WAVM_MONOLIB_PUBLIC_LIBS})
 
 # Set the non-compiled source files accumulated from the various library components as header-only,
 # which includes the files in IDE projects, but doesn't compile them.
-target_sources(WAVM PRIVATE ${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES})
+target_sources(libWAVM PRIVATE ${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES})
 set_source_files_properties(${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 # Create a CMake package in <build>/lib/cmake/WAVM containing the WAVM library targets.
