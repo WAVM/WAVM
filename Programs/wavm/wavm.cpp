@@ -56,14 +56,14 @@ Command parseCommand(const char* string)
 static const char* getCommandListHelpText()
 {
 	return "Commands:\n"
-		   "  assemble     Assemble WAT to WASM\n"
-		   "  disassemble  Disassemble WASM to WAT\n"
+		   "  assemble     Assemble WAST/WAT to WASM\n"
+		   "  disassemble  Disassemble WASM to WAST/WAT\n"
 #if WAVM_ENABLE_RUNTIME
 		   "  compile      Compile a WebAssembly module\n"
 #endif
 		   "  help         Display help about command-line usage of WAVM\n"
 #if WAVM_ENABLE_RUNTIME
-		   "  run          Run a WebAssembly module\n"
+		   "  run          Run a WebAssembly program\n"
 #endif
 		   "  version      Display information about the WAVM version\n";
 }
@@ -71,7 +71,7 @@ static const char* getCommandListHelpText()
 static void showTopLevelHelp(Log::Category outputCategory)
 {
 	Log::printf(outputCategory,
-				"Usage: wavm <command>\n"
+				"Usage: wavm <command> [command arguments]\n"
 				"\n"
 				"%s",
 				getCommandListHelpText());
