@@ -50,7 +50,4 @@ namespace WAVM { namespace IR {
 			referenceTypes = enablePreStandardizationFeatures;
 		}
 	};
-
-	IR_API const char* getFeatureListHelpText();
-	IR_API bool parseAndSetFeature(const char* featureName, FeatureSpec& featureSpec, bool enable);
 }}

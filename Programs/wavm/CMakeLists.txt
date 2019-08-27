@@ -1,6 +1,7 @@
 WAVM_ADD_EXECUTABLE(wavm
 	FOLDER Programs
-	SOURCES wavm.cpp
+	SOURCES FeatureSpec.cpp
+			wavm.cpp
 			wavm.h
 			wavm-assemble.cpp
 			wavm-compile.cpp

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Logging/Logging.h"
 
 int execAssembleCommand(int argc, char** argv);
@@ -17,3 +18,6 @@ int execRunCommand(int argc, char** argv);
 void showCompileHelp(WAVM::Log::Category outputCategory);
 void showRunHelp(WAVM::Log::Category outputCategory);
 #endif
+
+const char* getFeatureListHelpText();
+bool parseAndSetFeature(const char* featureName, WAVM::IR::FeatureSpec& featureSpec, bool enable);

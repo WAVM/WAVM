@@ -4,7 +4,7 @@
 
 using namespace WAVM;
 
-const char* IR::getFeatureListHelpText()
+const char* getFeatureListHelpText()
 {
 	return "  prestd-*               All \"pre-standard\" WebAssembly extensions.\n"
 		   "  prestd-simd            WebAssembly SIMD extension.\n"
@@ -14,7 +14,7 @@ const char* IR::getFeatureListHelpText()
 		   "  prestd-reftypes        WebAssembly reference types extension.\n";
 }
 
-bool IR::parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
+bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
 {
 	if(!strcmp(featureName, "prestd-*"))
 	{
