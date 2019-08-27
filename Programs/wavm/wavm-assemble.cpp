@@ -12,6 +12,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
+#include "wavm.h"
 
 using namespace WAVM;
 
@@ -34,24 +35,29 @@ static bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
 	}
 }
 
-int main(int argc, char** argv)
+void showAssembleHelp(Log::Category outputCategory)
 {
-	if(argc < 3)
+	Log::printf(outputCategory,
+				"Usage: wavm assemble in.wast out.wasm [switches]\n"
+				"  -n|--omit-names           Omits WAST names from the output\n"
+				"     --omit-extended-names  Omits only the non-standard WAVM extended\n"
+				"                              names from the output\n");
+}
+
+int execAssembleCommand(int argc, char** argv)
+{
+	if(argc < 2)
 	{
-		Log::printf(Log::error,
-					"Usage: wavm-as in.wast out.wasm [switches]\n"
-					"  -n|--omit-names           Omits WAST names from the output\n"
-					"     --omit-extended-names  Omits only the non-standard WAVM extended\n"
-					"                              names from the output\n");
+		showAssembleHelp(Log::error);
 		return EXIT_FAILURE;
 	}
-	const char* inputFilename = argv[1];
-	const char* outputFilename = argv[2];
+	const char* inputFilename = argv[0];
+	const char* outputFilename = argv[1];
 	bool omitNames = false;
 	bool omitExtendedNames = false;
-	if(argc > 3)
+	if(argc > 2)
 	{
-		for(Iptr argumentIndex = 3; argumentIndex < argc; ++argumentIndex)
+		for(Iptr argumentIndex = 2; argumentIndex < argc; ++argumentIndex)
 		{
 			if(!strcmp(argv[argumentIndex], "-n") || !strcmp(argv[argumentIndex], "--omit-names"))
 			{ omitNames = true; }

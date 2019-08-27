@@ -8,6 +8,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTPrint/WASTPrint.h"
+#include "wavm.h"
 
 using namespace WAVM;
 
@@ -20,17 +21,22 @@ static bool loadBinaryModuleFromFile(const char* filename,
 	return WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), outModule);
 }
 
-int main(int argc, char** argv)
+void showDisassembleHelp(Log::Category outputCategory)
+{
+	Log::printf(Log::error, "Usage: wavm disassemble in.wasm [out.wast] [--enable-quoted-names]\n");
+}
+
+int execDisassembleCommand(int argc, char** argv)
 {
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
 
 	bool showHelp = false;
 	bool enableQuotedNames = false;
-	if(argc < 2) { showHelp = true; }
+	if(argc < 1) { showHelp = true; }
 	else
 	{
-		for(int argIndex = 1; argIndex < argc; ++argIndex)
+		for(int argIndex = 0; argIndex < argc; ++argIndex)
 		{
 			if(!strcmp(argv[argIndex], "--help")) { showHelp = true; }
 			else if(!strcmp(argv[argIndex], "--enable-quoted-names"))
@@ -55,7 +61,7 @@ int main(int argc, char** argv)
 
 	if(showHelp)
 	{
-		Log::printf(Log::error, "Usage: wavm-disas in.wasm [out.wast] [--enable-quoted-names]\n");
+		showDisassembleHelp(Log::error);
 		return EXIT_FAILURE;
 	}
 

@@ -11,6 +11,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
+#include "wavm.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -54,12 +55,12 @@ static const char* getOutputFormatHelpText()
 		   "                              embedded in the wavm.precompiled_object section.\n";
 }
 
-static void showHelp()
+void showCompileHelp(Log::Category outputCategory)
 {
 	LLVMJIT::TargetSpec hostTargetSpec = LLVMJIT::getHostTargetSpec();
 
-	Log::printf(Log::error,
-				"Usage: wavm-compile [options] <in.wast|wasm> <output file>\n"
+	Log::printf(outputCategory,
+				"Usage: wavm compile [options] <in.wast|wasm> <output file>\n"
 				"  -h|--help                 Display this message\n"
 				"  --target-triple <triple>  Set the target triple (default: %s)\n"
 				"  --target-cpu <cpu>        Set the target CPU (default: %s)\n"
@@ -95,25 +96,25 @@ enum class OutputFormat
 	object,
 };
 
-int main(int argc, char** argv)
+int execCompileCommand(int argc, char** argv)
 {
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
 	LLVMJIT::TargetSpec targetSpec = LLVMJIT::getHostTargetSpec();
 	IR::FeatureSpec featureSpec;
 	OutputFormat outputFormat = OutputFormat::unspecified;
-	for(int argIndex = 1; argIndex < argc; ++argIndex)
+	for(int argIndex = 0; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "-h") || !strcmp(argv[argIndex], "--help"))
 		{
-			showHelp();
+			showCompileHelp(Log::error);
 			return EXIT_FAILURE;
 		}
 		else if(!strcmp(argv[argIndex], "--target-triple"))
 		{
 			if(argIndex + 1 == argc)
 			{
-				showHelp();
+				Log::printf(Log::error, "Expected target triple following '--target-triple'.\n");
 				return EXIT_FAILURE;
 			}
 			++argIndex;
@@ -123,7 +124,7 @@ int main(int argc, char** argv)
 		{
 			if(argIndex + 1 == argc)
 			{
-				showHelp();
+				Log::printf(Log::error, "Expected target CPU name following '--target-cpu'.\n");
 				return EXIT_FAILURE;
 			}
 			++argIndex;
@@ -188,14 +189,14 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			showHelp();
+			showCompileHelp(Log::error);
 			return EXIT_FAILURE;
 		}
 	}
 
 	if(!inputFilename || !outputFilename)
 	{
-		showHelp();
+		showCompileHelp(Log::error);
 		return EXIT_FAILURE;
 	}
 

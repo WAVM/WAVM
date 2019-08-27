@@ -30,6 +30,7 @@
 #include "WAVM/WASI/WASI.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
+#include "wavm.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -176,16 +177,14 @@ static const char* getSystemListHelpText()
 		   "  wasi        A system that implements the WASI ABI.\n";
 }
 
-static void showHelp()
+void showRunHelp(Log::Category outputCategory)
 {
-	Log::printf(Log::error,
-				"Usage: wavm-run [options] <program file> [program arguments]\n"
+	Log::printf(outputCategory,
+				"Usage: wavm run [options] <program file> [program arguments]\n"
 				"  <program file>        The WebAssembly module (.wast/.wasm) to run\n"
 				"  [program arguments]   The arguments to pass to the WebAssembly function\n"
 				"\n"
 				"Options:\n"
-				"  -h|--help             Display this message\n"
-				"  -v|--version          Display version information\n"
 				"  -d|--debug            Write additional debug information to stdout\n"
 				"  -f|--function name    Specify function name to run in module (default:main)\n"
 				"  --precompiled         Use precompiled object code in program file\n"
@@ -255,31 +254,15 @@ struct State
 	bool parseCommandLineAndEnvironment(char** argv)
 	{
 		char** nextArg = argv;
-		while(*++nextArg)
+		while(*nextArg)
 		{
-			if(!strcmp(*nextArg, "--help") || !strcmp(*nextArg, "-h"))
-			{
-				showHelp();
-				return false;
-			}
-			else if(!strcmp(*nextArg, "--version") || !strcmp(*nextArg, "-v"))
-			{
-				Log::printf(Log::output,
-							"WAVM version %u.%u.%u\n",
-							WAVM_VERSION_MAJOR,
-							WAVM_VERSION_MINOR,
-							WAVM_VERSION_PATCH);
-				return false;
-			}
-			else if(!strcmp(*nextArg, "--debug") || !strcmp(*nextArg, "-d"))
-			{
-				Log::setCategoryEnabled(Log::debug, true);
-			}
+			if(!strcmp(*nextArg, "--debug") || !strcmp(*nextArg, "-d"))
+			{ Log::setCategoryEnabled(Log::debug, true); }
 			else if(!strcmp(*nextArg, "--function") || !strcmp(*nextArg, "-f"))
 			{
 				if(!*++nextArg)
 				{
-					showHelp();
+					showRunHelp(Log::error);
 					return false;
 				}
 				functionName = *nextArg;
@@ -384,11 +367,13 @@ struct State
 				++nextArg;
 				break;
 			}
+
+			++nextArg;
 		}
 
 		if(!filename)
 		{
-			showHelp();
+			showRunHelp(Log::error);
 			return false;
 		}
 
@@ -843,7 +828,7 @@ struct State
 	}
 };
 
-int main(int argc, char** argv)
+int execRunCommand(int argc, char** argv)
 {
 	State state;
 	return state.runAndCatchRuntimeExceptions(argv);
