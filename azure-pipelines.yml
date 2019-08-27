@@ -112,6 +112,8 @@ stages:
           inputs:
             buildType: current
             targetPath: $(Build.ArtifactStagingDirectory)
+        # Get the current date
+        - bash: echo "##vso[task.setvariable variable=today]$(date -u +%Y-%m-%d)"
         # Create a GitHub release containing the artifacts.
         - task: GitHubRelease@0
           inputs:
@@ -119,8 +121,8 @@ stages:
             action: edit
             target: $(Build.SourceVersion)
             tagSource: manual
-            tag: daily-$(Date:yyyyMMdd)
-            title: daily-$(Date:yyyyMMdd)
+            tag: daily-$(today)
+            title: daily-$(today)
             assets: $(Build.ArtifactStagingDirectory)/**/*
             releaseNotesSource: input
             releaseNotes: 
