@@ -13,6 +13,23 @@ format defined by the [WebAssembly reference interpreter](https://github.com/Web
 For the text format, it can load both the standard stack machine syntax and the old-fashioned AST
 syntax used by the reference interpreter, and all of the testing commands.
 
+# Portability Matrix
+
+|         |Windows         |Linux           |MacOS     |
+|---------|----------------|----------------|----------|
+| x86-64  |:+1:            |:+1:            |:+1:      |
+| x86-32  |:shit:          |:shit:          |N/A       |
+| AArch64 |:+1::question:  |:+1:            |N/A       |
+| ARM32   |:shit::question:|:shit::question:|N/A       |
+
+### Legend
+
+|             |Status                                             |
+|-------------|---------------------------------------------------|
+|:+1:         |Supported                                          |
+|:question:   |Possibly works, but not tested                     |
+|:shit:       |Only non-runtime components supported              |
+
 # Building and running it
 
 To build it, you'll need CMake and [LLVM 6.0](http://llvm.org/releases/download.html#6.0.0). If
