@@ -99,9 +99,9 @@ stages:
 
 
   - stage:
-    # Only upload a GitHub release for the master branch (implies it's not a pull request).
-    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/heads/master'))
-    displayName: Create GitHub release
+    # If this build was the scheduled nightly build, upload its artifacts as a GitHub release
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'Schedule'))
+    displayName: Create nightly GitHub release
     jobs:
       - job: UploadGitHubRelease
         pool:
@@ -118,15 +118,15 @@ stages:
         - task: GitHubRelease@0
           inputs:
             gitHubConnection: GitHubPAT
-            action: edit
+            action: create
             target: $(Build.SourceVersion)
             tagSource: manual
-            tag: daily-$(today)
-            title: daily-$(today)
+            tag: nightly-$(today)
+            title: nightly-$(today)
             assets: $(Build.ArtifactStagingDirectory)/**/*
             releaseNotesSource: input
             releaseNotes: 
             addChangeLog: true
             changeLogCompareToRelease: lastNonDraftReleaseByTag
-            changeLogCompareToReleaseTag: daily-[\d]+
+            changeLogCompareToReleaseTag: nightly-[\d]+
             isPreRelease: true
