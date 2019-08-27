@@ -1,3 +1,5 @@
+#include "WAVM/Inline/Config.h"
+#if WAVM_ENABLE_RUNTIME
 #include <string>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
@@ -290,3 +292,4 @@ int execCompileCommand(int argc, char** argv)
 	default: WAVM_UNREACHABLE();
 	};
 }
+#endif

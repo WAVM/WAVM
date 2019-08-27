@@ -1,3 +1,5 @@
+#include "WAVM/Inline/Config.h"
+#if WAVM_ENABLE_RUNTIME
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
@@ -833,3 +835,4 @@ int execRunCommand(int argc, char** argv)
 	State state;
 	return state.runAndCatchRuntimeExceptions(argv);
 }
+#endif

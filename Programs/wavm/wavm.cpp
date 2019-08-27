@@ -1,6 +1,7 @@
 #include "wavm.h"
 #include <string.h>
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Version.h"
 #include "WAVM/Logging/Logging.h"
 
@@ -11,20 +12,19 @@ enum class Command
 	invalid,
 
 	assemble,
-	compile,
 	disassemble,
 	help,
-	run,
 	version,
+
+#if WAVM_ENABLE_RUNTIME
+	compile,
+	run,
+#endif
 };
 
 Command parseCommand(const char* string)
 {
 	if(!strcmp(string, "assemble")) { return Command::assemble; }
-	else if(!strcmp(string, "compile"))
-	{
-		return Command::compile;
-	}
 	else if(!strcmp(string, "disassemble"))
 	{
 		return Command::disassemble;
@@ -33,14 +33,20 @@ Command parseCommand(const char* string)
 	{
 		return Command::help;
 	}
-	else if(!strcmp(string, "run"))
-	{
-		return Command::run;
-	}
 	else if(!strcmp(string, "version"))
 	{
 		return Command::version;
 	}
+#if WAVM_ENABLE_RUNTIME
+	else if(!strcmp(string, "compile"))
+	{
+		return Command::compile;
+	}
+	else if(!strcmp(string, "run"))
+	{
+		return Command::run;
+	}
+#endif
 	else
 	{
 		return Command::invalid;
@@ -52,9 +58,13 @@ static const char* getCommandListHelpText()
 	return "Commands:\n"
 		   "  assemble     Assemble WAT to WASM\n"
 		   "  disassemble  Disassemble WASM to WAT\n"
+#if WAVM_ENABLE_RUNTIME
 		   "  compile      Compile a WebAssembly module\n"
+#endif
 		   "  help         Display help about command-line usage of WAVM\n"
+#if WAVM_ENABLE_RUNTIME
 		   "  run          Run a WebAssembly module\n"
+#endif
 		   "  version      Display information about the WAVM version\n";
 }
 
@@ -84,11 +94,13 @@ static int execHelpCommand(int argc, char** argv)
 		switch(helpCommand)
 		{
 		case Command::assemble: showAssembleHelp(Log::output); return EXIT_SUCCESS;
-		case Command::compile: showCompileHelp(Log::output); return EXIT_SUCCESS;
 		case Command::disassemble: showDisassembleHelp(Log::output); return EXIT_SUCCESS;
 		case Command::help: showHelpHelp(Log::output); return EXIT_SUCCESS;
-		case Command::run: showRunHelp(Log::output); return EXIT_SUCCESS;
 		case Command::version: showVersionHelp(Log::output); return EXIT_SUCCESS;
+#if WAVM_ENABLE_RUNTIME
+		case Command::compile: showCompileHelp(Log::output); return EXIT_SUCCESS;
+		case Command::run: showRunHelp(Log::output); return EXIT_SUCCESS;
+#endif
 		case Command::invalid:
 			Log::printf(Log::error,
 						"Invalid command: %s\n"
@@ -141,11 +153,13 @@ int main(int argc, char** argv)
 		switch(command)
 		{
 		case Command::assemble: return execAssembleCommand(argc - 2, argv + 2);
-		case Command::compile: return execCompileCommand(argc - 2, argv + 2);
 		case Command::disassemble: return execDisassembleCommand(argc - 2, argv + 2);
 		case Command::help: return execHelpCommand(argc - 2, argv + 2);
-		case Command::run: return execRunCommand(argc - 2, argv + 2);
 		case Command::version: return execVersionCommand(argc - 2, argv + 2);
+#if WAVM_ENABLE_RUNTIME
+		case Command::compile: return execCompileCommand(argc - 2, argv + 2);
+		case Command::run: return execRunCommand(argc - 2, argv + 2);
+#endif
 
 		case Command::invalid:
 			Log::printf(Log::error,
