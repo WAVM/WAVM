@@ -42,6 +42,7 @@ jobs:
 
     # Extract the contents of the VERSION file to the job variable VERSION.
     - bash: Build/azure-read-version.sh
+      displayName: Read WAVM version
       workingDirectory: $(Build.SourcesDirectory)
 
     # Download and extract the LLVM build from the pipeline for https://github.com/WAVM/WAVM-LLVM/
@@ -101,9 +102,11 @@ jobs:
     # Publish the package. The publish task does not accept wildcards, so we must first copy the
     # packages to a new directory and then publish that directory.
     - task: CopyFiles@2
+      displayName: Isolate WAVM packages
       inputs:
         sourceFolder: $(Build.ArtifactStagingDirectory)
         contents: wavm-$(VERSION)${{parameters.packageSuffix}}.*
         targetFolder: $(Build.ArtifactStagingDirectory)/packages
     - publish: $(Build.ArtifactStagingDirectory)/packages
+      displayName: Public WAVM packages
       artifact: ${{ parameters.name }}
