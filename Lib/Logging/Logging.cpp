@@ -58,7 +58,9 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 		WAVM_ASSERT(numChars >= 0);
 
 		const Uptr numBufferBytes = numChars + 1;
-		char* buffer = (char*)alloca(numBufferBytes);
+		static constexpr Uptr maxAllocaBytes = 4096;
+		char* buffer = (char*)(numBufferBytes > maxAllocaBytes ? malloc(numBufferBytes)
+															   : alloca(numBufferBytes));
 		vsnprintf(buffer, numBufferBytes, format, argList);
 
 		// If an output function is set, call it with the message.
@@ -73,6 +75,8 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 							  == VFS::Result::success);
 			WAVM_ERROR_UNLESS(numBytesWritten == U32(numChars));
 		}
+
+		if(numBufferBytes > maxAllocaBytes) { free(buffer); }
 	}
 }
 
