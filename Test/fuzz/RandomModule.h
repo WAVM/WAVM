@@ -72,27 +72,76 @@ private:
 	}
 };
 
+template<typename Imm> struct ImmTypeAsValue
+{
+};
+
+template<typename Imm> bool isImmAllowed(const IR::Module&, ImmTypeAsValue<Imm>) { return true; }
+
 static void generateImm(RandomStream& random, IR::Module& module, NoImm& outImm) {}
+
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<MemoryImm>)
+{
+	return module.memories.size();
+}
 static void generateImm(RandomStream& random, IR::Module& module, MemoryImm& outImm)
 {
+	WAVM_ASSERT(module.memories.size());
 	outImm.memoryIndex = random.get(module.memories.size() - 1);
+}
+
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<MemoryCopyImm>)
+{
+	return module.memories.size();
 }
 static void generateImm(RandomStream& random, IR::Module& module, MemoryCopyImm& outImm)
 {
+	WAVM_ASSERT(module.memories.size());
 	outImm.sourceMemoryIndex = random.get(module.memories.size() - 1);
 	outImm.destMemoryIndex = random.get(module.memories.size() - 1);
 }
+
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<TableImm>)
+{
+	return module.tables.size();
+}
 static void generateImm(RandomStream& random, IR::Module& module, TableImm& outImm)
 {
+	WAVM_ASSERT(module.tables.size());
 	outImm.tableIndex = random.get(module.tables.size() - 1);
+}
+
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<TableCopyImm>)
+{
+	return module.tables.size();
 }
 static void generateImm(RandomStream& random, IR::Module& module, TableCopyImm& outImm)
 {
+	WAVM_ASSERT(module.tables.size());
 	outImm.sourceTableIndex = random.get(module.tables.size() - 1);
-	outImm.destTableIndex = random.get(module.tables.size() - 1);
+
+	const ReferenceType sourceElemType = module.tables.getType(outImm.sourceTableIndex).elementType;
+
+	Uptr* validDestTableIndices = (Uptr*)alloca(module.tables.size() * sizeof(Uptr));
+	Uptr numValidDestTables = 0;
+	for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+	{
+		const ReferenceType destElemType = module.tables.getType(tableIndex).elementType;
+		if(isSubtype(sourceElemType, destElemType))
+		{ validDestTableIndices[numValidDestTables++] = tableIndex; }
+	}
+	WAVM_ASSERT(numValidDestTables);
+
+	outImm.destTableIndex = validDestTableIndices[random.get(numValidDestTables - 1)];
+}
+
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<FunctionImm>)
+{
+	return module.functions.size();
 }
 static void generateImm(RandomStream& random, IR::Module& module, FunctionImm& outImm)
 {
+	WAVM_ASSERT(module.functions.size());
 	outImm.functionIndex = random.get(module.functions.size() - 1);
 }
 
@@ -125,6 +174,11 @@ static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<V12
 }
 
 template<Uptr naturalAlignmentLog2>
+bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<LoadOrStoreImm<naturalAlignmentLog2>>)
+{
+	return module.memories.size();
+}
+template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
 						IR::Module& module,
 						LoadOrStoreImm<naturalAlignmentLog2>& outImm)
@@ -133,6 +187,12 @@ static void generateImm(RandomStream& random,
 	outImm.offset = random.get(UINT32_MAX);
 }
 
+template<Uptr naturalAlignmentLog2>
+bool isImmAllowed(const IR::Module& module,
+				  ImmTypeAsValue<AtomicLoadOrStoreImm<naturalAlignmentLog2>>)
+{
+	return module.memories.size();
+}
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
 						IR::Module& module,
@@ -160,25 +220,47 @@ static void generateImm(RandomStream& random, IR::Module& module, ShuffleImm<num
 	{ outImm.laneIndices[laneIndex] = random.get<U8>(numLanes * 2 - 1); }
 }
 
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<DataSegmentAndMemImm>)
+{
+	return module.dataSegments.size() && module.memories.size();
+}
 static void generateImm(RandomStream& random, IR::Module& module, DataSegmentAndMemImm& outImm)
 {
+	WAVM_ASSERT(module.dataSegments.size());
+	WAVM_ASSERT(module.memories.size());
 	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
 	outImm.memoryIndex = random.get(module.memories.size() - 1);
 }
 
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<DataSegmentImm>)
+{
+	return module.dataSegments.size();
+}
 static void generateImm(RandomStream& random, IR::Module& module, DataSegmentImm& outImm)
 {
+	WAVM_ASSERT(module.dataSegments.size());
 	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
 }
 
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentAndTableImm>)
+{
+	return module.elemSegments.size() && module.tables.size();
+}
 static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentAndTableImm& outImm)
 {
+	WAVM_ASSERT(module.elemSegments.size());
+	WAVM_ASSERT(module.tables.size());
 	outImm.elemSegmentIndex = random.get(module.elemSegments.size() - 1);
 	outImm.tableIndex = random.get(module.tables.size() - 1);
 }
 
+static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentImm>)
+{
+	return module.elemSegments.size();
+}
 static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentImm& outImm)
 {
+	WAVM_ASSERT(module.elemSegments.size());
 	outImm.elemSegmentIndex = random.get(module.elemSegments.size() - 1);
 }
 
@@ -191,12 +273,14 @@ struct OperatorInfo
 {
 	const char* name;
 	FunctionType (*sig)();
+	bool (*isAllowed)(const IR::Module& module);
 	OperatorEmitFunc* emit;
 };
 
 #define VISIT_OP(encoding, name, nameString, Imm, SIGNATURE, ...)                                  \
 	{nameString,                                                                                   \
 	 []() { return IR::getNonParametricOpSigs().name; },                                           \
+	 [](const IR::Module& module) { return isImmAllowed(module, ImmTypeAsValue<Imm>{}); },         \
 	 [](RandomStream& random, IR::Module& module, CodeStream& codeStream) {                        \
 		 Imm imm;                                                                                  \
 		 generateImm(random, module, imm);                                                         \
@@ -220,6 +304,21 @@ static ValueType generateValueType(RandomStream& random)
 	case 6: return ValueType::funcref;
 	default: WAVM_UNREACHABLE();
 	}
+}
+
+static FunctionType generateFunctionType(RandomStream& random)
+{
+	std::vector<ValueType> functionParams;
+	const Uptr numParams = random.get(4);
+	for(Uptr paramIndex = 0; paramIndex < numParams; ++paramIndex)
+	{ functionParams.push_back(generateValueType(random)); };
+
+	std::vector<ValueType> functionResults;
+	const Uptr numResults = random.get(2);
+	for(Uptr resultIndex = 0; resultIndex < numResults; ++resultIndex)
+	{ functionResults.push_back(generateValueType(random)); }
+
+	return FunctionType({functionResults}, {functionParams});
 }
 
 static ReferenceType generateRefType(RandomStream& random)
@@ -358,7 +457,7 @@ static void generateFunction(RandomStream& random,
 	while(controlStack.size())
 	{
 		bool allowStackGrowth
-			= stack.size() - controlStack.back().outerStackSize <= 6 && numInstructions++ < 30;
+			= stack.size() - controlStack.back().outerStackSize <= 6 && numInstructions++ < 15;
 
 		if(stack.size() <= controlStack.back().outerStackSize + controlStack.back().results.size())
 		{
@@ -423,11 +522,14 @@ static void generateFunction(RandomStream& random,
 			}
 		}
 
-		// Build a list of the non-parametric operators that are valid given the current state of
-		// the stack.
+		// Build a list of the non-parametric operators that are valid given the module and the
+		// current state of the stack.
 		for(Uptr opIndex = 0; opIndex < numNonParametricOps; ++opIndex)
 		{
 			const OperatorInfo& opInfo = operatorInfos[opIndex];
+
+			if(!opInfo.isAllowed(module)) { continue; }
+
 			const TypeTuple params = opInfo.sig().params();
 			const TypeTuple results = opInfo.sig().results();
 
@@ -894,13 +996,75 @@ static void generateFunction(RandomStream& random,
 	functionDef.code = codeByteStream.getBytes();
 };
 
+static InitializerExpression generateInitializerExpression(IR::Module& module,
+														   RandomStream& random,
+														   IR::ValueType type)
+{
+	switch(type)
+	{
+	case ValueType::i32: return InitializerExpression(I32(random.get(UINT32_MAX)));
+	case ValueType::i64: return InitializerExpression(I64(random.get(UINT64_MAX)));
+	case ValueType::f32: return InitializerExpression(F32(random.get(UINT32_MAX)));
+	case ValueType::f64: return InitializerExpression(F64(random.get(UINT64_MAX)));
+	case ValueType::v128: {
+		V128 v128;
+		v128.u64[0] = random.get(UINT64_MAX);
+		v128.u64[1] = random.get(UINT64_MAX);
+		return InitializerExpression(v128);
+	}
+	break;
+	case ValueType::anyref:
+	case ValueType::funcref: {
+		const Uptr functionIndex = random.get(module.functions.size());
+		return functionIndex == module.functions.size()
+				   ? InitializerExpression(nullptr)
+				   : InitializerExpression(InitializerExpression::Type::ref_func, functionIndex);
+	}
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
+	default: WAVM_UNREACHABLE();
+	}
+}
+
 void generateValidModule(IR::Module& module, RandomStream& random)
 {
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
-	// Generate some standard definitions that are the same for all modules.
-	module.memories.defs.push_back({{true, {1024, IR::maxMemoryPages}}});
-	module.tables.defs.push_back({{ReferenceType::funcref, true, {1024, IR::maxTableElems}}});
+	// Generate an optional memory.
+	if(random.get(1))
+	{
+		MemoryType type;
+		type.isShared = !!random.get(1);
+		type.size.min = random.get<U64>(100);
+		type.size.max = type.size.min + random.get<U64>(IR::maxMemoryPages - type.size.min);
+
+		if(random.get(1)) { module.memories.defs.push_back({type}); }
+		else
+		{
+			module.imports.push_back({ExternKind::memory, module.memories.imports.size()});
+			module.memories.imports.push_back({type, "env", "memory"});
+		}
+	}
+
+	// Generate some tables.
+	const Uptr numTables = random.get(3);
+	for(Uptr tableIndex = 0; tableIndex < numTables; ++tableIndex)
+	{
+		TableType type;
+		type.elementType = random.get(1) ? ReferenceType::funcref : ReferenceType::anyref;
+		type.isShared = !!random.get(1);
+		type.size.min = random.get<U64>(100);
+		type.size.max = IR::maxTableElems;
+
+		if(random.get(1)) { module.tables.defs.push_back({type}); }
+		else
+		{
+			module.imports.push_back({ExternKind::table, module.tables.imports.size()});
+			module.tables.imports.push_back({type, "env", "table"});
+		}
+	}
 
 	// Generate some globals.
 	const Uptr numGlobals = random.get(10);
@@ -918,90 +1082,72 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 		}
 		else
 		{
-			InitializerExpression initializer;
-			switch(globalValueType)
-			{
-			case ValueType::i32:
-				initializer.type = InitializerExpression::Type::i32_const;
-				initializer.i32 = I32(random.get(UINT32_MAX));
-				break;
-			case ValueType::i64:
-				initializer.type = InitializerExpression::Type::i64_const;
-				initializer.i64 = I64(random.get(UINT64_MAX));
-				break;
-			case ValueType::f32:
-				initializer.type = InitializerExpression::Type::f32_const;
-				initializer.f32 = F32(random.get(UINT32_MAX));
-				break;
-			case ValueType::f64:
-				initializer.type = InitializerExpression::Type::f64_const;
-				initializer.f64 = F64(random.get(UINT64_MAX));
-				break;
-			case ValueType::v128:
-				initializer.type = InitializerExpression::Type::v128_const;
-				initializer.v128.u64[0] = random.get(UINT64_MAX);
-				initializer.v128.u64[1] = random.get(UINT64_MAX);
-				break;
-			case ValueType::anyref:
-			case ValueType::funcref:
-				initializer.type = InitializerExpression::Type::ref_null;
-				break;
-
-			case ValueType::none:
-			case ValueType::any:
-			case ValueType::nullref:
-			default: WAVM_UNREACHABLE();
-			}
+			InitializerExpression initializer
+				= generateInitializerExpression(module, random, globalValueType);
 			module.globals.defs.push_back({globalType, initializer});
 		}
 	};
 
 	// Generate some data segments.
-	Uptr numDataSegments = 1 + random.get(4);
+	Uptr numDataSegments = random.get(2);
 	for(Uptr segmentIndex = 0; segmentIndex < numDataSegments; ++segmentIndex)
 	{
-		const Uptr numSegmentBytes = 1 + random.get(100);
+		const Uptr numSegmentBytes = random.get(100);
 		std::vector<U8> bytes;
 		for(Uptr byteIndex = 0; byteIndex < numSegmentBytes; ++byteIndex)
 		{ bytes.push_back(random.get<U8>(255)); }
-		module.dataSegments.push_back(
-			{false, UINTPTR_MAX, {}, std::make_shared<std::vector<U8>>(std::move(bytes))});
+		if(!module.memories.size() || random.get(1))
+		{
+			module.dataSegments.push_back(
+				{false, UINTPTR_MAX, {}, std::make_shared<std::vector<U8>>(std::move(bytes))});
+		}
+		else
+		{
+			module.dataSegments.push_back(
+				{true,
+				 random.get(module.memories.size() - 1),
+				 generateInitializerExpression(module, random, ValueType::i32),
+				 std::make_shared<std::vector<U8>>(std::move(bytes))});
+		}
 	};
 
-	// Create FunctionDefs for all the function we will generate, but don't yet generate their code.
-	const Uptr numFunctionDefs = 3;
-	while(module.functions.defs.size() < numFunctionDefs)
+	// Create some function imports/defs
+	const Uptr numFunctions = 1 + random.get(4);
+	while(module.functions.size() < numFunctions)
 	{
 		// Generate a signature.
-		std::vector<ValueType> functionParams;
-		const Uptr numParams = random.get(4);
-		for(Uptr paramIndex = 0; paramIndex < numParams; ++paramIndex)
-		{ functionParams.push_back(generateValueType(random)); };
+		FunctionType functionType = generateFunctionType(random);
+		const Uptr functionTypeIndex = functionTypeMap.getOrAdd(functionType, module.types.size());
+		if(functionTypeIndex == module.types.size()) { module.types.push_back(functionType); }
 
-		// const ValueType resultType = ValueType(random.get(numValueTypes - 1));
-		// FunctionType functionType(resultType == ValueType::any ? TypeTuple() :
-		// TypeTuple{resultType},
-		//						  TypeTuple(functionParams));
-		FunctionType functionType({}, TypeTuple(functionParams));
-
-		FunctionDef functionDef;
-		functionDef.type.index = functionTypeMap.getOrAdd(functionType, module.types.size());
-		if(functionDef.type.index == module.types.size()) { module.types.push_back(functionType); }
-		module.functions.defs.push_back(std::move(functionDef));
+		if(random.get(1))
+		{
+			// Generate a function import.
+			module.imports.push_back({ExternKind::function, module.functions.imports.size()});
+			module.functions.imports.push_back(
+				{{functionTypeIndex},
+				 "env",
+				 "func" + std::to_string(module.functions.imports.size())});
+		}
+		else
+		{
+			// Generate a FunctionDef, but don't generate its code until we have generated
+			// all declarations.
+			FunctionDef functionDef;
+			functionDef.type.index = functionTypeIndex;
+			module.functions.defs.push_back(std::move(functionDef));
+		}
 	};
 
 	// Generate some elem segments.
-	Uptr numElemSegments = 1 + random.get(4);
+	Uptr numElemSegments = random.get(2);
 	for(Uptr segmentIndex = 0; segmentIndex < numElemSegments; ++segmentIndex)
 	{
 		auto contents = std::make_shared<ElemSegment::Contents>();
 		contents->encoding
 			= random.get(1) ? ElemSegment::Encoding::expr : ElemSegment::Encoding::index;
 
-		module.elemSegments.push_back(
-			{ElemSegment::Type::passive, UINTPTR_MAX, InitializerExpression(), contents});
-
-		const Uptr numSegmentElements = 1 + random.get(100);
+		const Uptr numSegmentElements = random.get(100);
 		switch(contents->encoding)
 		{
 		case ElemSegment::Encoding::expr: {
@@ -1029,6 +1175,20 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 		}
 		default: WAVM_UNREACHABLE();
 		};
+
+		if(!module.tables.size() || random.get(1))
+		{
+			module.elemSegments.push_back(
+				{ElemSegment::Type::passive, UINTPTR_MAX, InitializerExpression(), contents});
+		}
+		else
+		{
+			module.elemSegments.push_back(
+				{ElemSegment::Type::passive,
+				 random.get(module.tables.size() - 1),
+				 generateInitializerExpression(module, random, ValueType::i32),
+				 std::move(contents)});
+		}
 	};
 
 	validatePreCodeSections(module);
