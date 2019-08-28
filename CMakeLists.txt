@@ -29,6 +29,7 @@ set(CPACK_NSIS_MODIFY_PATH ON)
 set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libgcc1 (>= 1:3.3), libstdc++6 (>= 5.2), libtinfo5 (>= 6), zlib1g (>= 1:1.1.4)")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://wavm.github.io")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 include(CPack)
 
 if(MSVC)
