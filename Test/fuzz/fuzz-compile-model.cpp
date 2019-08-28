@@ -28,6 +28,7 @@ static void compileModule(const IR::Module& module, RandomStream& random)
 		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake-avx512"},
 		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake"},
 		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "penryn"},
+		LLVMJIT::TargetSpec{"aarch64-unknown-linux-gnu", "cortex-a72"}
 	};
 	static const Uptr numPossibleTargets
 		= sizeof(possibleTargetSpecs) / sizeof(LLVMJIT::TargetSpec);
