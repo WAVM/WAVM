@@ -9,4 +9,11 @@
       </ArrayItems>
     </Expand>
   </Type>
+  <Type Name="WAVM::IR::FunctionType">
+    <DisplayString>{impl->params} -> {impl->results}</DisplayString>
+    <Expand>
+      <Item Name="params">impl->params</Item>
+      <Item Name="results">impl->results</Item>
+    </Expand>
+  </Type>
 </AutoVisualizer>
