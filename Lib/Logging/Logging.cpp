@@ -11,11 +11,12 @@ using namespace WAVM;
 using namespace WAVM::Log;
 
 static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
-	{true},                     // error
-	{WAVM_DEBUG != 0},          // debug
-	{WAVM_METRICS_OUTPUT != 0}, // metrics
-	{true},                     // output
-	{false},                    // trace
+	{true},         // error
+	{!!WAVM_DEBUG}, // debug
+	{false},        // metrics
+	{true},         // output
+	{false},        // trace validation
+	{false},        // trace compilation
 };
 static std::atomic<OutputFunction*> atomicOutputFunction{nullptr};
 

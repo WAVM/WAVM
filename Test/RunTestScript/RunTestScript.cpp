@@ -890,7 +890,6 @@ static void showHelp()
 		Log::error,
 		"Usage: RunTestScript [options] in.wast [options]\n"
 		"  -h|--help                  Display this message\n"
-		"  -d|--debug                 Print verbose debug output to stdout\n"
 		"  -l <N>|--loop <N>          Run tests N times in a loop until an error occurs\n"
 		"  --strict-assert-invalid    Strictly evaluate assert_invalid, failing if the\n"
 		"                             module was malformed\n"
@@ -903,8 +902,7 @@ static void showHelp()
 
 int main(int argc, char** argv)
 {
-	// Suppress metrics output.
-	Log::setCategoryEnabled(Log::metrics, false);
+	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
 
 	// Parse the command-line.
 	Uptr numLoops = 1;
@@ -916,10 +914,6 @@ int main(int argc, char** argv)
 		{
 			showHelp();
 			return EXIT_SUCCESS;
-		}
-		else if(!strcmp(argv[argIndex], "--debug") || !strcmp(argv[argIndex], "-d"))
-		{
-			Log::setCategoryEnabled(Log::debug, true);
 		}
 		else if(!strcmp(argv[argIndex], "--loop") || !strcmp(argv[argIndex], "-l"))
 		{
@@ -953,7 +947,8 @@ int main(int argc, char** argv)
 		}
 		else if(!strcmp(argv[argIndex], "--trace"))
 		{
-			Log::setCategoryEnabled(Log::trace, true);
+			Log::setCategoryEnabled(Log::traceValidation, true);
+			Log::setCategoryEnabled(Log::traceCompilation, true);
 		}
 		else
 		{

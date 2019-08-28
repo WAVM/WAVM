@@ -39,7 +39,6 @@ endif()
 
 option(WAVM_ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
-option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
 option(WAVM_ENABLE_LTO "use link-time optimization" OFF)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

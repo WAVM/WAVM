@@ -13,7 +13,8 @@ namespace WAVM { namespace Log {
 		debug,
 		metrics,
 		output,
-		trace,
+		traceValidation,
+		traceCompilation,
 		num
 	};
 	LOGGING_API void setCategoryEnabled(Category category, bool enable);

@@ -187,11 +187,8 @@ void showRunHelp(Log::Category outputCategory)
 				"  [program arguments]   The arguments to pass to the WebAssembly function\n"
 				"\n"
 				"Options:\n"
-				"  -d|--debug            Write additional debug information to stdout\n"
 				"  -f|--function name    Specify function name to run in module (default:main)\n"
 				"  --precompiled         Use precompiled object code in program file\n"
-				"  --metrics             Write benchmarking information to stdout\n"
-				"  --trace               Prints instructions to stdout as they are compiled.\n"
 				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
 				"                        features below.\n"
 				"  --sys=<system>        Specifies the system to host the module. See the list\n"
@@ -258,9 +255,7 @@ struct State
 		char** nextArg = argv;
 		while(*nextArg)
 		{
-			if(!strcmp(*nextArg, "--debug") || !strcmp(*nextArg, "-d"))
-			{ Log::setCategoryEnabled(Log::debug, true); }
-			else if(!strcmp(*nextArg, "--function") || !strcmp(*nextArg, "-f"))
+			if(!strcmp(*nextArg, "--function") || !strcmp(*nextArg, "-f"))
 			{
 				if(!*++nextArg)
 				{
@@ -268,14 +263,6 @@ struct State
 					return false;
 				}
 				functionName = *nextArg;
-			}
-			else if(!strcmp(*nextArg, "--metrics"))
-			{
-				Log::setCategoryEnabled(Log::metrics, true);
-			}
-			else if(!strcmp(*nextArg, "--trace"))
-			{
-				Log::setCategoryEnabled(Log::trace, true);
 			}
 			else if(stringStartsWith(*nextArg, "--sys="))
 			{

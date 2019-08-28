@@ -238,7 +238,7 @@ static void validateInitializer(const Module& module,
 
 struct FunctionValidationContext
 {
-	const bool enableTracing{Log::isCategoryEnabled(Log::trace)};
+	const bool enableTracing{Log::isCategoryEnabled(Log::traceValidation)};
 
 	FunctionValidationContext(const Module& inModule, const FunctionDef& inFunctionDef)
 	: module(inModule)
@@ -314,7 +314,7 @@ struct FunctionValidationContext
 		}
 		if(stack.size() == stackBase) { stackString += "|"; }
 
-		Log::printf(Log::trace,
+		Log::printf(Log::traceValidation,
 					"%-50s %-50s %-50s\n",
 					controlStackString.c_str(),
 					operatorDescription.c_str(),

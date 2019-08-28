@@ -114,7 +114,7 @@ void EmitFunctionContext::traceOperator(const std::string& operatorDescription)
 	}
 	if(stack.size() == stackBase) { stackString += "|"; }
 
-	Log::printf(Log::trace,
+	Log::printf(Log::traceCompilation,
 				"%-50s %-50s %-50s\n",
 				controlStackString.c_str(),
 				operatorDescription.c_str(),
@@ -397,7 +397,7 @@ void EmitFunctionContext::emit()
 	UnreachableOpVisitor unreachableOpVisitor(*this);
 	OperatorPrinter operatorPrinter(irModule, functionDef);
 	Uptr opIndex = 0;
-	const bool enableTracing = Log::isCategoryEnabled(Log::trace);
+	const bool enableTracing = Log::isCategoryEnabled(Log::traceCompilation);
 	while(decoder && controlStack.size())
 	{
 		if(enableTracing) { traceOperator(decoder.decodeOpWithoutConsume(operatorPrinter)); }

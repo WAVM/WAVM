@@ -129,6 +129,8 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 
 int main(int argc, char** argv)
 {
+	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
+
 	const char* filename = nullptr;
 	const char* outputDir = ".";
 	DumpFormat dumpFormat = DumpFormat::both;
@@ -178,9 +180,6 @@ int main(int argc, char** argv)
 	}
 
 	WAVM_ASSERT(filename);
-
-	// Always enable debug logging for tests.
-	Log::setCategoryEnabled(Log::debug, true);
 
 	// Read the file into a vector.
 	std::vector<U8> testScriptBytes;

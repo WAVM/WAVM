@@ -63,7 +63,6 @@ void showCompileHelp(Log::Category outputCategory)
 
 	Log::printf(outputCategory,
 				"Usage: wavm compile [options] <in.wast|wasm> <output file>\n"
-				"  -h|--help                 Display this message\n"
 				"  --target-triple <triple>  Set the target triple (default: %s)\n"
 				"  --target-cpu <cpu>        Set the target CPU (default: %s)\n"
 				"  --enable <feature>        Enable the specified feature. See the list of\n"
@@ -107,12 +106,7 @@ int execCompileCommand(int argc, char** argv)
 	OutputFormat outputFormat = OutputFormat::unspecified;
 	for(int argIndex = 0; argIndex < argc; ++argIndex)
 	{
-		if(!strcmp(argv[argIndex], "-h") || !strcmp(argv[argIndex], "--help"))
-		{
-			showCompileHelp(Log::error);
-			return EXIT_FAILURE;
-		}
-		else if(!strcmp(argv[argIndex], "--target-triple"))
+		if(!strcmp(argv[argIndex], "--target-triple"))
 		{
 			if(argIndex + 1 == argc)
 			{

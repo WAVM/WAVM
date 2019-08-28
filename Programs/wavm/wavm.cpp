@@ -1,6 +1,8 @@
 #include "wavm.h"
+#include <stdlib.h>
 #include <string.h>
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Version.h"
 #include "WAVM/Logging/Logging.h"
@@ -73,8 +75,11 @@ static void showTopLevelHelp(Log::Category outputCategory)
 	Log::printf(outputCategory,
 				"Usage: wavm <command> [command arguments]\n"
 				"\n"
-				"%s",
-				getCommandListHelpText());
+				"%s"
+				"\n"
+				"%s\n",
+				getCommandListHelpText(),
+				getEnvironmentVariableHelpText());
 }
 
 static void showHelpHelp(Log::Category outputCategory)
@@ -142,6 +147,8 @@ int execVersionCommand(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
+
 	if(argc < 2)
 	{
 		showTopLevelHelp(Log::Category::error);

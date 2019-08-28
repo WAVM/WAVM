@@ -90,7 +90,7 @@ static I64 threadMain(void* sharedStateVoid)
 
 I32 main(int argc, char** argv)
 {
-	Log::setCategoryEnabled(Log::metrics, false);
+	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
 
 	if(argc != 2)
 	{
