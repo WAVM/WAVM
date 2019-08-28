@@ -654,7 +654,10 @@ struct FunctionValidationContext
 						imm.alignmentLog2 != naturalAlignmentLog2);
 	}
 
-	void validateImm(AtomicFenceImm) {}
+	void validateImm(AtomicFenceImm imm)
+	{
+		WAVM_ASSERT(imm.order == MemoryOrder::sequentiallyConsistent);
+	}
 
 	void validateImm(DataSegmentAndMemImm imm)
 	{

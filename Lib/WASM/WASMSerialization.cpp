@@ -690,11 +690,17 @@ void serialize(Stream& stream,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
 {
+	if(!Stream::isInput) { WAVM_ASSERT(imm.order == MemoryOrder::sequentiallyConsistent); }
+
 	U8 memoryOrder = 0;
 	serializeNativeValue(stream, memoryOrder);
 
-	if(Stream::isInput && memoryOrder != 0)
-	{ throw FatalSerializationException("Invalid memory order in atomic.fence instruction"); }
+	if(Stream::isInput)
+	{
+		if(memoryOrder != 0)
+		{ throw FatalSerializationException("Invalid memory order in atomic.fence instruction"); }
+		imm.order = MemoryOrder::sequentiallyConsistent;
+	}
 }
 
 template<typename Stream>
