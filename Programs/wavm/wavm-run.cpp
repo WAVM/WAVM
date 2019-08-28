@@ -391,13 +391,13 @@ struct State
 
 		const char* objectCachePath
 			= WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(getenv("WAVM_OBJECT_CACHE_DIR"));
-		if(objectCachePath)
+		if(objectCachePath && *objectCachePath)
 		{
 			Uptr maxBytes = 1024 * 1024 * 1024;
 
 			const char* maxMegabytesEnv
 				= WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(getenv("WAVM_OBJECT_CACHE_MAX_MB"));
-			if(maxMegabytesEnv)
+			if(maxMegabytesEnv && *maxMegabytesEnv)
 			{
 				int maxMegabytes = atoi(maxMegabytesEnv);
 				if(maxMegabytes <= 0)
