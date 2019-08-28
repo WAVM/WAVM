@@ -1,6 +1,4 @@
 set(Sources
-	Benchmark/Benchmark.cpp
-	Benchmark/Benchmark.wast
 	blake2b.wast
 	echo.wast
 	helloworld.wast
