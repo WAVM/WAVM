@@ -454,11 +454,11 @@
 (module (elem funcref (ref.func $f)) (func $f))
 (module (elem funcref (ref.null)))
 (assert_invalid
-	(module (table $t 1) (elem (i32.const 0) (ref.func $f)) (func $f))
+	(module (table $t 1 funcref) (elem (i32.const 0) (ref.func $f)) (func $f))
 	"unexpected expression"
 )
 (assert_invalid
-	(module (table $t 1) (elem (i32.const 0) (unreachable)) (func $f))
+	(module (table $t 1 funcref) (elem (i32.const 0) funcref (unreachable)) (func $f))
 	"expected 'ref.func' or 'ref.null'"
 )
 
@@ -498,7 +498,7 @@
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-	"\01\70"                             ;;   [0] passive elem funcref segment
+	"\05\70"                             ;;   [0] passive elem funcref expression segment
 	"\01"                                ;;     elem segment with 1 element
 	"\d2\00\0b"                          ;;     [0] ref.func 0
 	
@@ -520,7 +520,7 @@
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\06\01"                          ;; elem section: 6 bytes, 1 entry
-	"\01\70"                             ;;   [0] passive elem funcref segment
+	"\05\70"                             ;;   [0] passive elem funcref expression segment
 	"\01"                                ;;     elem segment with 1 element
 	"\d0\0b"                             ;;     [0] ref.null
 	
@@ -543,7 +543,7 @@
 		"\70\00\01"                          ;;   (table 1 funcref)
 	
 		"\09\06\01"                          ;; elem section: 6 bytes, 1 entry
-		"\01\70"                             ;;   [0] passive elem funcref segment
+		"\05\70"                             ;;   [0] passive elem funcref expression segment
 		"\01"                                ;;     elem segment with 1 element
 		"\00\0b"                             ;;     [0] unreachable
 	
@@ -566,9 +566,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\08\01"                          ;; elem section: 8 bytes, 1 entry
-	"\02\00"                             ;;   [0] active elem segment, table 0
+	"\09\09\01"                          ;; elem section: 8 bytes, 1 entry
+	"\02\00"                             ;;   [0] active elem index segment, table 0
 	"\41\00\0b"                          ;;     base offset (i32.const 0)
+	"\00"                                ;;     func extern kind
 	"\01"                                ;;     elem segment with 1 element
 	"\00"                                ;;     [0] function 0
 	
@@ -592,7 +593,7 @@
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-	"\01\70"                             ;;   [0] passive elem funcref segment
+	"\05\70"                             ;;   [0] passive elem funcref expression segment
 	"\01"                                ;;     elem segment with 1 element
 	"\d2\00\0b"                          ;;     [0] ref.func 0
 	
@@ -620,7 +621,7 @@
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-	"\00"                                ;;   [0] active elem segment
+	"\00"                                ;;   [0] active elem index segment
 	"\41\00\0b"                          ;;     base offset (i32.const 0)
 	"\01"                                ;;     elem segment with 1 element
 	"\00"                                ;;     [0] function 0
@@ -760,10 +761,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-	"\01\70"                             ;;   [0] passive elem funcref segment
+	"\09\05\01"                          ;; elem section: 6 bytes, 1 entry
+	"\01\00"                             ;;   [0] passive elem function index segment
 	"\01"                                ;;     elem segment with 1 element
-	"\d2\00\0b"                          ;;     [0] ref.func 0
+	"\00"                                ;;     [0] function 0
 	
 	"\0a\0e\01"                          ;; Code section
 	"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
@@ -786,11 +787,6 @@
 
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 		"\70\00\01"                          ;;   (table 1 funcref)
-	
-		"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-		"\01\70"                             ;;   [0] passive elem funcref segment
-		"\01"                                ;;     elem segment with 1 element
-		"\d2\00\0b"                          ;;     [0] ref.func 0
 	
 		"\0a\0f\01"                          ;; Code section
 		"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
@@ -816,11 +812,6 @@
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 		"\70\00\01"                          ;;   (table 1 funcref)
 	
-		"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-		"\01\70"                             ;;   [0] passive elem funcref segment
-		"\01"                                ;;     elem segment with 1 element
-		"\d2\00\0b"                          ;;     [0] ref.func 0
-	
 		"\0a\0f\01"                          ;; Code section
 		"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
 		"\41\00"                             ;; i32.const 0
@@ -838,7 +829,7 @@
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
 
-	(elem $t (i32.const 0) $0 $1 $2 $3)
+	(elem (table $t) (i32.const 0) $0 $1 $2 $3)
 
 	(func $0 (type $type_i32) (result i32) i32.const 0)
 	(func $1 (type $type_i32) (result i32) i32.const 1)

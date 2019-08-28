@@ -222,6 +222,16 @@ static ValueType generateValueType(RandomStream& random)
 	}
 }
 
+static ReferenceType generateRefType(RandomStream& random)
+{
+	switch(random.get(1))
+	{
+	case 0: return ReferenceType::anyref;
+	case 1: return ReferenceType::funcref;
+	default: WAVM_UNREACHABLE();
+	};
+}
+
 FunctionType generateBlockSig(RandomStream& random, TypeTuple params)
 {
 	// Generalize the params to map internal type subsets (e.g. nullref) to a canonical type.
@@ -984,22 +994,41 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 	Uptr numElemSegments = 1 + random.get(4);
 	for(Uptr segmentIndex = 0; segmentIndex < numElemSegments; ++segmentIndex)
 	{
+		auto contents = std::make_shared<ElemSegment::Contents>();
+		contents->encoding
+			= random.get(1) ? ElemSegment::Encoding::expr : ElemSegment::Encoding::index;
+
+		module.elemSegments.push_back(
+			{ElemSegment::Type::passive, UINTPTR_MAX, InitializerExpression(), contents});
+
 		const Uptr numSegmentElements = 1 + random.get(100);
-		std::vector<Elem> elems;
-		for(Uptr index = 0; index < numSegmentElements; ++index)
+		switch(contents->encoding)
 		{
-			const Uptr functionIndex = random.get(numFunctionDefs);
-			if(functionIndex == numFunctionDefs) { elems.push_back(Elem(Elem::Type::ref_null)); }
-			else
+		case ElemSegment::Encoding::expr: {
+			contents->elemType = generateRefType(random);
+			for(Uptr index = 0; index < numSegmentElements; ++index)
 			{
-				elems.push_back(Elem(Elem::Type::ref_func, functionIndex));
+				const Uptr functionIndex = random.get(module.functions.size());
+				if(functionIndex == module.functions.size())
+				{ contents->elemExprs.push_back(ElemExpr()); }
+				else
+				{
+					contents->elemExprs.push_back(
+						ElemExpr(ElemExpr::Type::ref_func, functionIndex));
+				}
 			}
+			break;
 		}
-		module.elemSegments.push_back({false,
-									   UINTPTR_MAX,
-									   {},
-									   ReferenceType::funcref,
-									   std::make_shared<std::vector<Elem>>(std::move(elems))});
+		case ElemSegment::Encoding::index: {
+			for(Uptr index = 0; index < numSegmentElements; ++index)
+			{
+				const Uptr functionIndex = random.get(module.functions.size() - 1);
+				contents->elemIndices.push_back(functionIndex);
+			}
+			break;
+		}
+		default: WAVM_UNREACHABLE();
+		};
 	};
 
 	validatePreCodeSections(module);

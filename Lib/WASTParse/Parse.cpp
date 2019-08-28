@@ -137,19 +137,30 @@ ValueType WAST::parseValueType(CursorState* cursor)
 	return result;
 }
 
+bool WAST::tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefType)
+{
+	switch(cursor->nextToken->type)
+	{
+	case t_anyref:
+		++cursor->nextToken;
+		outRefType = ReferenceType::anyref;
+		return true;
+	case t_funcref:
+		++cursor->nextToken;
+		outRefType = ReferenceType::funcref;
+		return true;
+	default: return false;
+	};
+}
+
 ReferenceType WAST::parseReferenceType(CursorState* cursor)
 {
 	ReferenceType result;
-	switch(cursor->nextToken->type)
+	if(!tryParseReferenceType(cursor, result))
 	{
-	case t_anyref: result = ReferenceType::anyref; break;
-	case t_funcref: result = ReferenceType::funcref; break;
-	default:
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected reference type");
 		throw RecoverParseException();
-	};
-
-	++cursor->nextToken;
+	}
 	return result;
 }
 

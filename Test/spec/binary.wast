@@ -397,7 +397,7 @@
     "\05\03\01\00\00"          ;; Memory section
 
     "\09\07\01"                ;; Element section with one segment
-    "\01\70"                   ;; Passive, funcref
+    "\05\70"                   ;; Passive, funcref
     "\01"                      ;; 1 element
     "\d3\00\0b"                ;; bad opcode, index 0, end
 
@@ -423,7 +423,7 @@
     "\05\03\01\00\00"          ;; Memory section
 
     "\09\07\01"                ;; Element section with one segment
-    "\01\7f"                   ;; Passive, i32
+    "\05\7f"                   ;; Passive, i32
     "\01"                      ;; 1 element
     "\d2\00\0b"                ;; ref.func, index 0, end
 
@@ -448,7 +448,7 @@
   "\05\03\01\00\00"          ;; Memory section
 
   "\09\07\01"                ;; Element section with one segment
-  "\01\70"                   ;; Passive, funcref
+  "\05\70"                   ;; Passive, funcref
   "\01"                      ;; 1 element
   "\d2\00\0b"                ;; ref.func, index 0, end
 
@@ -472,7 +472,7 @@
   "\05\03\01\00\00"          ;; Memory section
 
   "\09\06\01"                ;; Element section with one segment
-  "\01\70"                   ;; Passive, funcref
+  "\05\70"                   ;; Passive, funcref
   "\01"                      ;; 1 element
   "\d0\0b"                   ;; ref.null, end
 

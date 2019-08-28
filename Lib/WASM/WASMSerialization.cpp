@@ -154,6 +154,7 @@ namespace WAVM { namespace IR {
 			case ReferenceType::funcref: encodedReferenceType = 0x70; break;
 			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
 
+			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
 			}
@@ -260,68 +261,92 @@ namespace WAVM { namespace IR {
 
 	template<typename Stream> void serialize(Stream& stream, ElemSegment& elemSegment)
 	{
+		// Serialize the segment flags.
+		U32 flags = 0;
+		if(!Stream::isInput)
+		{
+			switch(elemSegment.contents->encoding)
+			{
+			case ElemSegment::Encoding::expr: flags |= 4; break;
+			case ElemSegment::Encoding::index: break;
+			default: WAVM_UNREACHABLE();
+			};
+
+			switch(elemSegment.type)
+			{
+			case ElemSegment::Type::active:
+				if(elemSegment.tableIndex != 0) { flags |= 2; }
+				break;
+			case ElemSegment::Type::passive: flags |= 1; break;
+			// case ElemSegment::Type::declared: flags |= 3; break;
+			default: WAVM_UNREACHABLE();
+			};
+		}
+		serializeVarUInt32(stream, flags);
 		if(Stream::isInput)
 		{
-			U32 flags = 0;
-			serializeVarUInt32(stream, flags);
+			if(flags > 7) { throw FatalSerializationException("invalid elem segment flags"); }
 
-			switch(flags)
+			elemSegment.contents = std::make_shared<ElemSegment::Contents>();
+			elemSegment.contents->encoding
+				= (flags & 4) ? ElemSegment::Encoding::expr : ElemSegment::Encoding::index;
+
+			elemSegment.tableIndex = UINTPTR_MAX;
+			elemSegment.baseOffset = {};
+
+			switch(flags & 3)
 			{
 			case 0:
-				elemSegment.isActive = true;
+				elemSegment.type = ElemSegment::Type::active;
 				elemSegment.tableIndex = 0;
-				serialize(stream, elemSegment.baseOffset);
+				elemSegment.contents->elemType = ReferenceType::funcref;
+				elemSegment.contents->externKind = ExternKind::function;
 				break;
-			case 1:
-				elemSegment.isActive = false;
-				elemSegment.tableIndex = UINTPTR_MAX;
-				elemSegment.baseOffset = {};
-				break;
-			case 2:
-				elemSegment.isActive = true;
-				serializeVarUInt32(stream, elemSegment.tableIndex);
-				serialize(stream, elemSegment.baseOffset);
-				break;
-			default: throw FatalSerializationException("invalid elem segment flags");
+			case 1: elemSegment.type = ElemSegment::Type::passive; break;
+			case 2: elemSegment.type = ElemSegment::Type::active; break;
+			case 3:
+				// elemSegment.type = ElemSegment::Type::declared; break;
+				throw FatalSerializationException("invalid elem segment flags");
+
+			default: WAVM_UNREACHABLE();
 			};
-			elemSegment.elems = std::make_shared<std::vector<IR::Elem>>();
 		}
-		else
+
+		// Serialize the table the element segment writes to.
+		if(flags & 2) { serializeVarUInt32(stream, elemSegment.tableIndex); }
+
+		// Serialize the offset the element segment writes to the table at.
+		if(!(flags & 1)) { serialize(stream, elemSegment.baseOffset); }
+
+		switch(elemSegment.contents->encoding)
 		{
-			if(!elemSegment.isActive) { serializeConstant<U8>(stream, "", 1); }
-			else
-			{
-				if(elemSegment.tableIndex == 0) { serializeConstant<U8>(stream, "", 0); }
-				else
-				{
-					serializeConstant<U8>(stream, "", 2);
-					serializeVarUInt32(stream, elemSegment.tableIndex);
-				}
-				serialize(stream, elemSegment.baseOffset);
-			}
+		case ElemSegment::Encoding::expr: {
+			// Serialize the type of the element expressions as a reference type.
+			if(flags & 3) { serialize(stream, elemSegment.contents->elemType); }
+			serializeArray(
+				stream, elemSegment.contents->elemExprs, [](Stream& stream, ElemExpr& elem) {
+					serializeOpcode(stream, elem.typeOpcode);
+					switch(elem.type)
+					{
+					case ElemExpr::Type::ref_null: break;
+					case ElemExpr::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
+					default: throw FatalSerializationException("invalid elem opcode");
+					};
+					serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
+				});
+			break;
 		}
-		if(elemSegment.isActive)
-		{
-			serializeArray(stream, *elemSegment.elems, [](Stream& stream, Elem& elem) {
-				if(Stream::isInput) { elem.type = Elem::Type::ref_func; }
-				WAVM_ASSERT(elem.type == Elem::Type::ref_func);
-				serializeVarUInt32(stream, elem.index);
-			});
+		case ElemSegment::Encoding::index: {
+			// Serialize the extern kind referenced by the segment elements.
+			if(flags & 3) { serialize(stream, elemSegment.contents->externKind); }
+			serializeArray(
+				stream, elemSegment.contents->elemIndices, [](Stream& stream, Uptr& externIndex) {
+					serializeVarUInt32(stream, externIndex);
+				});
+			break;
 		}
-		else
-		{
-			serialize(stream, elemSegment.elemType);
-			serializeArray(stream, *elemSegment.elems, [](Stream& stream, Elem& elem) {
-				serializeOpcode(stream, elem.typeOpcode);
-				switch(elem.type)
-				{
-				case Elem::Type::ref_null: break;
-				case Elem::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
-				default: throw FatalSerializationException("invalid elem opcode");
-				};
-				serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
-			});
-		}
+		default: WAVM_UNREACHABLE();
+		};
 	}
 
 	template<typename Stream> void serialize(Stream& stream, DataSegment& dataSegment)

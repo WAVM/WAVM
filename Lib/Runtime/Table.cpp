@@ -399,32 +399,75 @@ bool Runtime::growTable(Table* table,
 
 void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 							  Uptr elemSegmentIndex,
-							  const std::vector<IR::Elem>* elemVector,
+							  const IR::ElemSegment::Contents* contents,
 							  Table* table,
 							  Uptr destOffset,
 							  Uptr sourceOffset,
 							  Uptr numElems)
 {
+	Uptr numSourceIndices;
+	switch(contents->encoding)
+	{
+	case IR::ElemSegment::Encoding::expr: numSourceIndices = contents->elemExprs.size(); break;
+	case IR::ElemSegment::Encoding::index: numSourceIndices = contents->elemIndices.size(); break;
+	default: WAVM_UNREACHABLE();
+	};
+
 	for(Uptr index = 0; index < numElems; ++index)
 	{
-		const Uptr sourceIndex = sourceOffset + index;
+		Uptr sourceIndex = sourceOffset + index;
 		const Uptr destIndex = destOffset + index;
-		if(sourceIndex >= elemVector->size() || sourceIndex < sourceOffset)
+
+		if(sourceIndex >= numSourceIndices || sourceIndex < sourceOffset)
 		{
 			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
 						   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
 		}
+		sourceIndex = branchlessMin(sourceIndex, numSourceIndices);
 
-		const IR::Elem& elem = (*elemVector)[sourceIndex];
+		// Decode the element value.
 		Object* elemObject = nullptr;
-		switch(elem.type)
+		switch(contents->encoding)
 		{
-		case IR::Elem::Type::ref_null: elemObject = nullptr; break;
-		case IR::Elem::Type::ref_func:
-			elemObject = asObject(moduleInstance->functions[elem.index]);
+		case IR::ElemSegment::Encoding::expr: {
+			const IR::ElemExpr& elemExpr = contents->elemExprs[sourceIndex];
+			switch(elemExpr.type)
+			{
+			case IR::ElemExpr::Type::ref_null: elemObject = nullptr; break;
+			case IR::ElemExpr::Type::ref_func:
+				elemObject = asObject(moduleInstance->functions[elemExpr.index]);
+				break;
+			default: WAVM_UNREACHABLE();
+			}
 			break;
-		default: WAVM_UNREACHABLE();
 		}
+		case IR::ElemSegment::Encoding::index: {
+			const Uptr externIndex = contents->elemIndices[sourceIndex];
+			switch(contents->externKind)
+			{
+			case IR::ExternKind::function:
+				elemObject = asObject(moduleInstance->functions[externIndex]);
+				break;
+			case IR::ExternKind::table:
+				elemObject = asObject(moduleInstance->tables[externIndex]);
+				break;
+			case IR::ExternKind::memory:
+				elemObject = asObject(moduleInstance->memories[externIndex]);
+				break;
+			case IR::ExternKind::global:
+				elemObject = asObject(moduleInstance->globals[externIndex]);
+				break;
+			case IR::ExternKind::exceptionType:
+				elemObject = asObject(moduleInstance->exceptionTypes[externIndex]);
+				break;
+
+			case IR::ExternKind::invalid:
+			default: WAVM_UNREACHABLE();
+			}
+			break;
+		}
+		default: WAVM_UNREACHABLE();
+		};
 
 		setTableElement(table, destIndex, elemObject);
 	}
@@ -500,14 +543,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		// Make a copy of the shared_ptr to the elems and unlock the elem segments mutex.
-		std::shared_ptr<std::vector<IR::Elem>> elemVector
+		// Make a copy of the shared_ptr to the segment contents and unlock the elem segments mutex.
+		std::shared_ptr<IR::ElemSegment::Contents> contents
 			= moduleInstance->elemSegments[elemSegmentIndex];
 		elemSegmentsLock.unlock();
 
 		initElemSegment(moduleInstance,
 						elemSegmentIndex,
-						elemVector.get(),
+						contents.get(),
 						table,
 						destIndex,
 						sourceIndex,

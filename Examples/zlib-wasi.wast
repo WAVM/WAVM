@@ -35,7 +35,7 @@
   (global $18  (mut i32) (i32.const 85248))
   (global $19  i32 (i32.const 85248))
   (global $20  i32 (i32.const 19712))
-  (elem $21 $16 (i32.const 1)
+  (elem $21 (table $16) (i32.const 1)
     $zcalloc $zcfree $deflate_stored $deflate_fast $deflate_slow $__stdio_write $__stdio_close $__stdout_write
     $__stdio_seek)
   (data $22 $17 (i32.const 1024)

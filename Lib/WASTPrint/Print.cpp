@@ -201,6 +201,7 @@ static void print(std::string& string, ReferenceType type)
 	case ReferenceType::funcref: string += "funcref"; break;
 	case ReferenceType::anyref: string += "anyref"; break;
 
+	case ReferenceType::nullref:
 	case ReferenceType::none:
 	default: WAVM_UNREACHABLE();
 	}
@@ -921,45 +922,74 @@ void ModulePrintContext::printModule()
 		ScopedTagPrinter dataTag(string, "elem");
 		string += ' ';
 		string += names.elemSegments[segmentIndex];
-		string += ' ';
-		if(!elemSegment.isActive)
+
+		if(elemSegment.type == ElemSegment::Type::active)
 		{
-			switch(elemSegment.elemType)
+			string += " (table ";
+			string += names.tables[elemSegment.tableIndex];
+			string += ") ";
+			printInitializerExpression(elemSegment.baseOffset);
+		}
+
+		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)
+		{
+			if(elemSegment.contents->externKind != ExternKind::function)
+			{
+				switch(elemSegment.contents->externKind)
+				{
+				case ExternKind::function: string += " func"; break;
+				case ExternKind::table: string += " table"; break;
+				case ExternKind::memory: string += " memory"; break;
+				case ExternKind::global: string += " global"; break;
+				case ExternKind::exceptionType: string += " exception_type"; break;
+				case ExternKind::invalid:
+				default: WAVM_UNREACHABLE();
+				};
+			}
+
+			static constexpr Uptr numElemsPerLine = 8;
+			for(Uptr elementIndex = 0; elementIndex < elemSegment.contents->elemIndices.size();
+				++elementIndex)
+			{
+				const Uptr externIndex = elemSegment.contents->elemIndices[elementIndex];
+				string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
+				switch(elemSegment.contents->externKind)
+				{
+				case ExternKind::function: string += names.functions[externIndex].name; break;
+				case ExternKind::table: string += names.tables[externIndex]; break;
+				case ExternKind::memory: string += names.memories[externIndex]; break;
+				case ExternKind::global: string += names.globals[externIndex]; break;
+				case ExternKind::exceptionType: string += names.exceptionTypes[externIndex]; break;
+				case ExternKind::invalid:
+				default: WAVM_UNREACHABLE();
+				};
+			}
+		}
+		else
+		{
+			switch(elemSegment.contents->elemType)
 			{
 			case ReferenceType::anyref: string += " anyref"; break;
 			case ReferenceType::funcref: string += " funcref"; break;
 
+			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
 			};
-		}
-		else
-		{
-			string += names.tables[elemSegment.tableIndex];
-			string += ' ';
-			printInitializerExpression(elemSegment.baseOffset);
-		}
 
-		static constexpr Uptr numElemsPerLine = 8;
-		for(Uptr elementIndex = 0; elementIndex < elemSegment.elems->size(); ++elementIndex)
-		{
-			const Elem& elem = (*elemSegment.elems)[elementIndex];
-			string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
-			if(elemSegment.isActive)
+			constexpr Uptr numElemsPerLine = 4;
+			for(Uptr elementIndex = 0; elementIndex < elemSegment.contents->elemExprs.size();
+				++elementIndex)
 			{
-				WAVM_ASSERT(elem.type == Elem::Type::ref_func);
-				WAVM_ASSERT(elem.index < names.functions.size());
-				string += names.functions[elem.index].name;
-			}
-			else
-			{
-				switch(elem.type)
+				const ElemExpr& elemExpr = elemSegment.contents->elemExprs[elementIndex];
+				string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
+				switch(elemExpr.type)
 				{
-				case Elem::Type::ref_null: string += "(ref.null)"; break;
-				case Elem::Type::ref_func:
-					WAVM_ASSERT(elem.index < names.functions.size());
+				case ElemExpr::Type::ref_null: string += "(ref.null)"; break;
+				case ElemExpr::Type::ref_func:
+					WAVM_ASSERT(elemExpr.index < names.functions.size());
 					string += "(ref.func ";
-					string += names.functions[elem.index].name;
+					string += names.functions[elemExpr.index].name;
 					string += ')';
 					break;
 

@@ -194,6 +194,7 @@ namespace WAVM { namespace WAST {
 	// Type parsing and uniqueing
 	bool tryParseValueType(CursorState* cursor, IR::ValueType& outValueType);
 	IR::ValueType parseValueType(CursorState* cursor);
+	bool tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefType);
 	IR::ReferenceType parseReferenceType(CursorState* cursor);
 
 	IR::FunctionType parseFunctionType(CursorState* cursor,

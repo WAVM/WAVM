@@ -42,12 +42,8 @@ namespace WAVM { namespace IR {
 
 		anyref = U8(ValueType::anyref),
 		funcref = U8(ValueType::funcref),
+		nullref = U8(ValueType::nullref),
 	};
-
-	static_assert(Uptr(ValueType::anyref) == Uptr(ReferenceType::anyref),
-				  "ReferenceType and ValueType must match");
-	static_assert(Uptr(ValueType::funcref) == Uptr(ReferenceType::funcref),
-				  "ReferenceType and ValueType must match");
 
 	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
 
@@ -95,9 +91,11 @@ namespace WAVM { namespace IR {
 		{
 			switch(supertype)
 			{
-			case ReferenceType::anyref: return subtype == ReferenceType::funcref;
-			case ReferenceType::funcref: return subtype == ReferenceType::funcref;
+			case ReferenceType::anyref:
+				return subtype == ReferenceType::funcref || subtype == ReferenceType::nullref;
+			case ReferenceType::funcref: return subtype == ReferenceType::nullref;
 
+			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: return false;
 			}
@@ -214,6 +212,18 @@ namespace WAVM { namespace IR {
 		case ValueType::anyref: return "anyref";
 		case ValueType::funcref: return "funcref";
 		case ValueType::nullref: return "nullref";
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
+	inline const char* asString(ReferenceType type)
+	{
+		switch(type)
+		{
+		case ReferenceType::none: return "none";
+		case ReferenceType::anyref: return "anyref";
+		case ReferenceType::funcref: return "funcref";
+		case ReferenceType::nullref: return "nullref";
 		default: WAVM_UNREACHABLE();
 		};
 	}

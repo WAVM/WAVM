@@ -52,7 +52,7 @@
   (global $22  (mut i32) (global.get $21))
   (global $23  (mut i32) (i32.const 19104))
   (global $24  (mut i32) (i32.const 5261984))
-  (elem $18 (global.get $20)
+  (elem (table $18) (global.get $20)
     $b0 $___stdio_close $b1 $_deflate_stored $_deflate_fast $_deflate_slow $b2 $___stdout_write
     $___stdio_seek $_zcalloc $___stdio_write $b2 $b2 $b2 $b3 $_zcfree)
   (data $19 (i32.const 1028)

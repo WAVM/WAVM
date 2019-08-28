@@ -164,8 +164,8 @@ namespace WAVM { namespace IR {
 		std::shared_ptr<std::vector<U8>> data;
 	};
 
-	// An elem: a literal reference used to initialize a table element.
-	struct Elem
+	// An element expression: a literal reference used to initialize a table element.
+	struct ElemExpr
 	{
 		enum class Type
 		{
@@ -180,43 +180,67 @@ namespace WAVM { namespace IR {
 		};
 		Uptr index;
 
-		Elem(Type inType = Type::ref_null, Uptr inIndex = UINTPTR_MAX)
+		ElemExpr(Type inType = Type::ref_null, Uptr inIndex = UINTPTR_MAX)
 		: type(inType), index(inIndex)
 		{
 		}
 
-		friend bool operator==(const Elem& a, const Elem& b)
+		friend bool operator==(const ElemExpr& a, const ElemExpr& b)
 		{
 			if(a.type != b.type) { return false; }
 			switch(a.type)
 			{
-			case Elem::Type::ref_func: return a.index == b.index;
-			case Elem::Type::ref_null:
+			case ElemExpr::Type::ref_func: return a.index == b.index;
+			case ElemExpr::Type::ref_null:
 			default: return true;
 			}
 		}
 
-		friend bool operator!=(const Elem& a, const Elem& b)
+		friend bool operator!=(const ElemExpr& a, const ElemExpr& b)
 		{
 			if(a.type != b.type) { return true; }
 			switch(a.type)
 			{
-			case Elem::Type::ref_func: return a.index != b.index;
-			case Elem::Type::ref_null:
+			case ElemExpr::Type::ref_func: return a.index != b.index;
+			case ElemExpr::Type::ref_null:
 			default: return false;
 			}
 		}
 	};
 
-	// An elem segment: a literal sequence of elems that is copied into a Runtime::Table when
-	// instantiating a module
+	// An elem segment: a literal sequence of table elements.
 	struct ElemSegment
 	{
-		bool isActive;
+		enum class Encoding
+		{
+			index,
+			expr,
+		};
+
+		enum class Type
+		{
+			active,
+			passive
+		};
+		Type type;
+
+		// Only valid if type == active.
 		Uptr tableIndex;
 		InitializerExpression baseOffset;
-		ReferenceType elemType;
-		std::shared_ptr<std::vector<Elem>> elems;
+
+		struct Contents
+		{
+			Encoding encoding;
+
+			// Only valid if encoding == elemExpr.
+			ReferenceType elemType;
+			std::vector<ElemExpr> elemExprs;
+
+			// Only valid if encoding == externIndex.
+			ExternKind externKind;
+			std::vector<Uptr> elemIndices;
+		};
+		std::shared_ptr<Contents> contents;
 	};
 
 	// A user-defined module section as an array of bytes

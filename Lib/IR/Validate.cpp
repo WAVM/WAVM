@@ -79,6 +79,7 @@ static void validate(const IR::FeatureSpec& featureSpec, ReferenceType type)
 	case ReferenceType::funcref: isValid = featureSpec.mvp; break;
 	case ReferenceType::anyref: isValid = featureSpec.referenceTypes; break;
 
+	case ReferenceType::nullref:
 	case ReferenceType::none:
 	default: isValid = false;
 	}
@@ -995,27 +996,100 @@ void IR::validateElemSegments(const Module& module)
 {
 	for(auto& elemSegment : module.elemSegments)
 	{
-		if(elemSegment.isActive)
+		if(elemSegment.contents->encoding == ElemSegment::Encoding::index
+		   && elemSegment.contents->externKind != ExternKind::function
+		   && !module.featureSpec.allowAnyExternKindElemSegments)
 		{
+			throw ValidationException(
+				"elem segment referencing non-function externs requires"
+				" allowAnyExternKindElemSegments feature");
+		}
+
+		switch(elemSegment.type)
+		{
+		case ElemSegment::Type::active: {
 			VALIDATE_INDEX(elemSegment.tableIndex, module.tables.size());
 			const TableType& tableType = module.tables.getType(elemSegment.tableIndex);
-			VALIDATE_UNLESS("active elem segments must be in funcref tables: ",
-							!isSubtype(ReferenceType::funcref, tableType.elementType));
-			validateInitializer(
-				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
-		}
-		for(const Elem& elem : *elemSegment.elems)
-		{
-			switch(elem.type)
+
+			ReferenceType segmentElemType;
+			switch(elemSegment.contents->encoding)
 			{
-			case Elem::Type::ref_null:
-				VALIDATE_UNLESS("ref.null is only allowed in passive segments",
-								elemSegment.isActive);
+			case ElemSegment::Encoding::expr:
+				segmentElemType = elemSegment.contents->elemType;
 				break;
-			case Elem::Type::ref_func: VALIDATE_INDEX(elem.index, module.functions.size()); break;
+			case ElemSegment::Encoding::index:
+				segmentElemType = elemSegment.contents->externKind == ExternKind::function
+									  ? ReferenceType::funcref
+									  : ReferenceType::anyref;
+				break;
 			default: WAVM_UNREACHABLE();
 			};
+
+			const ReferenceType tableElemType = tableType.elementType;
+			if(!isSubtype(segmentElemType, tableType.elementType))
+			{
+				throw ValidationException(std::string("segment elem type (")
+										  + asString(segmentElemType)
+										  + ") is not a subtype of the table's elem type ("
+										  + asString(tableElemType) + ")");
+			}
+
+			validateInitializer(
+				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
+
+			break;
 		}
+		case ElemSegment::Type::passive: break;
+
+		default: WAVM_UNREACHABLE();
+		};
+
+		switch(elemSegment.contents->encoding)
+		{
+		case ElemSegment::Encoding::expr:
+			for(const ElemExpr& elem : elemSegment.contents->elemExprs)
+			{
+				ReferenceType exprType = ReferenceType::none;
+				switch(elem.type)
+				{
+				case ElemExpr::Type::ref_null: exprType = ReferenceType::nullref; break;
+				case ElemExpr::Type::ref_func:
+					exprType = ReferenceType::funcref;
+					VALIDATE_INDEX(elem.index, module.functions.size());
+					break;
+				default: WAVM_UNREACHABLE();
+				};
+
+				if(!isSubtype(exprType, elemSegment.contents->elemType))
+				{
+					throw ValidationException(std::string("elem expression type (")
+											  + asString(exprType)
+											  + ") is not a subtype of the segment's elem type ("
+											  + asString(elemSegment.contents->elemType) + ")");
+				}
+			}
+			break;
+		case ElemSegment::Encoding::index:
+			for(Uptr externIndex : elemSegment.contents->elemIndices)
+			{
+				switch(elemSegment.contents->externKind)
+				{
+				case ExternKind::function:
+					VALIDATE_INDEX(externIndex, module.functions.size());
+					break;
+				case ExternKind::table: VALIDATE_INDEX(externIndex, module.tables.size()); break;
+				case ExternKind::memory: VALIDATE_INDEX(externIndex, module.memories.size()); break;
+				case ExternKind::global: VALIDATE_INDEX(externIndex, module.globals.size()); break;
+				case ExternKind::exceptionType:
+					VALIDATE_INDEX(externIndex, module.exceptionTypes.size());
+					break;
+				case ExternKind::invalid:
+				default: WAVM_UNREACHABLE();
+				};
+			}
+			break;
+		default: WAVM_UNREACHABLE();
+		};
 	}
 }
 

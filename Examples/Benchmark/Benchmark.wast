@@ -120,7 +120,7 @@
   (global $57  (mut f64) (global.get $54))
   (global $58  (mut i32) (i32.const 22752))
   (global $59  (mut i32) (i32.const 5265632))
-  (elem $49 (global.get $51)
+  (elem (table $49) (global.get $51)
     $b0 $___stdio_close $_catclose $_catclose $__ZNSt3__215basic_streambufIcNS_11char_traitsIcEEE9underflowEv $__ZNSt3__215basic_streambufIcNS_11char_traitsIcEEE5uflowEv $_catclose $_catclose
     $__ZNSt3__215basic_streambufIcNS_11char_traitsIcEEE9underflowEv $__ZNSt3__215basic_streambufIwNS_11char_traitsIwEEE5uflowEv $__ZNSt3__211__stdoutbufIwE4syncEv $__ZNSt3__211__stdoutbufIwE4syncEv $__ZNSt3__210__stdinbufIwE9underflowEv $__ZNSt3__210__stdinbufIwE5uflowEv $__ZNSt3__210__stdinbufIcE9underflowEv $__ZNSt3__210__stdinbufIcE5uflowEv
     $__ZNKSt3__28time_getIcNS_19istreambuf_iteratorIcNS_11char_traitsIcEEEEE13do_date_orderEv $__ZNKSt3__220__time_get_c_storageIcE7__weeksEv $__ZNKSt3__220__time_get_c_storageIcE8__monthsEv $__ZNKSt3__220__time_get_c_storageIcE7__am_pmEv $__ZNKSt3__220__time_get_c_storageIcE3__cEv $__ZNKSt3__220__time_get_c_storageIcE3__rEv $__ZNKSt3__220__time_get_c_storageIcE3__xEv $__ZNKSt3__220__time_get_c_storageIcE3__XEv

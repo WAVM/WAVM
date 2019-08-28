@@ -40,14 +40,31 @@ namespace WAVM {
 			if(aModule.elemSegments.size() != bModule.elemSegments.size()) { failVerification(); }
 			for(Uptr segmentIndex = 0; segmentIndex < aModule.elemSegments.size(); ++segmentIndex)
 			{
-				const ElemSegment& segment = aModule.elemSegments[segmentIndex];
-				const ElemSegment& wastSegment = bModule.elemSegments[segmentIndex];
-				if(segment.isActive != wastSegment.isActive) { failVerification(); }
-				if(segment.isActive
-				   && (segment.tableIndex != wastSegment.tableIndex
-					   || segment.baseOffset != wastSegment.baseOffset
-					   || *segment.elems != *wastSegment.elems))
+				const ElemSegment& aSegment = aModule.elemSegments[segmentIndex];
+				const ElemSegment& bSegment = bModule.elemSegments[segmentIndex];
+				if(aSegment.type != bSegment.type
+				   || aSegment.contents->encoding != bSegment.contents->encoding)
 				{ failVerification(); }
+				if(aSegment.type == ElemSegment::Type::active
+				   && (aSegment.tableIndex != bSegment.tableIndex
+					   || aSegment.baseOffset != bSegment.baseOffset))
+				{ failVerification(); }
+				switch(aSegment.contents->encoding)
+				{
+				case ElemSegment::Encoding::expr:
+					if(aSegment.contents->elemType != bSegment.contents->elemType
+					   || aSegment.contents->elemExprs != bSegment.contents->elemExprs)
+					{ failVerification(); }
+					break;
+
+				case ElemSegment::Encoding::index:
+					if(aSegment.contents->externKind != bSegment.contents->externKind
+					   || aSegment.contents->elemIndices != bSegment.contents->elemIndices)
+					{ failVerification(); }
+					break;
+
+				default: WAVM_UNREACHABLE();
+				};
 			}
 		}
 

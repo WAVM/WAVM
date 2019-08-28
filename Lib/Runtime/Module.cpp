@@ -377,7 +377,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	for(const DataSegment& dataSegment : module->ir.dataSegments)
 	{ dataSegments.push_back(dataSegment.isActive ? nullptr : dataSegment.data); }
 	for(const ElemSegment& elemSegment : module->ir.elemSegments)
-	{ elemSegments.push_back(elemSegment.isActive ? nullptr : elemSegment.elems); }
+	{
+		elemSegments.push_back(elemSegment.type == ElemSegment::Type::passive ? elemSegment.contents
+																			  : nullptr);
+	}
 
 	// Look up the module's start function.
 	Function* startFunction = nullptr;
@@ -448,7 +451,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	for(Uptr segmentIndex = 0; segmentIndex < module->ir.elemSegments.size(); ++segmentIndex)
 	{
 		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
-		if(elemSegment.isActive)
+		if(elemSegment.type == ElemSegment::Type::active)
 		{
 			WAVM_ASSERT(moduleInstance->elemSegments[segmentIndex] == nullptr);
 
@@ -457,14 +460,26 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
+			Uptr numElements = 0;
+			switch(elemSegment.contents->encoding)
+			{
+			case ElemSegment::Encoding::expr:
+				numElements = elemSegment.contents->elemExprs.size();
+				break;
+			case ElemSegment::Encoding::index:
+				numElements = elemSegment.contents->elemIndices.size();
+				break;
+			default: WAVM_UNREACHABLE();
+			};
+
 			Table* table = moduleInstance->tables[elemSegment.tableIndex];
 			initElemSegment(moduleInstance,
 							segmentIndex,
-							elemSegment.elems.get(),
+							elemSegment.contents.get(),
 							table,
 							baseOffset,
 							0,
-							elemSegment.elems->size());
+							numElements);
 		}
 	}
 

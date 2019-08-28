@@ -147,7 +147,7 @@ namespace WAVM { namespace Runtime {
 	};
 
 	typedef std::vector<std::shared_ptr<std::vector<U8>>> DataSegmentVector;
-	typedef std::vector<std::shared_ptr<std::vector<IR::Elem>>> ElemSegmentVector;
+	typedef std::vector<std::shared_ptr<IR::ElemSegment::Contents>> ElemSegmentVector;
 
 	// A compiled WebAssembly module.
 	struct Module
@@ -348,7 +348,7 @@ namespace WAVM { namespace Runtime {
 	// Initialize a table segment (equivalent to executing a table.init instruction).
 	void initElemSegment(ModuleInstance* moduleInstance,
 						 Uptr elemSegmentIndex,
-						 const std::vector<IR::Elem>* elemVector,
+						 const IR::ElemSegment::Contents* contents,
 						 Table* table,
 						 Uptr destOffset,
 						 Uptr sourceOffset,
