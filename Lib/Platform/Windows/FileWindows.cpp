@@ -292,7 +292,7 @@ struct WindowsFD : VFD
 
 		LONG offsetHigh = LONG((offset >> 32) & 0xffffffff);
 		LONG result = SetFilePointer(handle, LONG(offset & 0xffffffff), &offsetHigh, windowsOrigin);
-		if(result == INVALID_SET_FILE_POINTER)
+		if(result == LONG(INVALID_SET_FILE_POINTER))
 		{
 			// "If an application calls SetFilePointer with distance to move values that result
 			// in a position not sector-aligned and a handle that is opened with
