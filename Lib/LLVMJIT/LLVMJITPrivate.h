@@ -397,4 +397,3 @@ namespace WAVM { namespace LLVMJIT {
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
 }}
-
