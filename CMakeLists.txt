@@ -168,6 +168,11 @@ install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
 install(FILES ${WAVM_SOURCE_DIR}/LICENSE
 		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,share/wavm>)
 
+# Install the Examples directory to <install root>/examples on Windows, and <install root>/share/wavm/examples on other systems.
+install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
+		DESTINATION $<IF:$<PLATFORM_ID:Windows>,examples,share/wavm/examples>
+		PATTERN *.txt EXCLUDE)
+
 set(OPTIONAL_C_FLAGS)
 set(OPTIONAL_CXX_FLAGS)
 function(ADD_COMPILER_FLAG_IF_SUPPORTED OPTIONAL_FLAG)
