@@ -10,7 +10,7 @@ clang++-7 -v
 
 rm -rf llvm
 mkdir llvm
-git clone http://github.com/llvm/llvm-project llvm
+git clone http://github.com/llvm/llvm-project -b release/9.x llvm
 
 rm -rf $BUILD_DIR/llvm/build 
 mkdir $BUILD_DIR/llvm/build
