@@ -2,7 +2,7 @@
 
 [License](LICENSE) | [Primary repo](https://github.com/WAVM/WAVM) | [Discord](https://discordapp.com/invite/fchkxFM)
 
-[Getting Started](Docs/GettingStarted.md) | [Building WAVM from Source](Docs/Building.md) | [Exploring the WAVM source](CodeOrganization.md)
+[Getting Started](Doc/GettingStarted.md) | [Building WAVM from Source](Doc/Building.md) | [Exploring the WAVM source](Doc/CodeOrganization.md)
 
 # WAVM
 
@@ -56,5 +56,5 @@ overflow and partially out-of-bounds stores.
 WAVM's runtime requires a 64-bit virtual address space, and so is not portable to 32-bit hosts.
 However, WAVM's assembler and disassembler work on 32-bit hosts.
 
-[Portability Matrix](Docs/PortabilityMatrix.md)
+[Portability Matrix](Doc/PortabilityMatrix.md)
 
