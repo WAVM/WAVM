@@ -73,36 +73,85 @@ struct RootResolver : Resolver
 	}
 };
 
-static bool compileModule(const IR::Module& irModule, ModuleRef& outModule, bool precompiled)
+static bool loadTextOrBinaryModule(const char* filename,
+								   std::vector<U8>&& fileBytes,
+								   const IR::FeatureSpec& featureSpec,
+								   ModuleRef& outModule)
 {
-	if(!precompiled)
+	// If the file starts with the WASM binary magic number, load it as a binary module.
+	if(fileBytes.size() >= sizeof(WASM::magicNumber)
+	   && !memcmp(fileBytes.data(), WASM::magicNumber, sizeof(WASM::magicNumber)))
 	{
-		outModule = Runtime::compileModule(irModule);
-		return true;
+		WASM::LoadError loadError;
+		if(Runtime::loadBinaryModule(fileBytes, outModule, featureSpec, &loadError))
+		{ return true; }
+		else
+		{
+			Log::printf(Log::error,
+						"Error loading WebAssembly binary file: %s\n",
+						loadError.message.c_str());
+			return false;
+		}
 	}
 	else
 	{
-		const UserSection* precompiledObjectSection = nullptr;
-		for(const UserSection& userSection : irModule.userSections)
-		{
-			if(userSection.name == "wavm.precompiled_object")
-			{
-				precompiledObjectSection = &userSection;
-				break;
-			}
-		}
+		// Make sure the WAST file is null terminated.
+		fileBytes.push_back(0);
 
-		if(!precompiledObjectSection)
+		// Parse the module text format to IR.
+		std::vector<WAST::Error> parseErrors;
+		IR::Module irModule(featureSpec);
+		if(!WAST::parseModule(
+			   (const char*)fileBytes.data(), fileBytes.size(), irModule, parseErrors))
 		{
-			Log::printf(Log::error,
-						"Input file did not contain 'wavm.precompiled_object' section.\n");
+			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
+			WAST::reportParseErrors(filename, parseErrors);
 			return false;
 		}
-		else
+
+		// Compile the IR.
+		outModule = Runtime::compileModule(irModule);
+
+		return true;
+	}
+}
+
+static bool loadPrecompiledModule(std::vector<U8>&& fileBytes,
+								  const IR::FeatureSpec& featureSpec,
+								  ModuleRef& outModule)
+{
+	IR::Module irModule(featureSpec);
+
+	// Deserialize the module IR from the binary format.
+	Serialization::MemoryInputStream stream(fileBytes.data(), fileBytes.size());
+	WASM::LoadError loadError;
+	if(!WASM::loadBinaryModule(stream, irModule, &loadError))
+	{
+		Log::printf(
+			Log::error, "Error loading WebAssembly binary file: %s\n", loadError.message.c_str());
+		return false;
+	}
+
+	// Check for a precompiled object section.
+	const UserSection* precompiledObjectSection = nullptr;
+	for(const UserSection& userSection : irModule.userSections)
+	{
+		if(userSection.name == "wavm.precompiled_object")
 		{
-			outModule = Runtime::loadPrecompiledModule(irModule, precompiledObjectSection->data);
-			return true;
+			precompiledObjectSection = &userSection;
+			break;
 		}
+	}
+	if(!precompiledObjectSection)
+	{
+		Log::printf(Log::error, "Input file did not contain 'wavm.precompiled_object' section.\n");
+		return false;
+	}
+	else
+	{
+		// Load the IR + precompiled object code as a runtime module.
+		outModule = Runtime::loadPrecompiledModule(irModule, precompiledObjectSection->data);
+		return true;
 	}
 }
 
@@ -523,13 +572,22 @@ struct State
 		// Parse the command line.
 		if(!parseCommandLineAndEnvironment(argv)) { return EXIT_FAILURE; }
 
-		// Load the module.
-		IR::Module irModule(featureSpec);
-		if(!loadModule(filename, irModule)) { return EXIT_FAILURE; }
+		// Read the specified file into a byte array.
+		std::vector<U8> fileBytes;
+		if(!loadFile(filename, fileBytes)) { return false; }
 
-		// Compile the module.
+		// Load the module from the byte array
 		Runtime::ModuleRef module = nullptr;
-		if(!compileModule(irModule, module, precompiled)) { return EXIT_FAILURE; }
+		if(precompiled)
+		{
+			if(!loadPrecompiledModule(std::move(fileBytes), featureSpec, module))
+			{ return EXIT_FAILURE; }
+		}
+		else if(!loadTextOrBinaryModule(filename, std::move(fileBytes), featureSpec, module))
+		{
+			return EXIT_FAILURE;
+		}
+		const IR::Module& irModule = Runtime::getModuleIR(module);
 
 		// Initialize the system environment.
 		if(!initSystem(irModule)) { return EXIT_FAILURE; }

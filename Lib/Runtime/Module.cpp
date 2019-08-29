@@ -62,39 +62,71 @@ void Runtime::setGlobalObjectCache(std::shared_ptr<ObjectCacheInterface>&& objec
 	globalObjectCache = std::move(objectCache);
 }
 
+static std::shared_ptr<ObjectCacheInterface> getGlobalObjectCache()
+{
+	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
+	return globalObjectCache;
+}
+
 ModuleRef Runtime::compileModule(const IR::Module& irModule)
 {
-	auto compileUncachedModule
-		= [&irModule]() { return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec()); };
-
 	// Get a pointer to the global object cache, if there is one.
-	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
-	std::shared_ptr<ObjectCacheInterface> objectCache = globalObjectCache;
-	globalObjectCacheLock.unlock();
+	std::shared_ptr<ObjectCacheInterface> objectCache = getGlobalObjectCache();
 
 	std::vector<U8> objectCode;
 	if(!objectCache)
 	{
 		// If there's no global object cache, just compile the module.
-		objectCode = compileUncachedModule();
+		objectCode = LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
 	}
 	else
 	{
-		// Serialize the module to WASM.
+		// Serialize the IR module to WASM.
 		Timing::Timer keyTimer;
 		Serialization::ArrayOutputStream stream;
 		WASM::saveBinaryModule(stream, irModule);
-		std::vector<U8> moduleBytes = stream.getBytes();
-		Timing::logTimer("Calculate object cache key", keyTimer);
+		Timing::logTimer("Created object cache key from IR module", keyTimer);
+		std::vector<U8> wasmBytes = stream.getBytes();
 
 		// Check for cached object code for the module before compiling it.
-		objectCode = objectCache->getCachedObject(moduleBytes, compileUncachedModule);
+		objectCode = objectCache->getCachedObject(wasmBytes, [&irModule]() {
+			return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+		});
 	}
 
-	return std::make_shared<Module>(IR::Module(irModule), std::move(objectCode));
+	return std::make_shared<Runtime::Module>(IR::Module(irModule), std::move(objectCode));
 }
 
-std::vector<U8> Runtime::getObjectCode(ModuleConstRefParam module) { return module->objectCode; }
+bool Runtime::loadBinaryModule(const std::vector<U8>& wasmBytes,
+							   ModuleRef& outModule,
+							   const IR::FeatureSpec& featureSpec,
+							   WASM::LoadError* outError)
+{
+	// Load the module IR.
+	IR::Module irModule(std::move(featureSpec));
+	Serialization::MemoryInputStream stream(wasmBytes.data(), wasmBytes.size());
+	if(!WASM::loadBinaryModule(stream, irModule, outError)) { return false; }
+
+	// Get a pointer to the global object cache, if there is one.
+	std::shared_ptr<ObjectCacheInterface> objectCache = getGlobalObjectCache();
+
+	std::vector<U8> objectCode;
+	if(!objectCache)
+	{
+		// If there's no global object cache, just compile the module.
+		objectCode = LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+	}
+	else
+	{
+		// Check for cached object code for the module before compiling it.
+		objectCode = objectCache->getCachedObject(wasmBytes, [&irModule]() {
+			return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+		});
+	}
+
+	outModule = std::make_shared<Runtime::Module>(std::move(irModule), std::move(objectCode));
+	return true;
+}
 
 ModuleRef Runtime::loadPrecompiledModule(const IR::Module& irModule,
 										 const std::vector<U8>& objectCode)
@@ -103,6 +135,7 @@ ModuleRef Runtime::loadPrecompiledModule(const IR::Module& irModule,
 }
 
 const IR::Module& Runtime::getModuleIR(ModuleConstRefParam module) { return module->ir; }
+std::vector<U8> Runtime::getObjectCode(ModuleConstRefParam module) { return module->objectCode; }
 
 ModuleInstance::~ModuleInstance()
 {

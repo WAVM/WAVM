@@ -24,7 +24,7 @@ static bool loadBinaryModuleFromFile(const char* filename,
 	if(WASM::loadBinaryModule(inputStream, outModule, &loadError)) { return true; }
 	else
 	{
-		Log::printf(Log::error, "%s", loadError.message.c_str());
+		Log::printf(Log::error, "%s\n", loadError.message.c_str());
 		return false;
 	}
 }

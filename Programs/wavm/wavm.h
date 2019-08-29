@@ -25,5 +25,3 @@ void showRunHelp(WAVM::Log::Category outputCategory);
 
 const char* getFeatureListHelpText();
 bool parseAndSetFeature(const char* featureName, WAVM::IR::FeatureSpec& featureSpec, bool enable);
-
-bool loadModule(const char* filename, WAVM::IR::Module& outModule);

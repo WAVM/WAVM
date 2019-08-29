@@ -19,6 +19,44 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
+bool loadTextOrBinaryModule(const char* filename, IR::Module& outModule)
+{
+	// Read the specified file into an array.
+	std::vector<U8> fileBytes;
+	if(!loadFile(filename, fileBytes)) { return false; }
+
+	// If the file starts with the WASM binary magic number, load it as a binary irModule.
+	if(fileBytes.size() >= sizeof(WASM::magicNumber)
+	   && !memcmp(fileBytes.data(), WASM::magicNumber, sizeof(WASM::magicNumber)))
+	{
+		Serialization::MemoryInputStream inputStream(fileBytes.data(), fileBytes.size());
+		WASM::LoadError loadError;
+		if(WASM::loadBinaryModule(inputStream, outModule, &loadError)) { return true; }
+		else
+		{
+			Log::printf(Log::error, "%s\n", loadError.message.c_str());
+			return false;
+		}
+	}
+	else
+	{
+		// Make sure the WAST file is null terminated.
+		fileBytes.push_back(0);
+
+		// Load it as a text irModule.
+		std::vector<WAST::Error> parseErrors;
+		if(!WAST::parseModule(
+			   (const char*)fileBytes.data(), fileBytes.size(), outModule, parseErrors))
+		{
+			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
+			WAST::reportParseErrors(filename, parseErrors);
+			return false;
+		}
+
+		return true;
+	}
+}
+
 static const char* getOutputFormatHelpText()
 {
 	return "  unoptimized-llvmir          Unoptimized LLVM IR for the input module.\n"
@@ -199,7 +237,7 @@ int execCompileCommand(int argc, char** argv)
 
 	// Load the module IR.
 	IR::Module irModule(featureSpec);
-	if(!loadModule(inputFilename, irModule)) { return EXIT_FAILURE; }
+	if(!loadTextOrBinaryModule(inputFilename, irModule)) { return EXIT_FAILURE; }
 
 	switch(outputFormat)
 	{

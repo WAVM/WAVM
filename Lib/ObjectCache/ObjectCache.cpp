@@ -650,7 +650,10 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		std::function<std::vector<U8>()>&& compileThunk) override
 	{
 		// Compute a hash of the serialized WASM module.
+		Timing::Timer hashTimer;
 		const U64 moduleHash = XXH64(moduleBytes.data(), moduleBytes.size(), 0);
+		Timing::logRatePerSecond(
+			"Hashed module key", hashTimer, moduleBytes.size() / 1024.0 / 1024.0, "MiB");
 
 		// Try to find the module's object code in the cache.
 		std::vector<U8> objectCode;

@@ -655,7 +655,7 @@ wasm_module_t* wasm_module_new(wasm_engine_t*, const char* binary, uintptr_t num
 	{ return new wasm_module_t{compileModule(irModule)}; }
 	else
 	{
-		Log::printf(Log::debug, "%s", loadError.message.c_str());
+		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
 		return nullptr;
 	}
 }
@@ -667,7 +667,7 @@ bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 	if(WASM::loadBinaryModule(inputStream, irModule, &loadError)) { return true; }
 	else
 	{
-		Log::printf(Log::debug, "%s", loadError.message.c_str());
+		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
 		return false;
 	}
 }

@@ -3,16 +3,22 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Diagnostics.h"
 
-// Declare IR::Module to avoid including the definition.
-namespace WAVM { namespace IR {
-	struct Module;
-}}
+// Declare some types to avoid including the full definition.
+namespace WAVM {
+	namespace IR {
+		struct Module;
+	}
+	namespace WASM {
+		struct LoadError;
+	}
+};
 
 // Declare the different kinds of objects. They are only declared as incomplete struct types here,
 // and Runtime clients will only handle opaque pointers to them.
@@ -386,9 +392,14 @@ namespace WAVM { namespace Runtime {
 	// Compiles an IR module to object code.
 	RUNTIME_API ModuleRef compileModule(const IR::Module& irModule);
 
-	// Extracts the compiled object code for a module. This may be used as an input to
-	// loadPrecompiledModule to bypass redundant compilations of the module.
-	RUNTIME_API std::vector<U8> getObjectCode(ModuleConstRefParam module);
+	// Load and compiles a binary module, returning either an error or a module.
+	// If true is returned, the load succeeded, and outModule contains the loaded module.
+	// If false is returned, the load failed. If outError != nullptr, *outError will contain the
+	// error that caused the load to fail.
+	RUNTIME_API bool loadBinaryModule(const std::vector<U8>& wasmBytes,
+									  ModuleRef& outModule,
+									  const IR::FeatureSpec& featureSpec = IR::FeatureSpec(),
+									  WASM::LoadError* outError = nullptr);
 
 	// Loads a previously compiled module from a combination of an IR module and the object code
 	// returned by getObjectCode for the previously compiled module.
@@ -397,6 +408,10 @@ namespace WAVM { namespace Runtime {
 
 	// Accesses the IR for a compiled module.
 	RUNTIME_API const IR::Module& getModuleIR(ModuleConstRefParam module);
+
+	// Extracts the compiled object code for a module. This may be used as an input to
+	// loadPrecompiledModule to bypass redundant compilations of the module.
+	RUNTIME_API std::vector<U8> getObjectCode(ModuleConstRefParam module);
 
 	//
 	// Instances

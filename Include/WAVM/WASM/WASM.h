@@ -13,6 +13,9 @@ namespace WAVM { namespace Serialization {
 }}
 
 namespace WAVM { namespace WASM {
+	// The magic number that is at the beginning of every WASM binary module.
+	static constexpr U8 magicNumber[4] = { 0x00, 0x61, 0x73, 0x6d };
+
 	// Saves a binary module.
 	WASM_API void saveBinaryModule(Serialization::OutputStream& stream, const IR::Module& module);
 
