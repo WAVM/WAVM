@@ -5,6 +5,7 @@ include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
 # Parse the VERSION file.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS VERSION)
 file(READ "VERSION" VERSION_FILE_CONTENTS)
 string(REGEX MATCH "([0-9]+)\.([0-9]+)\.([0-9]+)" WAVM_VERSION ${VERSION_FILE_CONTENTS})
 if(NOT WAVM_VERSION)
