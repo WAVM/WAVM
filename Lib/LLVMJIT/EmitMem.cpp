@@ -293,9 +293,15 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		 getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)})[0]);
 }
 
-void EmitFunctionContext::atomic_fence(AtomicFenceImm)
+void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 {
-	// atomic.fence is a nop until weaker atomics are added.
+	switch(imm.order)
+	{
+	case MemoryOrder::sequentiallyConsistent:
+		irBuilder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent);
+		break;
+	default: WAVM_UNREACHABLE();
+	};
 }
 
 #define EMIT_ATOMIC_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, memToValue)   \
