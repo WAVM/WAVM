@@ -600,7 +600,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 	if(shouldLogMetrics)
 	{
 		Timing::logRatePerSecond(
-			"Loaded object", loadObjectTimer, (F64)objectBytes.size() / 1024.0 / 1024.0, "MB");
+			"Loaded object", loadObjectTimer, (F64)objectBytes.size() / 1024.0 / 1024.0, "MiB");
 	}
 }
 

@@ -379,7 +379,7 @@ struct State
 						maxMegabytesEnv);
 					return false;
 				}
-				maxBytes = Uptr(maxMegabytes) * 1024 * 1024;
+				maxBytes = Uptr(maxMegabytes) * 1000000;
 			}
 
 			// Calculate a "code key" that identifies the code involved in compiling WebAssembly to
