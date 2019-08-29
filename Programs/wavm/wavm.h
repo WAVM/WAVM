@@ -1,7 +1,11 @@
 #pragma once
 
-#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Logging/Logging.h"
+
+namespace WAVM { namespace IR {
+	struct Module;
+	struct FeatureSpec;
+}};
 
 int execAssembleCommand(int argc, char** argv);
 int execDisassembleCommand(int argc, char** argv);
@@ -21,3 +25,5 @@ void showRunHelp(WAVM::Log::Category outputCategory);
 
 const char* getFeatureListHelpText();
 bool parseAndSetFeature(const char* featureName, WAVM::IR::FeatureSpec& featureSpec, bool enable);
+
+bool loadModule(const char* filename, WAVM::IR::Module& outModule);

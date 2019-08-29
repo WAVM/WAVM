@@ -93,25 +93,15 @@ int execAssembleCommand(int argc, char** argv)
 	}
 
 	// Serialize the WASM module.
-	std::vector<U8> wasmBytes;
-	try
-	{
-		Timing::Timer saveTimer;
 
-		Serialization::ArrayOutputStream stream;
-		WASM::serialize(stream, module);
-		wasmBytes = stream.getBytes();
+	Timing::Timer saveTimer;
 
-		Timing::logRatePerSecond(
-			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");
-	}
-	catch(Serialization::FatalSerializationException const& exception)
-	{
-		Log::printf(Log::error,
-					"Error serializing WebAssembly binary file:\n%s\n",
-					exception.message.c_str());
-		return EXIT_FAILURE;
-	}
+	Serialization::ArrayOutputStream stream;
+	WASM::saveBinaryModule(stream, module);
+	std::vector<U8> wasmBytes = stream.getBytes();
+
+	Timing::logRatePerSecond(
+		"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");
 
 	// Write the serialized data to the output file.
 	return saveFile(outputFilename, wasmBytes.data(), wasmBytes.size()) ? EXIT_SUCCESS

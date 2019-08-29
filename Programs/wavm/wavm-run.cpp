@@ -73,35 +73,6 @@ struct RootResolver : Resolver
 	}
 };
 
-static bool loadModule(const char* filename, IR::Module& outModule)
-{
-	// Read the specified file into an array.
-	std::vector<U8> fileBytes;
-	if(!loadFile(filename, fileBytes)) { return false; }
-
-	// If the file starts with the WASM binary magic number, load it as a binary irModule.
-	static const U8 wasmMagicNumber[4] = {0x00, 0x61, 0x73, 0x6d};
-	if(fileBytes.size() >= 4 && !memcmp(fileBytes.data(), wasmMagicNumber, 4))
-	{ return WASM::loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule); }
-	else
-	{
-		// Make sure the WAST file is null terminated.
-		fileBytes.push_back(0);
-
-		// Load it as a text irModule.
-		std::vector<WAST::Error> parseErrors;
-		if(!WAST::parseModule(
-			   (const char*)fileBytes.data(), fileBytes.size(), outModule, parseErrors))
-		{
-			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
-			WAST::reportParseErrors(filename, parseErrors);
-			return false;
-		}
-
-		return true;
-	}
-}
-
 static bool compileModule(const IR::Module& irModule, ModuleRef& outModule, bool precompiled)
 {
 	if(!precompiled)

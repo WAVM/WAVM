@@ -1455,48 +1455,56 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	}
 }
 
-void WASM::serialize(Serialization::InputStream& stream, Module& module)
+void WASM::saveBinaryModule(Serialization::OutputStream& stream, const Module& module)
 {
-	serializeModule(stream, module);
-}
-void WASM::serialize(Serialization::OutputStream& stream, const Module& module)
-{
-	serializeModule(stream, const_cast<Module&>(module));
+	try
+	{
+		serializeModule(stream, const_cast<Module&>(module));
+	}
+	catch(Serialization::FatalSerializationException const& exception)
+	{
+		Errors::fatalf("Failed to save WASM module: %s", exception.message.c_str());
+	}
 }
 
-bool WASM::loadBinaryModule(const void* wasmBytes,
-							Uptr numBytes,
-							IR::Module& outModule,
-							Log::Category errorCategory)
+bool WASM::loadBinaryModule(InputStream& stream, IR::Module& outModule, LoadError* outError)
 {
 	// Load the module from a binary WebAssembly file.
 	try
 	{
 		Timing::Timer loadTimer;
+		const Uptr streamNumBytes = stream.capacity();
 
-		Serialization::MemoryInputStream stream((const U8*)wasmBytes, numBytes);
-		WASM::serialize(stream, outModule);
+		serializeModule(stream, outModule);
 
-		Timing::logRatePerSecond("Loaded WASM", loadTimer, numBytes / 1024.0 / 1024.0, "MiB");
+		Timing::logRatePerSecond("Loaded WASM", loadTimer, streamNumBytes / 1024.0 / 1024.0, "MiB");
 		return true;
 	}
 	catch(Serialization::FatalSerializationException const& exception)
 	{
-		Log::printf(errorCategory,
-					"Error deserializing WebAssembly binary file:\n%s\n",
-					exception.message.c_str());
+		if(outError)
+		{
+			outError->type = LoadError::Type::malformed;
+			outError->message = "Module was malformed: " + exception.message;
+		}
 		return false;
 	}
 	catch(IR::ValidationException const& exception)
 	{
-		Log::printf(errorCategory,
-					"Error validating WebAssembly binary file:\n%s\n",
-					exception.message.c_str());
+		if(outError)
+		{
+			outError->type = LoadError::Type::invalid;
+			outError->message = "Module was invalid: " + exception.message;
+		}
 		return false;
 	}
 	catch(std::bad_alloc const&)
 	{
-		Log::printf(errorCategory, "Memory allocation failed: input is likely malformed\n");
+		if(outError)
+		{
+			outError->type = LoadError::Type::malformed;
+			outError->message = "Memory allocation failed: input is likely malformed";
+		}
 		return false;
 	}
 }

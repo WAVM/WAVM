@@ -55,22 +55,9 @@ static void dumpModule(const Module& module, const char* outputDir, DumpFormat d
 
 	if(dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both)
 	{
-		std::vector<U8> wasmBytes;
-		try
-		{
-			// Serialize the WebAssembly module.
-			Serialization::ArrayOutputStream stream;
-			WASM::serialize(stream, module);
-			wasmBytes = stream.getBytes();
-		}
-		catch(Serialization::FatalSerializationException const& exception)
-		{
-			Log::printf(Log::error,
-						"Error serializing WebAssembly binary file:\n%s\n",
-						exception.message.c_str());
-			return;
-		}
-
+		Serialization::ArrayOutputStream outputStream;
+		WASM::saveBinaryModule(outputStream, module);
+		std::vector<U8> wasmBytes = outputStream.getBytes();
 		dumpWASM(wasmBytes.data(), wasmBytes.size(), outputDir);
 	}
 }

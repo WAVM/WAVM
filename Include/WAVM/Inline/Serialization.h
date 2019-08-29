@@ -117,7 +117,10 @@ namespace WAVM { namespace Serialization {
 	// An input stream that reads from a contiguous range of memory.
 	struct MemoryInputStream : InputStream
 	{
-		MemoryInputStream(const U8* begin, Uptr numBytes) : InputStream(begin, begin + numBytes) {}
+		MemoryInputStream(const void* begin, Uptr numBytes)
+		: InputStream((const U8*)begin, (const U8*)begin + numBytes)
+		{
+		}
 		virtual Uptr capacity() const { return end - next; }
 
 	private:

@@ -19,35 +19,6 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-static bool loadModule(const char* filename, IR::Module& outModule)
-{
-	// Read the specified file into an array.
-	std::vector<U8> fileBytes;
-	if(!loadFile(filename, fileBytes)) { return false; }
-
-	// If the file starts with the WASM binary magic number, load it as a binary irModule.
-	static const U8 wasmMagicNumber[4] = {0x00, 0x61, 0x73, 0x6d};
-	if(fileBytes.size() >= 4 && !memcmp(fileBytes.data(), wasmMagicNumber, 4))
-	{ return WASM::loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule); }
-	else
-	{
-		// Make sure the WAST file is null terminated.
-		fileBytes.push_back(0);
-
-		// Load it as a text irModule.
-		std::vector<WAST::Error> parseErrors;
-		if(!WAST::parseModule(
-			   (const char*)fileBytes.data(), fileBytes.size(), outModule, parseErrors))
-		{
-			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
-			WAST::reportParseErrors(filename, parseErrors);
-			return false;
-		}
-
-		return true;
-	}
-}
-
 static const char* getOutputFormatHelpText()
 {
 	return "  unoptimized-llvmir          Unoptimized LLVM IR for the input module.\n"
@@ -240,25 +211,14 @@ int execCompileCommand(int argc, char** argv)
 		irModule.userSections.push_back({"wavm.precompiled_object", objectCode});
 
 		// Serialize the WASM module.
-		std::vector<U8> wasmBytes;
-		try
-		{
-			Timing::Timer saveTimer;
+		Timing::Timer saveTimer;
 
-			Serialization::ArrayOutputStream stream;
-			WASM::serialize(stream, irModule);
-			wasmBytes = stream.getBytes();
+		Serialization::ArrayOutputStream stream;
+		WASM::saveBinaryModule(stream, irModule);
+		std::vector<U8> wasmBytes = stream.getBytes();
 
-			Timing::logRatePerSecond(
-				"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");
-		}
-		catch(Serialization::FatalSerializationException const& exception)
-		{
-			Log::printf(Log::error,
-						"Error serializing WebAssembly binary file:\n%s\n",
-						exception.message.c_str());
-			return EXIT_FAILURE;
-		}
+		Timing::logRatePerSecond(
+			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");
 
 		// Write the serialized data to the output file.
 		return saveFile(outputFilename, wasmBytes.data(), wasmBytes.size()) ? EXIT_SUCCESS

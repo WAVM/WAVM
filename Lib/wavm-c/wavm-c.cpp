@@ -3,6 +3,7 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/OptionalStorage.h"
+#include "WAVM/Inline/Serialization.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
@@ -648,16 +649,27 @@ wasm_module_t* wasm_module_copy(wasm_module_t* module) { return new wasm_module_
 wasm_module_t* wasm_module_new(wasm_engine_t*, const char* binary, uintptr_t numBinaryBytes)
 {
 	IR::Module irModule;
-	if(!WASM::loadBinaryModule(binary, numBinaryBytes, irModule, Log::debug)) { return nullptr; }
+	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
+	WASM::LoadError loadError;
+	if(WASM::loadBinaryModule(inputStream, irModule, &loadError))
+	{ return new wasm_module_t{compileModule(irModule)}; }
 	else
 	{
-		return new wasm_module_t{compileModule(irModule)};
+		Log::printf(Log::debug, "%s", loadError.message.c_str());
+		return nullptr;
 	}
 }
-bool wasm_module_validate(const char* binary, size_t num_binary_bytes)
+bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 {
 	IR::Module irModule;
-	return WASM::loadBinaryModule(binary, num_binary_bytes, irModule, Log::debug);
+	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
+	WASM::LoadError loadError;
+	if(WASM::loadBinaryModule(inputStream, irModule, &loadError)) { return true; }
+	else
+	{
+		Log::printf(Log::debug, "%s", loadError.message.c_str());
+		return false;
+	}
 }
 
 size_t wasm_module_num_imports(const wasm_module_t* module)

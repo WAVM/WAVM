@@ -32,7 +32,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
 	module.featureSpec.maxDataSegments = 65536;
-	if(!WASM::loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
+	Serialization::MemoryInputStream inputStream(data, numBytes);
+	if(!WASM::loadBinaryModule(inputStream, module)) { return 0; }
 
 #if !WAVM_ENABLE_LIBFUZZER
 	std::string wastString = WAST::print(module);

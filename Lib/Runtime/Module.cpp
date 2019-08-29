@@ -80,20 +80,11 @@ ModuleRef Runtime::compileModule(const IR::Module& irModule)
 	}
 	else
 	{
-		// Serialize the WASM module.
+		// Serialize the module to WASM.
 		Timing::Timer keyTimer;
-		std::vector<U8> moduleBytes;
-		try
-		{
-			Serialization::ArrayOutputStream stream;
-			WASM::serialize(stream, irModule);
-			moduleBytes = stream.getBytes();
-		}
-		catch(Serialization::FatalSerializationException const& exception)
-		{
-			Errors::fatalf("Error serializing WebAssembly binary file:\n%s\n",
-						   exception.message.c_str());
-		}
+		Serialization::ArrayOutputStream stream;
+		WASM::saveBinaryModule(stream, irModule);
+		std::vector<U8> moduleBytes = stream.getBytes();
 		Timing::logTimer("Calculate object cache key", keyTimer);
 
 		// Check for cached object code for the module before compiling it.

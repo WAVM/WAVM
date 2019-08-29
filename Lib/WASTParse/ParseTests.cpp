@@ -151,25 +151,27 @@ static void parseTestScriptModule(CursorState* cursor,
 		{
 			outQuotedModuleType = QuotedModuleType::binary;
 
-			try
+			WASM::LoadError loadError;
+			Serialization::MemoryInputStream wasmInputStream(
+				(const U8*)outQuotedModuleString.data(), outQuotedModuleString.size());
+			if(!WASM::loadBinaryModule(wasmInputStream, outModule, &loadError))
 			{
-				Serialization::MemoryInputStream wasmInputStream(
-					(const U8*)outQuotedModuleString.data(), outQuotedModuleString.size());
-				WASM::serialize(wasmInputStream, outModule);
-			}
-			catch(Serialization::FatalSerializationException const& exception)
-			{
-				parseErrorf(cursor->parseState,
-							quoteToken,
-							"error deserializing binary module: %s",
-							exception.message.c_str());
-			}
-			catch(ValidationException const& exception)
-			{
-				parseErrorf(cursor->parseState,
-							quoteToken,
-							"validation error: %s",
-							exception.message.c_str());
+				switch(loadError.type)
+				{
+				case WASM::LoadError::Type::malformed:
+					parseErrorf(cursor->parseState,
+								quoteToken,
+								"error deserializing binary module: %s",
+								loadError.message.c_str());
+					break;
+				case WASM::LoadError::Type::invalid:
+					parseErrorf(cursor->parseState,
+								quoteToken,
+								"validation error: %s",
+								loadError.message.c_str());
+					break;
+				default: WAVM_UNREACHABLE();
+				};
 			}
 		}
 	}

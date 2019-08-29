@@ -60,7 +60,7 @@ I32 main(int argc, char** argv)
 			generateValidModule(module, random);
 
 			Serialization::ArrayOutputStream arrayOutputStream;
-			WASM::serialize(arrayOutputStream, module);
+			WASM::saveBinaryModule(arrayOutputStream, module);
 			std::vector<U8> wasmBytes = arrayOutputStream.getBytes();
 
 			const std::string outputFilePath

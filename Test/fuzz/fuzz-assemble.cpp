@@ -26,20 +26,22 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), wastModule, parseErrors))
 	{
 		std::vector<U8> wasmBytes;
-		try
 		{
-			Serialization::ArrayOutputStream stream;
-			WASM::serialize(stream, wastModule);
-			wasmBytes = stream.getBytes();
-		}
-		catch(Serialization::FatalSerializationException const&)
-		{
-			return 0;
+			Serialization::ArrayOutputStream outputStream;
+			WASM::saveBinaryModule(outputStream, wastModule);
+			wasmBytes = outputStream.getBytes();
 		}
 
 		Module wasmModule(FeatureSpec(true));
-		if(!WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), wasmModule))
-		{ Errors::fatal("Failed to deserialize the generated WASM file"); }
+		{
+			Serialization::MemoryInputStream inputStream(wasmBytes.data(), wasmBytes.size());
+			WASM::LoadError loadError;
+			if(!WASM::loadBinaryModule(inputStream, wasmModule, &loadError))
+			{
+				Errors::fatalf("Failed to load the generated WASM binary: %s",
+							   loadError.message.c_str());
+			}
+		}
 
 		ModuleMatcher moduleMatcher(wastModule, wasmModule);
 		moduleMatcher.verify();
