@@ -15,9 +15,9 @@ Runtime::StubResolver::StubResolver(Compartment* inCompartment,
 									bool inLogErrorOnStubGeneration,
 									ResourceQuotaRefParam inResourceQuota)
 : compartment(inCompartment)
+, resourceQuota(inResourceQuota)
 , functionBehavior(inFunctionBehavior)
 , logErrorOnStubGeneration(inLogErrorOnStubGeneration)
-, resourceQuota(inResourceQuota)
 {
 }
 
