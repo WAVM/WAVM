@@ -12,10 +12,12 @@ using namespace WAVM::Runtime;
 
 Runtime::StubResolver::StubResolver(Compartment* inCompartment,
 									FunctionBehavior inFunctionBehavior,
-									bool inLogErrorOnStubGeneration)
+									bool inLogErrorOnStubGeneration,
+									ResourceQuotaRefParam inResourceQuota)
 : compartment(inCompartment)
 , functionBehavior(inFunctionBehavior)
 , logErrorOnStubGeneration(inLogErrorOnStubGeneration)
+, resourceQuota(inResourceQuota)
 {
 }
 
@@ -88,35 +90,36 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 
 		// Instantiate the module and return the stub function instance.
 		auto stubModule = compileModule(stubIRModule);
-		auto stubModuleInstance = instantiateModule(compartment, stubModule, {}, "importStub");
+		auto stubModuleInstance
+			= instantiateModule(compartment, stubModule, {}, "importStub", resourceQuota);
+		if(!stubModuleInstance) { return false; }
 		outObject = getInstanceExport(stubModuleInstance, "importStub");
-		break;
+		WAVM_ASSERT(outObject);
+		return true;
 	}
 	case IR::ExternKind::memory: {
-		outObject = asObject(
-			Runtime::createMemory(compartment, asMemoryType(type), std::string(exportName)));
-		break;
+		outObject = asObject(Runtime::createMemory(
+			compartment, asMemoryType(type), std::string(exportName), resourceQuota));
+		return outObject != nullptr;
 	}
 	case IR::ExternKind::table: {
-		outObject = asObject(
-			Runtime::createTable(compartment, asTableType(type), nullptr, std::string(exportName)));
-		break;
+		outObject = asObject(Runtime::createTable(
+			compartment, asTableType(type), nullptr, std::string(exportName), resourceQuota));
+		return outObject != nullptr;
 	}
 	case IR::ExternKind::global: {
-		outObject = asObject(Runtime::createGlobal(compartment, asGlobalType(type)));
-		break;
+		outObject = asObject(Runtime::createGlobal(compartment, asGlobalType(type), resourceQuota));
+		return outObject != nullptr;
 	}
 	case IR::ExternKind::exceptionType: {
 		outObject = asObject(
 			Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
-		break;
+		return outObject != nullptr;
 	}
 
 	case IR::ExternKind::invalid:
 	default: WAVM_UNREACHABLE();
 	};
-
-	return true;
 }
 
 template<typename Type, typename ResolvedType>
@@ -131,6 +134,7 @@ static void linkImport(const IR::Module& module,
 	if(resolver.resolve(import.moduleName, import.exportName, resolvedType, importValue))
 	{
 		// Sanity check that the resolver returned an object of the right type.
+		WAVM_ASSERT(importValue);
 		WAVM_ASSERT(isA(importValue, resolvedType));
 		linkResult.resolvedImports.push_back(importValue);
 	}

@@ -47,7 +47,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 	GCPointer<Compartment> compartment = createCompartment();
 	{
-		StubResolver stubResolver(compartment, StubResolver::FunctionBehavior::zero, false);
+		StubResolver stubResolver(
+			compartment, StubResolver::FunctionBehavior::zero, false, resourceQuota);
 		LinkResult linkResult = linkModule(module, stubResolver);
 		if(linkResult.success)
 		{

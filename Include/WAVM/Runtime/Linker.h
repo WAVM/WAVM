@@ -85,7 +85,8 @@ namespace WAVM { namespace Runtime {
 
 		RUNTIME_API StubResolver(Compartment* inCompartment,
 								 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
-								 bool inLogErrorOnStubGeneration = true);
+								 bool inLogErrorOnStubGeneration = true,
+								 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 		RUNTIME_API virtual bool resolve(const std::string& moduleName,
 										 const std::string& exportName,
@@ -94,6 +95,7 @@ namespace WAVM { namespace Runtime {
 
 	private:
 		GCPointer<Compartment> compartment;
+		ResourceQuotaRef resourceQuota;
 		FunctionBehavior functionBehavior;
 		bool logErrorOnStubGeneration;
 	};
