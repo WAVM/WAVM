@@ -451,7 +451,7 @@ WAVM_INSTALL_TARGET(libWAVM)
 set_target_properties(libWAVM PROPERTIES FOLDER Libraries)
 set_target_properties(libWAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 set_target_properties(libWAVM PROPERTIES SOVERSION ${WAVM_VERSION_MAJOR})
-set_target_properties(libWAVM PROPERTIES OUTPUT_NAME "WAVM")
+set_target_properties(libWAVM PROPERTIES PREFIX "")
 
 # Process the CMake scripts in subdirectories.
 add_subdirectory(Examples)
