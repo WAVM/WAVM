@@ -8,8 +8,8 @@
 (module
 	(table $t1 1 funcref)
 	(table $t2 1 funcref)
-	(elem $t1 (i32.const 0) $f)
-	(elem $t2 (i32.const 0) $f)
+	(elem (table $t1) (i32.const 0) $f)
+	(elem (table $t2) (i32.const 0) $f)
 	(func $f)
 )
 
@@ -43,8 +43,8 @@
 	(table $t1 4 funcref)
 	(table $t2 3 funcref)
 
-	(elem $t1 (i32.const 0) $0 $1 $2 $3)
-	(elem $t2 (i32.const 1) $4 $5)
+	(elem (table $t1) (i32.const 0) $0 $1 $2 $3)
+	(elem (table $t2) (i32.const 1) $4 $5)
 
 	(func $0 (result i32) (i32.const 0))
 	(func $1 (result i32) (i32.const 1))
@@ -82,8 +82,8 @@
 	(table $t2 4 funcref)
 	(table $t3 4 funcref)
 
-	(elem $t2 (i32.const 0) $0 $1 $2 $3)
-	(elem $t3 (i32.const 0) $4 $5)
+	(elem (table $t2) (i32.const 0) $0 $1 $2 $3)
+	(elem (table $t3) (i32.const 0) $4 $5)
 	
 	(func $0 (result i32) (i32.const 0))
 	(func $1 (result i32) (i32.const 1))

@@ -8,20 +8,21 @@ set(PublicHeaders
 	Errors.h
 	FloatComponents.h
 	Hash.h
-	HashMap.h HashMapImpl.h HashMap.natvis
-	HashSet.h HashSetImpl.h HashSet.natvis
-	HashTable.h HashTableImpl.h HashTable.natvis
-	I128.h
-	I128Impl.h
-	I128Impl.LICENSE
+	HashMap.h   Impl/HashMapImpl.h   Impl/HashMap.natvis
+	HashSet.h   Impl/HashSetImpl.h   Impl/HashSet.natvis
+	HashTable.h Impl/HashTableImpl.h Impl/HashTable.natvis
+	I128.h      Impl/I128Impl.h      Impl/I128Impl.LICENSE
 	IndexMap.h
+	InlineArray.h
 	IntrusiveSharedPtr.h
 	IsNameChar.h
 	Lock.h
 	OptionalStorage.h
 	Serialization.h
+	Time.h
 	Timing.h
-	Unicode.h)
+	Unicode.h
+	LEB128.h)
 
 WAVM_ADD_LIB_COMPONENT(Inline
 	NONCOMPILED_SOURCES ${PublicHeaders})

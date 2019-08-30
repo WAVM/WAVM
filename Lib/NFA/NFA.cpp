@@ -1,10 +1,10 @@
+#include "WAVM/NFA/NFA.h"
 #include <inttypes.h>
 #include <string.h>
 #include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
@@ -13,7 +13,6 @@
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/NFA/NFA.h"
 
 using namespace WAVM;
 using namespace WAVM::NFA;
@@ -51,7 +50,7 @@ Builder* NFA::createBuilder()
 
 StateIndex NFA::addState(Builder* builder)
 {
-	wavmAssert(builder->nfaStates.size() < INT16_MAX);
+	WAVM_ASSERT(builder->nfaStates.size() < INT16_MAX);
 	builder->nfaStates.emplace_back();
 	return StateIndex(builder->nfaStates.size() - 1);
 }
@@ -172,14 +171,11 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 			localStateIndexToStateIndexMap.emplace_back(currentTerminalState);
 		}
 
-		enum
-		{
-			numSupportedLocalStates = 64
-		};
+		static constexpr Uptr numSupportedLocalStates = 64;
 		typedef DenseStaticIntSet<StateIndex, numSupportedLocalStates> LocalStateSet;
 
 		const Uptr numLocalStates = stateIndexToLocalStateIndexMap.size();
-		wavmAssert(numLocalStates <= numSupportedLocalStates);
+		WAVM_ASSERT(numLocalStates <= numSupportedLocalStates);
 		maxLocalStates = std::max<Uptr>(maxLocalStates, numLocalStates);
 
 		// Combine the [nextState][char] transition maps for current states and transpose to
@@ -276,14 +272,15 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 
 	Timing::logTimer("translated NFA->DFA", timer);
 	Log::printf(Log::metrics,
-				"  translated NFA with %" PRIuPTR " states to DFA with %" PRIuPTR " states\n",
+				"  translated NFA with %" WAVM_PRIuPTR " states to DFA with %" WAVM_PRIuPTR
+				" states\n",
 				Uptr(builder->nfaStates.size()),
 				Uptr(dfaStates.size()));
 	Log::printf(Log::metrics,
-				"  maximum number of states following a NFA state set: %" PRIuPTR "\n",
+				"  maximum number of states following a NFA state set: %" WAVM_PRIuPTR "\n",
 				maxLocalStates);
 	Log::printf(Log::metrics,
-				"  maximum number of states following a DFA state: %" PRIuPTR "\n",
+				"  maximum number of states following a DFA state: %" WAVM_PRIuPTR "\n",
 				maxDFANextStates);
 
 	return dfaStates;
@@ -320,7 +317,7 @@ struct StateTransitionsByChar
 
 	bool operator<(const StateTransitionsByChar& right) const
 	{
-		wavmAssert(numStates == right.numStates);
+		WAVM_ASSERT(numStates == right.numStates);
 		return memcmp(nextStateByInitialState,
 					  right.nextStateByInitialState,
 					  sizeof(StateIndex) * numStates)
@@ -328,7 +325,7 @@ struct StateTransitionsByChar
 	}
 	bool operator!=(const StateTransitionsByChar& right) const
 	{
-		wavmAssert(numStates == right.numStates);
+		WAVM_ASSERT(numStates == right.numStates);
 		return memcmp(nextStateByInitialState,
 					  right.nextStateByInitialState,
 					  sizeof(StateIndex) * numStates)
@@ -340,7 +337,7 @@ NFA::Machine::Machine(Builder* builder)
 {
 	// Convert the NFA constructed by the builder to a DFA.
 	std::vector<DFAState> dfaStates = convertToDFA(builder);
-	wavmAssert(dfaStates.size() <= internalMaxStates);
+	WAVM_ASSERT(dfaStates.size() <= internalMaxStates);
 	delete builder;
 
 	Timing::Timer timer;
@@ -392,12 +389,12 @@ NFA::Machine::Machine(Builder* builder)
 	}
 
 	// Build a map from character index to offset into [charClass][initialState] transition map.
-	wavmAssert((numClasses - 1) * (numStates - 1) <= UINT32_MAX);
+	WAVM_ASSERT((numClasses - 1) * (numStates - 1) <= UINT32_MAX);
 	for(Uptr charIndex = 0; charIndex < 256; ++charIndex)
 	{ charToOffsetMap[charIndex] = U32(numStates * characterToClassMap[charIndex]); }
 
 	Timing::logTimer("reduced DFA character classes", timer);
-	Log::printf(Log::metrics, "  reduced DFA character classes to %" PRIuPTR "\n", numClasses);
+	Log::printf(Log::metrics, "  reduced DFA character classes to %" WAVM_PRIuPTR "\n", numClasses);
 }
 
 NFA::Machine::~Machine()
@@ -573,7 +570,7 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 					= transitionPair.key < 0
 						  ? "terminal"
 								+ std::to_string(
-									  -(transitionPair.key & ~edgeDoesntConsumeInputFlag))
+									-(transitionPair.key & ~edgeDoesntConsumeInputFlag))
 						  : "state" + std::to_string(transitionPair.key);
 				result += "start" + std::to_string(startIndex) + " -> " + nextStateName
 						  + "[label=\""
@@ -617,7 +614,7 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 					= transitionPair.key < 0
 						  ? "terminal"
 								+ std::to_string(
-									  -(transitionPair.key & ~edgeDoesntConsumeInputFlag))
+									-(transitionPair.key & ~edgeDoesntConsumeInputFlag))
 						  : "state" + std::to_string(transitionPair.key);
 				result += "state" + std::to_string(stateIndex) + " -> " + nextStateName
 						  + "[label=\""

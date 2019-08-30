@@ -1,6 +1,38 @@
 cmake_minimum_required(VERSION 3.8.0)
 project (WAVM C CXX ASM)
 
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
+
+# Parse the VERSION file.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS VERSION)
+file(READ "VERSION" VERSION_FILE_CONTENTS)
+string(REGEX MATCH "([0-9]+)\.([0-9]+)\.([0-9]+)" WAVM_VERSION ${VERSION_FILE_CONTENTS})
+if(NOT WAVM_VERSION)
+	message(FATAL_ERROR "Could not parse 'VERSION' file")
+endif()
+set(WAVM_VERSION_MAJOR ${CMAKE_MATCH_1})
+set(WAVM_VERSION_MINOR ${CMAKE_MATCH_2})
+set(WAVM_VERSION_PATCH ${CMAKE_MATCH_3})
+
+# Configure CPack
+set(CPACK_PACKAGE_NAME "WAVM")
+set(CPACK_PACKAGE_VENDOR "Andrew Scheidecker")
+set(CPACK_PACKAGE_CONTACT "andrew@scheidecker.net")
+set(CPACK_PACKAGE_VERSION_MAJOR ${WAVM_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${WAVM_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${WAVM_VERSION_PATCH})
+set(CPACK_PACKAGE_DESCRIPTION "WebAssembly virtual machine")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://wavm.github.io")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "WAVM")
+set(CPACK_NSIS_MODIFY_PATH ON)
+set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libgcc1 (>= 1:3.3), libstdc++6 (>= 5.2), libtinfo5 (>= 6), zlib1g (>= 1:1.1.4)")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://wavm.github.io")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
+include(CPack)
+
 if(MSVC)
 	enable_language(ASM_MASM)
 endif()
@@ -9,7 +41,6 @@ endif()
 
 option(WAVM_ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
-option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
 option(WAVM_ENABLE_LTO "use link-time optimization" OFF)
 
 if(${WAVM_PERF_EVENTS})
@@ -59,6 +90,10 @@ if(WAVM_ENABLE_RUNTIME)
 	# CMake lists (strings with semicolon-separated elements).
 	separate_arguments(LLVM_DEFINITIONS)
 	separate_arguments(LLVM_INCLUDE_DIRS)
+	
+	option(WAVM_ENABLE_UNWIND "enables printing stack traces" ON)
+else()
+	set(WAVM_ENABLE_UNWIND OFF)
 endif()
 
 # Tell MASM to create SAFESEH-compatible object files on Win32.
@@ -125,71 +160,47 @@ configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Config.h.in
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h
 		DESTINATION include/WAVM/Inline)
 
+# Generate Inline/Version.h in the build/install directories from Inline/Version.h.in in the source
+configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Version.h.in
+			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h)
+install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
+		DESTINATION include/WAVM/Inline)
 
-# A function that sets compile options that are common to all WAVM targets.
-function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
-	# Add the WAVM public include directory.
-	target_include_directories(
-		${TARGET_NAME}
-		PUBLIC $<INSTALL_INTERFACE:include>
-			   $<BUILD_INTERFACE:${WAVM_SOURCE_DIR}/Include>
-			   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/Include>
-	)
+# Install LICENSE to <install root> on Windows and <install root>/share/wavm on other systems.
+install(FILES ${WAVM_SOURCE_DIR}/LICENSE
+		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,share/wavm>)
 
-	# Target C++11.
-	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_11)
+# Install the Examples directory to <install root>/examples on Windows, and <install root>/share/wavm/examples on other systems.
+install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
+		DESTINATION $<IF:$<PLATFORM_ID:Windows>,examples,share/wavm/examples>
+		PATTERN *.txt EXCLUDE)
 
-	if(MSVC)
-		if(WAVM_ENABLE_LTO)
-			target_compile_options(${TARGET_NAME} PRIVATE "/GL")
+set(OPTIONAL_C_FLAGS)
+set(OPTIONAL_CXX_FLAGS)
+function(ADD_COMPILER_FLAG_IF_SUPPORTED OPTIONAL_FLAG)
+	check_c_compiler_flag(${OPTIONAL_FLAG} C_HAS_FLAG)
+	check_cxx_compiler_flag(${OPTIONAL_FLAG} CXX_HAS_FLAG)
+	if(C_HAS_FLAG)
+		list(APPEND OPTIONAL_C_FLAGS ${OPTIONAL_FLAG})
+	endif()
+	if(CXX_HAS_FLAG)
+		list(APPEND OPTIONAL_CXX_FLAGS ${OPTIONAL_FLAG})
+	endif()
+endfunction()
 
-			set_target_properties(${TARGET_NAME} PROPERTIES STATIC_LIBRARY_FLAGS "/LTCG")
-			set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/LTCG")
-		endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wnull-dereference")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wduplicated-cond")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wduplicated-branches")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wlogical-op")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wnon-virtual-dtor")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wrestrict")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wdouble-promotion")
+endif()
 
-		# Compile files in parallel.
-		target_compile_options(${TARGET_NAME} PRIVATE "/MP")
-
-		# Compile with all warnings, and fatal warnings.
-		target_compile_options(${TARGET_NAME} PRIVATE "/W4")
-		target_compile_options(${TARGET_NAME} PRIVATE "/WX")
-
-		# Disable warnings
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4127") # conditional expression is constant
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4100") # unreferenced formal parameter
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4512") # assignment operator could not be generated
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4141") # 'inline': used more than once
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4310") # cast truncates constant value
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
-		target_compile_options(${TARGET_NAME} PRIVATE "/wd4204") # nonstandard extension used : non-constant aggregate initializer
-
-		target_link_libraries(${TARGET_NAME} PRIVATE "-ignore:4199") # /DELAYLOAD:... ignored; no imports found from ...
-
-	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	
-		if(WAVM_ENABLE_LTO)
-			target_compile_options(${TARGET_NAME} PRIVATE "-flto")
-			target_link_libraries(${TARGET_NAME} PRIVATE "-flto")
-		endif()
-
-		# Compile with all warnings and fatal warnings
-		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
-		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
-		
-		# Warn if a switch doesn't handle an enum case even if it has a default label.
-		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-enum")
-		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-default")
-	
-		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
-		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-
-		get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
-		if(TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND WAVM_ENABLE_STATIC_LIBRARY_PIC)
-			# Ensure that even static libraries are relocatable so they can be linked into a .so
-			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
-		endif()
-
+# A function that sets sanitizer options on a target.
+function(WAVM_SET_TARGET_SANITIZER_OPTIONS TARGET_NAME)
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 		if(WAVM_ENABLE_ASAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
 			target_link_libraries(${TARGET_NAME} PUBLIC "-fsanitize=address")
@@ -227,6 +238,94 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libtsan")
 			endif()
 		endif()
+	endif()
+endfunction()
+
+# A function that sets compile options that are common to all WAVM targets.
+function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
+	# Add the WAVM public include directory.
+	target_include_directories(
+		${TARGET_NAME}
+		PUBLIC $<INSTALL_INTERFACE:include>
+			   $<BUILD_INTERFACE:${WAVM_SOURCE_DIR}/Include>
+			   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/Include>
+	)
+
+	# Target C++11.
+	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_11)
+	
+	# Set sanitizer options.
+	WAVM_SET_TARGET_SANITIZER_OPTIONS(${TARGET_NAME})
+
+	if(MSVC)
+		if(WAVM_ENABLE_LTO)
+			target_compile_options(${TARGET_NAME} PRIVATE "/GL")
+
+			set_target_properties(${TARGET_NAME} PROPERTIES STATIC_LIBRARY_FLAGS "/LTCG")
+			set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/LTCG")
+		endif()
+
+		# Compile files in parallel.
+		target_compile_options(${TARGET_NAME} PRIVATE "/MP")
+
+		# Compile with all warnings, and fatal warnings.
+		target_compile_options(${TARGET_NAME} PRIVATE "/W4")
+		target_compile_options(${TARGET_NAME} PRIVATE "/WX")
+
+		# Disable warnings
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4127") # conditional expression is constant
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4100") # unreferenced formal parameter
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4512") # assignment operator could not be generated
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4141") # 'inline': used more than once
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4310") # cast truncates constant value
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4204") # nonstandard extension used : non-constant aggregate initializer
+
+		target_link_libraries(${TARGET_NAME} PRIVATE "-ignore:4199") # /DELAYLOAD:... ignored; no imports found from ...
+
+		# error C2338:  You've instantiated std::aligned_storage<Len, Align> with an extended alignment
+		# (in other words, Align > alignof(max_align_t)). Before VS 2017 15.8, the member "type" would
+		# non-conformingly have an alignment of only alignof(max_align_t). VS 2017 15.8 was fixed to
+		# handle this correctly, but the fix inherently changes layout and breaks binary compatibility
+		# (*only* for uses of aligned_storage with extended alignments). Please define either
+		# (1) _ENABLE_EXTENDED_ALIGNED_STORAGE to acknowledge that you understand this message and
+		#     that you actually want a type with an extended alignment, or
+		# (2) _DISABLE_EXTENDED_ALIGNED_STORAGE to silence this message and get the old non-conformant
+		#     behavior.
+		target_compile_definitions(${TARGET_NAME} PRIVATE "_ENABLE_EXTENDED_ALIGNED_STORAGE")
+
+	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	
+		if(WAVM_ENABLE_LTO)
+			target_compile_options(${TARGET_NAME} PRIVATE "-flto")
+			target_link_libraries(${TARGET_NAME} PRIVATE "-flto")
+		endif()
+
+		# Compile with all+extra warnings and fatal warnings
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wextra")
+		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
+		
+		# Exclude some warnings included in Wextra that we don't care about.
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-parameter")
+		
+		# Add the optional warnings that the compiler was detected to support.
+		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${OPTIONAL_C_FLAGS}>")
+		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${OPTIONAL_CXX_FLAGS}>")
+		
+		# Warn if a switch doesn't handle an enum case even if it has a default label.
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-enum")
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-default")
+	
+		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
+		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
+
+		get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
+		if(TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND WAVM_ENABLE_STATIC_LIBRARY_PIC)
+			# Ensure that even static libraries are relocatable so they can be linked into a .so
+			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
+		endif()
 
 		# Don't eliminate frame pointers: this makes thread forking work robustly if one of the
 		# sanitizers requires a frame pointer, and makes ASAN's stack trace on malloc much better
@@ -242,6 +341,15 @@ function(WAVM_INSTALL_TARGET TARGET_NAME)
 			ARCHIVE DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,lib,lib/WAVM/$<CONFIG>>
 			# Install RelWithDebInfo binaries to bin, and all others to bin/WAVM/config
 			RUNTIME DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>)
+
+	# Install PDB files to the same directory as the binaries.
+	# Exclude static libraries as TARGET_PDB_FILE only works for linked targets.
+	get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
+	if(MSVC AND NOT ${TARGET_TYPE} STREQUAL "STATIC_LIBRARY")
+		install(FILES $<TARGET_PDB_FILE:${TARGET_NAME}>
+				DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>
+				OPTIONAL)
+	endif()
 endfunction()
 
 # Older versions of CMake can't handle target_link_libraries on the monolithic WAVM library
@@ -263,7 +371,7 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	cmake_parse_arguments(COMPONENT
 		""
 		""
-		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_DEFINITIONS;PUBLIC_DEFINITIONS"
+		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_SYSTEM_INCLUDE_DIRECTORIES;PRIVATE_DEFINITIONS;PUBLIC_DEFINITIONS"
 		${ARGN})
 
 	# Translate the relative source and header file paths to absolute paths.
@@ -280,7 +388,7 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	endforeach()
 	
 	# Directly add the component's source files to the monolithic WAVM library.
-	target_sources(WAVM PRIVATE ${COMPONENT_SOURCES_ABSOLUTE} ${CMAKE_CURRENT_LIST_FILE})
+	target_sources(libWAVM PRIVATE ${COMPONENT_SOURCES_ABSOLUTE} ${CMAKE_CURRENT_LIST_FILE})
 
 	# Add the non-compiled source files to a global list that will be flagged as "header-only".
 	list(APPEND WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES ${COMPONENT_NONCOMPILED_SOURCES_ABSOLUTE})
@@ -294,18 +402,19 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	set(WAVM_MONOLIB_PUBLIC_LIBS ${WAVM_MONOLIB_PUBLIC_LIBS} CACHE INTERNAL "" FORCE)
 	
 	# Add the component's include directories and definitions.
-	target_include_directories(WAVM PRIVATE ${COMPONENT_PRIVATE_INCLUDE_DIRECTORIES})
-	target_compile_definitions(WAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
-	target_compile_definitions(WAVM PUBLIC ${COMPONENT_PUBLIC_DEFINITIONS})
+	target_include_directories(libWAVM PRIVATE ${COMPONENT_PRIVATE_INCLUDE_DIRECTORIES})
+	target_include_directories(libWAVM SYSTEM PRIVATE ${COMPONENT_PRIVATE_SYSTEM_INCLUDE_DIRECTORIES})
+	target_compile_definitions(libWAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
+	target_compile_definitions(libWAVM PUBLIC ${COMPONENT_PUBLIC_DEFINITIONS})
 
 	# Set up the component's API definitions.
 	string(TOUPPER ${COMPONENT_NAME} COMPONENT_C_NAME)
 	string(REPLACE "-" "_" COMPONENT_C_NAME ${COMPONENT_C_NAME})
 	if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
-		target_compile_definitions(WAVM PRIVATE "\"${COMPONENT_C_NAME}_API=__declspec(dllexport)\"")
-		target_compile_definitions(WAVM INTERFACE "\"${COMPONENT_C_NAME}_API=__declspec(dllimport)\"")
+		target_compile_definitions(libWAVM PRIVATE "\"${COMPONENT_C_NAME}_API=__declspec(dllexport)\"")
+		target_compile_definitions(libWAVM INTERFACE "\"${COMPONENT_C_NAME}_API=__declspec(dllimport)\"")
 	else()
-		target_compile_definitions(WAVM PUBLIC "${COMPONENT_C_NAME}_API=")
+		target_compile_definitions(libWAVM PUBLIC "${COMPONENT_C_NAME}_API=")
 	endif()
 endfunction()
 
@@ -325,7 +434,7 @@ function(WAVM_ADD_EXECUTABLE EXE_NAME)
 
 	# Ignore the PRIVATE_LIB_COMPONENTS and PUBLIC_LIB_COMPONENTS, and just link the executable with
 	# the monolithic WAVM library.
-	target_link_libraries(${EXE_NAME} PRIVATE WAVM)
+	target_link_libraries(${EXE_NAME} PRIVATE libWAVM)
 
 	if(EXE_FOLDER)
 		set_target_properties(${EXE_NAME} PROPERTIES FOLDER ${EXE_FOLDER})
@@ -334,14 +443,16 @@ endfunction()
 
 # Create a WAVM library that will include all WAVM library components.
 if(WAVM_ENABLE_STATIC_LINKING)
-	add_library(WAVM STATIC)
+	add_library(libWAVM STATIC)
 else()
-	add_library(WAVM SHARED)
+	add_library(libWAVM SHARED)
 endif()
-WAVM_SET_TARGET_COMPILE_OPTIONS(WAVM)
-WAVM_INSTALL_TARGET(WAVM)
-set_target_properties(WAVM PROPERTIES FOLDER Libraries)
-set_target_properties(WAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+WAVM_SET_TARGET_COMPILE_OPTIONS(libWAVM)
+WAVM_INSTALL_TARGET(libWAVM)
+set_target_properties(libWAVM PROPERTIES FOLDER Libraries)
+set_target_properties(libWAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+set_target_properties(libWAVM PROPERTIES SOVERSION ${WAVM_VERSION_MAJOR})
+set_target_properties(libWAVM PROPERTIES PREFIX "")
 
 # Process the CMake scripts in subdirectories.
 add_subdirectory(Examples)
@@ -355,32 +466,34 @@ add_subdirectory(Lib/VFS)
 add_subdirectory(Lib/WASM)
 add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
-add_subdirectory(Programs/wavm-as)
-add_subdirectory(Programs/wavm-disas)
+add_subdirectory(Programs/wavm)
 add_subdirectory(Test)
-add_subdirectory(ThirdParty/dtoa)
+add_subdirectory(ThirdParty/gdtoa)
+add_subdirectory(ThirdParty/liblmdb)
 
 if(WAVM_ENABLE_RUNTIME)
+	add_subdirectory(Include/WAVM/RuntimeABI)
 	add_subdirectory(Lib/Emscripten)
+	add_subdirectory(Lib/ObjectCache)
 	add_subdirectory(Lib/LLVMJIT)
 	add_subdirectory(Lib/Runtime)
 	add_subdirectory(Lib/ThreadTest)
 	add_subdirectory(Lib/WASI)
 	add_subdirectory(Lib/wavm-c)
-	add_subdirectory(Programs/wavm-compile)
-	add_subdirectory(Programs/wavm-run)
-	add_subdirectory(Programs/wavm-run-wasi)
+endif()
+
+if(WAVM_ENABLE_UNWIND)
 	add_subdirectory(ThirdParty/libunwind)
 endif()
 
 # Add the library dependencies accumulated from the various library components as link dependencies
 # of the monolithic WAVM library.
-target_link_libraries(WAVM PRIVATE ${WAVM_MONOLIB_PRIVATE_LIBS})
-target_link_libraries(WAVM PUBLIC ${WAVM_MONOLIB_PUBLIC_LIBS})
+target_link_libraries(libWAVM PRIVATE ${WAVM_MONOLIB_PRIVATE_LIBS})
+target_link_libraries(libWAVM PUBLIC ${WAVM_MONOLIB_PUBLIC_LIBS})
 
 # Set the non-compiled source files accumulated from the various library components as header-only,
 # which includes the files in IDE projects, but doesn't compile them.
-target_sources(WAVM PRIVATE ${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES})
+target_sources(libWAVM PRIVATE ${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES})
 set_source_files_properties(${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 # Create a CMake package in <build>/lib/cmake/WAVM containing the WAVM library targets.
@@ -401,23 +514,11 @@ add_custom_target(RootFiles SOURCES
 	.clang-format
 	.travis.yml
 	azure-pipelines.yml
-	Build/azure-windows-build-job-template.yml
+	Build/azure-build-job-template.yml
 	Build/notify-discord.sh
 	Build/travis-build.sh
-	LICENSE.md
+	LICENSE
 	README.md
 	run-clang-format.sh
+	VERSION
 	WebAssembly.tmLanguage)
-
-# Add an option to include the Wavix runtime in the WAVM build.
-set(WAVM_EXTERNAL_WAVIX_SOURCE_DIR
-    "${WAVM_EXTERNAL_WAVIX_SOURCE_DIR}"
-    CACHE PATH "Set to the path to the Wavix source code if you wish to build it as part of WAVM")
-if(NOT WAVM_EXTERNAL_WAVIX_SOURCE_DIR STREQUAL "")
-	set(WAVM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/WAVM)
-	add_subdirectory(${WAVM_EXTERNAL_WAVIX_SOURCE_DIR} Wavix)
-
-	# CMake doesn't automatically add the dependency of the wavix executable on the WAVM library, so
-	# add it explicitly to make sure it doesn't build wavix until it's done building WAVM.
-	add_dependencies(wavix WAVM)
-endif()

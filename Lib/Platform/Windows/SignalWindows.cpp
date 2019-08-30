@@ -1,12 +1,11 @@
+#include <atomic>
+#include <functional>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Signal.h"
 #include "WindowsPrivate.h"
-
-#include <atomic>
-#include <functional>
 
 #define NOMINMAX
 #include <Windows.h>
@@ -41,8 +40,7 @@ static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& 
 	// Decide how to handle this exception code.
 	switch(exceptionPointers->ExceptionRecord->ExceptionCode)
 	{
-	case EXCEPTION_ACCESS_VIOLATION:
-	{
+	case EXCEPTION_ACCESS_VIOLATION: {
 		outSignal.type = Signal::Type::accessViolation;
 		outSignal.accessViolation.address
 			= exceptionPointers->ExceptionRecord->ExceptionInformation[1];
@@ -108,7 +106,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 	__except(sehSignalFilterFunction(GetExceptionInformation(), filter, context))
 	{
 		// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
-		errorUnless(_resetstkoflw());
+		WAVM_ERROR_UNLESS(_resetstkoflw());
 
 		return true;
 	}

@@ -147,7 +147,7 @@ static NFA::CharSet parseSet(const char*& nextChar)
 {
 	NFA::CharSet result;
 
-	wavmAssert(*nextChar == '[');
+	WAVM_ASSERT(*nextChar == '[');
 	++nextChar;
 
 	bool isNegative = false;
@@ -174,25 +174,21 @@ static Node* parseElementary(const char*& nextChar, Uptr groupDepth)
 	NFA::CharSet charSet;
 	switch(*nextChar)
 	{
-	case '[':
-	{
+	case '[': {
 		charSet = parseSet(nextChar);
 		break;
 	}
-	case '.':
-	{
+	case '.': {
 		charSet = ~NFA::CharSet(0);
 		++nextChar;
 		break;
 	}
-	case '$':
-	{
+	case '$': {
 		charSet.add('\n');
 		++nextChar;
 		break;
 	}
-	default:
-	{
+	default: {
 		charSet = parseCharClass<false>(nextChar);
 		break;
 	}
@@ -208,7 +204,7 @@ static Node* parseGroup(const char*& nextChar, Uptr groupDepth)
 	{
 		++nextChar;
 		Node* result = parseUnion(nextChar, groupDepth + 1);
-		wavmAssert(*nextChar == ')');
+		WAVM_ASSERT(*nextChar == ')');
 		++nextChar;
 		return result;
 	}
@@ -288,21 +284,18 @@ static void createNFA(NFA::Builder* nfaBuilder,
 {
 	switch(node->type)
 	{
-	case NodeType::lit:
-	{
+	case NodeType::lit: {
 		auto lit = (Lit*)node;
 		NFA::addEdge(nfaBuilder, initialState, lit->charSet, finalState);
 		break;
 	}
-	case NodeType::zeroOrMore:
-	{
+	case NodeType::zeroOrMore: {
 		auto zeroOrMore = (ZeroOrMore*)node;
 		createNFA(nfaBuilder, zeroOrMore->child, initialState, initialState);
 		NFA::addEpsilonEdge(nfaBuilder, initialState, finalState);
 		break;
 	};
-	case NodeType::oneOrMore:
-	{
+	case NodeType::oneOrMore: {
 		auto oneOrMore = (OneOrMore*)node;
 		auto intermediateState = NFA::addState(nfaBuilder);
 		createNFA(nfaBuilder, oneOrMore->child, initialState, intermediateState);
@@ -310,22 +303,19 @@ static void createNFA(NFA::Builder* nfaBuilder,
 		NFA::addEpsilonEdge(nfaBuilder, intermediateState, finalState);
 		break;
 	}
-	case NodeType::optional:
-	{
+	case NodeType::optional: {
 		auto optional = (Optional*)node;
 		createNFA(nfaBuilder, optional->child, initialState, finalState);
 		NFA::addEpsilonEdge(nfaBuilder, initialState, finalState);
 		break;
 	}
-	case NodeType::alt:
-	{
+	case NodeType::alt: {
 		auto alt = (Alt*)node;
 		createNFA(nfaBuilder, alt->firstChild, initialState, finalState);
 		createNFA(nfaBuilder, alt->secondChild, initialState, finalState);
 		break;
 	}
-	case NodeType::seq:
-	{
+	case NodeType::seq: {
 		auto seq = (Seq*)node;
 		auto intermediateState = NFA::addState(nfaBuilder);
 		createNFA(nfaBuilder, seq->firstChild, initialState, intermediateState);

@@ -1,30 +1,40 @@
 #pragma once
 
+#include <memory>
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Runtime.h"
 
 namespace WAVM { namespace VFS {
 	struct FileSystem;
-	struct FD;
+	struct VFD;
+}}
+
+namespace WAVM { namespace Runtime {
+	struct Resolver;
 }}
 
 namespace WAVM { namespace WASI {
-	enum class RunResult
+
+	struct Process;
+
+	struct ExitException
 	{
-		success = 0,
-		linkError,
-		noStartFunction,
-		mistypedStartFunction,
-		doesNotExportMemory
+		U32 exitCode;
 	};
-	WASI_API RunResult run(Runtime::ModuleConstRefParam module,
-						   std::vector<std::string>&& inArgs,
-						   std::vector<std::string>&& inEnvs,
-						   VFS::FileSystem* fileSystem,
-						   VFS::FD* stdIn,
-						   VFS::FD* stdOut,
-						   VFS::FD* stdErr,
-						   I32& outExitCode);
+
+	WASI_API std::shared_ptr<Process> createProcess(Runtime::Compartment* compartment,
+													std::vector<std::string>&& inArgs,
+													std::vector<std::string>&& inEnvs,
+													VFS::FileSystem* fileSystem,
+													VFS::VFD* stdIn,
+													VFS::VFD* stdOut,
+													VFS::VFD* stdErr);
+
+	WASI_API Runtime::Resolver* getProcessResolver(const std::shared_ptr<Process>& process);
+
+	WASI_API Runtime::Memory* getProcessMemory(const std::shared_ptr<Process>& process);
+	WASI_API void setProcessMemory(const std::shared_ptr<Process>& process,
+								   Runtime::Memory* memory);
 
 	enum class SyscallTraceLevel
 	{

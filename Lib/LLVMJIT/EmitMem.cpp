@@ -8,15 +8,15 @@
 #include "WAVM/Inline/BasicTypes.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/AtomicOrdering.h"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
+#include <llvm/Support/AtomicOrdering.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM::IR;
@@ -69,7 +69,7 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 
 void EmitFunctionContext::memory_grow(MemoryImm imm)
 {
-	errorUnless(imm.memoryIndex == 0);
+	WAVM_ERROR_UNLESS(imm.memoryIndex == 0);
 	llvm::Value* deltaNumPages = pop();
 	ValueVector previousNumPages = emitRuntimeIntrinsic(
 		"memory.grow",
@@ -77,17 +77,17 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 					 TypeTuple({ValueType::i32, inferValueType<Uptr>()})),
 		{deltaNumPages,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
-	wavmAssert(previousNumPages.size() == 1);
+	WAVM_ASSERT(previousNumPages.size() == 1);
 	push(previousNumPages[0]);
 }
 void EmitFunctionContext::memory_size(MemoryImm imm)
 {
-	errorUnless(imm.memoryIndex == 0);
+	WAVM_ERROR_UNLESS(imm.memoryIndex == 0);
 	ValueVector currentNumPages = emitRuntimeIntrinsic(
 		"memory.size",
 		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
 		{getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
-	wavmAssert(currentNumPages.size() == 1);
+	WAVM_ASSERT(currentNumPages.size() == 1);
 	push(currentNumPages[0]);
 }
 
@@ -168,7 +168,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 //
 
 #define EMIT_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp)        \
-	void EmitFunctionContext::valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm)       \
+	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
@@ -181,7 +181,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		push(conversionOp(load, asLLVMType(llvmContext, ValueType::valueTypeId)));                 \
 	}
 #define EMIT_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp)       \
-	void EmitFunctionContext::valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm)       \
+	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
 		auto value = pop();                                                                        \
 		auto address = pop();                                                                      \
@@ -195,34 +195,39 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		store->setAlignment(1);                                                                    \
 	}
 
-EMIT_LOAD_OP(i32, load8_s, llvmContext.i8Type, 0, sext)
-EMIT_LOAD_OP(i32, load8_u, llvmContext.i8Type, 0, zext)
-EMIT_LOAD_OP(i32, load16_s, llvmContext.i16Type, 1, sext)
-EMIT_LOAD_OP(i32, load16_u, llvmContext.i16Type, 1, zext)
-EMIT_LOAD_OP(i64, load8_s, llvmContext.i8Type, 0, sext)
-EMIT_LOAD_OP(i64, load8_u, llvmContext.i8Type, 0, zext)
-EMIT_LOAD_OP(i64, load16_s, llvmContext.i16Type, 1, sext)
-EMIT_LOAD_OP(i64, load16_u, llvmContext.i16Type, 1, zext)
-EMIT_LOAD_OP(i64, load32_s, llvmContext.i32Type, 2, sext)
-EMIT_LOAD_OP(i64, load32_u, llvmContext.i32Type, 2, zext)
+EMIT_LOAD_OP(i32, i32_load8_s, llvmContext.i8Type, 0, sext)
+EMIT_LOAD_OP(i32, i32_load8_u, llvmContext.i8Type, 0, zext)
+EMIT_LOAD_OP(i32, i32_load16_s, llvmContext.i16Type, 1, sext)
+EMIT_LOAD_OP(i32, i32_load16_u, llvmContext.i16Type, 1, zext)
+EMIT_LOAD_OP(i64, i64_load8_s, llvmContext.i8Type, 0, sext)
+EMIT_LOAD_OP(i64, i64_load8_u, llvmContext.i8Type, 0, zext)
+EMIT_LOAD_OP(i64, i64_load16_s, llvmContext.i16Type, 1, sext)
+EMIT_LOAD_OP(i64, i64_load16_u, llvmContext.i16Type, 1, zext)
+EMIT_LOAD_OP(i64, i64_load32_s, llvmContext.i32Type, 2, sext)
+EMIT_LOAD_OP(i64, i64_load32_u, llvmContext.i32Type, 2, zext)
 
-EMIT_LOAD_OP(i32, load, llvmContext.i32Type, 2, identity)
-EMIT_LOAD_OP(i64, load, llvmContext.i64Type, 3, identity)
-EMIT_LOAD_OP(f32, load, llvmContext.f32Type, 2, identity)
-EMIT_LOAD_OP(f64, load, llvmContext.f64Type, 3, identity)
+EMIT_LOAD_OP(i32, i32_load, llvmContext.i32Type, 2, identity)
+EMIT_LOAD_OP(i64, i64_load, llvmContext.i64Type, 3, identity)
+EMIT_LOAD_OP(f32, f32_load, llvmContext.f32Type, 2, identity)
+EMIT_LOAD_OP(f64, f64_load, llvmContext.f64Type, 3, identity)
 
-EMIT_STORE_OP(i32, store8, llvmContext.i8Type, 0, trunc)
-EMIT_STORE_OP(i64, store8, llvmContext.i8Type, 0, trunc)
-EMIT_STORE_OP(i32, store16, llvmContext.i16Type, 1, trunc)
-EMIT_STORE_OP(i64, store16, llvmContext.i16Type, 1, trunc)
-EMIT_STORE_OP(i32, store, llvmContext.i32Type, 2, trunc)
-EMIT_STORE_OP(i64, store32, llvmContext.i32Type, 2, trunc)
-EMIT_STORE_OP(i64, store, llvmContext.i64Type, 3, identity)
-EMIT_STORE_OP(f32, store, llvmContext.f32Type, 2, identity)
-EMIT_STORE_OP(f64, store, llvmContext.f64Type, 3, identity)
+EMIT_STORE_OP(i32, i32_store8, llvmContext.i8Type, 0, trunc)
+EMIT_STORE_OP(i64, i64_store8, llvmContext.i8Type, 0, trunc)
+EMIT_STORE_OP(i32, i32_store16, llvmContext.i16Type, 1, trunc)
+EMIT_STORE_OP(i64, i64_store16, llvmContext.i16Type, 1, trunc)
+EMIT_STORE_OP(i32, i32_store, llvmContext.i32Type, 2, trunc)
+EMIT_STORE_OP(i64, i64_store32, llvmContext.i32Type, 2, trunc)
+EMIT_STORE_OP(i64, i64_store, llvmContext.i64Type, 3, identity)
+EMIT_STORE_OP(f32, f32_store, llvmContext.f32Type, 2, identity)
+EMIT_STORE_OP(f64, f64_store, llvmContext.f64Type, 3, identity)
 
-EMIT_STORE_OP(v128, store, value->getType(), 4, identity)
-EMIT_LOAD_OP(v128, load, llvmContext.i64x2Type, 4, identity)
+EMIT_STORE_OP(v128, v128_store, value->getType(), 4, identity)
+EMIT_LOAD_OP(v128, v128_load, llvmContext.i64x2Type, 4, identity)
+
+EMIT_LOAD_OP(v128, v8x16_load_splat, llvmContext.i8Type, 0, splat<16>)
+EMIT_LOAD_OP(v128, v16x8_load_splat, llvmContext.i16Type, 1, splat<8>)
+EMIT_LOAD_OP(v128, v32x4_load_splat, llvmContext.i32Type, 2, splat<4>)
+EMIT_LOAD_OP(v128, v64x2_load_splat, llvmContext.i64Type, 3, splat<2>)
 
 void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {
@@ -286,6 +291,17 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		 expectedValue,
 		 timeout,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)})[0]);
+}
+
+void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
+{
+	switch(imm.order)
+	{
+	case MemoryOrder::sequentiallyConsistent:
+		irBuilder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent);
+		break;
+	default: WAVM_UNREACHABLE();
+	};
 }
 
 #define EMIT_ATOMIC_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, memToValue)   \

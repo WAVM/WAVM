@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -32,34 +32,17 @@ enum class DumpFormat
 static void dumpWAST(const std::string& wastString, const char* outputDir)
 {
 	const Uptr wastHash = Hash<std::string>()(wastString);
-
-	VFS::FD* wastFile = nullptr;
-	errorUnless(
-		Platform::openHostFile(std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
-							   VFS::FileAccessMode::writeOnly,
-							   VFS::FileCreateMode::createAlways,
-							   wastFile)
-		== VFS::OpenResult::success);
-	errorUnless(wastFile);
-	errorUnless(wastFile->write(wastString.c_str(), wastString.size())
-				== VFS::WriteResult::success);
-	errorUnless(wastFile->close() == VFS::CloseResult::success);
+	const std::string outputPath
+		= std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast";
+	WAVM_ERROR_UNLESS(saveFile(outputPath.c_str(), wastString.c_str(), wastString.size()));
 }
 
 static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 {
 	const Uptr wasmHash = XXH<Uptr>(wasmBytes, numBytes, 0);
-
-	VFS::FD* wasmFile = nullptr;
-	errorUnless(
-		Platform::openHostFile(std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
-							   VFS::FileAccessMode::writeOnly,
-							   VFS::FileCreateMode::createAlways,
-							   wasmFile)
-		== VFS::OpenResult::success);
-	errorUnless(wasmFile);
-	errorUnless(wasmFile->write(wasmBytes, numBytes) == VFS::WriteResult::success);
-	errorUnless(wasmFile->close() == VFS::CloseResult::success);
+	const std::string outputPath
+		= std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm";
+	WAVM_ERROR_UNLESS(saveFile(outputPath.c_str(), wasmBytes, numBytes));
 }
 
 static void dumpModule(const Module& module, const char* outputDir, DumpFormat dumpFormat)
@@ -72,22 +55,9 @@ static void dumpModule(const Module& module, const char* outputDir, DumpFormat d
 
 	if(dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both)
 	{
-		std::vector<U8> wasmBytes;
-		try
-		{
-			// Serialize the WebAssembly module.
-			Serialization::ArrayOutputStream stream;
-			WASM::serialize(stream, module);
-			wasmBytes = stream.getBytes();
-		}
-		catch(Serialization::FatalSerializationException const& exception)
-		{
-			Log::printf(Log::error,
-						"Error serializing WebAssembly binary file:\n%s\n",
-						exception.message.c_str());
-			return;
-		}
-
+		Serialization::ArrayOutputStream outputStream;
+		WASM::saveBinaryModule(outputStream, module);
+		std::vector<U8> wasmBytes = outputStream.getBytes();
 		dumpWASM(wasmBytes.data(), wasmBytes.size(), outputDir);
 	}
 }
@@ -96,13 +66,11 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 {
 	switch(command->type)
 	{
-	case Command::action:
-	{
+	case Command::action: {
 		auto actionCommand = (ActionCommand*)command;
 		switch(actionCommand->action->type)
 		{
-		case ActionType::_module:
-		{
+		case ActionType::_module: {
 			auto moduleAction = (ModuleAction*)actionCommand->action.get();
 			dumpModule(*moduleAction->module, outputDir, dumpFormat);
 			break;
@@ -113,15 +81,13 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 		}
 		break;
 	}
-	case Command::assert_unlinkable:
-	{
+	case Command::assert_unlinkable: {
 		auto assertUnlinkableCommand = (AssertUnlinkableCommand*)command;
 		dumpModule(*assertUnlinkableCommand->moduleAction->module, outputDir, dumpFormat);
 		break;
 	}
 	case Command::assert_invalid:
-	case Command::assert_malformed:
-	{
+	case Command::assert_malformed: {
 		auto assertInvalidOrMalformedCommand = (AssertInvalidOrMalformedCommand*)command;
 		if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::text
 		   && (dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both))
@@ -150,6 +116,8 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 
 int main(int argc, char** argv)
 {
+	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
+
 	const char* filename = nullptr;
 	const char* outputDir = ".";
 	DumpFormat dumpFormat = DumpFormat::both;
@@ -198,10 +166,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	wavmAssert(filename);
-
-	// Always enable debug logging for tests.
-	Log::setCategoryEnabled(Log::debug, true);
+	WAVM_ASSERT(filename);
 
 	// Read the file into a vector.
 	std::vector<U8> testScriptBytes;
@@ -215,7 +180,7 @@ int main(int argc, char** argv)
 	std::vector<WAST::Error> testErrors;
 
 	// Parse the test script.
-	IR::FeatureSpec featureSpec;
+	IR::FeatureSpec featureSpec(true);
 	featureSpec.requireSharedFlagForAtomicOperators = true;
 	WAST::parseTestCommands((const char*)testScriptBytes.data(),
 							testScriptBytes.size(),

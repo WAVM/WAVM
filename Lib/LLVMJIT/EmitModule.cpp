@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <vector>
-
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
@@ -10,18 +9,18 @@
 #include "WAVM/Inline/Timing.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/Twine.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
+#include <llvm/ADT/Twine.h>
+#include <llvm/BinaryFormat/Dwarf.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DIBuilder.h>
+#include <llvm/IR/DebugInfoMetadata.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalValue.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/Metadata.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
@@ -35,14 +34,18 @@ using namespace WAVM::Runtime;
 
 EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 									 LLVMContext& inLLVMContext,
-									 llvm::Module* inLLVMModule)
+									 llvm::Module* inLLVMModule,
+									 llvm::TargetMachine* inTargetMachine)
 : irModule(inIRModule)
 , llvmContext(inLLVMContext)
 , llvmModule(inLLVMModule)
+, targetMachine(inTargetMachine)
 , defaultMemoryOffset(nullptr)
 , defaultTableOffset(nullptr)
 , diBuilder(*inLLVMModule)
 {
+	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
+
 	diModuleScope = diBuilder.createFile("unknown", "unknown");
 	diCompileUnit = diBuilder.createCompileUnit(0xffff, diModuleScope, "WAVM", true, "", 0);
 
@@ -91,17 +94,21 @@ static llvm::Constant* createImportedConstant(llvm::Module& llvmModule, llvm::Tw
 
 void LLVMJIT::emitModule(const IR::Module& irModule,
 						 LLVMContext& llvmContext,
-						 llvm::Module& outLLVMModule)
+						 llvm::Module& outLLVMModule,
+						 llvm::TargetMachine* targetMachine)
 {
 	Timing::Timer emitTimer;
-	EmitModuleContext moduleContext(irModule, llvmContext, &outLLVMModule);
+	EmitModuleContext moduleContext(irModule, llvmContext, &outLLVMModule, targetMachine);
+
+	// Set the module data layout for the target machine.
+	outLLVMModule.setDataLayout(targetMachine->createDataLayout());
 
 	// Create an external reference to the appropriate exception personality function.
-	auto personalityFunction
-		= llvm::Function::Create(llvm::FunctionType::get(llvmContext.i32Type, {}, false),
-								 llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-								 USE_WINDOWS_SEH ? "__CxxFrameHandler3" : "__gxx_personality_v0",
-								 &outLLVMModule);
+	auto personalityFunction = llvm::Function::Create(
+		llvm::FunctionType::get(llvmContext.i32Type, {}, false),
+		llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+		moduleContext.useWindowsSEH ? "__CxxFrameHandler3" : "__gxx_personality_v0",
+		&outLLVMModule);
 
 	// Create LLVM external globals corresponding to the encoded function types for the module's
 	// indexed function types.
@@ -168,7 +175,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		createImportedConstant(outLLVMModule, "tableReferenceBias"), llvmContext.iptrType);
 
 	// Create a LLVM external global that will point to the std::type_info for Runtime::Exception.
-	if(USE_WINDOWS_SEH)
+	if(moduleContext.useWindowsSEH)
 	{
 		// The Windows type_info is referenced by the exception handling tables with a 32-bit
 		// image-relative offset, so we have to create a copy of it in the image.
@@ -239,7 +246,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 								 functionDefMutableDataAsIptr,
 								 moduleContext.moduleInstanceId,
 								 moduleContext.typeIds[functionDef.type.index]);
-		setFramePointerAttribute(function);
+		setFunctionAttributes(targetMachine, function);
 
 		EmitFunctionContext(llvmContext, moduleContext, irModule, functionDef, function).emit();
 	}

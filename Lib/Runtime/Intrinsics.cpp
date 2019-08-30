@@ -200,7 +200,8 @@ ModuleInstance* Intrinsics::instantiateModule(
 											 {},
 											 {},
 											 nullptr,
-											 std::move(debugName));
+											 std::move(debugName),
+											 ResourceQuotaRef());
 	compartment->moduleInstances[id] = moduleInstance;
 	return moduleInstance;
 }

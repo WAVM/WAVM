@@ -1,21 +1,24 @@
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include <utility>
-
 #include "LLVMJITPrivate.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/LLVMJIT/LLVMJIT.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/DynamicLibrary.h"
-#include "llvm/Support/TargetSelect.h"
+#include <llvm/ADT/APInt.h>
+#include <llvm/ADT/StringRef.h>
+#include <llvm/CodeGen/TargetSubtargetInfo.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/JITSymbol.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Type.h>
+#include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Target/TargetMachine.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
@@ -64,35 +67,55 @@ static HashMap<std::string, const char*> runtimeSymbolMap = {
 #endif
 };
 
+// wavm_probe_stack can't be looked up by dladdr when WAVM_USE_STATIC_LINKING=1, so get a reference
+// to it directly.
+#ifndef _WIN32
+extern "C" void wavm_probe_stack();
+#endif
+
 llvm::JITEvaluatedSymbol LLVMJIT::resolveJITImport(llvm::StringRef name)
 {
-	// Allow some intrinsics used by LLVM
-	const char* const* runtimeSymbolName = runtimeSymbolMap.get(name.str());
-	if(!runtimeSymbolName) { return llvm::JITEvaluatedSymbol(nullptr); }
+	void* addr = nullptr;
+#ifndef _WIN32
+	if(name == "wavm_probe_stack") { addr = (void*)&wavm_probe_stack; }
+	else
+#endif
+	{
+		// Allow some intrinsics used by LLVM
+		const char* const* runtimeSymbolName = runtimeSymbolMap.get(name.str());
+		if(!runtimeSymbolName) { return llvm::JITEvaluatedSymbol(nullptr); }
 
-	void* addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(*runtimeSymbolName);
+		addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(*runtimeSymbolName);
+	}
+
 	if(!addr)
 	{
 		Errors::fatalf("LLVM generated code references undefined external symbol: %s",
-					   *runtimeSymbolName);
+					   name.str().c_str());
 	}
 	return llvm::JITEvaluatedSymbol(reinterpret_cast<Uptr>(addr), llvm::JITSymbolFlags::None);
 }
 
 static bool globalInitLLVM()
 {
-	llvm::InitializeNativeTarget();
-	llvm::InitializeNativeTargetAsmPrinter();
-	llvm::InitializeNativeTargetAsmParser();
-	llvm::InitializeNativeTargetDisassembler();
+	llvm::InitializeAllTargetInfos();
+	llvm::InitializeAllTargets();
+	llvm::InitializeAllTargetMCs();
+	llvm::InitializeAllAsmPrinters();
+	llvm::InitializeAllDisassemblers();
 	llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 	return true;
 }
 
-LLVMContext::LLVMContext()
+static void globalInitLLVMOnce()
 {
 	static bool isLLVMInitialized = globalInitLLVM();
-	wavmAssert(isLLVMInitialized);
+	WAVM_ASSERT(isLLVMInitialized);
+}
+
+LLVMContext::LLVMContext()
+{
+	globalInitLLVMOnce();
 
 	i8Type = llvm::Type::getInt8Ty(*this);
 	i16Type = llvm::Type::getInt16Ty(*this);
@@ -109,6 +132,11 @@ LLVMContext::LLVMContext()
 	}
 
 	anyrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
+
+	i8x8Type = llvm::VectorType::get(i8Type, 8);
+	i16x4Type = llvm::VectorType::get(i16Type, 4);
+	i32x2Type = llvm::VectorType::get(i32Type, 2);
+	i64x1Type = llvm::VectorType::get(i64Type, 1);
 
 	i8x16Type = llvm::VectorType::get(i8Type, 16);
 	i16x8Type = llvm::VectorType::get(i16Type, 8);
@@ -137,4 +165,60 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::v128] = emitLiteral(*this, V128());
 	typedZeroConstants[(Uptr)ValueType::anyref] = typedZeroConstants[(Uptr)ValueType::funcref]
 		= typedZeroConstants[(Uptr)ValueType::nullref] = llvm::Constant::getNullValue(anyrefType);
+}
+
+TargetSpec LLVMJIT::getHostTargetSpec()
+{
+	TargetSpec result;
+	result.triple = llvm::sys::getProcessTriple();
+	result.cpu = llvm::sys::getHostCPUName();
+	return result;
+}
+
+std::unique_ptr<llvm::TargetMachine> LLVMJIT::getTargetMachine(const TargetSpec& targetSpec)
+{
+	globalInitLLVMOnce();
+
+	return std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
+		llvm::Triple(targetSpec.triple), "", targetSpec.cpu, llvm::SmallVector<std::string, 0>{}));
+}
+
+TargetValidationResult LLVMJIT::validateTargetMachine(
+	const std::unique_ptr<llvm::TargetMachine>& targetMachine,
+	const FeatureSpec& featureSpec)
+{
+	const llvm::Triple::ArchType targetArch = targetMachine->getTargetTriple().getArch();
+	if(targetArch == llvm::Triple::x86_64)
+	{
+		// If the SIMD feature is enabled, then require the SSE4.1 CPU feature.
+		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+sse4.1"))
+		{ return TargetValidationResult::x86CPUDoesNotSupportSSE41; }
+
+		return TargetValidationResult::valid;
+	}
+	else if(targetArch == llvm::Triple::aarch64)
+	{
+		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+neon"))
+		{ return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+
+		return TargetValidationResult::valid;
+	}
+	else
+	{
+		if(featureSpec.simd) { return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+		return TargetValidationResult::unsupportedArchitecture;
+	}
+}
+
+TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
+											   const IR::FeatureSpec& featureSpec)
+{
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(targetSpec);
+	if(!targetMachine) { return TargetValidationResult::invalidTargetSpec; }
+	return validateTargetMachine(targetMachine, featureSpec);
+}
+
+Version LLVMJIT::getVersion()
+{
+	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH};
 }

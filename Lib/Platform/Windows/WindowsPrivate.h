@@ -1,9 +1,8 @@
 #pragma once
 
 #include <intrin.h>
-
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Diagnostics.h"
 
 #define NOMINMAX
@@ -51,18 +50,11 @@ static_assert(offsetof(ExecutionContext, xmm6) == 112, "unexpected offset");
 static_assert(offsetof(ExecutionContext, xmm15) == 256, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 272, "unexpected size");
 
-#ifdef _WIN64
-extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode);
-extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
-										  U8* trampolineFramePointer) noexcept(false);
-#endif
-
-extern "C" U8* getStackPointer();
-
 namespace WAVM { namespace Platform {
 	void initThread();
 
 	CallStack unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFramesFromTop);
 
-	I128 fileTimeToWAVMRealTime(FILETIME fileTime);
+	Time fileTimeToWAVMRealTime(FILETIME fileTime);
+	FILETIME wavmRealTimeToFileTime(Time realTime);
 }}

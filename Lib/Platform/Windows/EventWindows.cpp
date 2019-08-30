@@ -1,5 +1,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 
@@ -12,33 +14,44 @@ using namespace WAVM::Platform;
 Platform::Event::Event()
 {
 	handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-	errorUnless(handle);
+	WAVM_ERROR_UNLESS(handle);
 }
 
-Platform::Event::~Event() { errorUnless(CloseHandle(handle)); }
+Platform::Event::~Event() { WAVM_ERROR_UNLESS(CloseHandle(handle)); }
 
-bool Platform::Event::wait(I128 waitDuration)
+bool Platform::Event::wait(Time waitDuration)
 {
-	I128 currentTime = getMonotonicClock();
-	const I128 untilTime = waitDuration == INT128_MAX ? INT128_MAX : (currentTime + waitDuration);
-	while(true)
+	if(isInfinity(waitDuration))
 	{
-		const I128 durationMS = currentTime > untilTime ? 0 : (untilTime - currentTime) / 1000000;
-		const U32 durationMS32
-			= durationMS <= 0 ? 0 : durationMS >= UINT32_MAX ? (UINT32_MAX - 1) : U32(durationMS);
+		const U32 waitResult = WaitForSingleObject(handle, INFINITE);
+		WAVM_ERROR_UNLESS(waitResult == WAIT_OBJECT_0);
+		return true;
+	}
+	else
+	{
+		Time currentTime = getClockTime(Clock::monotonic);
+		const Time untilTime = Time{currentTime.ns + waitDuration.ns};
+		while(true)
+		{
+			const I128 durationMS
+				= currentTime.ns > untilTime.ns ? 0 : (untilTime.ns - currentTime.ns) / 1000000;
+			const U32 durationMS32
+				= durationMS <= 0 ? 0
+								  : durationMS >= UINT32_MAX ? (UINT32_MAX - 1) : U32(durationMS);
 
-		const U32 waitResult = WaitForSingleObject(handle, durationMS32);
-		if(waitResult != WAIT_TIMEOUT)
-		{
-			errorUnless(waitResult == WAIT_OBJECT_0);
-			return true;
-		}
-		else
-		{
-			currentTime = getMonotonicClock();
-			if(currentTime >= untilTime) { return false; }
-		}
-	};
+			const U32 waitResult = WaitForSingleObject(handle, durationMS32);
+			if(waitResult != WAIT_TIMEOUT)
+			{
+				WAVM_ERROR_UNLESS(waitResult == WAIT_OBJECT_0);
+				return true;
+			}
+			else
+			{
+				currentTime = getClockTime(Clock::monotonic);
+				if(currentTime.ns >= untilTime.ns) { return false; }
+			}
+		};
+	}
 }
 
-void Platform::Event::signal() { errorUnless(SetEvent(handle)); }
+void Platform::Event::signal() { WAVM_ERROR_UNLESS(SetEvent(handle)); }

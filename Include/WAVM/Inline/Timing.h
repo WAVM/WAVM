@@ -1,6 +1,7 @@
 #pragma once
 
 #include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
 
@@ -8,20 +9,20 @@ namespace WAVM { namespace Timing {
 	// Encapsulates a timer that starts when constructed and stops when read.
 	struct Timer
 	{
-		Timer() : startTime(Platform::getProcessClock()), isStopped(false) {}
-		void stop() { endTime = Platform::getProcessClock(); }
+		Timer() : startTime(Platform::getClockTime(Platform::Clock::monotonic)), isStopped(false) {}
+		void stop() { endTime = Platform::getClockTime(Platform::Clock::monotonic); }
 		F64 getNanoseconds()
 		{
 			if(!isStopped) { stop(); }
-			return F64(assumeNoOverflow(endTime - startTime));
+			return F64(flushNaNToZero(endTime.ns - startTime.ns));
 		}
 		F64 getMicroseconds() { return getNanoseconds() / 1000.0; }
 		F64 getMilliseconds() { return getNanoseconds() / 1000000.0; }
 		F64 getSeconds() { return getNanoseconds() / 1000000000.0; }
 
 	private:
-		I128 startTime;
-		I128 endTime;
+		Time startTime;
+		Time endTime;
 		bool isStopped;
 	};
 

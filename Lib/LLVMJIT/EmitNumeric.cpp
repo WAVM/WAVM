@@ -1,5 +1,4 @@
 #include <stdint.h>
-
 #include "EmitContext.h"
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
@@ -11,19 +10,19 @@
 #include "WAVM/Inline/Errors.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
+#include <llvm/ADT/APInt.h>
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
@@ -53,7 +52,7 @@ EMIT_CONST(v128, V128)
 	void EmitFunctionContext::typeId##_##name(NoImm)                                               \
 	{                                                                                              \
 		const ValueType type = ValueType::typeId;                                                  \
-		SUPPRESS_UNUSED(type);                                                                     \
+		WAVM_SUPPRESS_UNUSED(type);                                                                \
 		auto right = pop();                                                                        \
 		auto left = pop();                                                                         \
 		push(emitCode);                                                                            \
@@ -71,7 +70,7 @@ EMIT_CONST(v128, V128)
 	void EmitFunctionContext::typeId##_##name(NoImm)                                               \
 	{                                                                                              \
 		const ValueType type = ValueType::typeId;                                                  \
-		SUPPRESS_UNUSED(type);                                                                     \
+		WAVM_SUPPRESS_UNUSED(type);                                                                \
 		auto operand = pop();                                                                      \
 		push(emitCode);                                                                            \
 	}
@@ -88,18 +87,18 @@ EMIT_CONST(v128, V128)
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		llvm::Type* vectorType = llvmType;                                                         \
-		SUPPRESS_UNUSED(vectorType);                                                               \
+		WAVM_SUPPRESS_UNUSED(vectorType);                                                          \
 		auto right = irBuilder.CreateBitCast(pop(), llvmType);                                     \
-		SUPPRESS_UNUSED(right);                                                                    \
+		WAVM_SUPPRESS_UNUSED(right);                                                               \
 		auto left = irBuilder.CreateBitCast(pop(), llvmType);                                      \
-		SUPPRESS_UNUSED(left);                                                                     \
+		WAVM_SUPPRESS_UNUSED(left);                                                                \
 		push(emitCode);                                                                            \
 	}
 #define EMIT_SIMD_UNARY_OP(name, llvmType, emitCode)                                               \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		auto operand = irBuilder.CreateBitCast(pop(), llvmType);                                   \
-		SUPPRESS_UNUSED(operand);                                                                  \
+		WAVM_SUPPRESS_UNUSED(operand);                                                             \
 		push(emitCode);                                                                            \
 	}
 
@@ -394,14 +393,14 @@ EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 	{                                                                                              \
 		llvm::Type* vectorType = llvmType;                                                         \
 		llvm::Type* scalarType = llvmType->getScalarType();                                        \
-		SUPPRESS_UNUSED(vectorType);                                                               \
+		WAVM_SUPPRESS_UNUSED(vectorType);                                                          \
 		auto right = irBuilder.CreateVectorSplat(                                                  \
 			vectorType->getVectorNumElements(),                                                    \
 			irBuilder.CreateZExtOrTrunc(                                                           \
 				emitShiftCountMask(*this, pop(), scalarType->getIntegerBitWidth()), scalarType));  \
-		SUPPRESS_UNUSED(right);                                                                    \
+		WAVM_SUPPRESS_UNUSED(right);                                                               \
 		auto left = irBuilder.CreateBitCast(pop(), llvmType);                                      \
-		SUPPRESS_UNUSED(left);                                                                     \
+		WAVM_SUPPRESS_UNUSED(left);                                                                \
 		auto result = createShift(left, right);                                                    \
 		push(result);                                                                              \
 	}
@@ -724,40 +723,38 @@ EMIT_SIMD_REPLACE_LANE_OP(i64x2, llvmContext.i64x2Type, 2, scalar)
 EMIT_SIMD_REPLACE_LANE_OP(f32x4, llvmContext.f32x4Type, 4, scalar)
 EMIT_SIMD_REPLACE_LANE_OP(f64x2, llvmContext.f64x2Type, 2, scalar)
 
-void EmitFunctionContext::v8x16_shuffle1(NoImm)
+void EmitFunctionContext::v8x16_swizzle(NoImm)
 {
 	auto indexVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto elementVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 
-	// WASM defines any out-of-range index to write zero to the output vector, but x86 pshufb just
-	// uses the index modulo 16, and only writes zero if the MSB of the index is 1. Do a saturated
-	// add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16 unchanged.
-	auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
-	auto saturatedIndexVector = emitAddUnsignedSaturated(irBuilder,
-														 indexVector,
-														 llvm::ConstantVector::get({constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112}),
-														 llvmContext.i8x16Type);
+	const llvm::Triple::ArchType targetArch
+		= moduleContext.targetMachine->getTargetTriple().getArch();
+	if(targetArch == llvm::Triple::x86_64 || targetArch == llvm::Triple::x86)
+	{
+		// WASM defines any out-of-range index to write zero to the output vector, but x86 pshufb
+		// just uses the index modulo 16, and only writes zero if the MSB of the index is 1. Do a
+		// saturated add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16
+		// unchanged.
+		auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
+		auto saturatedIndexVector
+			= emitAddUnsignedSaturated(irBuilder,
+									   indexVector,
+									   llvm::ConstantVector::getSplat(16, constant112),
+									   llvmContext.i8x16Type);
 
-	push(callLLVMIntrinsic(
-		{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
+		push(callLLVMIntrinsic(
+			{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
+	}
+	else if(targetArch == llvm::Triple::aarch64)
+	{
+		push(callLLVMIntrinsic({llvmContext.i8x16Type},
+							   llvm::Intrinsic::aarch64_neon_tbl1,
+							   {elementVector, indexVector}));
+	}
 }
 
-void EmitFunctionContext::v8x16_shuffle2_imm(IR::ShuffleImm<16> imm)
+void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);

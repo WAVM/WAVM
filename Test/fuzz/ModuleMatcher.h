@@ -33,21 +33,38 @@ namespace WAVM {
 				if(segment.isActive
 				   && (segment.memoryIndex != wastSegment.memoryIndex
 					   || segment.baseOffset != wastSegment.baseOffset
-					   || segment.data != wastSegment.data))
+					   || *segment.data != *wastSegment.data))
 				{ failVerification(); }
 			}
 
 			if(aModule.elemSegments.size() != bModule.elemSegments.size()) { failVerification(); }
 			for(Uptr segmentIndex = 0; segmentIndex < aModule.elemSegments.size(); ++segmentIndex)
 			{
-				const ElemSegment& segment = aModule.elemSegments[segmentIndex];
-				const ElemSegment& wastSegment = bModule.elemSegments[segmentIndex];
-				if(segment.isActive != wastSegment.isActive) { failVerification(); }
-				if(segment.isActive
-				   && (segment.tableIndex != wastSegment.tableIndex
-					   || segment.baseOffset != wastSegment.baseOffset
-					   || segment.elems != wastSegment.elems))
+				const ElemSegment& aSegment = aModule.elemSegments[segmentIndex];
+				const ElemSegment& bSegment = bModule.elemSegments[segmentIndex];
+				if(aSegment.type != bSegment.type
+				   || aSegment.contents->encoding != bSegment.contents->encoding)
 				{ failVerification(); }
+				if(aSegment.type == ElemSegment::Type::active
+				   && (aSegment.tableIndex != bSegment.tableIndex
+					   || aSegment.baseOffset != bSegment.baseOffset))
+				{ failVerification(); }
+				switch(aSegment.contents->encoding)
+				{
+				case ElemSegment::Encoding::expr:
+					if(aSegment.contents->elemType != bSegment.contents->elemType
+					   || aSegment.contents->elemExprs != bSegment.contents->elemExprs)
+					{ failVerification(); }
+					break;
+
+				case ElemSegment::Encoding::index:
+					if(aSegment.contents->externKind != bSegment.contents->externKind
+					   || aSegment.contents->elemIndices != bSegment.contents->elemIndices)
+					{ failVerification(); }
+					break;
+
+				default: WAVM_UNREACHABLE();
+				};
 			}
 		}
 
@@ -177,6 +194,11 @@ namespace WAVM {
 			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset) { failVerification(); }
 		}
 
+		void verifyMatches(AtomicFenceImm a, AtomicFenceImm b)
+		{
+			if(a.order != b.order) { failVerification(); }
+		}
+
 		void verifyMatches(ExceptionTypeImm a, ExceptionTypeImm b)
 		{
 			if(a.exceptionTypeIndex != b.exceptionTypeIndex) { failVerification(); }
@@ -226,8 +248,8 @@ namespace WAVM {
 
 			while(aNextByte < aEnd && bNextByte < bEnd)
 			{
-				wavmAssert(aNextByte + sizeof(Opcode) <= aEnd);
-				wavmAssert(bNextByte + sizeof(Opcode) <= bEnd);
+				WAVM_ASSERT(aNextByte + sizeof(Opcode) <= aEnd);
+				WAVM_ASSERT(bNextByte + sizeof(Opcode) <= bEnd);
 
 				Opcode aOpcode;
 				Opcode bOpcode;
@@ -238,10 +260,9 @@ namespace WAVM {
 				switch(aOpcode)
 				{
 #define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                                           \
-	case Opcode::name:                                                                             \
-	{                                                                                              \
-		wavmAssert(aNextByte + sizeof(OpcodeAndImm<Imm>) <= aEnd);                                 \
-		wavmAssert(bNextByte + sizeof(OpcodeAndImm<Imm>) <= bEnd);                                 \
+	case Opcode::name: {                                                                           \
+		WAVM_ASSERT(aNextByte + sizeof(OpcodeAndImm<Imm>) <= aEnd);                                \
+		WAVM_ASSERT(bNextByte + sizeof(OpcodeAndImm<Imm>) <= bEnd);                                \
 		OpcodeAndImm<Imm> aEncodedOperator;                                                        \
 		OpcodeAndImm<Imm> bEncodedOperator;                                                        \
 		memcpy(&aEncodedOperator, aNextByte, sizeof(OpcodeAndImm<Imm>));                           \
@@ -251,13 +272,13 @@ namespace WAVM {
 		verifyMatches(aEncodedOperator.imm, bEncodedOperator.imm);                                 \
 		break;                                                                                     \
 	}
-					ENUM_OPERATORS(VISIT_OPCODE)
+					WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 				default: WAVM_UNREACHABLE();
 				}
 			}
-			wavmAssert(aNextByte == aEnd);
-			wavmAssert(bNextByte == bEnd);
+			WAVM_ASSERT(aNextByte == aEnd);
+			WAVM_ASSERT(bNextByte == bEnd);
 
 			aFunction = nullptr;
 			bFunction = nullptr;

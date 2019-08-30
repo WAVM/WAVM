@@ -1,11 +1,12 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+#include "WAVM/IR/FeatureSpec.h"
+#include "WAVM/IR/Module.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/WASTParse/WASTParse.h"
-
-#include <memory>
-#include <vector>
 
 namespace WAVM { namespace WAST {
 	struct Command
@@ -84,10 +85,10 @@ namespace WAVM { namespace WAST {
 		std::unique_ptr<IR::Module> module;
 		ModuleAction(TextFileLocus&& inLocus,
 					 std::string&& inInternalModuleName,
-					 IR::Module* inModule)
+					 std::unique_ptr<IR::Module>&& inModule)
 		: Action(ActionType::_module, std::move(inLocus))
 		, internalModuleName(inInternalModuleName)
-		, module(inModule)
+		, module(std::move(inModule))
 		{
 		}
 	};
@@ -96,11 +97,11 @@ namespace WAVM { namespace WAST {
 	{
 		std::string internalModuleName;
 		std::string exportName;
-		IR::ValueTuple arguments;
+		std::vector<IR::Value> arguments;
 		InvokeAction(TextFileLocus&& inLocus,
 					 std::string&& inInternalModuleName,
 					 std::string&& inExportName,
-					 IR::ValueTuple&& inArguments)
+					 std::vector<IR::Value>&& inArguments)
 		: Action(ActionType::invoke, std::move(inLocus))
 		, internalModuleName(inInternalModuleName)
 		, exportName(inExportName)
@@ -142,8 +143,8 @@ namespace WAVM { namespace WAST {
 	struct ActionCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		ActionCommand(TextFileLocus&& inLocus, Action* inAction)
-		: Command(Command::action, std::move(inLocus)), action(inAction)
+		ActionCommand(TextFileLocus&& inLocus, std::unique_ptr<Action>&& inAction)
+		: Command(Command::action, std::move(inLocus)), action(std::move(inAction))
 		{
 		}
 	};
@@ -151,12 +152,12 @@ namespace WAVM { namespace WAST {
 	struct AssertReturnCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		IR::ValueTuple expectedResults;
+		std::vector<IR::Value> expectedResults;
 		AssertReturnCommand(TextFileLocus&& inLocus,
-							Action* inAction,
-							IR::ValueTuple inExpectedResults)
+							std::unique_ptr<Action>&& inAction,
+							std::vector<IR::Value> inExpectedResults)
 		: Command(Command::assert_return, std::move(inLocus))
-		, action(inAction)
+		, action(std::move(inAction))
 		, expectedResults(inExpectedResults)
 		{
 		}
@@ -165,8 +166,10 @@ namespace WAVM { namespace WAST {
 	struct AssertReturnNaNCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		AssertReturnNaNCommand(Command::Type inType, TextFileLocus&& inLocus, Action* inAction)
-		: Command(inType, std::move(inLocus)), action(inAction)
+		AssertReturnNaNCommand(Command::Type inType,
+							   TextFileLocus&& inLocus,
+							   std::unique_ptr<Action>&& inAction)
+		: Command(inType, std::move(inLocus)), action(std::move(inAction))
 		{
 		}
 	};
@@ -174,8 +177,8 @@ namespace WAVM { namespace WAST {
 	struct AssertReturnFuncCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		AssertReturnFuncCommand(TextFileLocus&& inLocus, Action* inAction)
-		: Command(Command::assert_return_func, std::move(inLocus)), action(inAction)
+		AssertReturnFuncCommand(TextFileLocus&& inLocus, std::unique_ptr<Action>&& inAction)
+		: Command(Command::assert_return_func, std::move(inLocus)), action(std::move(inAction))
 		{
 		}
 	};
@@ -185,10 +188,10 @@ namespace WAVM { namespace WAST {
 		std::unique_ptr<Action> action;
 		ExpectedTrapType expectedType;
 		AssertTrapCommand(TextFileLocus&& inLocus,
-						  Action* inAction,
+						  std::unique_ptr<Action>&& inAction,
 						  ExpectedTrapType inExpectedType)
 		: Command(Command::assert_trap, std::move(inLocus))
-		, action(inAction)
+		, action(std::move(inAction))
 		, expectedType(inExpectedType)
 		{
 		}
@@ -199,14 +202,14 @@ namespace WAVM { namespace WAST {
 		std::unique_ptr<Action> action;
 		std::string exceptionTypeInternalModuleName;
 		std::string exceptionTypeExportName;
-		IR::ValueTuple expectedArguments;
+		std::vector<IR::Value> expectedArguments;
 		AssertThrowsCommand(TextFileLocus&& inLocus,
-							Action* inAction,
+							std::unique_ptr<Action>&& inAction,
 							std::string&& inExceptionTypeInternalModuleName,
 							std::string&& inExceptionTypeExportName,
-							IR::ValueTuple&& inExpectedArguments)
+							std::vector<IR::Value>&& inExpectedArguments)
 		: Command(Command::assert_throws, std::move(inLocus))
-		, action(inAction)
+		, action(std::move(inAction))
 		, exceptionTypeInternalModuleName(inExceptionTypeInternalModuleName)
 		, exceptionTypeExportName(inExceptionTypeExportName)
 		, expectedArguments(inExpectedArguments)
@@ -249,8 +252,10 @@ namespace WAVM { namespace WAST {
 	struct AssertUnlinkableCommand : Command
 	{
 		std::unique_ptr<ModuleAction> moduleAction;
-		AssertUnlinkableCommand(TextFileLocus&& inLocus, ModuleAction* inModuleAction)
-		: Command(Command::assert_unlinkable, std::move(inLocus)), moduleAction(inModuleAction)
+		AssertUnlinkableCommand(TextFileLocus&& inLocus,
+								std::unique_ptr<ModuleAction> inModuleAction)
+		: Command(Command::assert_unlinkable, std::move(inLocus))
+		, moduleAction(std::move(inModuleAction))
 		{
 		}
 	};

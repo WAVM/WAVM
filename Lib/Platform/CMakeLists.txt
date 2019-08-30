@@ -1,6 +1,7 @@
 set(POSIXSources
 	POSIX/ClockPOSIX.cpp
 	POSIX/DiagnosticsPOSIX.cpp
+	POSIX/ErrorPOSIX.cpp
 	POSIX/EventPOSIX.cpp
 	POSIX/SignalPOSIX.cpp
 	POSIX/FilePOSIX.cpp
@@ -10,12 +11,13 @@ set(POSIXSources
 	POSIX/ThreadPOSIX.cpp
 	POSIX/POSIXPrivate.h)
 
-set(NonWavixSources
-	POSIX/POSIX.S)
+set(POSIXSourcesX86_64  POSIX/POSIX-X86_64.S)
+set(POSIXSourcesAArch64 POSIX/POSIX-AArch64.S)
 
 set(WindowsSources
 	Windows/ClockWindows.cpp
 	Windows/DiagnosticsWindows.cpp
+	Windows/ErrorWindows.cpp
 	Windows/EventWindows.cpp
 	Windows/SignalWindows.cpp
 	Windows/FileWindows.cpp
@@ -25,16 +27,14 @@ set(WindowsSources
 	Windows/ThreadWindows.cpp
 	Windows/WindowsPrivate.h)
 
-set(Win32Sources
-	Windows/Win32.asm)
-	
-set(Win64Sources
-	Windows/Win64.asm)
+set(Win32Sources Windows/Win32.asm)
+set(Win64Sources Windows/Win64.asm)
 
 set(Headers
 	${WAVM_INCLUDE_DIR}/Platform/Clock.h
 	${WAVM_INCLUDE_DIR}/Platform/Defines.h
 	${WAVM_INCLUDE_DIR}/Platform/Diagnostics.h
+	${WAVM_INCLUDE_DIR}/Platform/Error.h
 	${WAVM_INCLUDE_DIR}/Platform/Event.h
 	${WAVM_INCLUDE_DIR}/Platform/Signal.h
 	${WAVM_INCLUDE_DIR}/Platform/File.h
@@ -47,20 +47,19 @@ if(MSVC)
 	list(APPEND Headers ${POSIXSources})
 	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 		set(Sources ${WindowsSources} ${Win32Sources})
-		set(NonCompiledSources ${Win64Sources} ${POSIXSources} ${NonWavixSources})
+		set(NonCompiledSources ${Win64Sources} ${POSIXSources} ${POSIXSourcesX86_64} ${POSIXSourcesAArch64})
 	else()
 		set(Sources ${WindowsSources} ${Win64Sources})
-		set(NonCompiledSources ${Win32Sources} ${POSIXSources} ${NonWavixSources})
+		set(NonCompiledSources ${Win32Sources} ${POSIXSources} ${POSIXSourcesX86_64} ${POSIXSourcesAArch64})
 	endif()
 else()
 	set(Sources ${POSIXSources})
 	set(NonCompiledSources ${WindowsSources} ${Win32Sources} ${Win64Sources})
 
-	# Using if(CMAKE_SYSTEM_NAME STREQUAL Wavix) doesn't work because Wavix is interpreted as a
-	# reference to the Wavix target in this project.
-	string(COMPARE EQUAL "${CMAKE_SYSTEM_NAME}" Wavix IS_WAVIX)
-	if(NOT IS_WAVIX)
-		list(APPEND Sources ${NonWavixSources})
+	if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+		list(APPEND Sources ${POSIXSourcesX86_64})
+	elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+		list(APPEND Sources ${POSIXSourcesAArch64})
 	endif()
 endif()
 
@@ -73,8 +72,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 endif()
 
 if(NOT MSVC AND WAVM_ENABLE_RUNTIME)
-	list(APPEND PLATFORM_PRIVATE_LIBS dl WAVMUnwind)
+	list(APPEND PLATFORM_PRIVATE_LIBS dl)
+endif()
 
+if(NOT MSVC AND WAVM_ENABLE_UNWIND)
+	list(APPEND PLATFORM_PRIVATE_LIBS WAVMUnwind)
+	
 	# This can't be set in the WAVMUnwind target's public include directories without adding the
 	# libunwind headers to the install, so just set it manually for the Platform component.
 	set(PLATFORM_PRIVATE_INCLUDE_DIRECTORIES ${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)

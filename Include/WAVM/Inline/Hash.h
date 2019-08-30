@@ -1,11 +1,10 @@
 #pragma once
 
-#include "BasicTypes.h"
-
 #include <functional>
 #include <string>
 #include <type_traits>
 #include <vector>
+#include "BasicTypes.h"
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push

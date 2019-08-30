@@ -1,8 +1,8 @@
 #pragma once
 
-#include "WAVM/IR/Types.h"
-
 #include <string.h>
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM { namespace Runtime {
 	struct Object;
@@ -72,14 +72,13 @@ namespace WAVM { namespace IR {
 			case ValueType::f64: return "f64.const " + asString(value.f64);
 			case ValueType::v128: return "v128.const " + asString(value.v128);
 			case ValueType::anyref:
-			case ValueType::funcref:
-			{
+			case ValueType::funcref: {
 				// buffer needs 27 characters:
 				// (anyref|funcref) 0xHHHHHHHHHHHHHHHH\0
 				char buffer[27];
 				snprintf(buffer,
 						 sizeof(buffer),
-						 "%s 0x%.16" PRIxPTR,
+						 "%s 0x%.16" WAVM_PRIxPTR,
 						 value.type == ValueType::anyref ? "anyref" : "funcref",
 						 reinterpret_cast<Uptr>(value.object));
 				return std::string(buffer);
@@ -120,50 +119,15 @@ namespace WAVM { namespace IR {
 		friend bool operator!=(const Value& left, const Value& right) { return !(left == right); }
 	};
 
-	// A boxed value: may hold any value that can be returned from a function invoked through the
-	// runtime.
-	struct ValueTuple
+	inline std::string asString(const std::vector<Value>& values)
 	{
-		std::vector<Value> values;
-
-		ValueTuple(ValueType inType, UntaggedValue inValue) : values({Value(inType, inValue)}) {}
-		ValueTuple(TypeTuple types, UntaggedValue* inValues)
+		std::string result = "(";
+		for(Uptr elementIndex = 0; elementIndex < values.size(); ++elementIndex)
 		{
-			values.reserve(types.size());
-			for(ValueType type : types) { values.push_back(Value(type, *inValues++)); }
+			if(elementIndex != 0) { result += ", "; }
+			result += asString(values[elementIndex]);
 		}
-		ValueTuple(const Value& inValue) : values({inValue}) {}
-		ValueTuple() {}
-
-		Uptr size() const { return values.size(); }
-		Value& operator[](Uptr index) { return values[index]; }
-		const Value& operator[](Uptr index) const { return values[index]; }
-
-		friend std::string asString(const ValueTuple& valueTuple)
-		{
-			std::string result = "(";
-			for(Uptr elementIndex = 0; elementIndex < valueTuple.size(); ++elementIndex)
-			{
-				if(elementIndex != 0) { result += ", "; }
-				result += asString(valueTuple[elementIndex]);
-			}
-			result += ")";
-			return result;
-		}
-
-		friend bool operator==(const ValueTuple& left, const ValueTuple& right)
-		{
-			if(left.size() != right.size()) { return false; }
-			for(Uptr valueIndex = 0; valueIndex < left.size(); ++valueIndex)
-			{
-				if(left[valueIndex] != right[valueIndex]) { return false; }
-			}
-			return true;
-		}
-
-		friend bool operator!=(const ValueTuple& left, const ValueTuple& right)
-		{
-			return !(left == right);
-		}
-	};
+		result += ")";
+		return result;
+	}
 }}

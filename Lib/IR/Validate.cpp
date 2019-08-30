@@ -1,11 +1,10 @@
 #include "WAVM/IR/Validate.h"
-
 #include <stdint.h>
 #include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
-
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/OperatorPrinter.h"
@@ -17,8 +16,6 @@
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Logging/Logging.h"
-
-#define ENABLE_LOGGING 0
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -40,25 +37,31 @@ using namespace WAVM::IR;
 
 static void validate(const IR::FeatureSpec& featureSpec, IR::ValueType valueType)
 {
-	bool isValid;
 	switch(valueType)
 	{
 	case ValueType::i32:
 	case ValueType::i64:
 	case ValueType::f32:
-	case ValueType::f64: isValid = featureSpec.mvp; break;
-	case ValueType::v128: isValid = featureSpec.simd; break;
+	case ValueType::f64: WAVM_ASSERT(featureSpec.mvp); break;
+	case ValueType::v128:
+		if(!featureSpec.simd)
+		{ throw ValidationException("v128 value type requires simd feature"); }
+		break;
 	case ValueType::anyref:
-	case ValueType::funcref: isValid = featureSpec.referenceTypes; break;
+	case ValueType::funcref:
+		if(!featureSpec.referenceTypes)
+		{
+			throw ValidationException(std::string(asString(valueType))
+									  + " value type requires reference types feature");
+		}
+		break;
 
 	case ValueType::none:
 	case ValueType::any:
 	case ValueType::nullref:
-	default: isValid = false;
+	default:
+		throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")");
 	};
-
-	if(!isValid)
-	{ throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")"); }
 }
 
 static void validate(SizeConstraints size, U64 maxMax)
@@ -76,6 +79,7 @@ static void validate(const IR::FeatureSpec& featureSpec, ReferenceType type)
 	case ReferenceType::funcref: isValid = featureSpec.mvp; break;
 	case ReferenceType::anyref: isValid = featureSpec.referenceTypes; break;
 
+	case ReferenceType::nullref:
 	case ReferenceType::none:
 	default: isValid = false;
 	}
@@ -162,8 +166,7 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 	case IndexedBlockType::oneResult:
 		validate(module.featureSpec, type.resultType);
 		return FunctionType(TypeTuple(type.resultType));
-	case IndexedBlockType::functionType:
-	{
+	case IndexedBlockType::functionType: {
 		VALIDATE_INDEX(type.index, module.types.size());
 		FunctionType functionType = module.types[type.index];
 		if(functionType.params().size() > 0 && !module.featureSpec.multipleResultsAndBlockParams)
@@ -213,8 +216,7 @@ static void validateInitializer(const Module& module,
 	case InitializerExpression::Type::v128_const:
 		validateType(expectedType, ValueType::v128, context);
 		break;
-	case InitializerExpression::Type::global_get:
-	{
+	case InitializerExpression::Type::global_get: {
 		const ValueType globalValueType = validateGlobalIndex(
 			module, expression.ref, false, true, true, "initializer expression global index");
 		validateType(expectedType, globalValueType, context);
@@ -223,8 +225,7 @@ static void validateInitializer(const Module& module,
 	case InitializerExpression::Type::ref_null:
 		validateType(expectedType, ValueType::nullref, context);
 		break;
-	case InitializerExpression::Type::ref_func:
-	{
+	case InitializerExpression::Type::ref_func: {
 		validateFunctionIndex(module, expression.ref);
 		validateType(expectedType, ValueType::funcref, context);
 		break;
@@ -237,6 +238,8 @@ static void validateInitializer(const Module& module,
 
 struct FunctionValidationContext
 {
+	const bool enableTracing{Log::isCategoryEnabled(Log::traceValidation)};
+
 	FunctionValidationContext(const Module& inModule, const FunctionDef& inFunctionDef)
 	: module(inModule)
 	, functionDef(inFunctionDef)
@@ -254,15 +257,15 @@ struct FunctionValidationContext
 					  functionDef.nonParameterLocalTypes.end());
 
 		// Log the start of the function and its signature+locals.
-		if(ENABLE_LOGGING)
+		if(enableTracing)
 		{
-			logOperator("func");
+			traceOperator("func");
 			for(auto param : functionType.params())
-			{ logOperator(std::string("param ") + asString(param)); }
+			{ traceOperator(std::string("param ") + asString(param)); }
 			for(auto result : functionType.results())
-			{ logOperator(std::string("result ") + asString(result)); }
+			{ traceOperator(std::string("result ") + asString(result)); }
 			for(auto local : functionDef.nonParameterLocalTypes)
-			{ logOperator(std::string("local ") + asString(local)); }
+			{ traceOperator(std::string("local ") + asString(local)); }
 		}
 
 		// Push the function context onto the control stack.
@@ -281,45 +284,41 @@ struct FunctionValidationContext
 		}
 	}
 
-	void logOperator(const std::string& operatorDescription)
+	void traceOperator(const std::string& operatorDescription)
 	{
-		if(ENABLE_LOGGING)
+		std::string controlStackString;
+		for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
 		{
-			std::string controlStackString;
-			for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
+			if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
+			switch(controlStack[stackIndex].type)
 			{
-				if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
-				switch(controlStack[stackIndex].type)
-				{
-				case ControlContext::Type::function: controlStackString += "F"; break;
-				case ControlContext::Type::block: controlStackString += "B"; break;
-				case ControlContext::Type::ifThen: controlStackString += "T"; break;
-				case ControlContext::Type::ifElse: controlStackString += "E"; break;
-				case ControlContext::Type::loop: controlStackString += "L"; break;
-				case ControlContext::Type::try_: controlStackString += "R"; break;
-				case ControlContext::Type::catch_: controlStackString += "C"; break;
-				default: WAVM_UNREACHABLE();
-				};
-				if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
-			}
-
-			std::string stackString;
-			const Uptr stackBase
-				= controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
-			for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
-			{
-				if(stackIndex == stackBase) { stackString += "| "; }
-				stackString += asString(stack[stackIndex]);
-				stackString += " ";
-			}
-			if(stack.size() == stackBase) { stackString += "|"; }
-
-			Log::printf(Log::debug,
-						"%-50s %-50s %-50s\n",
-						controlStackString.c_str(),
-						operatorDescription.c_str(),
-						stackString.c_str());
+			case ControlContext::Type::function: controlStackString += "F"; break;
+			case ControlContext::Type::block: controlStackString += "B"; break;
+			case ControlContext::Type::ifThen: controlStackString += "T"; break;
+			case ControlContext::Type::ifElse: controlStackString += "E"; break;
+			case ControlContext::Type::loop: controlStackString += "L"; break;
+			case ControlContext::Type::try_: controlStackString += "R"; break;
+			case ControlContext::Type::catch_: controlStackString += "C"; break;
+			default: WAVM_UNREACHABLE();
+			};
+			if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 		}
+
+		std::string stackString;
+		const Uptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
+		for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
+		{
+			if(stackIndex == stackBase) { stackString += "| "; }
+			stackString += asString(stack[stackIndex]);
+			stackString += " ";
+		}
+		if(stack.size() == stackBase) { stackString += "|"; }
+
+		Log::printf(Log::traceValidation,
+					"%-50s %-50s %-50s\n",
+					controlStackString.c_str(),
+					operatorDescription.c_str(),
+					stackString.c_str());
 	}
 
 	// Operation dispatch methods.
@@ -349,7 +348,7 @@ struct FunctionValidationContext
 	}
 	void else_(NoImm imm)
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		if(controlStack.back().type != ControlContext::Type::ifThen)
 		{ throw ValidationException("else only allowed in if context"); }
@@ -364,7 +363,7 @@ struct FunctionValidationContext
 	}
 	void end(NoImm)
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		if(controlStack.back().type == ControlContext::Type::try_)
 		{ throw ValidationException("end may not occur in try context"); }
@@ -390,7 +389,7 @@ struct FunctionValidationContext
 	}
 	void validateCatch()
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		popAndValidateTypeTuple("try result", controlStack.back().results);
 		validateStackEmptyAtEndOfControlStructure();
@@ -439,7 +438,7 @@ struct FunctionValidationContext
 
 		// Validate that each target has the same number of parameters as the default target, and
 		// that the parameters for each target match the arguments provided.
-		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+		WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
@@ -655,6 +654,11 @@ struct FunctionValidationContext
 						imm.alignmentLog2 != naturalAlignmentLog2);
 	}
 
+	void validateImm(AtomicFenceImm imm)
+	{
+		WAVM_ASSERT(imm.order == MemoryOrder::sequentiallyConsistent);
+	}
+
 	void validateImm(DataSegmentAndMemImm imm)
 	{
 		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
@@ -682,12 +686,12 @@ struct FunctionValidationContext
 	{                                                                                              \
 		VALIDATE_FEATURE(nameString, requiredFeature);                                             \
 		const char* operatorName = nameString;                                                     \
-		SUPPRESS_UNUSED(operatorName);                                                             \
+		WAVM_SUPPRESS_UNUSED(operatorName);                                                        \
 		validateImm(imm);                                                                          \
 		popAndValidateTypeTuple(nameString, IR::getNonParametricOpSigs().name.params());           \
 		pushOperandTuple(IR::getNonParametricOpSigs().name.results());                             \
 	}
-	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
+	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
 #undef VALIDATE_OP
 
 private:
@@ -732,7 +736,7 @@ private:
 
 	void validateStackEmptyAtEndOfControlStructure()
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		if(stack.size() != controlStack.back().outerStackSize)
 		{
@@ -749,7 +753,7 @@ private:
 
 	void enterUnreachable()
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		stack.resize(controlStack.back().outerStackSize);
 		controlStack.back().isReachable = false;
@@ -777,7 +781,7 @@ private:
 									 Uptr operandDepth,
 									 const ValueType expectedType)
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		ValueType actualType;
 		if(stack.size() > controlStack.back().outerStackSize + operandDepth)
@@ -833,7 +837,7 @@ private:
 	{
 		ValueType actualType = peekAndValidateOperand(context, 0, expectedType);
 
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 		if(stack.size() > controlStack.back().outerStackSize) { stack.pop_back(); }
 
 		return actualType;
@@ -884,10 +888,10 @@ void IR::validateTypes(const Module& module)
 
 void IR::validateImports(const Module& module)
 {
-	wavmAssert(module.imports.size()
-			   == module.functions.imports.size() + module.tables.imports.size()
-					  + module.memories.imports.size() + module.globals.imports.size()
-					  + module.exceptionTypes.imports.size());
+	WAVM_ASSERT(module.imports.size()
+				== module.functions.imports.size() + module.tables.imports.size()
+					   + module.memories.imports.size() + module.globals.imports.size()
+					   + module.exceptionTypes.imports.size());
 
 	for(auto& functionImport : module.functions.imports)
 	{ validateFunctionType(module, functionImport.type); }
@@ -995,27 +999,100 @@ void IR::validateElemSegments(const Module& module)
 {
 	for(auto& elemSegment : module.elemSegments)
 	{
-		if(elemSegment.isActive)
+		if(elemSegment.contents->encoding == ElemSegment::Encoding::index
+		   && elemSegment.contents->externKind != ExternKind::function
+		   && !module.featureSpec.allowAnyExternKindElemSegments)
 		{
+			throw ValidationException(
+				"elem segment referencing non-function externs requires"
+				" allowAnyExternKindElemSegments feature");
+		}
+
+		switch(elemSegment.type)
+		{
+		case ElemSegment::Type::active: {
 			VALIDATE_INDEX(elemSegment.tableIndex, module.tables.size());
 			const TableType& tableType = module.tables.getType(elemSegment.tableIndex);
-			VALIDATE_UNLESS("active elem segments must be in funcref tables: ",
-							!isSubtype(ReferenceType::funcref, tableType.elementType));
-			validateInitializer(
-				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
-		}
-		for(const Elem& elem : *elemSegment.elems)
-		{
-			switch(elem.type)
+
+			ReferenceType segmentElemType;
+			switch(elemSegment.contents->encoding)
 			{
-			case Elem::Type::ref_null:
-				VALIDATE_UNLESS("ref.null is only allowed in passive segments",
-								elemSegment.isActive);
+			case ElemSegment::Encoding::expr:
+				segmentElemType = elemSegment.contents->elemType;
 				break;
-			case Elem::Type::ref_func: VALIDATE_INDEX(elem.index, module.functions.size()); break;
+			case ElemSegment::Encoding::index:
+				segmentElemType = elemSegment.contents->externKind == ExternKind::function
+									  ? ReferenceType::funcref
+									  : ReferenceType::anyref;
+				break;
 			default: WAVM_UNREACHABLE();
 			};
+
+			const ReferenceType tableElemType = tableType.elementType;
+			if(!isSubtype(segmentElemType, tableType.elementType))
+			{
+				throw ValidationException(std::string("segment elem type (")
+										  + asString(segmentElemType)
+										  + ") is not a subtype of the table's elem type ("
+										  + asString(tableElemType) + ")");
+			}
+
+			validateInitializer(
+				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
+
+			break;
 		}
+		case ElemSegment::Type::passive: break;
+
+		default: WAVM_UNREACHABLE();
+		};
+
+		switch(elemSegment.contents->encoding)
+		{
+		case ElemSegment::Encoding::expr:
+			for(const ElemExpr& elem : elemSegment.contents->elemExprs)
+			{
+				ReferenceType exprType = ReferenceType::none;
+				switch(elem.type)
+				{
+				case ElemExpr::Type::ref_null: exprType = ReferenceType::nullref; break;
+				case ElemExpr::Type::ref_func:
+					exprType = ReferenceType::funcref;
+					VALIDATE_INDEX(elem.index, module.functions.size());
+					break;
+				default: WAVM_UNREACHABLE();
+				};
+
+				if(!isSubtype(exprType, elemSegment.contents->elemType))
+				{
+					throw ValidationException(std::string("elem expression type (")
+											  + asString(exprType)
+											  + ") is not a subtype of the segment's elem type ("
+											  + asString(elemSegment.contents->elemType) + ")");
+				}
+			}
+			break;
+		case ElemSegment::Encoding::index:
+			for(Uptr externIndex : elemSegment.contents->elemIndices)
+			{
+				switch(elemSegment.contents->externKind)
+				{
+				case ExternKind::function:
+					VALIDATE_INDEX(externIndex, module.functions.size());
+					break;
+				case ExternKind::table: VALIDATE_INDEX(externIndex, module.tables.size()); break;
+				case ExternKind::memory: VALIDATE_INDEX(externIndex, module.memories.size()); break;
+				case ExternKind::global: VALIDATE_INDEX(externIndex, module.globals.size()); break;
+				case ExternKind::exceptionType:
+					VALIDATE_INDEX(externIndex, module.exceptionTypes.size());
+					break;
+				case ExternKind::invalid:
+				default: WAVM_UNREACHABLE();
+				};
+			}
+			break;
+		default: WAVM_UNREACHABLE();
+		};
 	}
 }
 
@@ -1065,9 +1142,10 @@ void IR::CodeValidationStream::finish()
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
 	void IR::CodeValidationStream::name(Imm imm)                                                   \
 	{                                                                                              \
-		if(ENABLE_LOGGING) { impl->functionContext.logOperator(impl->operatorPrinter.name(imm)); } \
+		if(impl->functionContext.enableTracing)                                                    \
+		{ impl->functionContext.traceOperator(impl->operatorPrinter.name(imm)); }                  \
 		impl->functionContext.validateNonEmptyControlStack(nameString);                            \
 		impl->functionContext.name(imm);                                                           \
 	}
-ENUM_OPERATORS(VISIT_OPCODE)
+WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE

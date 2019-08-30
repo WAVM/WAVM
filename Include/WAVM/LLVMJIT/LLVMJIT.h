@@ -3,16 +3,16 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 // Forward declarations
 namespace WAVM { namespace IR {
 	struct Module;
 	struct UntaggedValue;
+	struct FeatureSpec;
 
 	enum class CallingConvention;
 }}
@@ -24,8 +24,44 @@ namespace WAVM { namespace Runtime {
 }}
 
 namespace WAVM { namespace LLVMJIT {
-	// Compiles a module to object code.
-	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule);
+
+	struct TargetSpec
+	{
+		std::string triple;
+		std::string cpu;
+	};
+
+	enum class TargetValidationResult
+	{
+		valid,
+		invalidTargetSpec,
+		unsupportedArchitecture,
+		x86CPUDoesNotSupportSSE41,
+		wavmDoesNotSupportSIMDOnArch
+	};
+
+	LLVMJIT_API TargetSpec getHostTargetSpec();
+
+	LLVMJIT_API TargetValidationResult validateTarget(const TargetSpec& targetSpec,
+													  const IR::FeatureSpec& featureSpec);
+
+	struct Version
+	{
+		Uptr llvmMajor;
+		Uptr llvmMinor;
+		Uptr llvmPatch;
+	};
+
+	LLVMJIT_API Version getVersion();
+
+	// Compile a module to object code with the host target spec.
+	// Cannot fail if validateTarget(targetSpec, irModule.featureSpec) == valid.
+	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule,
+											  const TargetSpec& targetSpec);
+
+	LLVMJIT_API std::string emitLLVMIR(const IR::Module& irModule,
+									   const TargetSpec& targetSpec,
+									   bool optimize);
 
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct Module;
@@ -84,9 +120,15 @@ namespace WAVM { namespace LLVMJIT {
 		Uptr tableReferenceBias,
 		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);
 
-	// Finds the JIT function whose code contains the given address. If no JIT function contains the
-	// given address, returns null.
-	LLVMJIT_API Runtime::Function* getFunctionByAddress(Uptr address);
+	struct InstructionSource
+	{
+		Runtime::Function* function;
+		Uptr instructionIndex;
+	};
+
+	// Finds the JIT function and instruction index at the given address. If no JIT function
+	// contains the given address, returns an InstructionSourceInfo with function==nullptr.
+	LLVMJIT_API InstructionSource getInstructionSourceByAddress(Uptr address);
 
 	// Generates an invoke thunk for a specific function type.
 	LLVMJIT_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);

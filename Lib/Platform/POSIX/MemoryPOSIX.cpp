@@ -3,7 +3,6 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <unistd.h>
-
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -23,10 +22,10 @@ static Uptr internalGetPreferredVirtualPageSizeLog2()
 {
 	U32 preferredVirtualPageSize = sysconf(_SC_PAGESIZE);
 	// Verify our assumption that the virtual page size is a power of two.
-	wavmAssert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
+	WAVM_ASSERT(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 	return floorLogTwo(preferredVirtualPageSize);
 }
-Uptr Platform::getPageSizeLog2()
+Uptr Platform::getBytesPerPageLog2()
 {
 	static Uptr preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 	return preferredVirtualPageSizeLog2;
@@ -40,7 +39,7 @@ static U32 memoryAccessAsPOSIXFlag(MemoryAccess access)
 	case MemoryAccess::none: return PROT_NONE;
 	case MemoryAccess::readOnly: return PROT_READ;
 	case MemoryAccess::readWrite: return PROT_READ | PROT_WRITE;
-	case MemoryAccess::execute: return PROT_EXEC;
+	case MemoryAccess::readExecute: return PROT_READ | PROT_EXEC;
 	case MemoryAccess::readWriteExecute: return PROT_EXEC | PROT_READ | PROT_WRITE;
 	}
 }
@@ -48,17 +47,17 @@ static U32 memoryAccessAsPOSIXFlag(MemoryAccess access)
 static bool isPageAligned(U8* address)
 {
 	const Uptr addressBits = reinterpret_cast<Uptr>(address);
-	return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
+	return (addressBits & (getBytesPerPage() - 1)) == 0;
 }
 
 U8* Platform::allocateVirtualPages(Uptr numPages)
 {
-	Uptr numBytes = numPages << getPageSizeLog2();
+	Uptr numBytes = numPages << getBytesPerPageLog2();
 	void* result = mmap(nullptr, numBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if(result == MAP_FAILED)
 	{
 		fprintf(stderr,
-				"mmap(0, %" PRIuPTR
+				"mmap(0, %" WAVM_PRIuPTR
 				", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
 				numBytes,
 				strerror(errno));
@@ -72,7 +71,7 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 										  Uptr alignmentLog2,
 										  U8*& outUnalignedBaseAddress)
 {
-	const Uptr pageSizeLog2 = getPageSizeLog2();
+	const Uptr pageSizeLog2 = getBytesPerPageLog2();
 	const Uptr numBytes = numPages << pageSizeLog2;
 	if(alignmentLog2 > pageSizeLog2)
 	{
@@ -91,11 +90,11 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 		// middle.
 		const Uptr numHeadPaddingBytes = alignedAddress - address;
 		if(numHeadPaddingBytes > 0)
-		{ errorUnless(!munmap(unalignedBaseAddress, numHeadPaddingBytes)); }
+		{ WAVM_ERROR_UNLESS(!munmap(unalignedBaseAddress, numHeadPaddingBytes)); }
 
 		const Uptr numTailPaddingBytes = alignmentBytes - (alignedAddress - address);
 		if(numTailPaddingBytes > 0)
-		{ errorUnless(!munmap(result + (numPages << pageSizeLog2), numTailPaddingBytes)); }
+		{ WAVM_ERROR_UNLESS(!munmap(result + (numPages << pageSizeLog2), numTailPaddingBytes)); }
 
 		outUnalignedBaseAddress = result;
 		return result;
@@ -109,15 +108,15 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 
 bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	int result = mprotect(
-		baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access));
+		baseVirtualAddress, numPages << getBytesPerPageLog2(), memoryAccessAsPOSIXFlag(access));
 	if(result != 0)
 	{
 		fprintf(stderr,
-				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed: %s\n",
+				"mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR ", %u) failed: %s\n",
 				reinterpret_cast<Uptr>(baseVirtualAddress),
-				numPages << getPageSizeLog2(),
+				numPages << getBytesPerPageLog2(),
 				memoryAccessAsPOSIXFlag(access),
 				strerror(errno));
 		dumpErrorCallStack(0);
@@ -127,15 +126,15 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 
 bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	int result = mprotect(
-		baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access));
+		baseVirtualAddress, numPages << getBytesPerPageLog2(), memoryAccessAsPOSIXFlag(access));
 	if(result != 0)
 	{
 		fprintf(stderr,
-				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed: %s\n",
+				"mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR ", %u) failed: %s\n",
 				reinterpret_cast<Uptr>(baseVirtualAddress),
-				numPages << getPageSizeLog2(),
+				numPages << getBytesPerPageLog2(),
 				memoryAccessAsPOSIXFlag(access),
 				strerror(errno));
 		dumpErrorCallStack(0);
@@ -145,12 +144,12 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 
 void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
-	auto numBytes = numPages << getPageSizeLog2();
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
+	auto numBytes = numPages << getBytesPerPageLog2();
 	if(mmap(baseVirtualAddress, numBytes, PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)
 	   == MAP_FAILED)
 	{
-		Errors::fatalf("mmap(0x%" PRIxPTR ", %" PRIuPTR
+		Errors::fatalf("mmap(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR
 					   ", PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed: %s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
 					   numBytes,
@@ -160,24 +159,24 @@ void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 
 void Platform::freeVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
-	if(munmap(baseVirtualAddress, numPages << getPageSizeLog2()))
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
+	if(munmap(baseVirtualAddress, numPages << getBytesPerPageLog2()))
 	{
-		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed: %s",
+		Errors::fatalf("munmap(0x%" WAVM_PRIxPTR ", %u) failed: %s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
-					   numPages << getPageSizeLog2(),
+					   numPages << getBytesPerPageLog2(),
 					   strerror(errno));
 	}
 }
 
 void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, Uptr alignmentLog2)
 {
-	errorUnless(isPageAligned(unalignedBaseAddress));
-	if(munmap(unalignedBaseAddress, numPages << getPageSizeLog2()))
+	WAVM_ERROR_UNLESS(isPageAligned(unalignedBaseAddress));
+	if(munmap(unalignedBaseAddress, numPages << getBytesPerPageLog2()))
 	{
-		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed: %s",
+		Errors::fatalf("munmap(0x%" WAVM_PRIxPTR ", %u) failed: %s",
 					   reinterpret_cast<Uptr>(unalignedBaseAddress),
-					   numPages << getPageSizeLog2(),
+					   numPages << getBytesPerPageLog2(),
 					   strerror(errno));
 	}
 }
@@ -185,6 +184,11 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 Uptr Platform::getPeakMemoryUsageBytes()
 {
 	struct rusage ru;
-	errorUnless(!getrusage(RUSAGE_SELF, &ru));
+	WAVM_ERROR_UNLESS(!getrusage(RUSAGE_SELF, &ru));
+#ifdef __APPLE__
+	// POSIX and even the Mac OS X docs say this is in KB, but it's actually in bytes.
+	return Uptr(ru.ru_maxrss);
+#else
 	return Uptr(ru.ru_maxrss) * 1024;
+#endif
 }

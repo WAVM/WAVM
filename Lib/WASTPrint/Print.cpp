@@ -4,7 +4,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
@@ -16,6 +15,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IsNameChar.h"
+#include "WAVM/Inline/LEB128.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/WASTPrint/WASTPrint.h"
 
@@ -122,7 +122,7 @@ static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentL
 		}
 		else if(next[0] == DEDENT_STRING[0] && next[1] == DEDENT_STRING[1])
 		{
-			errorUnless(indentDepth > 0);
+			WAVM_ERROR_UNLESS(indentDepth > 0);
 			--indentDepth;
 			next += 2;
 		}
@@ -201,6 +201,7 @@ static void print(std::string& string, ReferenceType type)
 	case ReferenceType::funcref: string += "funcref"; break;
 	case ReferenceType::anyref: string += "anyref"; break;
 
+	case ReferenceType::nullref:
 	case ReferenceType::none:
 	default: WAVM_UNREACHABLE();
 	}
@@ -435,11 +436,8 @@ struct FunctionPrintContext
 	void br_table(BranchTableImm imm)
 	{
 		string += "\nbr_table" INDENT_STRING;
-		enum
-		{
-			numTargetsPerLine = 16
-		};
-		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+		static constexpr Uptr numTargetsPerLine = 16;
+		WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
@@ -522,8 +520,8 @@ struct FunctionPrintContext
 
 	void rethrow(RethrowImm imm)
 	{
-		wavmAssert(controlStack[controlStack.size() - 1 - imm.catchDepth].type
-				   == ControlContext::Type::catch_);
+		WAVM_ASSERT(controlStack[controlStack.size() - 1 - imm.catchDepth].type
+					== ControlContext::Type::catch_);
 
 		string += "\nrethrow " + getBranchTargetId(imm.catchDepth);
 	}
@@ -545,11 +543,11 @@ struct FunctionPrintContext
 	}
 
 	void printImm(NoImm) {}
-	void printImm(MemoryImm imm) { errorUnless(imm.memoryIndex == 0); }
+	void printImm(MemoryImm imm) { WAVM_ERROR_UNLESS(imm.memoryIndex == 0); }
 	void printImm(MemoryCopyImm imm)
 	{
-		errorUnless(imm.sourceMemoryIndex == 0);
-		errorUnless(imm.destMemoryIndex == 0);
+		WAVM_ERROR_UNLESS(imm.sourceMemoryIndex == 0);
+		WAVM_ERROR_UNLESS(imm.destMemoryIndex == 0);
 	}
 	void printImm(TableImm imm)
 	{
@@ -633,7 +631,16 @@ struct FunctionPrintContext
 			string += " offset=";
 			string += std::to_string(imm.offset);
 		}
-		wavmAssert(imm.alignmentLog2 == naturalAlignmentLog2);
+		WAVM_ASSERT(imm.alignmentLog2 == naturalAlignmentLog2);
+	}
+
+	void printImm(AtomicFenceImm imm)
+	{
+		switch(imm.order)
+		{
+		case MemoryOrder::sequentiallyConsistent: break;
+		default: WAVM_UNREACHABLE();
+		};
 	}
 
 	void printImm(DataSegmentAndMemImm imm)
@@ -681,11 +688,11 @@ struct FunctionPrintContext
 #define PRINT_OP(opcode, name, nameString, Imm, printOperands, requiredFeature)                    \
 	void name(Imm imm)                                                                             \
 	{                                                                                              \
-		wavmAssert(module.featureSpec.requiredFeature);                                            \
+		WAVM_ASSERT(module.featureSpec.requiredFeature);                                           \
 		string += "\n" nameString;                                                                 \
 		printImm(imm);                                                                             \
 	}
-	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
+	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
 #undef VALIDATE_OP
 
 private:
@@ -915,48 +922,74 @@ void ModulePrintContext::printModule()
 		ScopedTagPrinter dataTag(string, "elem");
 		string += ' ';
 		string += names.elemSegments[segmentIndex];
-		string += ' ';
-		if(!elemSegment.isActive)
+
+		if(elemSegment.type == ElemSegment::Type::active)
 		{
-			switch(elemSegment.elemType)
+			string += " (table ";
+			string += names.tables[elemSegment.tableIndex];
+			string += ") ";
+			printInitializerExpression(elemSegment.baseOffset);
+		}
+
+		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)
+		{
+			if(elemSegment.contents->externKind != ExternKind::function)
+			{
+				switch(elemSegment.contents->externKind)
+				{
+				case ExternKind::function: string += " func"; break;
+				case ExternKind::table: string += " table"; break;
+				case ExternKind::memory: string += " memory"; break;
+				case ExternKind::global: string += " global"; break;
+				case ExternKind::exceptionType: string += " exception_type"; break;
+				case ExternKind::invalid:
+				default: WAVM_UNREACHABLE();
+				};
+			}
+
+			static constexpr Uptr numElemsPerLine = 8;
+			for(Uptr elementIndex = 0; elementIndex < elemSegment.contents->elemIndices.size();
+				++elementIndex)
+			{
+				const Uptr externIndex = elemSegment.contents->elemIndices[elementIndex];
+				string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
+				switch(elemSegment.contents->externKind)
+				{
+				case ExternKind::function: string += names.functions[externIndex].name; break;
+				case ExternKind::table: string += names.tables[externIndex]; break;
+				case ExternKind::memory: string += names.memories[externIndex]; break;
+				case ExternKind::global: string += names.globals[externIndex]; break;
+				case ExternKind::exceptionType: string += names.exceptionTypes[externIndex]; break;
+				case ExternKind::invalid:
+				default: WAVM_UNREACHABLE();
+				};
+			}
+		}
+		else
+		{
+			switch(elemSegment.contents->elemType)
 			{
 			case ReferenceType::anyref: string += " anyref"; break;
 			case ReferenceType::funcref: string += " funcref"; break;
 
+			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
 			};
-		}
-		else
-		{
-			string += names.tables[elemSegment.tableIndex];
-			string += ' ';
-			printInitializerExpression(elemSegment.baseOffset);
-		}
 
-		enum
-		{
-			numElemsPerLine = 8
-		};
-		for(Uptr elementIndex = 0; elementIndex < elemSegment.elems->size(); ++elementIndex)
-		{
-			const Elem& elem = (*elemSegment.elems)[elementIndex];
-			string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
-			if(elemSegment.isActive)
+			constexpr Uptr numElemsPerLine = 4;
+			for(Uptr elementIndex = 0; elementIndex < elemSegment.contents->elemExprs.size();
+				++elementIndex)
 			{
-				wavmAssert(elem.type == Elem::Type::ref_func);
-				wavmAssert(elem.index < names.functions.size());
-				string += names.functions[elem.index].name;
-			}
-			else
-			{
-				switch(elem.type)
+				const ElemExpr& elemExpr = elemSegment.contents->elemExprs[elementIndex];
+				string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
+				switch(elemExpr.type)
 				{
-				case Elem::Type::ref_null: string += "(ref.null)"; break;
-				case Elem::Type::ref_func:
-					wavmAssert(elem.index < names.functions.size());
+				case ElemExpr::Type::ref_null: string += "(ref.null)"; break;
+				case ElemExpr::Type::ref_func:
+					WAVM_ASSERT(elemExpr.index < names.functions.size());
 					string += "(ref.func ";
-					string += names.functions[elem.index].name;
+					string += names.functions[elemExpr.index].name;
 					string += ')';
 					break;
 
@@ -980,10 +1013,7 @@ void ModulePrintContext::printModule()
 			printInitializerExpression(dataSegment.baseOffset);
 		}
 
-		enum
-		{
-			numBytesPerLine = 64
-		};
+		static constexpr Uptr numBytesPerLine = 64;
 		for(Uptr offset = 0; offset < dataSegment.data->size(); offset += numBytesPerLine)
 		{
 			string += "\n\"";
@@ -1075,10 +1105,7 @@ void ModulePrintContext::printModule()
 			string += ";; User section \"";
 			string += escapeString(userSection.name.c_str(), userSection.name.length());
 			string += "\":" INDENT_STRING;
-			enum
-			{
-				numBytesPerLine = 32
-			};
+			static constexpr Uptr numBytesPerLine = 32;
 			for(Uptr offset = 0; offset < userSection.data.size(); offset += numBytesPerLine)
 			{
 				string += "\n;; \"";
@@ -1141,8 +1168,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			MemoryInputStream substream(stream.advance(numSubsectionBytes), numSubsectionBytes);
 			switch((LinkingSubsectionType)subsectionType)
 			{
-			case LinkingSubsectionType::segmentInfo:
-			{
+			case LinkingSubsectionType::segmentInfo: {
 				linkingSectionString += "\n;; Segments:" INDENT_STRING;
 				++indentDepth;
 
@@ -1168,8 +1194,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				--indentDepth;
 				break;
 			}
-			case LinkingSubsectionType::initFuncs:
-			{
+			case LinkingSubsectionType::initFuncs: {
 				linkingSectionString += "\n;; Init funcs:" INDENT_STRING;
 				++indentDepth;
 
@@ -1194,8 +1219,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				--indentDepth;
 				break;
 			}
-			case LinkingSubsectionType::comdatInfo:
-			{
+			case LinkingSubsectionType::comdatInfo: {
 				linkingSectionString += "\n;; Comdats:" INDENT_STRING;
 				++indentDepth;
 
@@ -1270,8 +1294,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				--indentDepth;
 				break;
 			}
-			case LinkingSubsectionType::symbolTable:
-			{
+			case LinkingSubsectionType::symbolTable: {
 				linkingSectionString += "\n;; Symbols:" INDENT_STRING;
 				++indentDepth;
 
@@ -1293,8 +1316,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 
 					switch(SymbolKind(kind))
 					{
-					case SymbolKind::function:
-					{
+					case SymbolKind::function: {
 						kindName = "function ";
 						serializeVarUInt32(substream, index);
 						if(index < module.functions.imports.size())
@@ -1308,8 +1330,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						}
 						break;
 					}
-					case SymbolKind::global:
-					{
+					case SymbolKind::global: {
 						kindName = "global ";
 						serializeVarUInt32(substream, index);
 						if(index < module.globals.imports.size())
@@ -1323,8 +1344,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						}
 						break;
 					}
-					case SymbolKind::data:
-					{
+					case SymbolKind::data: {
 						kindName = "data ";
 						serialize(substream, symbolName);
 						serializeVarUInt32(substream, index);
@@ -1332,8 +1352,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						serializeVarUInt32(substream, numBytes);
 						break;
 					}
-					case SymbolKind::section:
-					{
+					case SymbolKind::section: {
 						kindName = "section ";
 						serializeVarUInt32(substream, index);
 
@@ -1437,7 +1456,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			--indentDepth;
 		};
 	}
-	wavmAssert(indentDepth == 1);
+	WAVM_ASSERT(indentDepth == 1);
 	linkingSectionString += DEDENT_STRING "\n";
 
 	string += linkingSectionString;

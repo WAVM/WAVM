@@ -3,9 +3,9 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "Lexer.h"
 #include "Parse.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
@@ -16,7 +16,7 @@
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"
@@ -51,46 +51,39 @@ static IR::Value parseConstExpression(CursorState* cursor)
 	parseParenthesized(cursor, [&] {
 		switch(cursor->nextToken->type)
 		{
-		case t_i32_const:
-		{
+		case t_i32_const: {
 			++cursor->nextToken;
 			result = parseI32(cursor);
 			break;
 		}
-		case t_i64_const:
-		{
+		case t_i64_const: {
 			++cursor->nextToken;
 			result = parseI64(cursor);
 			break;
 		}
-		case t_f32_const:
-		{
+		case t_f32_const: {
 			++cursor->nextToken;
 			result = parseF32(cursor);
 			break;
 		}
-		case t_f64_const:
-		{
+		case t_f64_const: {
 			++cursor->nextToken;
 			result = parseF64(cursor);
 			break;
 		}
-		case t_v128_const:
-		{
+		case t_v128_const: {
 			++cursor->nextToken;
 			result.type = ValueType::v128;
 			result.v128 = parseV128(cursor);
 			break;
 		}
-		case t_ref_host:
-		{
+		case t_ref_host: {
 			++cursor->nextToken;
 			result.type = ValueType::funcref;
 			result.function = makeHostRef(parseU32(cursor));
 			break;
 		}
-		case t_ref_null:
-		{
+		case t_ref_null: {
 			++cursor->nextToken;
 			result.type = ValueType::nullref;
 			result.object = nullptr;
@@ -104,12 +97,12 @@ static IR::Value parseConstExpression(CursorState* cursor)
 	return result;
 }
 
-static IR::ValueTuple parseConstExpressionTuple(CursorState* cursor)
+static std::vector<IR::Value> parseConstExpressionTuple(CursorState* cursor)
 {
-	IR::ValueTuple tuple;
+	std::vector<IR::Value> values;
 	while(cursor->nextToken->type == t_leftParenthesis)
-	{ tuple.values.push_back(parseConstExpression(cursor)); };
-	return tuple;
+	{ values.push_back(parseConstExpression(cursor)); };
+	return values;
 }
 
 static std::string parseOptionalNameAsString(CursorState* cursor)
@@ -158,25 +151,27 @@ static void parseTestScriptModule(CursorState* cursor,
 		{
 			outQuotedModuleType = QuotedModuleType::binary;
 
-			try
+			WASM::LoadError loadError;
+			Serialization::MemoryInputStream wasmInputStream(
+				(const U8*)outQuotedModuleString.data(), outQuotedModuleString.size());
+			if(!WASM::loadBinaryModule(wasmInputStream, outModule, &loadError))
 			{
-				Serialization::MemoryInputStream wasmInputStream(
-					(const U8*)outQuotedModuleString.data(), outQuotedModuleString.size());
-				WASM::serialize(wasmInputStream, outModule);
-			}
-			catch(Serialization::FatalSerializationException const& exception)
-			{
-				parseErrorf(cursor->parseState,
-							quoteToken,
-							"error deserializing binary module: %s",
-							exception.message.c_str());
-			}
-			catch(ValidationException const& exception)
-			{
-				parseErrorf(cursor->parseState,
-							quoteToken,
-							"validation exception: %s",
-							exception.message.c_str());
+				switch(loadError.type)
+				{
+				case WASM::LoadError::Type::malformed:
+					parseErrorf(cursor->parseState,
+								quoteToken,
+								"error deserializing binary module: %s",
+								loadError.message.c_str());
+					break;
+				case WASM::LoadError::Type::invalid:
+					parseErrorf(cursor->parseState,
+								quoteToken,
+								"validation error: %s",
+								loadError.message.c_str());
+					break;
+				default: WAVM_UNREACHABLE();
+				};
 			}
 		}
 	}
@@ -192,52 +187,51 @@ static void parseTestScriptModule(CursorState* cursor,
 	}
 }
 
-static Action* parseAction(CursorState* cursor, const IR::FeatureSpec& featureSpec)
+static std::unique_ptr<Action> parseAction(CursorState* cursor, const IR::FeatureSpec& featureSpec)
 {
-	Action* result = nullptr;
+	std::unique_ptr<Action> result;
 	parseParenthesized(cursor, [&] {
 		TextFileLocus locus = calcLocusFromOffset(
 			cursor->parseState->string, cursor->parseState->lineInfo, cursor->nextToken->begin);
 
 		switch(cursor->nextToken->type)
 		{
-		case t_get:
-		{
+		case t_get: {
 			++cursor->nextToken;
 
 			std::string nameString = parseOptionalNameAsString(cursor);
 			std::string exportName = parseUTF8String(cursor);
 
-			result = new GetAction(std::move(locus), std::move(nameString), std::move(exportName));
+			result = std::unique_ptr<Action>(
+				new GetAction(std::move(locus), std::move(nameString), std::move(exportName)));
 			break;
 		}
-		case t_invoke:
-		{
+		case t_invoke: {
 			++cursor->nextToken;
 
 			std::string nameString = parseOptionalNameAsString(cursor);
 			std::string exportName = parseUTF8String(cursor);
 
-			IR::ValueTuple arguments = parseConstExpressionTuple(cursor);
-			result = new InvokeAction(std::move(locus),
-									  std::move(nameString),
-									  std::move(exportName),
-									  std::move(arguments));
+			std::vector<IR::Value> arguments = parseConstExpressionTuple(cursor);
+			result = std::unique_ptr<Action>(new InvokeAction(std::move(locus),
+															  std::move(nameString),
+															  std::move(exportName),
+															  std::move(arguments)));
 			break;
 		}
-		case t_module:
-		{
+		case t_module: {
 			++cursor->nextToken;
 
 			std::string internalModuleName;
-			Module* module = new Module(featureSpec);
+			std::unique_ptr<Module> module{new Module(featureSpec)};
 
 			QuotedModuleType quotedModuleType = QuotedModuleType::none;
 			std::string quotedModuleString;
 			parseTestScriptModule(
 				cursor, *module, internalModuleName, quotedModuleType, quotedModuleString);
 
-			result = new ModuleAction(std::move(locus), std::move(internalModuleName), module);
+			result = std::unique_ptr<Action>(new ModuleAction(
+				std::move(locus), std::move(internalModuleName), std::move(module)));
 			break;
 		}
 		default:
@@ -255,19 +249,21 @@ static bool stringStartsWith(const char* string, const char (&prefix)[numPrefixC
 	return !strncmp(string, prefix, numPrefixChars - 1);
 }
 
-static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& featureSpec)
+static std::unique_ptr<Command> parseCommand(CursorState* cursor,
+											 const IR::FeatureSpec& featureSpec)
 {
-	Command* result = nullptr;
+	std::unique_ptr<Command> result;
 
 	if(cursor->nextToken[0].type == t_leftParenthesis
 	   && (cursor->nextToken[1].type == t_module || cursor->nextToken[1].type == t_invoke
 		   || cursor->nextToken[1].type == t_get))
 	{
-		Action* action = parseAction(cursor, featureSpec);
+		std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
 		if(action)
 		{
 			TextFileLocus locus = action->locus;
-			result = new ActionCommand(std::move(locus), action);
+			result
+				= std::unique_ptr<Command>(new ActionCommand(std::move(locus), std::move(action)));
 		}
 	}
 	else
@@ -278,53 +274,51 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 
 			switch(cursor->nextToken->type)
 			{
-			case t_register:
-			{
+			case t_register: {
 				++cursor->nextToken;
 
 				std::string moduleName = parseUTF8String(cursor);
 				std::string nameString = parseOptionalNameAsString(cursor);
 
-				result = new RegisterCommand(
-					std::move(locus), std::move(moduleName), std::move(nameString));
+				result = std::unique_ptr<Command>(new RegisterCommand(
+					std::move(locus), std::move(moduleName), std::move(nameString)));
 				break;
 			}
-			case t_assert_return:
-			{
+			case t_assert_return: {
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor, featureSpec);
-				IR::ValueTuple expectedResults = parseConstExpressionTuple(cursor);
-				result = new AssertReturnCommand(std::move(locus), action, expectedResults);
+				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
+				std::vector<IR::Value> expectedResults = parseConstExpressionTuple(cursor);
+				result = std::unique_ptr<Command>(
+					new AssertReturnCommand(std::move(locus), std::move(action), expectedResults));
 				break;
 			}
 			case t_assert_return_arithmetic_nan:
-			case t_assert_return_canonical_nan:
-			{
+			case t_assert_return_canonical_nan: {
 				const Command::Type commandType
 					= cursor->nextToken->type == t_assert_return_canonical_nan
 						  ? Command::assert_return_canonical_nan
 						  : Command::assert_return_arithmetic_nan;
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor, featureSpec);
-				result = new AssertReturnNaNCommand(commandType, std::move(locus), action);
+				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
+				result = std::unique_ptr<Command>(
+					new AssertReturnNaNCommand(commandType, std::move(locus), std::move(action)));
 				break;
 			}
-			case t_assert_return_func:
-			{
+			case t_assert_return_func: {
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor, featureSpec);
-				result = new AssertReturnFuncCommand(std::move(locus), action);
+				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
+				result = std::unique_ptr<Command>(
+					new AssertReturnFuncCommand(std::move(locus), std::move(action)));
 				break;
 			}
 			case t_assert_exhaustion:
-			case t_assert_trap:
-			{
+			case t_assert_trap: {
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor, featureSpec);
+				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
 
 				const Token* errorToken = cursor->nextToken;
 				std::string expectedErrorMessage;
@@ -404,28 +398,28 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					throw RecoverParseException();
 				}
 
-				result = new AssertTrapCommand(std::move(locus), action, expectedType);
+				result = std::unique_ptr<Command>(
+					new AssertTrapCommand(std::move(locus), std::move(action), expectedType));
 				break;
 			}
-			case t_assert_throws:
-			{
+			case t_assert_throws: {
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor, featureSpec);
+				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
 
 				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(cursor);
 				std::string exceptionTypeExportName = parseUTF8String(cursor);
 
-				IR::ValueTuple expectedArguments = parseConstExpressionTuple(cursor);
-				result = new AssertThrowsCommand(std::move(locus),
-												 action,
-												 std::move(exceptionTypeInternalModuleName),
-												 std::move(exceptionTypeExportName),
-												 std::move(expectedArguments));
+				std::vector<IR::Value> expectedArguments = parseConstExpressionTuple(cursor);
+				result = std::unique_ptr<Command>(
+					new AssertThrowsCommand(std::move(locus),
+											std::move(action),
+											std::move(exceptionTypeInternalModuleName),
+											std::move(exceptionTypeExportName),
+											std::move(expectedArguments)));
 				break;
 			}
-			case t_assert_unlinkable:
-			{
+			case t_assert_unlinkable: {
 				++cursor->nextToken;
 
 				if(cursor->nextToken[0].type != t_leftParenthesis
@@ -435,7 +429,8 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					throw RecoverParseException();
 				}
 
-				ModuleAction* moduleAction = (ModuleAction*)parseAction(cursor, featureSpec);
+				std::unique_ptr<ModuleAction> moduleAction(
+					(ModuleAction*)parseAction(cursor, featureSpec).release());
 
 				std::string expectedErrorMessage;
 				if(!tryParseString(cursor, expectedErrorMessage))
@@ -444,20 +439,19 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					throw RecoverParseException();
 				}
 
-				result = new AssertUnlinkableCommand(std::move(locus), moduleAction);
+				result = std::unique_ptr<Command>(
+					new AssertUnlinkableCommand(std::move(locus), std::move(moduleAction)));
 				break;
 			}
 			case t_assert_invalid:
-			case t_assert_malformed:
-			{
+			case t_assert_malformed: {
 				const Command::Type commandType = cursor->nextToken->type == t_assert_invalid
 													  ? Command::assert_invalid
 													  : Command::assert_malformed;
 				++cursor->nextToken;
 
 				std::string internalModuleName;
-				Module module;
-				module.featureSpec = featureSpec;
+				Module module(featureSpec);
 				ParseState* outerParseState = cursor->parseState;
 				ParseState malformedModuleParseState(outerParseState->string,
 													 outerParseState->lineInfo);
@@ -491,11 +485,13 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					throw RecoverParseException();
 				}
 
-				// Determine whether the module was invalid or malformed.
+				// Determine whether the module was invalid or malformed. If there are any syntax
+				// errors, the module is malformed. If there are only validation errors, the module
+				// is invalid.
 				InvalidOrMalformed invalidOrMalformed = InvalidOrMalformed::wellFormedAndValid;
 				for(const UnresolvedError& error : malformedModuleParseState.unresolvedErrors)
 				{
-					if(stringStartsWith(error.message.c_str(), "validation exception"))
+					if(stringStartsWith(error.message.c_str(), "validation error"))
 					{ invalidOrMalformed = InvalidOrMalformed::invalid; }
 					else
 					{
@@ -504,11 +500,12 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					}
 				}
 
-				result = new AssertInvalidOrMalformedCommand(commandType,
-															 std::move(locus),
-															 invalidOrMalformed,
-															 quotedModuleType,
-															 std::move(quotedModuleString));
+				result = std::unique_ptr<Command>(
+					new AssertInvalidOrMalformedCommand(commandType,
+														std::move(locus),
+														invalidOrMalformed,
+														quotedModuleType,
+														std::move(quotedModuleString)));
 				break;
 			};
 			default:
@@ -546,10 +543,11 @@ void WAST::parseTestCommands(const char* string,
 		{
 			const TextFileLocus locus
 				= calcLocusFromOffset(string, lineInfo, cursor.nextToken[0].begin);
-			Module* module = new Module(featureSpec);
+			std::unique_ptr<Module> module{new Module(featureSpec)};
 			parseModuleBody(&cursor, *module);
-			auto moduleAction = new ModuleAction(TextFileLocus(locus), "", module);
-			auto actionCommand = new ActionCommand(TextFileLocus(locus), moduleAction);
+			std::unique_ptr<ModuleAction> moduleAction{
+				new ModuleAction(TextFileLocus(locus), "", std::move(module))};
+			auto actionCommand = new ActionCommand(TextFileLocus(locus), std::move(moduleAction));
 			outTestCommands.emplace_back(actionCommand);
 		}
 		else

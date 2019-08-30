@@ -2,7 +2,6 @@
 
 #include <string.h>
 #include <vector>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
@@ -106,6 +105,16 @@ namespace WAVM { namespace IR {
 		U32 offset;
 	};
 
+	enum class MemoryOrder
+	{
+		sequentiallyConsistent = 0
+	};
+
+	struct AtomicFenceImm
+	{
+		MemoryOrder order;
+	};
+
 	struct ExceptionTypeImm
 	{
 		Uptr exceptionTypeIndex;
@@ -140,17 +149,13 @@ namespace WAVM { namespace IR {
 	enum class Opcode : U16
 	{
 #define VISIT_OPCODE(opcode, name, ...) name = opcode,
-		ENUM_OPERATORS(VISIT_OPCODE)
+		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
-
 	};
 
-	enum : U16
-	{
-		maxSingleByteOpcode = 0xdf,
-	};
+	static constexpr U64 maxSingleByteOpcode = 0xdf;
 
-	PACKED_STRUCT(template<typename Imm> struct OpcodeAndImm {
+	WAVM_PACKED_STRUCT(template<typename Imm> struct OpcodeAndImm {
 		Opcode opcode;
 		Imm imm;
 	});
@@ -177,21 +182,20 @@ namespace WAVM { namespace IR {
 
 		template<typename Visitor> typename Visitor::Result decodeOp(Visitor& visitor)
 		{
-			wavmAssert(nextByte + sizeof(Opcode) <= end);
+			WAVM_ASSERT(nextByte + sizeof(Opcode) <= end);
 			Opcode opcode;
 			memcpy(&opcode, nextByte, sizeof(Opcode));
 			switch(opcode)
 			{
 #define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                                           \
-	case Opcode::name:                                                                             \
-	{                                                                                              \
-		wavmAssert(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);                                   \
+	case Opcode::name: {                                                                           \
+		WAVM_ASSERT(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);                                  \
 		OpcodeAndImm<Imm> encodedOperator;                                                         \
 		memcpy(&encodedOperator, nextByte, sizeof(OpcodeAndImm<Imm>));                             \
 		nextByte += sizeof(OpcodeAndImm<Imm>);                                                     \
 		return visitor.name(encodedOperator.imm);                                                  \
 	}
-				ENUM_OPERATORS(VISIT_OPCODE)
+				WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 			default: WAVM_UNREACHABLE();
 			}
@@ -227,7 +231,7 @@ namespace WAVM { namespace IR {
 			   &encodedOperator,                                                                   \
 			   sizeof(OpcodeAndImm<Imm>));                                                         \
 	}
-		ENUM_OPERATORS(VISIT_OPCODE)
+		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
 	private:
@@ -239,7 +243,7 @@ namespace WAVM { namespace IR {
 	struct NonParametricOpSignatures
 	{
 #define VISIT_OP(_1, name, ...) FunctionType name;
-		ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)
+		WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 	};
 	IR_API const NonParametricOpSignatures& getNonParametricOpSigs();

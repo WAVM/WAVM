@@ -3,7 +3,7 @@ function(ADD_WAST_TEST WAST_PATH)
 	get_filename_component(WAST_NAME ${WAST_PATH} NAME)
 	add_test(
 		NAME ${WAST_NAME}
-		COMMAND $<TARGET_FILE:RunTestScript> ${CMAKE_CURRENT_LIST_DIR}/${WAST_PATH} ${ARGN})
+		COMMAND $<TARGET_FILE:RunTestScript> ${CMAKE_CURRENT_LIST_DIR}/${WAST_PATH} "--test-cloning" ${ARGN})
 endfunction()
 
 function(ADD_WAST_TESTS WAST_PATHS)
@@ -28,6 +28,7 @@ set(WASTTests
 	misc.wast
 	reference_types.wast
 	simd.wast
+	syntax_recursion.wast
 	threads.wast
 	trunc_sat.wast
 	wavm_atomic.wast
@@ -37,6 +38,10 @@ set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
 
 if(WAVM_ENABLE_RUNTIME)
 	ADD_WAST_TESTS("${WASTTests}")
+
+	# TODO: fix the memory leak in this test.
+	set_tests_properties(exceptions.wast PROPERTIES ENVIRONMENT ASAN_OPTIONS=detect_leaks=0)
+
 	add_subdirectory(wavm-c)
 endif()
 

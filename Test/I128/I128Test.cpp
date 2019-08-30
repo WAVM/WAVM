@@ -12,7 +12,7 @@ struct RandomStream
 
 	I128 get()
 	{
-		seed = ignoreOverflow(seed * U64(6364136223846793005) + U64(1442695040888963407));
+		seed = addmod127(mulmod127(seed, U64(6364136223846793005)), U64(1442695040888963407));
 		return seed;
 	}
 
@@ -20,43 +20,44 @@ private:
 	I128 seed;
 };
 
-static bool isEqualOrOverflowed(I128 a, I128 b)
-{
-	return a.getOverflow() || b.getOverflow() || a == b;
-}
+static bool isEqualOrNaN(I128 a, I128 b) { return isNaN(a) || isNaN(b) || a == b; }
 
 I32 main()
 {
 	Timing::Timer timer;
 	RandomStream random(0);
 
-	for(Uptr i = 0; i < 10000000; ++i)
+	I128 phaseMasks[3] = {I128::max(), UINT64_MAX, 32767};
+	for(Uptr phase = 0; phase < 3; ++phase)
 	{
-		I128 a = random.get();
-		I128 b = random.get();
-		I128 c = random.get();
+		for(Uptr i = 0; i < 100000; ++i)
+		{
+			I128 a = random.get() & phaseMasks[phase];
+			I128 b = random.get() & phaseMasks[phase];
+			I128 c = random.get() & phaseMasks[phase];
 
-		errorUnless(isEqualOrOverflowed(a - a, 0));
-		errorUnless(isEqualOrOverflowed(a + (-a), 0));
-		errorUnless(isEqualOrOverflowed(a + 1, a - (-1)));
-		errorUnless(isEqualOrOverflowed(a - 1, a + (-1)));
-		errorUnless(isEqualOrOverflowed(a - 0, a));
-		errorUnless(isEqualOrOverflowed(a + 0, a));                 // Identity
-		errorUnless(isEqualOrOverflowed(a + b, b + a));             // Commutativity
-		errorUnless(isEqualOrOverflowed((a + b) + c, a + (b + c))); // Associativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a - a, 0));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + (-a), 0));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + 1, a - (-1)));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a - 1, a + (-1)));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a - 0, a));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + 0, a));                 // Identity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + b, b + a));             // Commutativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a + b) + c, a + (b + c))); // Associativity
 
-		errorUnless(isEqualOrOverflowed(a * 0, 0));
-		errorUnless(isEqualOrOverflowed(a * -1, -a));
-		errorUnless(isEqualOrOverflowed(a * 1, a));                       // Identity
-		errorUnless(isEqualOrOverflowed(a * b, b * a));                   // Commutativity
-		errorUnless(isEqualOrOverflowed((a * b) * c, a * (b * c)));       // Associativity
-		errorUnless(isEqualOrOverflowed(a * (b + c), (a * b) + (a * c))); // Distributivity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * 0, 0));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * -1, -a));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * 1, a));                       // Identity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * b, b * a));                   // Commutativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a * b) * c, a * (b * c)));       // Associativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * (b + c), (a * b) + (a * c))); // Distributivity
 
-		errorUnless(isEqualOrOverflowed((a * b) / b, a));
-		errorUnless(isEqualOrOverflowed((a + b) - b, a));
-		errorUnless(isEqualOrOverflowed((a - b) + b, a));
+			if(b != 0) { WAVM_ERROR_UNLESS(isEqualOrNaN((a * b) / b, a)); }
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a + b) - b, a));
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a - b) + b, a));
 
-		errorUnless(isEqualOrOverflowed(((a / b) * b) + (a % b), a));
+			if(b != 0) { WAVM_ERROR_UNLESS(isEqualOrNaN(((a / b) * b) + (a % b), a)); }
+		}
 	}
 
 	Timing::logTimer("Ran I128 tests", timer);

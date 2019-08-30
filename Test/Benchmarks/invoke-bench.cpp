@@ -16,7 +16,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 enum
 {
@@ -74,7 +74,7 @@ void runBenchmark(Compartment* compartment,
 	const F64 nanosecondsPerInvoke = totalElapsedNanoseconds / F64(numCalls);
 
 	Log::printf(Log::output,
-				"ns/%s in %" PRIuPTR " threads: %.2f\n",
+				"ns/%s in %" WAVM_PRIuPTR " threads: %.2f\n",
 				description,
 				numThreads,
 				nanosecondsPerInvoke);
@@ -116,7 +116,15 @@ int main(int argc, char** argv)
 	auto nopFunction = asFunction(getInstanceExport(moduleInstance, "nopFunction"));
 
 	// Call the nop function once to ensure the time to create the invoke thunk isn't benchmarked.
-	invokeFunctionChecked(createContext(compartment), nopFunction, {Value{I32(0)}});
+	{
+		IR::Value args[1]{I32(0)};
+		IR::Value results[1];
+		invokeFunction(createContext(compartment),
+					   nopFunction,
+					   FunctionType({ValueType::i32}, {ValueType::i32}),
+					   args,
+					   results);
+	}
 
 	// Benchmark calling the function directly.
 	runBenchmarkSingleAndMultiThreaded(
@@ -134,17 +142,20 @@ int main(int argc, char** argv)
 			return 0;
 		});
 
-	// Benchmark invokeFunctionUnchecked.
+	// Benchmark invokeFunction.
 	runBenchmarkSingleAndMultiThreaded(
-		compartment, nopFunction, "invokeFunctionUnchecked", [](void* argument) -> I64 {
+		compartment, nopFunction, "invokeFunction", [](void* argument) -> I64 {
 			ThreadArgs* threadArgs = (ThreadArgs*)argument;
 
-			UntaggedValue functionArgs[]{{I32(0)}};
+			FunctionType invokeSig({ValueType::i32}, {ValueType::i32});
 
 			Timing::Timer timer;
 			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
 			{
-				invokeFunctionUnchecked(threadArgs->context, threadArgs->nopFunction, functionArgs);
+				UntaggedValue args[1]{I32(0)};
+				UntaggedValue results[1];
+				invokeFunction(
+					threadArgs->context, threadArgs->nopFunction, invokeSig, args, results);
 			}
 			timer.stop();
 
@@ -153,25 +164,8 @@ int main(int argc, char** argv)
 			return 0;
 		});
 
-	// Benchmark invokeFunctionChecked.
-	runBenchmarkSingleAndMultiThreaded(
-		compartment, nopFunction, "invokeFunctionChecked", [](void* argument) -> I64 {
-			ThreadArgs* threadArgs = (ThreadArgs*)argument;
-
-			std::vector<Value> functionArgs{Value{I32(0)}};
-
-			Timing::Timer timer;
-			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-			{ invokeFunctionChecked(threadArgs->context, threadArgs->nopFunction, functionArgs); }
-			timer.stop();
-
-			threadArgs->elapsedNanoseconds = timer.getNanoseconds();
-
-			return 0;
-		});
-
 	// Free the compartment.
-	errorUnless(tryCollectCompartment(std::move(compartment)));
+	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 
 	return 0;
 }

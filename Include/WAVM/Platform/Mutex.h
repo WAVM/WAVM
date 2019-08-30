@@ -20,7 +20,7 @@ namespace WAVM { namespace Platform {
 		PLATFORM_API void lock();
 		PLATFORM_API void unlock();
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 		PLATFORM_API bool isLockedByCurrentThread();
 #endif
 
@@ -35,10 +35,15 @@ namespace WAVM { namespace Platform {
 		{
 			Uptr data[6];
 		} criticalSection;
-#elif defined(__linux__)
+#elif defined(__linux__) && defined(__x86_64__)
 		struct PthreadMutex
 		{
 			Uptr data[5];
+		} pthreadMutex;
+#elif defined(__linux__) && defined(__aarch64__)
+		struct PthreadMutex
+		{
+			Uptr data[6];
 		} pthreadMutex;
 #elif defined(__APPLE__)
 		struct PthreadMutex
@@ -54,14 +59,15 @@ namespace WAVM { namespace Platform {
 #error unsupported platform
 #endif
 
-#if defined(WIN32) || WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if defined(WIN32) || WAVM_ENABLE_ASSERTS
 		bool isLocked;
 #endif
 	};
 }}
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
-#define wavmAssertMutexIsLockedByCurrentThread(mutex) wavmAssert((mutex).isLockedByCurrentThread())
+#if WAVM_ENABLE_ASSERTS
+#define WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(mutex)                                       \
+	WAVM_ASSERT((mutex).isLockedByCurrentThread())
 #else
-#define wavmAssertMutexIsLockedByCurrentThread(mutex) wavmAssert(&(mutex) == &(mutex))
+#define WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(mutex) WAVM_ASSERT(&(mutex) == &(mutex))
 #endif

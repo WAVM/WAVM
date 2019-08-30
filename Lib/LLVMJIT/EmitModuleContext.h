@@ -4,7 +4,7 @@
 #include "WAVM/IR/Module.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/IR/DIBuilder.h"
+#include <llvm/IR/DIBuilder.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {
@@ -14,6 +14,8 @@ namespace WAVM { namespace LLVMJIT {
 
 		LLVMContext& llvmContext;
 		llvm::Module* llvmModule;
+		llvm::TargetMachine* targetMachine;
+		bool useWindowsSEH;
 		std::vector<llvm::Constant*> typeIds;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;
@@ -45,7 +47,8 @@ namespace WAVM { namespace LLVMJIT {
 
 		EmitModuleContext(const IR::Module& inModule,
 						  LLVMContext& inLLVMContext,
-						  llvm::Module* inLLVMModule);
+						  llvm::Module* inLLVMModule,
+						  llvm::TargetMachine* inTargetMachine);
 
 		inline llvm::Function* getLLVMIntrinsic(llvm::ArrayRef<llvm::Type*> typeArguments,
 												llvm::Intrinsic::ID id)

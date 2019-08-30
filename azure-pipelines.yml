@@ -1,9 +1,214 @@
-jobs:
-  - template: Build/azure-windows-build-job-template.yml
-    parameters:
-      name: Windows_Release
-      buildConfiguration: Release
-  - template: Build/azure-windows-build-job-template.yml
-    parameters:
-      name: Windows_Debug
-      buildConfiguration: Debug
+stages:
+  - stage:
+    displayName: Build
+    jobs:
+      # Win64 VS2017
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2017_RelWithDebInfo
+          vmImage: 'VS2017-Win2016'
+          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
+          cmakeBuildArgs: '--config RelWithDebInfo'
+          ctestArgs: '-C RelWithDebInfo'
+          llvmBuildAssetName: Win64_VS2017_Release.zip
+          packageSuffix: '-windows-x64-vs2017'
+          cpackGenerators: 'ZIP;NSIS64'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2017_RelWithDebInfo_Static
+          vmImage: 'VS2017-Win2016'
+          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64" -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: '--config RelWithDebInfo'
+          ctestArgs: '-C RelWithDebInfo'
+          llvmBuildAssetName: Win64_VS2017_Release.zip
+          packageSuffix: '-windows-x64-vs2017-static'
+          cpackGenerators: 'ZIP'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2017_Debug
+          vmImage: 'VS2017-Win2016'
+          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
+          cmakeBuildArgs: '--config Debug'
+          ctestArgs: '-C Debug'
+          llvmBuildAssetName: Win64_VS2017_Debug.zip
+          packageSuffix: '-windows-x64-vs2017-debug'
+          cpackGenerators: 'ZIP'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2017_Debug_Static
+          vmImage: 'VS2017-Win2016'
+          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64" -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: '--config Debug'
+          ctestArgs: '-C Debug'
+          llvmBuildAssetName: Win64_VS2017_Debug.zip
+          packageSuffix: '-windows-x64-vs2017-debug-static'
+          cpackGenerators: 'ZIP'
+
+      # Win64 VS2019
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2019_RelWithDebInfo
+          buildConfiguration: RelWithDebInfo
+          vmImage: 'windows-2019'
+          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
+          cmakeBuildArgs: '--config RelWithDebInfo'
+          ctestArgs: '-C RelWithDebInfo'
+          llvmBuildAssetName: Win64_VS2019_Release.zip
+          packageSuffix: '-windows-x64'
+          cpackGenerators: 'ZIP;NSIS64'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2019_RelWithDebInfo_Static
+          buildConfiguration: RelWithDebInfo
+          vmImage: 'windows-2019'
+          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64 -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: '--config RelWithDebInfo'
+          ctestArgs: '-C RelWithDebInfo'
+          llvmBuildAssetName: Win64_VS2019_Release.zip
+          packageSuffix: '-windows-x64-static'
+          cpackGenerators: 'ZIP'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2019_Debug
+          buildConfiguration: Debug
+          vmImage: 'windows-2019'
+          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
+          cmakeBuildArgs: '--config Debug'
+          ctestArgs: '-C Debug'
+          llvmBuildAssetName: Win64_VS2019_Debug.zip
+          packageSuffix: '-windows-x64-debug'
+          cpackGenerators: 'ZIP'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Win64_VS2019_Debug_Static
+          buildConfiguration: Debug
+          vmImage: 'windows-2019'
+          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64 -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: '--config Debug'
+          ctestArgs: '-C Debug'
+          llvmBuildAssetName: Win64_VS2019_Debug.zip
+          packageSuffix: '-windows-x64-debug-static'
+          cpackGenerators: 'ZIP'
+
+      # Ubuntu 16.04
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Ubuntu1604_RelWithDebInfo
+          vmImage: 'ubuntu-16.04'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: Ubuntu1604_Release.zip
+          packageSuffix: '-linux-x64'
+          cpackGenerators: 'DEB;TGZ'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Ubuntu1604_RelWithDebInfo_Static
+          vmImage: 'ubuntu-16.04'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: Ubuntu1604_Release.zip
+          packageSuffix: '-linux-x64-static'
+          cpackGenerators: 'TGZ'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Ubuntu1604_Debug
+          vmImage: 'ubuntu-16.04'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: Ubuntu1604_Debug.zip
+          packageSuffix: '-linux-x64-debug'
+          cpackGenerators: 'TGZ'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: Ubuntu1604_Debug_Static
+          vmImage: 'ubuntu-16.04'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: Ubuntu1604_Debug.zip
+          packageSuffix: '-linux-x64-debug-static'
+          cpackGenerators: 'TGZ'
+
+      # MacOS 10.14
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: MacOSX14_RelWithDebInfo
+          vmImage: 'macOS-10.14'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: MacOSX14_Release.zip
+          packageSuffix: '-macos10.14-x64'
+          cpackGenerators: 'TGZ'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: MacOSX14_RelWithDebInfo_Static
+          vmImage: 'macOS-10.14'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: MacOSX14_Release.zip
+          packageSuffix: '-macos10.14-x64-static'
+          cpackGenerators: 'TGZ'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: MacOSX14_Debug
+          vmImage: 'macOS-10.14'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: MacOSX14_Debug.zip
+          packageSuffix: '-macos10.14-x64-debug'
+          cpackGenerators: 'TGZ'
+      - template: Build/azure-build-job-template.yml
+        parameters:
+          name: MacOSX14_Debug_Static
+          vmImage: 'macOS-10.14'
+          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DWAVM_ENABLE_STATIC_LINKING=1'
+          cmakeBuildArgs: ''
+          llvmBuildAssetName: MacOSX14_Debug.zip
+          packageSuffix: '-macos10.14-x64-debug-static'
+          cpackGenerators: 'TGZ'
+
+      # Win32
+      - template: Build/azure-windows-build-job-template-no-llvm.yml
+        parameters:
+          name: Win32_VS2019
+          buildConfiguration: RelWithDebInfo
+          vmImage: 'windows-2019'
+          cmakeArgs: '-G "Visual Studio 16 2019" -A Win32'
+          vsPlatform: Win32
+
+
+  - stage:
+    # If this build was the scheduled nightly build, upload its artifacts as a GitHub release
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'Schedule'))
+    displayName: Create nightly GitHub release
+    jobs:
+      - job: UploadGitHubRelease
+        pool:
+          vmImage: windows-2019
+        steps:
+        # Download all the artifacts uploaded by the jobs in the Build stage.
+        - task: DownloadPipelineArtifact@2
+          inputs:
+            buildType: current
+            targetPath: $(Build.ArtifactStagingDirectory)
+        # Get the current date
+        - bash: echo "##vso[task.setvariable variable=today]$(date -u +%Y-%m-%d)"
+        # Create a GitHub release containing the artifacts.
+        - task: GitHubRelease@0
+          inputs:
+            gitHubConnection: GitHubPAT
+            action: create
+            target: $(Build.SourceVersion)
+            tagSource: manual
+            tag: nightly-$(today)
+            title: nightly-$(today)
+            assets: |
+              $(Build.ArtifactStagingDirectory)/**/*.exe
+              $(Build.ArtifactStagingDirectory)/**/*.zip
+              $(Build.ArtifactStagingDirectory)/**/*.deb
+              $(Build.ArtifactStagingDirectory)/**/*-static.tar.gz
+            releaseNotesSource: input
+            releaseNotes: 
+            addChangeLog: true
+            changeLogCompareToRelease: lastNonDraftReleaseByTag
+            changeLogCompareToReleaseTag: nightly-[\d-]+
+            isPreRelease: true

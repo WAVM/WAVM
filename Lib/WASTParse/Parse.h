@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "Lexer.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
@@ -60,7 +59,7 @@ namespace WAVM { namespace WAST {
 		Name(const char* inBegin, U32 inNumChars, U32 inSourceOffset)
 		: begin(inBegin), numChars(inNumChars), sourceOffset(inSourceOffset)
 		{
-			wavmAssert(inNumChars > 0);
+			WAVM_ASSERT(inNumChars > 0);
 		}
 
 		constexpr operator bool() const { return begin != nullptr; }
@@ -184,17 +183,18 @@ namespace WAVM { namespace WAST {
 
 	// Error handling.
 	void parseErrorf(ParseState* parseState, Uptr charOffset, const char* messageFormat, ...)
-		VALIDATE_AS_PRINTF(3, 4);
+		WAVM_VALIDATE_AS_PRINTF(3, 4);
 	void parseErrorf(ParseState* parseState, const char* nextChar, const char* messageFormat, ...)
-		VALIDATE_AS_PRINTF(3, 4);
+		WAVM_VALIDATE_AS_PRINTF(3, 4);
 	void parseErrorf(ParseState* parseState, const Token* nextToken, const char* messageFormat, ...)
-		VALIDATE_AS_PRINTF(3, 4);
+		WAVM_VALIDATE_AS_PRINTF(3, 4);
 
 	void require(CursorState* cursor, TokenType type);
 
 	// Type parsing and uniqueing
 	bool tryParseValueType(CursorState* cursor, IR::ValueType& outValueType);
 	IR::ValueType parseValueType(CursorState* cursor);
+	bool tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefType);
 	IR::ReferenceType parseReferenceType(CursorState* cursor);
 
 	IR::FunctionType parseFunctionType(CursorState* cursor,
@@ -240,6 +240,8 @@ namespace WAVM { namespace WAST {
 										  Uptr maxIndex,
 										  const char* context,
 										  Uptr& outIndex);
+	Name parseName(CursorState* cursor, const char* context);
+	Reference parseNameOrIndexRef(CursorState* cursor, const char* context);
 	Uptr parseAndResolveNameOrIndexRef(CursorState* cursor,
 									   const NameToIndexMap& nameToIndexMap,
 									   Uptr maxIndex,

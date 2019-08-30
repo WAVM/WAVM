@@ -2,7 +2,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
@@ -11,6 +10,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/LEB128.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Inline/Unicode.h"
@@ -29,7 +29,7 @@ static void throwIfNotValidUTF8(const std::string& string)
 	{ throw FatalSerializationException("invalid UTF-8 encoding"); }
 }
 
-FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
+WAVM_FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 {
 	opcode = (Opcode)0;
 	serializeNativeValue(stream, *(U8*)&opcode);
@@ -39,7 +39,7 @@ FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 		serializeVarUInt8(stream, *(U8*)&opcode);
 	}
 }
-FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
+WAVM_FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 {
 	if(opcode <= (Opcode)maxSingleByteOpcode)
 	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
@@ -99,7 +99,7 @@ namespace WAVM { namespace IR {
 		serializeVarInt7(stream, encodedValueType);
 	}
 
-	FORCEINLINE static void serialize(InputStream& stream, TypeTuple& typeTuple)
+	WAVM_FORCEINLINE static void serialize(InputStream& stream, TypeTuple& typeTuple)
 	{
 		Uptr numElems;
 		serializeVarUInt32(stream, numElems);
@@ -154,6 +154,7 @@ namespace WAVM { namespace IR {
 			case ReferenceType::funcref: encodedReferenceType = 0x70; break;
 			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
 
+			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
 			}
@@ -260,68 +261,92 @@ namespace WAVM { namespace IR {
 
 	template<typename Stream> void serialize(Stream& stream, ElemSegment& elemSegment)
 	{
+		// Serialize the segment flags.
+		U32 flags = 0;
+		if(!Stream::isInput)
+		{
+			switch(elemSegment.contents->encoding)
+			{
+			case ElemSegment::Encoding::expr: flags |= 4; break;
+			case ElemSegment::Encoding::index: break;
+			default: WAVM_UNREACHABLE();
+			};
+
+			switch(elemSegment.type)
+			{
+			case ElemSegment::Type::active:
+				if(elemSegment.tableIndex != 0) { flags |= 2; }
+				break;
+			case ElemSegment::Type::passive: flags |= 1; break;
+			// case ElemSegment::Type::declared: flags |= 3; break;
+			default: WAVM_UNREACHABLE();
+			};
+		}
+		serializeVarUInt32(stream, flags);
 		if(Stream::isInput)
 		{
-			U32 flags = 0;
-			serializeVarUInt32(stream, flags);
+			if(flags > 7) { throw FatalSerializationException("invalid elem segment flags"); }
 
-			switch(flags)
+			elemSegment.contents = std::make_shared<ElemSegment::Contents>();
+			elemSegment.contents->encoding
+				= (flags & 4) ? ElemSegment::Encoding::expr : ElemSegment::Encoding::index;
+
+			elemSegment.tableIndex = UINTPTR_MAX;
+			elemSegment.baseOffset = {};
+
+			switch(flags & 3)
 			{
 			case 0:
-				elemSegment.isActive = true;
+				elemSegment.type = ElemSegment::Type::active;
 				elemSegment.tableIndex = 0;
-				serialize(stream, elemSegment.baseOffset);
+				elemSegment.contents->elemType = ReferenceType::funcref;
+				elemSegment.contents->externKind = ExternKind::function;
 				break;
-			case 1:
-				elemSegment.isActive = false;
-				elemSegment.tableIndex = UINTPTR_MAX;
-				elemSegment.baseOffset = {};
-				break;
-			case 2:
-				elemSegment.isActive = true;
-				serializeVarUInt32(stream, elemSegment.tableIndex);
-				serialize(stream, elemSegment.baseOffset);
-				break;
-			default: throw FatalSerializationException("invalid elem segment flags");
+			case 1: elemSegment.type = ElemSegment::Type::passive; break;
+			case 2: elemSegment.type = ElemSegment::Type::active; break;
+			case 3:
+				// elemSegment.type = ElemSegment::Type::declared; break;
+				throw FatalSerializationException("invalid elem segment flags");
+
+			default: WAVM_UNREACHABLE();
 			};
-			elemSegment.elems = std::make_shared<std::vector<IR::Elem>>();
 		}
-		else
+
+		// Serialize the table the element segment writes to.
+		if(flags & 2) { serializeVarUInt32(stream, elemSegment.tableIndex); }
+
+		// Serialize the offset the element segment writes to the table at.
+		if(!(flags & 1)) { serialize(stream, elemSegment.baseOffset); }
+
+		switch(elemSegment.contents->encoding)
 		{
-			if(!elemSegment.isActive) { serializeConstant<U8>(stream, "", 1); }
-			else
-			{
-				if(elemSegment.tableIndex == 0) { serializeConstant<U8>(stream, "", 0); }
-				else
-				{
-					serializeConstant<U8>(stream, "", 2);
-					serializeVarUInt32(stream, elemSegment.tableIndex);
-				}
-				serialize(stream, elemSegment.baseOffset);
-			}
+		case ElemSegment::Encoding::expr: {
+			// Serialize the type of the element expressions as a reference type.
+			if(flags & 3) { serialize(stream, elemSegment.contents->elemType); }
+			serializeArray(
+				stream, elemSegment.contents->elemExprs, [](Stream& stream, ElemExpr& elem) {
+					serializeOpcode(stream, elem.typeOpcode);
+					switch(elem.type)
+					{
+					case ElemExpr::Type::ref_null: break;
+					case ElemExpr::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
+					default: throw FatalSerializationException("invalid elem opcode");
+					};
+					serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
+				});
+			break;
 		}
-		if(elemSegment.isActive)
-		{
-			serializeArray(stream, *elemSegment.elems, [](Stream& stream, Elem& elem) {
-				if(Stream::isInput) { elem.type = Elem::Type::ref_func; }
-				wavmAssert(elem.type == Elem::Type::ref_func);
-				serializeVarUInt32(stream, elem.index);
-			});
+		case ElemSegment::Encoding::index: {
+			// Serialize the extern kind referenced by the segment elements.
+			if(flags & 3) { serialize(stream, elemSegment.contents->externKind); }
+			serializeArray(
+				stream, elemSegment.contents->elemIndices, [](Stream& stream, Uptr& externIndex) {
+					serializeVarUInt32(stream, externIndex);
+				});
+			break;
 		}
-		else
-		{
-			serialize(stream, elemSegment.elemType);
-			serializeArray(stream, *elemSegment.elems, [](Stream& stream, Elem& elem) {
-				serializeOpcode(stream, elem.typeOpcode);
-				switch(elem.type)
-				{
-				case Elem::Type::ref_null: break;
-				case Elem::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
-				default: throw FatalSerializationException("invalid elem opcode");
-				};
-				serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
-			});
-		}
+		default: WAVM_UNREACHABLE();
+		};
 	}
 
 	template<typename Stream> void serialize(Stream& stream, DataSegment& dataSegment)
@@ -370,11 +395,8 @@ namespace WAVM { namespace IR {
 	}
 }}
 
-enum
-{
-	magicNumber = 0x6d736100, // "\0asm"
-	currentVersion = 1
-};
+static constexpr U32 magicNumber = 0x6d736100; // "\0asm"
+static constexpr U32 currentVersion = 1;
 
 enum class SectionType : U8
 {
@@ -502,6 +524,10 @@ static void serialize(OutputStream& stream,
 template<typename Stream>
 void serialize(Stream& stream, SelectImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
+	U32 numResults = 1;
+	serializeVarUInt32(stream, numResults);
+	if(Stream::isInput && numResults != 1)
+	{ throw ValidationException("typed select must have exactly one result"); }
 	serialize(stream, imm.type);
 }
 
@@ -529,7 +555,7 @@ static void serialize(OutputStream& stream,
 					  FunctionDef& functionDef,
 					  const ModuleSerializationState&)
 {
-	wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+	WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 	std::vector<Uptr>& branchTable = functionDef.branchTables[imm.branchTableIndex];
 	serializeArray(stream, branchTable, [](OutputStream& stream, Uptr& targetDepth) {
 		serializeVarUInt32(stream, targetDepth);
@@ -660,6 +686,25 @@ void serialize(Stream& stream,
 
 template<typename Stream>
 void serialize(Stream& stream,
+			   AtomicFenceImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
+{
+	if(!Stream::isInput) { WAVM_ASSERT(imm.order == MemoryOrder::sequentiallyConsistent); }
+
+	U8 memoryOrder = 0;
+	serializeNativeValue(stream, memoryOrder);
+
+	if(Stream::isInput)
+	{
+		if(memoryOrder != 0)
+		{ throw FatalSerializationException("Invalid memory order in atomic.fence instruction"); }
+		imm.order = MemoryOrder::sequentiallyConsistent;
+	}
+}
+
+template<typename Stream>
+void serialize(Stream& stream,
 			   ExceptionTypeImm& imm,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
@@ -774,7 +819,7 @@ static void serialize(InputStream& stream, UserSection& userSection)
 	throwIfNotValidUTF8(userSection.name);
 	userSection.data.resize(sectionStream.capacity());
 	serializeBytes(sectionStream, userSection.data.data(), userSection.data.size());
-	wavmAssert(!sectionStream.capacity());
+	WAVM_ASSERT(!sectionStream.capacity());
 }
 
 struct LocalSet
@@ -807,7 +852,7 @@ struct OperatorSerializerStream
 		serializeOpcode(byteStream, opcode);                                                       \
 		serialize(byteStream, imm, functionDef, moduleState);                                      \
 	}
-	ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
+	WAVM_ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
 	void select(SelectImm imm) const
@@ -910,27 +955,24 @@ static void serializeFunctionBody(InputStream& sectionStream,
 		switch(U16(opcode))
 		{
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
-	case Uptr(Opcode::name):                                                                       \
-	{                                                                                              \
+	case Uptr(Opcode::name): {                                                                     \
 		Imm imm;                                                                                   \
 		serialize(bodyStream, imm, functionDef, moduleState);                                      \
 		codeValidationStream.name(imm);                                                            \
 		irEncoderStream.name(imm);                                                                 \
 		break;                                                                                     \
 	}
-			ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
+			WAVM_ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 		// Explicitly handle both select opcodes here:
-		case 0x1b:
-		{
+		case 0x1b: {
 			SelectImm imm{ValueType::any};
 
 			codeValidationStream.select(imm);
 			irEncoderStream.select(imm);
 			break;
 		}
-		case 0x1c:
-		{
+		case 0x1c: {
 			SelectImm imm;
 			serialize(bodyStream, imm, functionDef, moduleState);
 
@@ -938,7 +980,19 @@ static void serializeFunctionBody(InputStream& sectionStream,
 			irEncoderStream.select(imm);
 			break;
 		}
-		default: throw FatalSerializationException("unknown opcode");
+		// Hack to accept the obsolete 0xfd03 opcode that the LLVM WASM backend emits for
+		// v8x16.shuffle.
+		case 0xfd03: {
+			ShuffleImm<16> imm;
+			serialize(bodyStream, imm, functionDef, moduleState);
+
+			codeValidationStream.v8x16_shuffle(imm);
+			irEncoderStream.v8x16_shuffle(imm);
+			break;
+		}
+		default:
+			throw FatalSerializationException(std::string("unknown opcode (")
+											  + std::to_string(Uptr(opcode)) + ")");
 		};
 	};
 	codeValidationStream.finish();
@@ -994,8 +1048,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				Uptr kindIndex = 0;
 				switch(kind)
 				{
-				case ExternKind::function:
-				{
+				case ExternKind::function: {
 					U32 functionTypeIndex = 0;
 					serializeVarUInt32(sectionStream, functionTypeIndex);
 					if(functionTypeIndex >= module.types.size())
@@ -1005,8 +1058,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{{functionTypeIndex}, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::table:
-				{
+				case ExternKind::table: {
 					TableType tableType;
 					serialize(sectionStream, tableType);
 					kindIndex = module.tables.imports.size();
@@ -1014,8 +1066,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{tableType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::memory:
-				{
+				case ExternKind::memory: {
 					MemoryType memoryType;
 					serialize(sectionStream, memoryType);
 					kindIndex = module.memories.imports.size();
@@ -1023,8 +1074,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{memoryType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::global:
-				{
+				case ExternKind::global: {
 					GlobalType globalType;
 					serialize(sectionStream, globalType);
 					kindIndex = module.globals.imports.size();
@@ -1032,8 +1082,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{globalType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::exceptionType:
-				{
+				case ExternKind::exceptionType: {
 					ExceptionType exceptionType;
 					serialize(sectionStream, exceptionType);
 					kindIndex = module.exceptionTypes.imports.size();
@@ -1051,18 +1100,17 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 		}
 		else
 		{
-			wavmAssert(module.imports.size()
-					   == module.functions.imports.size() + module.tables.imports.size()
-							  + module.memories.imports.size() + module.globals.imports.size()
-							  + module.exceptionTypes.imports.size());
+			WAVM_ASSERT(module.imports.size()
+						== module.functions.imports.size() + module.tables.imports.size()
+							   + module.memories.imports.size() + module.globals.imports.size()
+							   + module.exceptionTypes.imports.size());
 
 			for(const auto& kindIndex : module.imports)
 			{
 				ExternKind kind = kindIndex.kind;
 				switch(kindIndex.kind)
 				{
-				case ExternKind::function:
-				{
+				case ExternKind::function: {
 					auto& functionImport = module.functions.imports[kindIndex.index];
 					serialize(sectionStream, functionImport.moduleName);
 					serialize(sectionStream, functionImport.exportName);
@@ -1070,8 +1118,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serializeVarUInt32(sectionStream, functionImport.type.index);
 					break;
 				}
-				case ExternKind::table:
-				{
+				case ExternKind::table: {
 					auto& tableImport = module.tables.imports[kindIndex.index];
 					serialize(sectionStream, tableImport.moduleName);
 					serialize(sectionStream, tableImport.exportName);
@@ -1079,8 +1126,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serialize(sectionStream, tableImport.type);
 					break;
 				}
-				case ExternKind::memory:
-				{
+				case ExternKind::memory: {
 					auto& memoryImport = module.memories.imports[kindIndex.index];
 					serialize(sectionStream, memoryImport.moduleName);
 					serialize(sectionStream, memoryImport.exportName);
@@ -1088,8 +1134,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serialize(sectionStream, memoryImport.type);
 					break;
 				}
-				case ExternKind::global:
-				{
+				case ExternKind::global: {
 					auto& globalImport = module.globals.imports[kindIndex.index];
 					serialize(sectionStream, globalImport.moduleName);
 					serialize(sectionStream, globalImport.exportName);
@@ -1097,8 +1142,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serialize(sectionStream, globalImport.type);
 					break;
 				}
-				case ExternKind::exceptionType:
-				{
+				case ExternKind::exceptionType: {
 					auto& exceptionTypeImport = module.exceptionTypes.imports[kindIndex.index];
 					serialize(sectionStream, exceptionTypeImport.moduleName);
 					serialize(sectionStream, exceptionTypeImport.exportName);
@@ -1385,8 +1429,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			hadDataSection = true;
 			IR::validateDataSegments(module);
 			break;
-		case SectionType::user:
-		{
+		case SectionType::user: {
 			UserSection& userSection
 				= *module.userSections.insert(module.userSections.end(), UserSection());
 			serialize(moduleStream, userSection);
@@ -1412,48 +1455,56 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	}
 }
 
-void WASM::serialize(Serialization::InputStream& stream, Module& module)
+void WASM::saveBinaryModule(Serialization::OutputStream& stream, const Module& module)
 {
-	serializeModule(stream, module);
-}
-void WASM::serialize(Serialization::OutputStream& stream, const Module& module)
-{
-	serializeModule(stream, const_cast<Module&>(module));
+	try
+	{
+		serializeModule(stream, const_cast<Module&>(module));
+	}
+	catch(Serialization::FatalSerializationException const& exception)
+	{
+		Errors::fatalf("Failed to save WASM module: %s", exception.message.c_str());
+	}
 }
 
-bool WASM::loadBinaryModule(const void* wasmBytes,
-							Uptr numBytes,
-							IR::Module& outModule,
-							Log::Category errorCategory)
+bool WASM::loadBinaryModule(InputStream& stream, IR::Module& outModule, LoadError* outError)
 {
 	// Load the module from a binary WebAssembly file.
 	try
 	{
 		Timing::Timer loadTimer;
+		const Uptr streamNumBytes = stream.capacity();
 
-		Serialization::MemoryInputStream stream((const U8*)wasmBytes, numBytes);
-		WASM::serialize(stream, outModule);
+		serializeModule(stream, outModule);
 
-		Timing::logRatePerSecond("Loaded WASM", loadTimer, numBytes / 1024.0 / 1024.0, "MB");
+		Timing::logRatePerSecond("Loaded WASM", loadTimer, streamNumBytes / 1024.0 / 1024.0, "MiB");
 		return true;
 	}
 	catch(Serialization::FatalSerializationException const& exception)
 	{
-		Log::printf(errorCategory,
-					"Error deserializing WebAssembly binary file:\n%s\n",
-					exception.message.c_str());
+		if(outError)
+		{
+			outError->type = LoadError::Type::malformed;
+			outError->message = "Module was malformed: " + exception.message;
+		}
 		return false;
 	}
 	catch(IR::ValidationException const& exception)
 	{
-		Log::printf(errorCategory,
-					"Error validating WebAssembly binary file:\n%s\n",
-					exception.message.c_str());
+		if(outError)
+		{
+			outError->type = LoadError::Type::invalid;
+			outError->message = "Module was invalid: " + exception.message;
+		}
 		return false;
 	}
 	catch(std::bad_alloc const&)
 	{
-		Log::printf(errorCategory, "Memory allocation failed: input is likely malformed\n");
+		if(outError)
+		{
+			outError->type = LoadError::Type::malformed;
+			outError->message = "Memory allocation failed: input is likely malformed";
+		}
 		return false;
 	}
 }

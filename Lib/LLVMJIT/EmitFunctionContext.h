@@ -5,9 +5,10 @@
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/Logging/Logging.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/IR/Intrinsics.h"
+#include <llvm/IR/Intrinsics.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {
@@ -80,8 +81,8 @@ namespace WAVM { namespace LLVMJIT {
 		// Operand stack manipulation
 		llvm::Value* pop()
 		{
-			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0)
-					   >= 1);
+			WAVM_ASSERT(
+				stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= 1);
 			llvm::Value* result = stack.back();
 			stack.pop_back();
 			return result;
@@ -89,8 +90,9 @@ namespace WAVM { namespace LLVMJIT {
 
 		void popMultiple(llvm::Value** outValues, Uptr num)
 		{
-			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0)
-					   >= num);
+			WAVM_ASSERT(stack.size()
+							- (controlStack.size() ? controlStack.back().outerStackSize : 0)
+						>= num);
 			std::copy(stack.end() - num, stack.end(), outValues);
 			stack.resize(stack.size() - num);
 		}
@@ -117,7 +119,7 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Value* coerceToCanonicalType(llvm::Value* value);
 
 		// Debug logging.
-		void logOperator(const std::string& operatorDescription);
+		void traceOperator(const std::string& operatorDescription);
 
 		// Coerces an I32 value to an I1, and vice-versa.
 		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)
@@ -176,7 +178,7 @@ namespace WAVM { namespace LLVMJIT {
 
 		BranchTarget& getBranchTargetByDepth(Uptr depth)
 		{
-			wavmAssert(depth < branchTargetStack.size());
+			WAVM_ASSERT(depth < branchTargetStack.size());
 			return branchTargetStack[branchTargetStack.size() - depth - 1];
 		}
 
@@ -199,6 +201,11 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Value* trunc(llvm::Value* value, llvm::Type* type)
 		{
 			return irBuilder.CreateTrunc(value, type);
+		}
+
+		template<int numElements> llvm::Value* splat(llvm::Value* scalar, llvm::Type*)
+		{
+			return irBuilder.CreateVectorSplat(numElements, scalar);
 		}
 
 		llvm::Value* emitSRem(IR::ValueType type, llvm::Value* left, llvm::Value* right);
@@ -269,7 +276,7 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::BasicBlock* getInnermostUnwindToBlock();
 
 #define VISIT_OPCODE(encoding, name, nameString, Imm, ...) void name(IR::Imm imm);
-		ENUM_OPERATORS(VISIT_OPCODE)
+		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 	};
 }}

@@ -1,21 +1,21 @@
 #pragma once
 
+#include <atomic>
+#include <functional>
+#include <memory>
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/DenseStaticIntSet.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IndexMap.h"
+#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
-
-#include <atomic>
-#include <functional>
-#include <memory>
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 namespace WAVM { namespace Intrinsics {
 	struct Module;
@@ -54,10 +54,16 @@ namespace WAVM { namespace Runtime {
 		mutable Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numElements{0};
 
-		Table(Compartment* inCompartment, const IR::TableType& inType, std::string&& inDebugName)
+		ResourceQuotaRef resourceQuota;
+
+		Table(Compartment* inCompartment,
+			  const IR::TableType& inType,
+			  std::string&& inDebugName,
+			  ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::table, inCompartment)
 		, type(inType)
 		, debugName(std::move(inDebugName))
+		, resourceQuota(inResourceQuota)
 		{
 		}
 		~Table() override;
@@ -81,10 +87,16 @@ namespace WAVM { namespace Runtime {
 		mutable Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numPages{0};
 
-		Memory(Compartment* inCompartment, const IR::MemoryType& inType, std::string&& inDebugName)
+		ResourceQuotaRef resourceQuota;
+
+		Memory(Compartment* inCompartment,
+			   const IR::MemoryType& inType,
+			   std::string&& inDebugName,
+			   ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::memory, inCompartment)
 		, type(inType)
 		, debugName(std::move(inDebugName))
+		, resourceQuota(inResourceQuota)
 		{
 		}
 		~Memory() override;
@@ -135,7 +147,7 @@ namespace WAVM { namespace Runtime {
 	};
 
 	typedef std::vector<std::shared_ptr<std::vector<U8>>> DataSegmentVector;
-	typedef std::vector<std::shared_ptr<std::vector<IR::Elem>>> ElemSegmentVector;
+	typedef std::vector<std::shared_ptr<IR::ElemSegment::Contents>> ElemSegmentVector;
 
 	// A compiled WebAssembly module.
 	struct Module
@@ -174,6 +186,8 @@ namespace WAVM { namespace Runtime {
 
 		const std::shared_ptr<LLVMJIT::Module> jitModule;
 
+		ResourceQuotaRef resourceQuota;
+
 		ModuleInstance(Compartment* inCompartment,
 					   Uptr inID,
 					   HashMap<std::string, Object*>&& inExportMap,
@@ -187,7 +201,8 @@ namespace WAVM { namespace Runtime {
 					   DataSegmentVector&& inPassiveDataSegments,
 					   ElemSegmentVector&& inPassiveElemSegments,
 					   std::shared_ptr<LLVMJIT::Module>&& inJITModule,
-					   std::string&& inDebugName)
+					   std::string&& inDebugName,
+					   ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::moduleInstance, inCompartment)
 		, id(inID)
 		, debugName(std::move(inDebugName))
@@ -202,6 +217,7 @@ namespace WAVM { namespace Runtime {
 		, dataSegments(std::move(inPassiveDataSegments))
 		, elemSegments(std::move(inPassiveElemSegments))
 		, jitModule(std::move(inJITModule))
+		, resourceQuota(inResourceQuota)
 		{
 		}
 
@@ -243,11 +259,63 @@ namespace WAVM { namespace Runtime {
 		Foreign(Compartment* inCompartment) : GCObject(ObjectKind::foreign, inCompartment) {}
 	};
 
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsAtomics);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsException);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsMemory);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsTable);
+	struct ResourceQuota
+	{
+		template<typename Value> struct CurrentAndMax
+		{
+			CurrentAndMax(Value inMax) : current{0}, max(inMax) {}
+
+			bool allocate(Value delta)
+			{
+				Lock<Platform::Mutex> lock(mutex);
+
+				// Make sure the delta doesn't make current overflow.
+				if(current + delta < current) { return false; }
+
+				if(current + delta > max) { return false; }
+
+				current += delta;
+				return true;
+			}
+
+			void free(Value delta)
+			{
+				Lock<Platform::Mutex> lock(mutex);
+				WAVM_ASSERT(current - delta <= current);
+				current -= delta;
+			}
+
+			Value getCurrent() const
+			{
+				Lock<Platform::Mutex> lock(mutex);
+				return current;
+			}
+			Value getMax() const
+			{
+				Lock<Platform::Mutex> lock(mutex);
+				return max;
+			}
+			void setMax(Value newMax)
+			{
+				Lock<Platform::Mutex> lock(mutex);
+				max = newMax;
+			}
+
+		private:
+			mutable Platform::Mutex mutex;
+			Value current;
+			Value max;
+		};
+
+		CurrentAndMax<Uptr> memoryPages{UINTPTR_MAX};
+		CurrentAndMax<Uptr> tableElems{UINTPTR_MAX};
+	};
+
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsAtomics);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsException);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsMemory);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsTable);
 
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTableIndex);
@@ -280,7 +348,7 @@ namespace WAVM { namespace Runtime {
 	// Initialize a table segment (equivalent to executing a table.init instruction).
 	void initElemSegment(ModuleInstance* moduleInstance,
 						 Uptr elemSegmentIndex,
-						 const std::vector<IR::Elem>* elemVector,
+						 const IR::ElemSegment::Contents* contents,
 						 Table* table,
 						 Uptr destOffset,
 						 Uptr sourceOffset,

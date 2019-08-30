@@ -132,17 +132,19 @@ WASM_C_API own wasm_store_t* wasm_store_new(wasm_compartment_t*);
 
 // Type attributes
 
-typedef enum wasm_mutability_t
+typedef uint8_t wasm_mutability_t;
+enum wasm_mutability_enum
 {
 	WASM_CONST,
-	WASM_VAR
-} wasm_mutability_t;
+	WASM_VAR,
+};
 
-typedef enum wasm_shared_t
+typedef uint8_t wasm_shared_t;
+enum wasm_shared_enum
 {
 	WASM_NOTSHARED,
 	WASM_SHARED,
-} wasm_shared_t;
+};
 
 typedef struct wasm_limits_t
 {
@@ -163,16 +165,17 @@ static const uint32_t wasm_limits_max_default = 0xffffffff;
 
 WASM_DECLARE_TYPE(valtype)
 
-typedef enum wasm_valkind_t
+typedef uint8_t wasm_valkind_t;
+enum wasm_valkind_enum
 {
-	WASM_I32 = 0,
-	WASM_I64 = 1,
-	WASM_F32 = 2,
-	WASM_F64 = 3,
-	WASM_V128 = 4,
-	WASM_ANYREF = 128 + 0,
-	WASM_FUNCREF = 128 + 1
-} wasm_valkind_t;
+	WASM_I32,
+	WASM_I64,
+	WASM_F32,
+	WASM_F64,
+	WASM_V128,
+	WASM_ANYREF = 128,
+	WASM_FUNCREF,
+};
 
 WASM_C_API own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t);
 
@@ -239,13 +242,14 @@ WASM_C_API wasm_shared_t wasm_memorytype_shared(const wasm_memorytype_t*);
 
 WASM_DECLARE_TYPE(externtype)
 
-typedef enum wasm_externkind_t
+typedef uint8_t wasm_externkind_t;
+enum wasm_externkind_enum
 {
 	WASM_EXTERN_FUNC,
 	WASM_EXTERN_GLOBAL,
 	WASM_EXTERN_TABLE,
-	WASM_EXTERN_MEMORY
-} wasm_externkind_t;
+	WASM_EXTERN_MEMORY,
+};
 
 WASM_C_API wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t*);
 
@@ -442,6 +446,8 @@ WASM_DECLARE_SHAREABLE_REF(table)
 
 typedef uint32_t wasm_table_size_t;
 
+static const wasm_table_size_t WASM_TABLE_SIZE_MAX = UINT32_MAX;
+
 WASM_C_API own wasm_table_t* wasm_table_new(wasm_compartment_t*,
 											const wasm_tabletype_t*,
 											wasm_ref_t* init);
@@ -462,6 +468,8 @@ WASM_C_API bool wasm_table_grow(wasm_table_t* table,
 WASM_DECLARE_SHAREABLE_REF(memory)
 
 typedef uint32_t wasm_memory_pages_t;
+
+static const wasm_memory_pages_t WASM_MEMORY_PAGES_MAX = UINT32_MAX;
 
 static const size_t MEMORY_PAGE_SIZE = 0x10000;
 
@@ -510,7 +518,8 @@ WASM_DECLARE_REF(instance)
 
 WASM_C_API own wasm_instance_t* wasm_instance_new(wasm_store_t*,
 												  const wasm_module_t*,
-												  const wasm_extern_t* const imports[]);
+												  const wasm_extern_t* const imports[],
+												  own wasm_trap_t**);
 
 WASM_C_API size_t wasm_instance_num_exports(const wasm_instance_t*);
 WASM_C_API wasm_extern_t* wasm_instance_export(const wasm_instance_t*, size_t index);

@@ -1,5 +1,4 @@
 #include <vector>
-
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
@@ -9,12 +8,12 @@
 #include "WAVM/Inline/Assert.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM::IR;
@@ -26,19 +25,19 @@ using namespace WAVM::LLVMJIT;
 
 void EmitFunctionContext::local_get(GetOrSetVariableImm<false> imm)
 {
-	wavmAssert(imm.variableIndex < localPointers.size());
+	WAVM_ASSERT(imm.variableIndex < localPointers.size());
 	push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
 }
 void EmitFunctionContext::local_set(GetOrSetVariableImm<false> imm)
 {
-	wavmAssert(imm.variableIndex < localPointers.size());
+	WAVM_ASSERT(imm.variableIndex < localPointers.size());
 	auto value = irBuilder.CreateBitCast(
 		pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
 	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
 }
 void EmitFunctionContext::local_tee(GetOrSetVariableImm<false> imm)
 {
-	wavmAssert(imm.variableIndex < localPointers.size());
+	WAVM_ASSERT(imm.variableIndex < localPointers.size());
 	auto value = irBuilder.CreateBitCast(
 		getValueFromTop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
 	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
@@ -61,7 +60,7 @@ static llvm::Value* getImportedImmutableGlobalValue(EmitFunctionContext& functio
 
 void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 {
-	wavmAssert(imm.variableIndex < irModule.globals.size());
+	WAVM_ASSERT(imm.variableIndex < irModule.globals.size());
 	GlobalType globalType = irModule.globals.getType(imm.variableIndex);
 
 	llvm::Value* value = nullptr;
@@ -103,11 +102,10 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		case InitializerExpression::Type::v128_const:
 			value = emitLiteral(llvmContext, globalDef.initializer.v128);
 			break;
-		case InitializerExpression::Type::global_get:
-		{
+		case InitializerExpression::Type::global_get: {
 			const Uptr importedGlobalIndex = globalDef.initializer.ref;
-			wavmAssert(!irModule.globals.isDef(importedGlobalIndex));
-			wavmAssert(!irModule.globals.getType(importedGlobalIndex).isMutable);
+			WAVM_ASSERT(!irModule.globals.isDef(importedGlobalIndex));
+			WAVM_ASSERT(!irModule.globals.getType(importedGlobalIndex).isMutable);
 			value
 				= getImportedImmutableGlobalValue(*this, importedGlobalIndex, globalType.valueType);
 			break;
@@ -115,8 +113,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		case InitializerExpression::Type::ref_null:
 			value = llvm::Constant::getNullValue(llvmContext.anyrefType);
 			break;
-		case InitializerExpression::Type::ref_func:
-		{
+		case InitializerExpression::Type::ref_func: {
 			llvm::Value* referencedFunction = moduleContext.functions[globalDef.initializer.ref];
 			llvm::Value* codeAddress
 				= irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);
@@ -136,9 +133,9 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 }
 void EmitFunctionContext::global_set(GetOrSetVariableImm<true> imm)
 {
-	wavmAssert(imm.variableIndex < irModule.globals.size());
+	WAVM_ASSERT(imm.variableIndex < irModule.globals.size());
 	GlobalType globalType = irModule.globals.getType(imm.variableIndex);
-	wavmAssert(globalType.isMutable);
+	WAVM_ASSERT(globalType.isMutable);
 	llvm::Type* llvmValueType = asLLVMType(llvmContext, globalType.valueType);
 
 	llvm::Value* value = irBuilder.CreateBitCast(pop(), llvmValueType);

@@ -440,3 +440,52 @@
 		br 0
 	)
 )
+
+;; Test V128 as a loop parameter, in particular that LLVM's "interpreted" V128 types (e.g. f64x2)
+;; are correctly coerced to the canonical type the loop parameter PHI expects.
+(module
+	(func (export "loop") (param $x f64) (result v128)
+		local.get $x
+		f64x2.splat
+		loop $loop (param v128) (result v128)
+			f64x2.neg
+		end
+	)
+)
+(assert_return (invoke "loop" (f64.const +1)) (v128.const f64x2 -1 -1))
+(assert_return (invoke "loop" (f64.const -1)) (v128.const f64x2 +1 +1))
+
+;; Test V128 as an if parameter, in particular that LLVM's "interpreted" V128 types (e.g. f64x2)
+;; are correctly coerced to the canonical type the if parameter PHI expects.
+
+(module
+	(func (export "if-then") (param $x f64) (param $y i32) (result v128)
+		local.get $x
+		f64x2.splat
+		get_local $y
+		if (param v128) (result v128)
+			f64x2.neg
+		end
+	)
+)
+(assert_return (invoke "if-then" (f64.const +1) (i32.const 0)) (v128.const f64x2 +1 +1))
+(assert_return (invoke "if-then" (f64.const +1) (i32.const 1)) (v128.const f64x2 -1 -1))
+(assert_return (invoke "if-then" (f64.const -1) (i32.const 0)) (v128.const f64x2 -1 -1))
+(assert_return (invoke "if-then" (f64.const -1) (i32.const 1)) (v128.const f64x2 +1 +1))
+
+(module
+	(func (export "if-else") (param $x f64) (param $y i32) (result v128)
+		local.get $x
+		f64x2.splat
+		local.get $y
+		if (param v128) (result v128)
+			f64x2.neg
+		else
+			f64x2.abs
+		end
+	)
+)
+(assert_return (invoke "if-else" (f64.const +1) (i32.const 0)) (v128.const f64x2 +1 +1))
+(assert_return (invoke "if-else" (f64.const +1) (i32.const 1)) (v128.const f64x2 -1 -1))
+(assert_return (invoke "if-else" (f64.const -1) (i32.const 0)) (v128.const f64x2 +1 +1))
+(assert_return (invoke "if-else" (f64.const -1) (i32.const 1)) (v128.const f64x2 +1 +1))

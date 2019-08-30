@@ -19,7 +19,7 @@ namespace WAVM { namespace IR {
 
 #define VISIT_OPCODE(encoding, name, nameString, Imm, ...)                                         \
 	std::string name(Imm imm = {}) { return std::string(nameString) + describeImm(imm); }
-		ENUM_OPERATORS(VISIT_OPCODE)
+		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
 	private:
@@ -32,13 +32,13 @@ namespace WAVM { namespace IR {
 			const FunctionType type = resolveBlockType(module, imm.type);
 			return std::string(" : ") + asString(type.params()) + " -> " + asString(type.results());
 		}
-		std::string describeImm(SelectImm imm) { return asString(imm.type); }
+		std::string describeImm(SelectImm imm) { return std::string(" ") + asString(imm.type); }
 		std::string describeImm(BranchImm imm) { return " " + std::to_string(imm.targetDepth); }
 		std::string describeImm(BranchTableImm imm)
 		{
 			std::string result = " " + std::to_string(imm.defaultTargetDepth);
 			const char* prefix = " [";
-			wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+			WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 			for(auto depth : functionDef.branchTables[imm.branchTableIndex])
 			{
 				result += prefix + std::to_string(depth);
@@ -115,6 +115,14 @@ namespace WAVM { namespace IR {
 		{
 			return " offset=" + std::to_string(imm.offset)
 				   + " align=" + std::to_string(1 << imm.alignmentLog2);
+		}
+		std::string describeImm(AtomicFenceImm imm)
+		{
+			switch(imm.order)
+			{
+			case MemoryOrder::sequentiallyConsistent: return " seqcst";
+			default: WAVM_UNREACHABLE();
+			};
 		}
 		std::string describeImm(ExceptionTypeImm) { return ""; }
 		std::string describeImm(RethrowImm) { return ""; }

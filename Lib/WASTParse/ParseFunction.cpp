@@ -4,7 +4,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "Lexer.h"
 #include "Parse.h"
 #include "WAVM/IR/Module.h"
@@ -23,6 +22,67 @@ using namespace WAVM::IR;
 using namespace WAVM::WAST;
 
 namespace WAVM { namespace WAST {
+
+	template<typename InnerStream> struct ResumableCodeValidationProxyStream
+	{
+		const Token* validationErrorToken{nullptr};
+
+		ResumableCodeValidationProxyStream(const Module& module,
+										   const FunctionDef& function,
+										   InnerStream& inInnerStream,
+										   ParseState* inParseState)
+		: codeValidationStream(module, function)
+		, innerStream(inInnerStream)
+		, parseState(inParseState)
+		{
+		}
+
+#define VISIT_OPERATOR(name, Imm, isControlOp)                                                     \
+	void name(Imm imm = {})                                                                        \
+	{                                                                                              \
+		try                                                                                        \
+		{                                                                                          \
+			codeValidationStream.name(imm);                                                        \
+			innerStream.name(imm);                                                                 \
+		}                                                                                          \
+		catch(ValidationException const& exception)                                                \
+		{                                                                                          \
+			try                                                                                    \
+			{                                                                                      \
+				codeValidationStream.unreachable();                                                \
+				innerStream.unreachable();                                                         \
+			}                                                                                      \
+			catch(ValidationException const&)                                                      \
+			{                                                                                      \
+				/* If a second validation exception occurs trying to emit unreachable, just */     \
+				/* throw the original exception up to the top level. */                            \
+				throw exception;                                                                   \
+			}                                                                                      \
+			parseErrorf(parseState,                                                                \
+						validationErrorToken,                                                      \
+						"validation error: %s",                                                    \
+						exception.message.c_str());                                                \
+			/* The validator won't have the correct control state after an invalid control */      \
+			/* operator, so just continue parsing at the next recovery point. */                   \
+			if(isControlOp) { throw RecoverParseException(); }                                     \
+		}                                                                                          \
+	}
+#define VISIT_CONTROL_OPERATOR(_1, name, _2, Imm, ...) VISIT_OPERATOR(name, Imm, true)
+#define VISIT_NONCONTROL_OPERATOR(_1, name, _2, Imm, ...) VISIT_OPERATOR(name, Imm, false)
+
+		WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_NONCONTROL_OPERATOR)
+		WAVM_ENUM_CONTROL_OPERATORS(VISIT_CONTROL_OPERATOR)
+#undef VISIT_CONTROL_OPERATOR
+#undef VISIT_NONCONTROL_OPERATOR
+
+		void finishValidation() { codeValidationStream.finish(); }
+
+	private:
+		CodeValidationStream codeValidationStream;
+		InnerStream& innerStream;
+		ParseState* parseState;
+	};
+
 	// State associated with parsing a function.
 	struct FunctionState
 	{
@@ -37,7 +97,7 @@ namespace WAVM { namespace WAST {
 
 		Serialization::ArrayOutputStream codeByteStream;
 		OperatorEncoderStream operationEncoder;
-		CodeValidationProxyStream<OperatorEncoderStream> validatingCodeStream;
+		ResumableCodeValidationProxyStream<OperatorEncoderStream> validatingCodeStream;
 
 		FunctionState(const std::shared_ptr<NameToIndexMap>& inLocalNameToIndexMap,
 					  FunctionDef& inFunctionDef,
@@ -48,7 +108,10 @@ namespace WAVM { namespace WAST {
 					+ moduleState->module.types[inFunctionDef.type.index].params().size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
-		, validatingCodeStream(moduleState->module, functionDef, operationEncoder)
+		, validatingCodeStream(moduleState->module,
+							   inFunctionDef,
+							   operationEncoder,
+							   moduleState->parseState)
 		{
 		}
 	};
@@ -83,14 +146,14 @@ namespace {
 
 		~ScopedBranchTarget()
 		{
-			wavmAssert(branchTargetIndex == functionState->branchTargetDepth);
+			WAVM_ASSERT(branchTargetIndex == functionState->branchTargetDepth);
 			--functionState->branchTargetDepth;
 			if(name)
 			{
-				wavmAssert(functionState->branchTargetNameToIndexMap.contains(name));
-				wavmAssert(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
+				WAVM_ASSERT(functionState->branchTargetNameToIndexMap.contains(name));
+				WAVM_ASSERT(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
 				if(previousBranchTargetIndex == UINTPTR_MAX)
-				{ errorUnless(functionState->branchTargetNameToIndexMap.remove(name)); }
+				{ WAVM_ERROR_UNLESS(functionState->branchTargetNameToIndexMap.remove(name)); }
 				else
 				{
 					functionState->branchTargetNameToIndexMap.set(name, previousBranchTargetIndex);
@@ -114,8 +177,7 @@ static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, Uptr& outTarg
 		switch(branchTargetRef.type)
 		{
 		case Reference::Type::index: outTargetDepth = branchTargetRef.index; break;
-		case Reference::Type::name:
-		{
+		case Reference::Type::name: {
 			const HashMapPair<Name, Uptr>* nameIndexPair
 				= cursor->functionState->branchTargetNameToIndexMap.getPair(branchTargetRef.name);
 			if(!nameIndexPair)
@@ -190,12 +252,34 @@ static void parseImm(CursorState* cursor, TableCopyImm& outImm)
 static void parseImm(CursorState* cursor, SelectImm& outImm)
 {
 	outImm.type = ValueType::any;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
+	const Token* firstResultToken = nullptr;
+	while(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
 	{
 		parseParenthesized(cursor, [&] {
+			const Token* resultToken = cursor->nextToken;
 			require(cursor, t_result);
-			outImm.type = parseValueType(cursor);
+			if(!firstResultToken) { firstResultToken = resultToken; }
+
+			const Token* valueTypeToken = cursor->nextToken;
+			ValueType result;
+			while(tryParseValueType(cursor, result))
+			{
+				if(outImm.type == ValueType::any) { outImm.type = result; }
+				else
+				{
+					parseErrorf(cursor->parseState,
+								valueTypeToken,
+								"validation error: typed select must have exactly one result");
+				}
+			};
 		});
+	};
+
+	if(firstResultToken && outImm.type == ValueType::any)
+	{
+		parseErrorf(cursor->parseState,
+					firstResultToken,
+					"validation error: typed select must have exactly one result");
 	}
 }
 
@@ -318,18 +402,21 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	{
 		++cursor->nextToken;
 		require(cursor, t_equals);
+		const Token* alignmentToken = cursor->nextToken;
 		alignment = parseU32(cursor);
-		if(alignment > naturalAlignment)
+
+		if(!alignment || alignment & (alignment - 1))
+		{ parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2"); }
+		else if(alignment > naturalAlignment)
 		{
-			parseErrorf(
-				cursor->parseState, cursor->nextToken, "alignment must be <= natural alignment");
+			parseErrorf(cursor->parseState,
+						alignmentToken,
+						"validation error: alignment must be <= natural alignment");
 			alignment = naturalAlignment;
 		}
 	}
 
-	outImm.alignmentLog2 = (U8)Platform::floorLogTwo(alignment);
-	if(!alignment || alignment & (alignment - 1))
-	{ parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2"); }
+	outImm.alignmentLog2 = (U8)floorLogTwo(alignment);
 }
 
 static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)
@@ -344,7 +431,7 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<n
 	{
 		parseErrorf(cursor->parseState,
 					cursor->nextToken - 1,
-					"lane index must be in the range 0..%" PRIuPTR,
+					"lane index must be in the range 0..%" WAVM_PRIuPTR,
 					numLanes);
 	}
 	outImm.laneIndex = laneIndex;
@@ -359,7 +446,7 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<num
 		{
 			parseErrorf(cursor->parseState,
 						cursor->nextToken - 1,
-						"lane index must be in the range 0..%" PRIuPTR,
+						"lane index must be in the range 0..%" WAVM_PRIuPTR,
 						numLanes * 2);
 		}
 		outImm.laneIndices[destLaneIndex] = sourceLaneIndex;
@@ -373,6 +460,11 @@ static void parseImm(CursorState* cursor, AtomicLoadOrStoreImm<naturalAlignmentL
 	parseImm(cursor, loadOrStoreImm);
 	outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
 	outImm.offset = loadOrStoreImm.offset;
+}
+
+static void parseImm(CursorState* cursor, AtomicFenceImm& outImm)
+{
+	outImm.order = MemoryOrder::sequentiallyConsistent;
 }
 
 static void parseImm(CursorState* cursor, ExceptionTypeImm& outImm)
@@ -440,8 +532,8 @@ static void parseImm(CursorState* cursor, ElemSegmentImm& outImm)
 										"elem");
 }
 
-static void parseInstrSequence(CursorState* cursor);
-static void parseExpr(CursorState* cursor);
+static void parseInstrSequence(CursorState* cursor, Uptr depth);
+static void parseExpr(CursorState* cursor, Uptr depth);
 
 static void parseControlImm(CursorState* cursor,
 							Name& outBranchTargetName,
@@ -488,7 +580,7 @@ static void parseControlImm(CursorState* cursor,
 				= resolveFunctionType(cursor->moduleState, unresolvedFunctionType).index;
 			if(referencedFunctionTypeIndex != UINTPTR_MAX)
 			{
-				wavmAssert(referencedFunctionTypeIndex < cursor->moduleState->module.types.size());
+				WAVM_ASSERT(referencedFunctionTypeIndex < cursor->moduleState->module.types.size());
 				functionType = cursor->moduleState->module.types[referencedFunctionTypeIndex];
 			}
 		}
@@ -512,7 +604,16 @@ static void parseControlImm(CursorState* cursor,
 	}
 }
 
-static void parseBlock(CursorState* cursor, bool isExpr)
+static void checkRecursionDepth(CursorState* cursor, Uptr depth)
+{
+	if(depth > cursor->moduleState->module.featureSpec.maxSyntaxRecursion)
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "exceeded maximum recursion depth");
+		throw RecoverParseException();
+	}
+}
+
+static WAVM_FORCENOINLINE void parseBlock(CursorState* cursor, bool isExpr, Uptr depth)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
@@ -520,7 +621,7 @@ static void parseBlock(CursorState* cursor, bool isExpr)
 
 	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
 	cursor->functionState->validatingCodeStream.block(imm);
-	parseInstrSequence(cursor);
+	parseInstrSequence(cursor, depth);
 	cursor->functionState->validatingCodeStream.end();
 
 	if(!isExpr)
@@ -530,7 +631,7 @@ static void parseBlock(CursorState* cursor, bool isExpr)
 	}
 }
 
-static void parseLoop(CursorState* cursor, bool isExpr)
+static WAVM_FORCENOINLINE void parseLoop(CursorState* cursor, bool isExpr, Uptr depth)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
@@ -538,7 +639,7 @@ static void parseLoop(CursorState* cursor, bool isExpr)
 
 	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
 	cursor->functionState->validatingCodeStream.loop(imm);
-	parseInstrSequence(cursor);
+	parseInstrSequence(cursor, depth);
 	cursor->functionState->validatingCodeStream.end();
 
 	if(!isExpr)
@@ -548,113 +649,170 @@ static void parseLoop(CursorState* cursor, bool isExpr)
 	}
 }
 
-static void parseExprSequence(CursorState* cursor)
+static WAVM_FORCENOINLINE void parseIfInstr(CursorState* cursor, Uptr depth)
 {
-	while(cursor->nextToken->type != t_rightParenthesis) { parseExpr(cursor); };
+	Name branchTargetName;
+	ControlStructureImm imm;
+	parseControlImm(cursor, branchTargetName, imm);
+
+	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
+	cursor->functionState->validatingCodeStream.if_(imm);
+
+	// Parse the then clause.
+	parseInstrSequence(cursor, depth);
+
+	// Parse the else clause.
+	if(cursor->nextToken->type == t_else_)
+	{
+		++cursor->nextToken;
+		parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "if", "else");
+
+		cursor->functionState->validatingCodeStream.else_();
+		parseInstrSequence(cursor, depth);
+	}
+	cursor->functionState->validatingCodeStream.end();
+
+	require(cursor, t_end);
+	parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "if", "end");
+}
+
+static WAVM_FORCENOINLINE void parseIfExpr(CursorState* cursor, Uptr depth)
+{
+	Name branchTargetName;
+	ControlStructureImm imm;
+	parseControlImm(cursor, branchTargetName, imm);
+
+	// Parse an optional condition expression.
+	if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_then)
+	{ parseExpr(cursor, depth); }
+
+	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
+	cursor->functionState->validatingCodeStream.if_(imm);
+
+	// Parse the if clauses.
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_then)
+	{
+		// First syntax: (then <instr>)* (else <instr>*)?
+		parseParenthesized(cursor, [&] {
+			require(cursor, t_then);
+			parseInstrSequence(cursor, depth);
+		});
+		if(cursor->nextToken->type == t_leftParenthesis)
+		{
+			parseParenthesized(cursor, [&] {
+				require(cursor, t_else_);
+				cursor->functionState->validatingCodeStream.validationErrorToken
+					= cursor->nextToken;
+				cursor->functionState->validatingCodeStream.else_();
+				parseInstrSequence(cursor, depth);
+			});
+		}
+	}
+	else
+	{
+		// Second syntax option: <expr> <expr>?
+		parseExpr(cursor, depth);
+		if(cursor->nextToken->type != t_rightParenthesis)
+		{
+			cursor->functionState->validatingCodeStream.else_();
+			parseExpr(cursor, depth);
+		}
+	}
+	cursor->functionState->validatingCodeStream.end();
+}
+
+static WAVM_FORCENOINLINE void parseTryInstr(CursorState* cursor, Uptr depth)
+{
+	Name branchTargetName;
+	ControlStructureImm imm;
+	parseControlImm(cursor, branchTargetName, imm);
+
+	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
+	cursor->functionState->validatingCodeStream.try_(imm);
+
+	// Parse the try clause.
+	parseInstrSequence(cursor, depth);
+
+	// Parse catch clauses.
+	while(cursor->nextToken->type != t_end)
+	{
+		if(cursor->nextToken->type == t_catch_)
+		{
+			++cursor->nextToken;
+			ExceptionTypeImm exceptionTypeImm;
+			parseImm(cursor, exceptionTypeImm);
+			cursor->functionState->validatingCodeStream.catch_(exceptionTypeImm);
+			parseInstrSequence(cursor, depth);
+		}
+		else if(cursor->nextToken->type == t_catch_all)
+		{
+			++cursor->nextToken;
+			cursor->functionState->validatingCodeStream.catch_all();
+			parseInstrSequence(cursor, depth);
+		}
+		else
+		{
+			parseErrorf(cursor->parseState,
+						cursor->nextToken,
+						"expected 'catch', 'catch_all', or 'end' following 'try'");
+			throw RecoverParseException();
+		}
+	};
+
+	require(cursor, t_end);
+	parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "try", "end");
+	cursor->functionState->validatingCodeStream.end();
+}
+
+static WAVM_FORCENOINLINE void parseExprSequence(CursorState* cursor, Uptr depth)
+{
+	while(cursor->nextToken->type != t_rightParenthesis) { parseExpr(cursor, depth); };
 }
 
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
-	static void parseOp_##name(CursorState* cursor, bool isExpression)                             \
+	static WAVM_FORCENOINLINE void parseOp_##name(                                                 \
+		CursorState* cursor, bool isExpression, Uptr depth)                                        \
 	{                                                                                              \
 		++cursor->nextToken;                                                                       \
 		Imm imm;                                                                                   \
 		parseImm(cursor, imm);                                                                     \
-		if(isExpression) { parseExprSequence(cursor); }                                            \
+		if(isExpression) { parseExprSequence(cursor, depth); }                                     \
 		cursor->functionState->validatingCodeStream.name(imm);                                     \
 	}
-ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 
-static void tryEmitElse(const Token* errorToken, CursorState* cursor)
+static void parseExpr(CursorState* cursor, Uptr depth)
 {
-	try
-	{
-		cursor->functionState->validatingCodeStream.else_();
-	}
-	catch(ValidationException const& exception)
-	{
-		parseErrorf(cursor->parseState, errorToken, "%s", exception.message.c_str());
-		cursor->functionState->validatingCodeStream.unreachable();
-		cursor->functionState->validatingCodeStream.else_();
-		cursor->functionState->validatingCodeStream.unreachable();
-		cursor->functionState->validatingCodeStream.end();
-		throw RecoverParseException();
-	}
-}
+	++depth;
+	checkRecursionDepth(cursor, depth);
 
-static void parseExpr(CursorState* cursor)
-{
 	parseParenthesized(cursor, [&] {
-		const Token* opcodeToken = cursor->nextToken;
+		cursor->functionState->validatingCodeStream.validationErrorToken = cursor->nextToken;
 		try
 		{
 			switch(cursor->nextToken->type)
 			{
-			case t_block:
-			{
+			case t_block: {
 				++cursor->nextToken;
-				parseBlock(cursor, true);
+				parseBlock(cursor, true, depth);
 				break;
 			}
-			case t_loop:
-			{
+			case t_loop: {
 				++cursor->nextToken;
-				parseLoop(cursor, true);
+				parseLoop(cursor, true, depth);
 				break;
 			}
-			case t_if_:
-			{
+			case t_if_: {
 				++cursor->nextToken;
-
-				Name branchTargetName;
-				ControlStructureImm imm;
-				parseControlImm(cursor, branchTargetName, imm);
-
-				// Parse an optional condition expression.
-				if(cursor->nextToken[0].type != t_leftParenthesis
-				   || cursor->nextToken[1].type != t_then)
-				{ parseExpr(cursor); }
-
-				ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
-				cursor->functionState->validatingCodeStream.if_(imm);
-
-				// Parse the if clauses.
-				if(cursor->nextToken[0].type == t_leftParenthesis
-				   && cursor->nextToken[1].type == t_then)
-				{
-					// First syntax: (then <instr>)* (else <instr>*)?
-					parseParenthesized(cursor, [&] {
-						require(cursor, t_then);
-						parseInstrSequence(cursor);
-					});
-					if(cursor->nextToken->type == t_leftParenthesis)
-					{
-						parseParenthesized(cursor, [&] {
-							const Token* elseToken = cursor->nextToken;
-							require(cursor, t_else_);
-							tryEmitElse(elseToken, cursor);
-							parseInstrSequence(cursor);
-						});
-					}
-				}
-				else
-				{
-					// Second syntax option: <expr> <expr>?
-					parseExpr(cursor);
-					if(cursor->nextToken->type != t_rightParenthesis)
-					{
-						tryEmitElse(cursor->nextToken, cursor);
-						parseExpr(cursor);
-					}
-				}
-				cursor->functionState->validatingCodeStream.end();
+				parseIfExpr(cursor, depth);
 				break;
 			}
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	case t_##name:                                                                                 \
-		parseOp_##name(cursor, true);                                                              \
+		parseOp_##name(cursor, true, depth);                                                       \
 		break;
-				ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 			default:
 				parseErrorf(cursor->parseState, cursor->nextToken, "expected opcode");
@@ -663,125 +821,54 @@ static void parseExpr(CursorState* cursor)
 		}
 		catch(RecoverParseException const&)
 		{
-			cursor->functionState->validatingCodeStream.unreachable();
-			throw RecoverParseException();
-		}
-		catch(ValidationException const& exception)
-		{
-			parseErrorf(cursor->parseState, opcodeToken, "%s", exception.message.c_str());
 			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 	});
 }
 
-static void parseInstrSequence(CursorState* cursor)
+static void parseInstrSequence(CursorState* cursor, Uptr depth)
 {
 	while(true)
 	{
-		const Token* opcodeToken = cursor->nextToken;
+		cursor->functionState->validatingCodeStream.validationErrorToken = cursor->nextToken;
 		try
 		{
 			switch(cursor->nextToken->type)
 			{
-			case t_leftParenthesis: parseExpr(cursor); break;
+			case t_leftParenthesis: parseExpr(cursor, depth); break;
 			case t_rightParenthesis: return;
 			case t_else_: return;
 			case t_end: return;
-			case t_block:
-			{
-				++cursor->nextToken;
-				parseBlock(cursor, false);
-				break;
-			}
-			case t_loop:
-			{
-				++cursor->nextToken;
-				parseLoop(cursor, false);
-				break;
-			}
-			case t_if_:
-			{
-				++cursor->nextToken;
-
-				Name branchTargetName;
-				ControlStructureImm imm;
-				parseControlImm(cursor, branchTargetName, imm);
-
-				ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
-				cursor->functionState->validatingCodeStream.if_(imm);
-
-				// Parse the then clause.
-				parseInstrSequence(cursor);
-
-				// Parse the else clause.
-				if(cursor->nextToken->type == t_else_)
-				{
-					++cursor->nextToken;
-					parseAndValidateRedundantBranchTargetName(
-						cursor, branchTargetName, "if", "else");
-
-					cursor->functionState->validatingCodeStream.else_();
-					parseInstrSequence(cursor);
-				}
-				cursor->functionState->validatingCodeStream.end();
-
-				require(cursor, t_end);
-				parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "if", "end");
-
-				break;
-			}
-			case t_try_:
-			{
-				++cursor->nextToken;
-
-				Name branchTargetName;
-				ControlStructureImm imm;
-				parseControlImm(cursor, branchTargetName, imm);
-
-				ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
-				cursor->functionState->validatingCodeStream.try_(imm);
-
-				// Parse the try clause.
-				parseInstrSequence(cursor);
-
-				// Parse catch clauses.
-				while(cursor->nextToken->type != t_end)
-				{
-					if(cursor->nextToken->type == t_catch_)
-					{
-						++cursor->nextToken;
-						ExceptionTypeImm exceptionTypeImm;
-						parseImm(cursor, exceptionTypeImm);
-						cursor->functionState->validatingCodeStream.catch_(exceptionTypeImm);
-						parseInstrSequence(cursor);
-					}
-					else if(cursor->nextToken->type == t_catch_all)
-					{
-						++cursor->nextToken;
-						cursor->functionState->validatingCodeStream.catch_all();
-						parseInstrSequence(cursor);
-					}
-					else
-					{
-						parseErrorf(cursor->parseState,
-									cursor->nextToken,
-									"expected 'catch', 'catch_all', or 'end' following 'try'");
-						throw RecoverParseException();
-					}
-				};
-
-				require(cursor, t_end);
-				parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "try", "end");
-				cursor->functionState->validatingCodeStream.end();
-
-				break;
-			}
 			case t_catch_: return;
 			case t_catch_all: return;
+			case t_block: {
+				checkRecursionDepth(cursor, depth + 1);
+				++cursor->nextToken;
+				parseBlock(cursor, false, depth + 1);
+				break;
+			}
+			case t_loop: {
+				checkRecursionDepth(cursor, depth + 1);
+				++cursor->nextToken;
+				parseLoop(cursor, false, depth + 1);
+				break;
+			}
+			case t_if_: {
+				checkRecursionDepth(cursor, depth + 1);
+				++cursor->nextToken;
+				parseIfInstr(cursor, depth + 1);
+				break;
+			}
+			case t_try_: {
+				checkRecursionDepth(cursor, depth + 1);
+				++cursor->nextToken;
+				parseTryInstr(cursor, depth + 1);
+				break;
+			}
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
-	case t_##name: parseOp_##name(cursor, false); break;
-				ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+	case t_##name: parseOp_##name(cursor, false, depth); break;
+				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 			default:
 				parseErrorf(cursor->parseState, cursor->nextToken, "expected opcode");
@@ -791,15 +878,21 @@ static void parseInstrSequence(CursorState* cursor)
 		catch(RecoverParseException const&)
 		{
 			cursor->functionState->validatingCodeStream.unreachable();
-			throw RecoverParseException();
-		}
-		catch(ValidationException const& exception)
-		{
-			parseErrorf(cursor->parseState, opcodeToken, "%s", exception.message.c_str());
-			cursor->functionState->validatingCodeStream.unreachable();
-			throw RecoverParseException();
+
+			// This is a workaround for rethrowing from a catch handler blowing up the stack.
+			// On Windows, the call stack frames between the throw and the catch are not freed until
+			// exiting the catch scope. The throw uses substantial stack space, and the catch adds a
+			// stack frame on top of that. As a result, unwinding a call stack by recursively
+			// throwing exceptions from within catch scopes can overflow the stack.
+			// Jumping out of the catch before rethrowing ensures that the stack frames between the
+			// original throw and this function are freed before continuing to unwind the stack.
+			goto rethrowRecoverParseException;
 		}
 	};
+
+	WAVM_UNREACHABLE();
+rethrowRecoverParseException:
+	throw RecoverParseException();
 }
 
 FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
@@ -866,38 +959,44 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 					};
 				}
 			}))
-				;
+			{};
+
 			moduleState->disassemblyNames.functions[functionIndex].locals
 				= std::move(*localDisassemblyNames);
 
 			// Parse the function's code.
-			FunctionState functionState(localNameToIndexMap, functionDef, moduleState);
-			functionCursorState.functionState = &functionState;
 			const Token* validationErrorToken = firstBodyToken;
 			try
 			{
-				parseInstrSequence(&functionCursorState);
-				if(!moduleState->parseState->unresolvedErrors.size())
+				FunctionState functionState(localNameToIndexMap, functionDef, moduleState);
+				functionCursorState.functionState = &functionState;
+				try
 				{
-					validationErrorToken = functionCursorState.nextToken;
-					functionState.validatingCodeStream.end();
-					functionState.validatingCodeStream.finishValidation();
+					parseInstrSequence(&functionCursorState, 0);
+					if(!moduleState->parseState->unresolvedErrors.size())
+					{
+						validationErrorToken = functionCursorState.nextToken;
+						functionState.validatingCodeStream.end();
+						functionState.validatingCodeStream.finishValidation();
+					}
 				}
+				catch(RecoverParseException const&)
+				{
+				}
+				catch(FatalParseException const&)
+				{
+				}
+				functionDef.code = std::move(functionState.codeByteStream.getBytes());
+				moduleState->disassemblyNames.functions[functionIndex].labels
+					= std::move(functionState.labelDisassemblyNames);
 			}
 			catch(ValidationException const& exception)
 			{
-				parseErrorf(
-					moduleState->parseState, validationErrorToken, "%s", exception.message.c_str());
+				parseErrorf(moduleState->parseState,
+							validationErrorToken,
+							"validation error: %s",
+							exception.message.c_str());
 			}
-			catch(RecoverParseException const&)
-			{
-			}
-			catch(FatalParseException const&)
-			{
-			}
-			functionDef.code = std::move(functionState.codeByteStream.getBytes());
-			moduleState->disassemblyNames.functions[functionIndex].labels
-				= std::move(functionState.labelDisassemblyNames);
 		});
 	});
 

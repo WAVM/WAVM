@@ -1,8 +1,19 @@
 set(TestNames
+	append
 	args
 	cat
 	clock
+	fd_filestat_set_size
+	fd_filestat_set_times
+	fd_renumber
+	largefile
+	ls
+	mkdir
+	path_filestat_set_times
+	preadwrite
 	random
+	rm
+	rmdir
 	stat
 	stdout
 	write)

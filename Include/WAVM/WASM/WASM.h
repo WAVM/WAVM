@@ -13,14 +13,27 @@ namespace WAVM { namespace Serialization {
 }}
 
 namespace WAVM { namespace WASM {
-	// Serializes a module to or from a stream. May throw FatalSerializationException or
-	// ValidationException.
-	WASM_API void serialize(Serialization::InputStream& stream, IR::Module& module);
-	WASM_API void serialize(Serialization::OutputStream& stream, const IR::Module& module);
+	// The magic number that is at the beginning of every WASM binary module.
+	static constexpr U8 magicNumber[4] = {0x00, 0x61, 0x73, 0x6d};
 
-	// Loads a binary module, catching any exceptions that might be
-	WASM_API bool loadBinaryModule(const void* wasmBytes,
-								   Uptr numBytes,
+	// Saves a binary module.
+	WASM_API void saveBinaryModule(Serialization::OutputStream& stream, const IR::Module& module);
+
+	// Loads a binary module, returning either an error or a module.
+	// If true is returned, the load succeeded, and outModule contains the loaded module.
+	// If false is returned, the load failed. If outError != nullptr, *outError will contain the
+	// error that caused the load to fail.
+	struct LoadError
+	{
+		enum class Type
+		{
+			malformed,
+			invalid
+		};
+		Type type;
+		std::string message;
+	};
+	WASM_API bool loadBinaryModule(Serialization::InputStream& stream,
 								   IR::Module& outModule,
-								   Log::Category errorCategory = Log::error);
+								   LoadError* outError = nullptr);
 }}

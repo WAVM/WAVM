@@ -8,10 +8,7 @@
 namespace WAVM {
 	struct DefaultHashTableAllocPolicy
 	{
-		enum
-		{
-			minBuckets = 8
-		};
+		static constexpr Uptr minBuckets = 8;
 
 		static Uptr divideAndRoundUp(Uptr numerator, Uptr denominator)
 		{
@@ -20,8 +17,8 @@ namespace WAVM {
 
 		static Uptr getMaxDesiredBuckets(Uptr numDesiredElements)
 		{
-			const Uptr maxDesiredBuckets = Uptr(1) << WAVM::Platform::ceilLogTwo(
-											   divideAndRoundUp(numDesiredElements * 20, 7));
+			const Uptr maxDesiredBuckets
+				= Uptr(1) << WAVM::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 7));
 			return maxDesiredBuckets < minBuckets ? minBuckets : maxDesiredBuckets;
 		}
 
@@ -30,8 +27,8 @@ namespace WAVM {
 			if(numDesiredElements == 0) { return 0; }
 			else
 			{
-				const Uptr minDesiredBuckets = Uptr(1) << WAVM::Platform::ceilLogTwo(
-												   divideAndRoundUp(numDesiredElements * 20, 16));
+				const Uptr minDesiredBuckets
+					= Uptr(1) << WAVM::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
 				return minDesiredBuckets < minBuckets ? minBuckets : minDesiredBuckets;
 			}
 		}
@@ -154,5 +151,5 @@ namespace WAVM {
 	};
 
 // The implementation is defined in a separate file.
-#include "HashTableImpl.h"
+#include "Impl/HashTableImpl.h"
 }

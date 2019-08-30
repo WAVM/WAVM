@@ -4,7 +4,6 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/Assert.h"
@@ -16,22 +15,23 @@
 #include "WAVM/Platform/Defines.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/ADT/ilist_iterator.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Scalar.h"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/Triple.h>
+#include <llvm/ADT/ilist_iterator.h>
+#include <llvm/CodeGen/TargetSubtargetInfo.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/Host.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Transforms/Scalar.h>
 #if LLVM_VERSION_MAJOR >= 7
-#include "llvm/Transforms/Utils.h"
+#include <llvm/Transforms/Utils.h>
 #endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
@@ -45,26 +45,16 @@ namespace llvm {
 #endif
 }
 
-#define VERIFY_MODULE WAVM_DEBUG
-#define DUMP_UNOPTIMIZED_MODULE 0
-#define DUMP_OPTIMIZED_MODULE 0
-#define DUMP_OBJECT 0
-
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 
-static Uptr printedModuleId = 0;
-
-static void printModule(const llvm::Module& llvmModule, const char* filename)
+static std::string printModule(const llvm::Module& llvmModule)
 {
-	std::error_code errorCode;
-	std::string augmentedFilename
-		= std::string(filename) + std::to_string(printedModuleId++) + ".ll";
-	llvm::raw_fd_ostream dumpFileStream(
-		augmentedFilename, errorCode, llvm::sys::fs::OpenFlags::F_Text);
-	llvmModule.print(dumpFileStream, nullptr);
-	Log::printf(Log::debug, "Dumped LLVM module to: %s\n", augmentedFilename.c_str());
+	std::string result;
+	llvm::raw_string_ostream printStream(result);
+	llvmModule.print(printStream, nullptr);
+	return result;
 }
 
 // Define a LLVM raw output stream that can write directly to a std::vector.
@@ -87,7 +77,7 @@ protected:
 	}
 	virtual void pwrite_impl(const char* data, size_t numBytes, U64 offset) override
 	{
-		wavmAssert(offset + numBytes > offset && offset + numBytes <= U64(output.size()));
+		WAVM_ASSERT(offset + numBytes > offset && offset + numBytes <= U64(output.size()));
 		memcpy(output.data() + offset, data, numBytes);
 	}
 	virtual U64 current_pos() const override { return output.size(); }
@@ -116,35 +106,15 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 		Timing::logRatePerSecond(
 			"Optimized LLVM module", optimizationTimer, (F64)llvmModule.size(), "functions");
 	}
-
-	// Dump the optimized module if desired.
-	if(shouldLogMetrics && DUMP_OPTIMIZED_MODULE) { printModule(llvmModule, "llvmOptimizedDump"); }
 }
 
 std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 										   llvm::Module&& llvmModule,
-										   bool shouldLogMetrics)
+										   bool shouldLogMetrics,
+										   llvm::TargetMachine* targetMachine)
 {
-	auto targetTriple = llvm::sys::getProcessTriple();
-#ifdef __APPLE__
-	// Didn't figure out exactly why, but this works around a problem with the MacOS dynamic loader.
-	// Without it, our symbols can't be found in the JITed object file.
-	targetTriple += "-elf";
-#endif
-	std::unique_ptr<llvm::TargetMachine> targetMachine(
-		llvm::EngineBuilder().selectTarget(llvm::Triple(targetTriple),
-										   "",
-										   llvm::sys::getHostCPUName(),
-										   llvm::SmallVector<std::string, 0>{}));
-
-	// Get a target machine object for this host, and set the module to use its data layout.
-	llvmModule.setDataLayout(targetMachine->createDataLayout());
-
-	// Dump the module if desired.
-	if(shouldLogMetrics && DUMP_UNOPTIMIZED_MODULE) { printModule(llvmModule, "llvmDump"); }
-
 	// Verify the module.
-	if(shouldLogMetrics && VERIFY_MODULE)
+	if(WAVM_ENABLE_ASSERTS)
 	{
 		std::string verifyOutputString;
 		llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
@@ -165,7 +135,7 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 		llvm::legacy::PassManager passManager;
 		llvm::MCContext* mcContext;
 		LLVMArrayOutputStream objectStream;
-		errorUnless(!targetMachine->addPassesToEmitMC(passManager, mcContext, objectStream));
+		WAVM_ERROR_UNLESS(!targetMachine->addPassesToEmitMC(passManager, mcContext, objectStream));
 		passManager.run(llvmModule);
 		objectBytes = objectStream.getOutput();
 	}
@@ -175,30 +145,78 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 			"Generated machine code", machineCodeTimer, (F64)llvmModule.size(), "functions");
 	}
 
-	if(shouldLogMetrics && DUMP_OBJECT)
-	{
-		// Dump the object file.
-		std::error_code errorCode;
-		static Uptr dumpedObjectId = 0;
-		std::string augmentedFilename
-			= std::string("jitObject") + std::to_string(dumpedObjectId++) + ".o";
-		llvm::raw_fd_ostream dumpFileStream(
-			augmentedFilename, errorCode, llvm::sys::fs::OpenFlags::F_None);
-		dumpFileStream.write((const char*)objectBytes.data(), objectBytes.size());
-		Log::printf(Log::Category::debug, "Dumped object file to: %s\n", augmentedFilename.c_str());
-	}
-
 	return objectBytes;
 }
 
-std::vector<U8> LLVMJIT::compileModule(const IR::Module& irModule)
+static std::unique_ptr<llvm::TargetMachine> getAndValidateTargetMachine(
+	const IR::FeatureSpec& featureSpec,
+	const TargetSpec& targetSpec)
 {
-	LLVMContext llvmContext;
+	// Get the target machine.
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(targetSpec);
+	if(!targetMachine)
+	{
+		Errors::fatalf("Invalid target spec (triple=%s, cpu=%s).",
+					   targetSpec.triple.c_str(),
+					   targetSpec.cpu.c_str());
+	}
+
+	// Validate that the target machine supports the module's FeatureSpec.
+	switch(validateTarget(targetSpec, featureSpec))
+	{
+	case TargetValidationResult::valid: break;
+
+	case TargetValidationResult::invalidTargetSpec:
+		Errors::fatalf("Invalid target spec (triple=%s, cpu=%s).\n",
+					   targetSpec.triple.c_str(),
+					   targetSpec.cpu.c_str());
+	case TargetValidationResult::unsupportedArchitecture:
+		Errors::fatalf("Unsupported target architecture (triple=%s, cpu=%s)",
+					   targetSpec.triple.c_str(),
+					   targetSpec.cpu.c_str());
+	case TargetValidationResult::x86CPUDoesNotSupportSSE41:
+		Errors::fatalf(
+			"Target X86 CPU (% s) does not support SSE 4.1, which"
+			" WAVM requires for WebAssembly SIMD code.\n",
+			targetSpec.cpu.c_str());
+	case TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
+		Errors::fatalf("WAVM does not support SIMD on the host CPU architecture.\n");
+
+	default: WAVM_UNREACHABLE();
+	};
+
+	return targetMachine;
+}
+
+std::vector<U8> LLVMJIT::compileModule(const IR::Module& irModule, const TargetSpec& targetSpec)
+{
+	std::unique_ptr<llvm::TargetMachine> targetMachine
+		= getAndValidateTargetMachine(irModule.featureSpec, targetSpec);
 
 	// Emit LLVM IR for the module.
+	LLVMContext llvmContext;
 	llvm::Module llvmModule("", llvmContext);
-	emitModule(irModule, llvmContext, llvmModule);
+	emitModule(irModule, llvmContext, llvmModule, targetMachine.get());
 
 	// Compile the LLVM IR to object code.
-	return compileLLVMModule(llvmContext, std::move(llvmModule), true);
+	return compileLLVMModule(llvmContext, std::move(llvmModule), true, targetMachine.get());
+}
+
+std::string LLVMJIT::emitLLVMIR(const IR::Module& irModule,
+								const TargetSpec& targetSpec,
+								bool optimize)
+{
+	std::unique_ptr<llvm::TargetMachine> targetMachine
+		= getAndValidateTargetMachine(irModule.featureSpec, targetSpec);
+
+	// Emit LLVM IR for the module.
+	LLVMContext llvmContext;
+	llvm::Module llvmModule("", llvmContext);
+	emitModule(irModule, llvmContext, llvmModule, targetMachine.get());
+
+	// Optimize the LLVM IR.
+	if(optimize) { optimizeLLVMModule(llvmModule, true); }
+
+	// Print the LLVM IR.
+	return printModule(llvmModule);
 }

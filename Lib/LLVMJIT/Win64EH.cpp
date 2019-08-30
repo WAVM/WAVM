@@ -1,7 +1,6 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <string>
-
 #include "LLVMJITPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -9,13 +8,13 @@
 #include "WAVM/Platform/Defines.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/DebugInfo/DIContext.h"
-#include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/Object/ObjectFile.h"
-#include "llvm/Object/SymbolicFile.h"
-#include "llvm/Support/Error.h"
+#include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/iterator_range.h>
+#include <llvm/DebugInfo/DIContext.h>
+#include <llvm/ExecutionEngine/JITSymbol.h>
+#include <llvm/Object/ObjectFile.h>
+#include <llvm/Object/SymbolicFile.h>
+#include <llvm/Support/Error.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 #define PRINT_SEH_TABLES 0
@@ -35,24 +34,24 @@ enum UnwindOpcode
 	UWOP_PUSH_MACHFRAME = 8
 };
 
-PACKED_STRUCT(struct SEHLanguageSpecificDataEntry {
+WAVM_PACKED_STRUCT(struct SEHLanguageSpecificDataEntry {
 	U32 startAddress;
 	U32 endAddress;
 	U32 filterOrFinallyAddress;
 	U32 landingPadAddress;
 });
 
-PACKED_STRUCT(struct SEHLanguageSpecificData {
+WAVM_PACKED_STRUCT(struct SEHLanguageSpecificData {
 	U32 numEntries;
 	SEHLanguageSpecificDataEntry entries[1];
 });
 
-PACKED_STRUCT(struct UnwindInfoSuffix {
+WAVM_PACKED_STRUCT(struct UnwindInfoSuffix {
 	U32 exceptionHandlerAddress;
 	SEHLanguageSpecificData sehLSDA;
 });
 
-PACKED_STRUCT(struct UnwindCode {
+WAVM_PACKED_STRUCT(struct UnwindCode {
 	U8 codeOffset;
 	UnwindOpcode opcode : 4;
 	U8 opInfo : 4;
@@ -67,7 +66,7 @@ namespace UnwindInfoFlags {
 	};
 };
 
-PACKED_STRUCT(struct UnwindInfoPrefix {
+WAVM_PACKED_STRUCT(struct UnwindInfoPrefix {
 	U8 version : 3;
 	U8 flags : 5;
 	U8 sizeOfProlog;
@@ -77,7 +76,7 @@ PACKED_STRUCT(struct UnwindInfoPrefix {
 	UnwindCode unwindCodes[1];
 });
 
-PACKED_STRUCT(struct RuntimeFunction {
+WAVM_PACKED_STRUCT(struct RuntimeFunction {
 	U32 beginAddress;
 	U32 endAddress;
 	union
@@ -105,7 +104,7 @@ static const char* getUnwindRegisterName(U8 registerIndex)
 								  "r13",
 								  "r14",
 								  "r15"};
-	errorUnless(registerIndex < (sizeof(names) / sizeof(names[0])));
+	WAVM_ERROR_UNLESS(registerIndex < (sizeof(names) / sizeof(names[0])));
 	return names[registerIndex];
 }
 
@@ -147,7 +146,7 @@ static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo& loadedOb
 			U32* valueToRelocate = (U32*)(sectionData + relocIt.getOffset());
 			const U32* originalValue = (U32*)(sectionCopy + relocIt.getOffset());
 			const U64 relocatedValue64 = symbolAddress + *originalValue - imageBaseAddress;
-			errorUnless(relocatedValue64 <= UINT32_MAX);
+			WAVM_ERROR_UNLESS(relocatedValue64 <= UINT32_MAX);
 			*valueToRelocate = (U32)relocatedValue64;
 		}
 	}
@@ -196,7 +195,7 @@ void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 				}
 				else
 				{
-					errorUnless(unwindCode->opInfo == 1);
+					WAVM_ERROR_UNLESS(unwindCode->opInfo == 1);
 					Log::printf(Log::debug,
 								"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
 								unwindCode->codeOffset,
@@ -255,7 +254,7 @@ void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 				++unwindCode;
 				break;
 
-			default: WAVM_UNREACHABLE();
+			default: Errors::fatalf("Unrecognized unwind opcode: %u", unwindCode->opcode);
 			}
 		}
 	}
@@ -290,8 +289,8 @@ void LLVMJIT::processSEHTables(U8* imageBase,
 							   const U8* xdataCopy,
 							   Uptr sehTrampolineAddress)
 {
-	wavmAssert(pdataCopy);
-	wavmAssert(xdataCopy);
+	WAVM_ASSERT(pdataCopy);
+	WAVM_ASSERT(xdataCopy);
 
 	applyImageRelativeRelocations(loadedObject,
 								  pdataSection,
@@ -313,7 +312,7 @@ void LLVMJIT::processSEHTables(U8* imageBase,
 		const Uptr numFunctions = pdataNumBytes / sizeof(RuntimeFunction);
 		for(Uptr functionIndex = 0; functionIndex < numFunctions; ++functionIndex)
 		{
-			Log::printf(Log::debug, " Function %" PRIuPTR "\n", functionIndex);
+			Log::printf(Log::debug, " Function %" WAVM_PRIuPTR "\n", functionIndex);
 			printFunctionSEH(imageBase, functionTable[functionIndex]);
 		}
 	}

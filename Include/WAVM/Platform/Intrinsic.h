@@ -7,12 +7,9 @@
 #include <intrin.h>
 #endif
 
-namespace WAVM { namespace Platform {
+namespace WAVM {
 	// The number of bytes in a cache line: assume 64 for now.
-	enum
-	{
-		numCacheLineBytes = 64
-	};
+	static constexpr Uptr numCacheLineBytes = 64;
 
 	// countLeadingZeroes returns the number of leading zeroes, or the bit width of the input if no
 	// bits are set.
@@ -34,12 +31,12 @@ namespace WAVM { namespace Platform {
 #ifdef _WIN64
 		unsigned long result;
 		return _BitScanReverse64(&result, value) ? (63 - result) : 64;
-#elif defined(_WIN32)
-		DEBUG_TRAP();
 #elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_clzll(value);
 #else
-#error Unsupported compiler
+		U64 result = countLeadingZeroes(U32(value >> 32));
+		if(result == 32) { result += countLeadingZeroes(U32(value)); }
+		return result;
 #endif
 	}
 
@@ -62,12 +59,12 @@ namespace WAVM { namespace Platform {
 #ifdef _WIN64
 		unsigned long result;
 		return _BitScanForward64(&result, value) ? result : 64;
-#elif defined(_WIN32)
-		DEBUG_TRAP();
 #elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_ctzll(value);
 #else
-#error Unsupported compiler
+		U64 result = countTrailingZeroes(U32(value));
+		if(result == 32) { result += countTrailingZeroes(U32(value >> 32)); }
+		return result;
 #endif
 	}
 
@@ -91,6 +88,30 @@ namespace WAVM { namespace Platform {
 	{
 		return U32(value + ((I32(maxValue - value) >> 31) & (maxValue - value)));
 	}
+
+#if defined(__GNUC__)
+	inline bool addAndCheckOverflow(U64 a, U64 b, U64* out)
+	{
+		return __builtin_add_overflow(a, b, out);
+	}
+	inline bool addAndCheckOverflow(I64 a, I64 b, I64* out)
+	{
+		return __builtin_add_overflow(a, b, out);
+	}
+#else
+	inline bool addAndCheckOverflow(U64 a, U64 b, U64* out)
+	{
+		*out = a + b;
+		return *out < a;
+	}
+
+	inline bool addAndCheckOverflow(I64 a, I64 b, I64* out)
+	{
+		// Do the add with U64 because signed overflow is UB.
+		*out = I64(U64(a) + U64(b));
+		return (a < 0 && b < 0 && *out > 0) || (a > 0 && b > 0 && *out < 0);
+	}
+#endif
 
 	// Byte-wise memcpy and memset: these are different from the C library versions because in the
 	// event of a trap while reading/writing memory, they guarantee that every byte preceding the
@@ -134,18 +155,16 @@ namespace WAVM { namespace Platform {
 #endif
 	}
 
-	// Byte-wise memmove: this uses the above byte-wise memcpy, but if the source and destination
-	// buffers overlap so the copy would overwrite the end of the source buffer before it is copied
-	// from, then split the copy into two: the overlapping end of the source buffer is copied first,
-	// so it can be overwritten by the second copy safely.
+	// Byte-wise memmove: if the source address is lower than the destination address, then copy in
+	// reverse order. This ensures that if the source and destination address ranges overlap, the
+	// source bytes will be copied before they are overwritten.
 
 	inline void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
 	{
-		if(source < dest && source + numBytes > dest)
-		{ bytewiseMemCopyReverse(dest, source, numBytes); }
+		if(source < dest) { bytewiseMemCopyReverse(dest, source, numBytes); }
 		else
 		{
 			bytewiseMemCopy(dest, source, numBytes);
 		}
 	}
-}}
+}

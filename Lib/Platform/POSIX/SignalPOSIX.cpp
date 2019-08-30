@@ -1,7 +1,6 @@
 #include <signal.h>
 #include <unistd.h>
 #include <atomic>
-
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Errors.h"
@@ -25,8 +24,7 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 		signal.type = Signal::Type::intDivideByZeroOrOverflow;
 		break;
 	case SIGSEGV:
-	case SIGBUS:
-	{
+	case SIGBUS: {
 		// Determine whether the faulting address was an address reserved by the stack.
 		U8* stackMinGuardAddr;
 		U8* stackMinAddr;
@@ -44,6 +42,10 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 	// Capture the execution context, omitting this function and the function that called it, so the
 	// top of the callstack is the function that triggered the signal.
 	CallStack callStack = captureCallStack(2);
+
+	// Undo the -1 offset that captureCallStack applied to the trapping IP on the assumption that
+	// the signal trampoline frame is returning from an ordinary call.
+	if(callStack.frames.size()) { callStack.frames[0].ip += 1; }
 
 	// Call the signal handlers, from innermost to outermost, until one returns true.
 	for(SignalContext* signalContext = innermostSignalContext; signalContext;
@@ -92,7 +94,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 							void* argument)
 {
 	static bool initedSignals = initSignals();
-	wavmAssert(initedSignals);
+	WAVM_ASSERT(initedSignals);
 
 	sigAltStack.init();
 
@@ -102,7 +104,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 	signalContext.filterArgument = argument;
 
 #ifdef __WAVIX__
-	Errors::fatal("catchSignals is unimplemented on Wavix");
+	Errors::unimplemented("Wavix catchSignals");
 #else
 	// Use sigsetjmp to capture the execution state into the signal context. If a signal is raised,
 	// the signal handler will jump back to here.
@@ -120,10 +122,11 @@ bool Platform::catchSignals(void (*thunk)(void*),
 #endif
 }
 
+// The LLVM project libunwind implementation that WAVM uses matches the Apple ABI, which expects
+// __register_frame and __deregister_frame to be called for each FDE in the .eh_frame section.
+#if WAVM_ENABLE_UNWIND || defined(__APPLE__)
 static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))
 {
-	// The LLVM project libunwind implementation that WAVM uses expects __register_frame and
-	// __deregister_frame to be called for each FDE in the .eh_frame section.
 	const U8* next = ehFrames;
 	const U8* end = ehFrames + numBytes;
 	do
@@ -134,7 +137,7 @@ static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const 
 		if(numBytes == 0xffffffff)
 		{
 			const U64 numCFIBytes64 = *((const U64*)next);
-			errorUnless(numCFIBytes64 <= UINTPTR_MAX);
+			WAVM_ERROR_UNLESS(numCFIBytes64 <= UINTPTR_MAX);
 			numCFIBytes = Uptr(numCFIBytes64);
 			next += 8;
 		}
@@ -154,3 +157,14 @@ void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr 
 {
 	visitFDEs(ehFrames, numBytes, __deregister_frame);
 }
+#else
+void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
+{
+	__register_frame(ehFrames);
+}
+
+void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
+{
+	__deregister_frame(ehFrames);
+}
+#endif

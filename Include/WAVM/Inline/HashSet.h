@@ -1,11 +1,10 @@
 #pragma once
 
+#include <initializer_list>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashTable.h"
-
-#include <initializer_list>
 
 namespace WAVM {
 	template<typename Element> struct HashSetIterator
@@ -81,8 +80,11 @@ namespace WAVM {
 	private:
 		struct HashTablePolicy
 		{
-			FORCEINLINE static const Element& getKey(const Element& element) { return element; }
-			FORCEINLINE static bool areKeysEqual(const Element& left, const Element& right)
+			WAVM_FORCEINLINE static const Element& getKey(const Element& element)
+			{
+				return element;
+			}
+			WAVM_FORCEINLINE static bool areKeysEqual(const Element& left, const Element& right)
 			{
 				return ElementHashPolicy::areKeysEqual(left, right);
 			}
@@ -92,5 +94,5 @@ namespace WAVM {
 	};
 
 // The implementation is defined in a separate file.
-#include "HashSetImpl.h"
+#include "Impl/HashSetImpl.h"
 }

@@ -2,7 +2,6 @@
 #include <atomic>
 #include <memory>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -11,7 +10,7 @@
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
@@ -28,13 +27,13 @@ Runtime::Compartment::Compartment()
 , contexts(0, maxContexts - 1)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
-		compartmentReservedBytes >> Platform::getPageSizeLog2(),
+		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
 		compartmentRuntimeDataAlignmentLog2,
 		unalignedRuntimeData);
 
-	errorUnless(Platform::commitVirtualPages(
+	WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
 		(U8*)runtimeData,
-		offsetof(CompartmentRuntimeData, contexts) >> Platform::getPageSizeLog2()));
+		offsetof(CompartmentRuntimeData, contexts) >> Platform::getBytesPerPageLog2()));
 
 	runtimeData->compartment = this;
 }
@@ -43,16 +42,17 @@ Runtime::Compartment::~Compartment()
 {
 	Lock<Platform::Mutex> compartmentLock(mutex);
 
-	wavmAssert(!memories.size());
-	wavmAssert(!tables.size());
-	wavmAssert(!exceptionTypes.size());
-	wavmAssert(!globals.size());
-	wavmAssert(!moduleInstances.size());
-	wavmAssert(!contexts.size());
+	WAVM_ASSERT(!memories.size());
+	WAVM_ASSERT(!tables.size());
+	WAVM_ASSERT(!exceptionTypes.size());
+	WAVM_ASSERT(!globals.size());
+	WAVM_ASSERT(!moduleInstances.size());
+	WAVM_ASSERT(!contexts.size());
 
-	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
-									  compartmentReservedBytes >> Platform::getPageSizeLog2(),
-									  compartmentRuntimeDataAlignmentLog2);
+	Platform::freeAlignedVirtualPages(
+		unalignedRuntimeData,
+		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
+		compartmentRuntimeDataAlignmentLog2);
 	runtimeData = nullptr;
 	unalignedRuntimeData = nullptr;
 }
@@ -70,14 +70,14 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 	for(Table* table : compartment->tables)
 	{
 		Table* newTable = cloneTable(table, newCompartment);
-		wavmAssert(newTable->id == table->id);
+		WAVM_ASSERT(newTable->id == table->id);
 	}
 
 	// Clone memories.
 	for(Memory* memory : compartment->memories)
 	{
 		Memory* newMemory = cloneMemory(memory, newCompartment);
-		wavmAssert(newMemory->id == memory->id);
+		WAVM_ASSERT(newMemory->id == memory->id);
 	}
 
 	// Clone globals.
@@ -88,22 +88,22 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 	for(Global* global : compartment->globals)
 	{
 		Global* newGlobal = cloneGlobal(global, newCompartment);
-		wavmAssert(newGlobal->id == global->id);
-		wavmAssert(newGlobal->mutableGlobalIndex == global->mutableGlobalIndex);
+		WAVM_ASSERT(newGlobal->id == global->id);
+		WAVM_ASSERT(newGlobal->mutableGlobalIndex == global->mutableGlobalIndex);
 	}
 
 	// Clone exception types.
 	for(ExceptionType* exceptionType : compartment->exceptionTypes)
 	{
 		ExceptionType* newExceptionType = cloneExceptionType(exceptionType, newCompartment);
-		wavmAssert(newExceptionType->id == exceptionType->id);
+		WAVM_ASSERT(newExceptionType->id == exceptionType->id);
 	}
 
 	// Clone module instances.
 	for(ModuleInstance* moduleInstance : compartment->moduleInstances)
 	{
 		ModuleInstance* newModuleInstance = cloneModuleInstance(moduleInstance, newCompartment);
-		wavmAssert(newModuleInstance->id == moduleInstance->id);
+		WAVM_ASSERT(newModuleInstance->id == moduleInstance->id);
 	}
 
 	Timing::logTimer("Cloned compartment", timer);
@@ -193,15 +193,5 @@ bool Runtime::isInCompartment(const Object* object, const Compartment* compartme
 	{
 		GCObject* gcObject = (GCObject*)object;
 		return gcObject->compartment == compartment;
-	}
-}
-
-Compartment* Runtime::getCompartment(const Object* object)
-{
-	if(object->kind == ObjectKind::function) { return nullptr; }
-	else
-	{
-		GCObject* gcObject = (GCObject*)object;
-		return gcObject->compartment;
 	}
 }

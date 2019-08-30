@@ -46,7 +46,8 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size exceeds limit (%" PRIu64 ">%" PRIu64 ")",
+							"validation error: maximum size exceeds limit (%" PRIu64 ">%" PRIu64
+							")",
 							outSizeConstraints.max,
 							maxMax);
 				outSizeConstraints.max = maxMax;
@@ -55,7 +56,8 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size is less than minimum size (%" PRIu64 "<%" PRIu64 ")",
+							"validation error: maximum size is less than minimum size (%" PRIu64
+							"<%" PRIu64 ")",
 							outSizeConstraints.max,
 							outSizeConstraints.min);
 				outSizeConstraints.max = outSizeConstraints.min;
@@ -100,38 +102,32 @@ static UnresolvedInitializerExpression parseInitializerInstruction(CursorState* 
 	UnresolvedInitializerExpression result;
 	switch(cursor->nextToken->type)
 	{
-	case t_i32_const:
-	{
+	case t_i32_const: {
 		++cursor->nextToken;
 		result = parseI32(cursor);
 		break;
 	}
-	case t_i64_const:
-	{
+	case t_i64_const: {
 		++cursor->nextToken;
 		result = parseI64(cursor);
 		break;
 	}
-	case t_f32_const:
-	{
+	case t_f32_const: {
 		++cursor->nextToken;
 		result = parseF32(cursor);
 		break;
 	}
-	case t_f64_const:
-	{
+	case t_f64_const: {
 		++cursor->nextToken;
 		result = parseF64(cursor);
 		break;
 	}
-	case t_v128_const:
-	{
+	case t_v128_const: {
 		++cursor->nextToken;
 		result = parseV128(cursor);
 		break;
 	}
-	case t_global_get:
-	{
+	case t_global_get: {
 		++cursor->nextToken;
 		Reference globalRef;
 		if(!tryParseNameOrIndexRef(cursor, globalRef))
@@ -143,14 +139,12 @@ static UnresolvedInitializerExpression parseInitializerInstruction(CursorState* 
 												 globalRef);
 		break;
 	}
-	case t_ref_null:
-	{
+	case t_ref_null: {
 		++cursor->nextToken;
 		result = nullptr;
 		break;
 	}
-	case t_ref_func:
-	{
+	case t_ref_func: {
 		++cursor->nextToken;
 		Reference funcRef;
 		if(!tryParseNameOrIndexRef(cursor, funcRef))
@@ -297,8 +291,7 @@ static void parseImport(CursorState* cursor)
 		// Parse the import type and create the import in the appropriate name/index spaces.
 		switch(importKindToken->type)
 		{
-		case t_func:
-		{
+		case t_func: {
 			NameToIndexMap localNameToIndexMap;
 			std::vector<std::string> localDissassemblyNames;
 			const UnresolvedFunctionType unresolvedFunctionType = parseFunctionTypeRefAndOrDecl(
@@ -322,8 +315,7 @@ static void parseImport(CursorState* cursor)
 				});
 			break;
 		}
-		case t_table:
-		{
+		case t_table: {
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 			const ReferenceType elemType = parseReferenceType(cursor);
@@ -338,8 +330,7 @@ static void parseImport(CursorState* cursor)
 						 ExternKind::table);
 			break;
 		}
-		case t_memory:
-		{
+		case t_memory: {
 			const SizeConstraints sizeConstraints
 				= parseSizeConstraints(cursor, IR::maxMemoryPages);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
@@ -354,8 +345,7 @@ static void parseImport(CursorState* cursor)
 						 ExternKind::memory);
 			break;
 		}
-		case t_global:
-		{
+		case t_global: {
 			const GlobalType globalType = parseGlobalType(cursor);
 			createImport(cursor,
 						 name,
@@ -368,8 +358,7 @@ static void parseImport(CursorState* cursor)
 						 ExternKind::global);
 			break;
 		}
-		case t_exception_type:
-		{
+		case t_exception_type: {
 			TypeTuple params = parseTypeTuple(cursor);
 			createImport(cursor,
 						 name,
@@ -387,6 +376,34 @@ static void parseImport(CursorState* cursor)
 	});
 }
 
+static bool tryParseExternKind(CursorState* cursor, ExternKind& outKind)
+{
+	switch(cursor->nextToken->type)
+	{
+	case t_func:
+		++cursor->nextToken;
+		outKind = ExternKind::function;
+		return true;
+	case t_table:
+		++cursor->nextToken;
+		outKind = ExternKind::table;
+		return true;
+	case t_memory:
+		++cursor->nextToken;
+		outKind = ExternKind::memory;
+		return true;
+	case t_global:
+		++cursor->nextToken;
+		outKind = ExternKind::global;
+		return true;
+	case t_exception_type:
+		++cursor->nextToken;
+		outKind = ExternKind::exceptionType;
+		return true;
+	default: return false;
+	};
+}
+
 static void parseExport(CursorState* cursor)
 {
 	require(cursor, t_export);
@@ -395,18 +412,11 @@ static void parseExport(CursorState* cursor)
 
 	parseParenthesized(cursor, [&] {
 		ExternKind exportKind;
-		switch(cursor->nextToken->type)
+		if(!tryParseExternKind(cursor, exportKind))
 		{
-		case t_func: exportKind = ExternKind::function; break;
-		case t_table: exportKind = ExternKind::table; break;
-		case t_memory: exportKind = ExternKind::memory; break;
-		case t_global: exportKind = ExternKind::global; break;
-		case t_exception_type: exportKind = ExternKind::exceptionType; break;
-		default:
-			parseErrorf(cursor->parseState, cursor->nextToken, "invalid export kind");
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected export kind");
 			throw RecoverParseException();
-		};
-		++cursor->nextToken;
+		}
 
 		Reference exportRef;
 		if(!tryParseNameOrIndexRef(cursor, exportRef))
@@ -485,16 +495,20 @@ static void parseType(CursorState* cursor)
 	});
 }
 
-static bool parseSegmentDeclaration(CursorState* cursor,
-									Name& outSegmentName,
-									Reference& outMemoryOrTableRef,
-									UnresolvedInitializerExpression& outBaseIndex)
+static void parseData(CursorState* cursor)
 {
-	// The segment can have a name, and for active segments, a reference to a memory or table. If
-	// there are two names, the first is the segment name, and the second is the reference to a
-	// memory or table. If there is one name on a passive segment, it is the segment name. If there
-	// is one name on an active segment, it is a reference to a memory or table.
+	const Token* firstToken = cursor->nextToken;
+	require(cursor, t_data);
+
+	Name segmentName;
+	Reference memoryRef;
+	UnresolvedInitializerExpression baseAddress;
 	bool isActive = true;
+
+	// The segment can have a name, and for active segments, a reference to a memory. If there are
+	// two names, the first is the segment name, and the second is the reference to a memory. If
+	// there is one name on a passive segment, it is the segment name. If there is one name on an
+	// active segment, it is a reference to a memory.
 	switch(cursor->nextToken[0].type)
 	{
 	case t_anyref:
@@ -513,7 +527,7 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 		case t_string:
 		case t_rightParenthesis:
 			// <s:name> ...
-			errorUnless(tryParseName(cursor, outSegmentName));
+			segmentName = parseName(cursor, "data");
 			isActive = false;
 			break;
 		case t_quotedName:
@@ -521,18 +535,18 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 		case t_hexInt:
 		case t_decimalInt:
 			// <s:name> <m:ref> ...
-			errorUnless(tryParseName(cursor, outSegmentName));
-			errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+			segmentName = parseName(cursor, "data");
+			memoryRef = parseNameOrIndexRef(cursor, "memory");
 			break;
 		default:
 			// <m:name> ...
-			errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+			memoryRef = parseNameOrIndexRef(cursor, "memory");
 		}
 		break;
 	case t_hexInt:
 	case t_decimalInt:
 		// <m:ref> ...
-		errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+		memoryRef = parseNameOrIndexRef(cursor, "memory");
 		break;
 	default:
 		// ...
@@ -541,33 +555,20 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 
 	if(isActive)
 	{
-		// Parse an initializer expression for the base index of the elem segment.
+		// Parse an initializer expression for the base index of the segment.
 		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
 		{
 			// The initializer expression can optionally be wrapped in (offset ...)
 			parseParenthesized(cursor, [&] {
 				require(cursor, t_offset);
-				outBaseIndex = parseInitializerExpression(cursor);
+				baseAddress = parseInitializerExpression(cursor);
 			});
 		}
 		else
 		{
-			outBaseIndex = parseInitializerExpression(cursor);
+			baseAddress = parseInitializerExpression(cursor);
 		}
 	}
-
-	return isActive;
-}
-
-static void parseData(CursorState* cursor)
-{
-	const Token* firstToken = cursor->nextToken;
-	require(cursor, t_data);
-
-	Name segmentName;
-	Reference memoryRef;
-	UnresolvedInitializerExpression baseAddress;
-	bool isActive = parseSegmentDeclaration(cursor, segmentName, memoryRef, baseAddress);
 
 	// Parse a list of strings that contains the segment's data.
 	std::string dataString;
@@ -602,7 +603,7 @@ static void parseData(CursorState* cursor)
 				parseErrorf(
 					moduleState->parseState,
 					firstToken,
-					"data segments aren't allowed in modules without any memory declarations");
+					"validation error: data segments aren't allowed in modules without any memory declarations");
 			}
 			else
 			{
@@ -620,17 +621,24 @@ static void parseData(CursorState* cursor)
 }
 
 static Uptr parseElemSegmentBody(CursorState* cursor,
-								 bool isActive,
+								 ElemSegment::Type segmentType,
+								 ElemSegment::Encoding encoding,
+								 ExternKind externKind,
+								 ReferenceType elemType,
 								 Name segmentName,
 								 Reference tableRef,
 								 UnresolvedInitializerExpression baseIndex,
-								 ReferenceType elemType,
 								 const Token* elemToken)
 {
 	struct UnresolvedElem
 	{
-		Elem::Type type;
+		ElemExpr::Type type;
 		Reference ref;
+		UnresolvedElem() : type(ElemExpr::Type::ref_null), ref() {}
+		UnresolvedElem(ElemExpr::Type inType, Reference&& inRef)
+		: type(inType), ref(std::move(inRef))
+		{
+		}
 	};
 
 	// Allocate the elementReferences array on the heap so it doesn't need to be copied for the
@@ -640,17 +648,17 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 
 	while(cursor->nextToken->type != t_rightParenthesis)
 	{
-		if(!isActive && cursor->nextToken->type == t_leftParenthesis)
+		switch(encoding)
 		{
+		case ElemSegment::Encoding::expr:
 			parseParenthesized(cursor, [&] {
 				switch(cursor->nextToken->type)
 				{
 				case t_ref_null:
 					++cursor->nextToken;
-					elementReferences->push_back({Elem::Type::ref_null});
+					elementReferences->push_back(UnresolvedElem());
 					break;
-				case t_ref_func:
-				{
+				case t_ref_func: {
 					++cursor->nextToken;
 
 					Reference elementRef;
@@ -662,7 +670,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 						throw RecoverParseException();
 					}
 
-					elementReferences->push_back({Elem::Type::ref_func, std::move(elementRef)});
+					elementReferences->push_back(
+						UnresolvedElem(ElemExpr::Type::ref_func, std::move(elementRef)));
 					break;
 				}
 				default:
@@ -671,9 +680,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					throw RecoverParseException();
 				};
 			});
-		}
-		else
-		{
+			break;
+		case ElemSegment::Encoding::index: {
 			Reference elementRef;
 			if(!tryParseNameOrIndexRef(cursor, elementRef))
 			{
@@ -681,18 +689,23 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					cursor->parseState, cursor->nextToken, "expected function name or index");
 				throw RecoverParseException();
 			}
+			elementReferences->push_back(
+				UnresolvedElem(ElemExpr::Type::ref_func, std::move(elementRef)));
+			break;
+		}
 
-			elementReferences->push_back({Elem::Type::ref_func, std::move(elementRef)});
+		default: WAVM_UNREACHABLE();
 		}
 	}
 
 	// Create the elem segment.
 	const Uptr elemSegmentIndex = cursor->moduleState->module.elemSegments.size();
-	cursor->moduleState->module.elemSegments.push_back({isActive,
-														UINTPTR_MAX,
-														InitializerExpression(),
-														ReferenceType::funcref,
-														std::make_shared<std::vector<Elem>>()});
+	auto contents = std::make_shared<ElemSegment::Contents>();
+	contents->encoding = encoding;
+	contents->elemType = elemType;
+	contents->externKind = externKind;
+	cursor->moduleState->module.elemSegments.push_back(
+		{segmentType, UINTPTR_MAX, InitializerExpression(), std::move(contents)});
 
 	if(segmentName)
 	{
@@ -705,53 +718,79 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
-	cursor->moduleState->postDeclarationCallbacks.push_back(
-		[isActive, tableRef, elemSegmentIndex, elementReferences, elemToken, baseIndex](
-			ModuleState* moduleState) {
-			ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
+	cursor->moduleState->postDeclarationCallbacks.push_back([segmentType,
+															 tableRef,
+															 elemSegmentIndex,
+															 elementReferences,
+															 elemToken,
+															 baseIndex,
+															 encoding](ModuleState* moduleState) {
+		ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
 
-			if(isActive)
+		if(segmentType == ElemSegment::Type::active)
+		{
+			if(!moduleState->module.tables.size())
 			{
-				if(!moduleState->module.tables.size())
-				{
-					parseErrorf(
-						moduleState->parseState,
-						elemToken,
-						"elem segments aren't allowed in modules without any table declarations");
-				}
-				else
-				{
-					elemSegment.tableIndex = tableRef
-												 ? resolveRef(moduleState->parseState,
-															  moduleState->tableNameToIndexMap,
-															  moduleState->module.tables.size(),
-															  tableRef)
-												 : 0;
-					elemSegment.baseOffset = resolveInitializerExpression(moduleState, baseIndex);
-				}
+				parseErrorf(
+					moduleState->parseState,
+					elemToken,
+					"validation error: "
+					"elem segments aren't allowed in modules without any table declarations");
 			}
+			else
+			{
+				elemSegment.tableIndex = tableRef ? resolveRef(moduleState->parseState,
+															   moduleState->tableNameToIndexMap,
+															   moduleState->module.tables.size(),
+															   tableRef)
+												  : 0;
+				elemSegment.baseOffset = resolveInitializerExpression(moduleState, baseIndex);
+			}
+		}
 
-			elemSegment.elems->resize(elementReferences->size());
+		switch(encoding)
+		{
+		case ElemSegment::Encoding::expr:
+			elemSegment.contents->elemExprs.resize(elementReferences->size());
 			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
 			{
 				const UnresolvedElem& unresolvedElem = (*elementReferences)[elementIndex];
 				switch(unresolvedElem.type)
 				{
-				case Elem::Type::ref_null:
-					(*elemSegment.elems)[elementIndex] = {{Elem::Type::ref_null}, UINTPTR_MAX};
+				case ElemExpr::Type::ref_null:
+					elemSegment.contents->elemExprs[elementIndex]
+						= ElemExpr(ElemExpr::Type::ref_null);
 					break;
-				case Elem::Type::ref_func:
-					(*elemSegment.elems)[elementIndex]
-						= {{Elem::Type::ref_func},
-						   resolveRef(moduleState->parseState,
-									  moduleState->functionNameToIndexMap,
-									  moduleState->module.functions.size(),
-									  unresolvedElem.ref)};
+				case ElemExpr::Type::ref_func:
+					elemSegment.contents->elemExprs[elementIndex]
+						= ElemExpr(ElemExpr::Type::ref_func,
+								   resolveRef(moduleState->parseState,
+											  moduleState->functionNameToIndexMap,
+											  moduleState->module.functions.size(),
+											  unresolvedElem.ref));
 					break;
 				default: WAVM_UNREACHABLE();
 				}
 			}
-		});
+			break;
+		case ElemSegment::Encoding::index:
+			elemSegment.contents->elemIndices.resize(elementReferences->size());
+			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
+			{
+				const UnresolvedElem& unresolvedElem = (*elementReferences)[elementIndex];
+				WAVM_ASSERT(unresolvedElem.type == ElemExpr::Type::ref_func);
+
+				elemSegment.contents->elemIndices[elementIndex]
+					= resolveRef(moduleState->parseState,
+								 moduleState->functionNameToIndexMap,
+								 moduleState->module.functions.size(),
+								 unresolvedElem.ref);
+			}
+			break;
+
+		default: WAVM_UNREACHABLE();
+		};
+	});
 
 	return elementReferences->size();
 }
@@ -764,12 +803,63 @@ static void parseElem(CursorState* cursor)
 	Name segmentName;
 	Reference tableRef;
 	UnresolvedInitializerExpression baseIndex;
-	bool isActive = parseSegmentDeclaration(cursor, segmentName, tableRef, baseIndex);
+	bool isActive = false;
 
-	ReferenceType elemType = ReferenceType::funcref;
-	if(!isActive) { elemType = parseReferenceType(cursor); }
+	tryParseName(cursor, segmentName);
 
-	parseElemSegmentBody(cursor, isActive, segmentName, tableRef, baseIndex, elemType, elemToken);
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_table)
+	{
+		parseParenthesized(cursor, [&]() {
+			require(cursor, t_table);
+			tableRef = parseNameOrIndexRef(cursor, "elem table");
+		});
+		isActive = true;
+	}
+
+	if(isActive || cursor->nextToken[0].type == t_leftParenthesis)
+	{
+		if(!isActive)
+		{
+			tableRef = Reference(0);
+			isActive = true;
+		}
+
+		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
+		{ baseIndex = parseInitializerExpression(cursor); }
+		else
+		{
+			parseParenthesized(cursor, [&]() {
+				require(cursor, t_offset);
+				baseIndex = parseInitializerExpression(cursor);
+			});
+		}
+	}
+
+	const ElemSegment::Type segmentType
+		= isActive ? ElemSegment::Type::active : ElemSegment::Type::passive;
+
+	ExternKind elemExternKind = ExternKind::invalid;
+	ReferenceType elemRefType = ReferenceType::none;
+	ElemSegment::Encoding encoding;
+	if(tryParseExternKind(cursor, elemExternKind)) { encoding = ElemSegment::Encoding::index; }
+	else if(tryParseReferenceType(cursor, elemRefType))
+	{
+		encoding = ElemSegment::Encoding::expr;
+	}
+	else
+	{
+		encoding = ElemSegment::Encoding::index;
+		elemExternKind = ExternKind::function;
+	}
+	parseElemSegmentBody(cursor,
+						 segmentType,
+						 encoding,
+						 elemExternKind,
+						 elemRefType,
+						 segmentName,
+						 tableRef,
+						 baseIndex,
+						 elemToken);
 }
 
 template<typename Def,
@@ -895,13 +985,27 @@ static void parseTable(CursorState* cursor)
 					require(cursor, t_elem);
 
 					const Uptr tableIndex = cursor->moduleState->module.tables.size();
+
+					ElemSegment::Encoding encoding = ElemSegment::Encoding::index;
+					ExternKind elemExternKind = ExternKind::invalid;
+					ReferenceType elemRefType = ReferenceType::none;
+					if(cursor->nextToken->type != t_leftParenthesis)
+					{ elemExternKind = ExternKind::function; }
+					else
+					{
+						encoding = ElemSegment::Encoding::expr;
+						elemRefType = elemType;
+					}
+
 					const Uptr numElements
 						= parseElemSegmentBody(cursor,
-											   true,
+											   ElemSegment::Type::active,
+											   encoding,
+											   elemExternKind,
+											   elemRefType,
 											   Name(),
 											   Reference(tableIndex),
 											   UnresolvedInitializerExpression((I32)0),
-											   elemType,
 											   cursor->nextToken - 1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
@@ -992,22 +1096,23 @@ static void parseGlobal(CursorState* cursor)
 
 static void parseExceptionType(CursorState* cursor)
 {
-	parseObjectDefOrImport(cursor,
-						   cursor->moduleState->exceptionTypeNameToIndexMap,
-						   cursor->moduleState->module.exceptionTypes,
-						   cursor->moduleState->disassemblyNames.exceptionTypes,
-						   t_exception_type,
-						   ExternKind::exceptionType,
-						   // Parse an exception type import.
-						   [](CursorState* cursor) {
-							   TypeTuple params = parseTypeTuple(cursor);
-							   return ExceptionType{params};
-						   },
-						   // Parse an exception type definition
-						   [](CursorState* cursor, const Token*) {
-							   TypeTuple params = parseTypeTuple(cursor);
-							   return ExceptionTypeDef{ExceptionType{params}};
-						   });
+	parseObjectDefOrImport(
+		cursor,
+		cursor->moduleState->exceptionTypeNameToIndexMap,
+		cursor->moduleState->module.exceptionTypes,
+		cursor->moduleState->disassemblyNames.exceptionTypes,
+		t_exception_type,
+		ExternKind::exceptionType,
+		// Parse an exception type import.
+		[](CursorState* cursor) {
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionType{params};
+		},
+		// Parse an exception type definition
+		[](CursorState* cursor, const Token*) {
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionTypeDef{ExceptionType{params}};
+		});
 }
 
 static void parseStart(CursorState* cursor)
@@ -1061,15 +1166,15 @@ template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char*
 		map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
 		Log::printf(
 			Log::metrics,
-			"%s used %.1fKB for %" PRIuPTR
-			" elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%" PRIuPTR
+			"%s used %.1fKiB for %" WAVM_PRIuPTR
+			" elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%" WAVM_PRIuPTR
 			"\n",
 			description,
-			totalMemoryBytes / 1024.0f,
+			totalMemoryBytes / 1024.0,
 			map.size(),
-			occupancy * 100.0f,
-			F32(totalMemoryBytes) / map.size(),
-			averageProbeCount,
+			F64(occupancy) * 100.0,
+			F64(totalMemoryBytes) / map.size(),
+			F64(averageProbeCount),
 			maxProbeCount);
 	}
 }
@@ -1113,20 +1218,20 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 			{
 				parseErrorf(cursor->parseState,
 							firstToken,
-							"validation exception: %s",
+							"validation error: %s",
 							validationException.message.c_str());
 			}
 		}
 
 		// Set the module's disassembly names.
 		const DisassemblyNames& disassemblyNames = moduleState.disassemblyNames;
-		wavmAssert(outModule.functions.size() == disassemblyNames.functions.size());
-		wavmAssert(outModule.tables.size() == disassemblyNames.tables.size());
-		wavmAssert(outModule.memories.size() == disassemblyNames.memories.size());
-		wavmAssert(outModule.globals.size() == disassemblyNames.globals.size());
-		wavmAssert(outModule.elemSegments.size() == disassemblyNames.elemSegments.size());
-		wavmAssert(outModule.dataSegments.size() == disassemblyNames.dataSegments.size());
-		wavmAssert(outModule.exceptionTypes.size() == disassemblyNames.exceptionTypes.size());
+		WAVM_ASSERT(outModule.functions.size() == disassemblyNames.functions.size());
+		WAVM_ASSERT(outModule.tables.size() == disassemblyNames.tables.size());
+		WAVM_ASSERT(outModule.memories.size() == disassemblyNames.memories.size());
+		WAVM_ASSERT(outModule.globals.size() == disassemblyNames.globals.size());
+		WAVM_ASSERT(outModule.elemSegments.size() == disassemblyNames.elemSegments.size());
+		WAVM_ASSERT(outModule.dataSegments.size() == disassemblyNames.dataSegments.size());
+		WAVM_ASSERT(outModule.exceptionTypes.size() == disassemblyNames.exceptionTypes.size());
 		IR::setDisassemblyNames(outModule, disassemblyNames);
 
 		// If metrics logging is enabled, log some statistics about the module's name maps.
@@ -1195,7 +1300,7 @@ bool WAST::parseModule(const char* string,
 	freeTokens(tokens);
 	freeLineInfo(lineInfo);
 
-	Timing::logRatePerSecond("lexed and parsed WAST", timer, stringLength / 1024.0 / 1024.0, "MB");
+	Timing::logRatePerSecond("lexed and parsed WAST", timer, stringLength / 1024.0 / 1024.0, "MiB");
 
 	return outErrors.size() == 0;
 }

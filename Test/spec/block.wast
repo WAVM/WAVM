@@ -1217,7 +1217,6 @@
 (assert_invalid
   (module (func $type-break-nested-empty-vs-f64 (result f64)
     (block (result f64) (block (br 1)) (br 0 (f64.const 1)))
->>>>>>>>> Temporary merge branch 2
   ))
   "type mismatch"
 )
@@ -1433,7 +1432,6 @@
 (assert_invalid
   (module (func $type-break-operand-void-vs-f64 (result f64)
     (f64.floor (block (br 0 (nop))))
->>>>>>>>> Temporary merge branch 2
   ))
   "type mismatch"
 )

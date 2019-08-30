@@ -10,7 +10,7 @@ clang++-7 -v
 
 rm -rf llvm
 mkdir llvm
-git clone http://github.com/llvm/llvm-project llvm
+git clone http://github.com/llvm/llvm-project -b release/9.x llvm
 
 rm -rf $BUILD_DIR/llvm/build 
 mkdir $BUILD_DIR/llvm/build
@@ -20,7 +20,7 @@ CC=clang-7 CXX=clang++-7 cmake \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 	-DLLVM_USE_SANITIZER="Address;Undefined" \
 	-DLLVM_USE_SANITIZE_COVERAGE=1 \
-	-DLLVM_TARGETS_TO_BUILD=X86 \
+	-DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
 	-DLLVM_INCLUDE_TOOLS=0 \
 	-DLLVM_INCLUDE_TESTS=0 \
 	../llvm

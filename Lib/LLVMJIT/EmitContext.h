@@ -6,11 +6,11 @@
 #include "WAVM/IR/Value.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Value.h"
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {
@@ -157,8 +157,7 @@ namespace WAVM { namespace LLVMJIT {
 			ValueVector results;
 			switch(callingConvention)
 			{
-			case IR::CallingConvention::wasm:
-			{
+			case IR::CallingConvention::wasm: {
 				// Update the context variable.
 				auto newContextPointer = irBuilder.CreateExtractValue(returnValue, {0});
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
@@ -185,7 +184,7 @@ namespace WAVM { namespace LLVMJIT {
 						const U8 resultNumBytes = getTypeByteWidth(resultType);
 
 						resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-						wavmAssert(resultOffset < Runtime::maxThunkArgAndReturnBytes);
+						WAVM_ASSERT(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 
 						results.push_back(loadFromUntypedPointer(
 							irBuilder.CreateInBoundsGEP(newContextPointer,
@@ -199,8 +198,7 @@ namespace WAVM { namespace LLVMJIT {
 
 				break;
 			}
-			case IR::CallingConvention::intrinsicWithContextSwitch:
-			{
+			case IR::CallingConvention::intrinsicWithContextSwitch: {
 				auto newContextPointer = returnValue;
 
 				// Update the context variable.
@@ -210,7 +208,7 @@ namespace WAVM { namespace LLVMJIT {
 				reloadMemoryBase();
 
 				// Load the call result from the returned context.
-				wavmAssert(calleeType.results().size() <= 1);
+				WAVM_ASSERT(calleeType.results().size() <= 1);
 				if(calleeType.results().size() == 1)
 				{
 					llvm::Type* llvmResultType = asLLVMType(llvmContext, calleeType.results()[0]);
@@ -222,8 +220,7 @@ namespace WAVM { namespace LLVMJIT {
 
 				break;
 			}
-			case IR::CallingConvention::cAPICallback:
-			{
+			case IR::CallingConvention::cAPICallback: {
 				// Check whether the call returned an Exception.
 				auto exception = returnValue;
 				auto function = irBuilder.GetInsertBlock()->getParent();
@@ -253,9 +250,8 @@ namespace WAVM { namespace LLVMJIT {
 				break;
 			}
 			case IR::CallingConvention::intrinsic:
-			case IR::CallingConvention::c:
-			{
-				wavmAssert(calleeType.results().size() <= 1);
+			case IR::CallingConvention::c: {
+				WAVM_ASSERT(calleeType.results().size() <= 1);
 				if(calleeType.results().size() == 1) { results.push_back(returnValue); }
 				break;
 			}
@@ -271,7 +267,7 @@ namespace WAVM { namespace LLVMJIT {
 			returnStruct = irBuilder.CreateInsertValue(
 				returnStruct, irBuilder.CreateLoad(contextPointerVariable), {U32(0)});
 
-			wavmAssert(resultTypes.size() == results.size());
+			WAVM_ASSERT(resultTypes.size() == results.size());
 			if(areResultsReturnedDirectly(resultTypes))
 			{
 				// If the results are returned directly, insert them into the return struct.
@@ -292,7 +288,7 @@ namespace WAVM { namespace LLVMJIT {
 					const U8 resultNumBytes = IR::getTypeByteWidth(resultType);
 
 					resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-					wavmAssert(resultOffset < Runtime::maxThunkArgAndReturnBytes);
+					WAVM_ASSERT(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 
 					irBuilder.CreateStore(results[resultIndex],
 										  irBuilder.CreatePointerCast(

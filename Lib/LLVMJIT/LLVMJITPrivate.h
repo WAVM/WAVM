@@ -1,71 +1,39 @@
 #pragma once
 
+#include <cctype>
+#include <string>
+#include <vector>
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
-#include <cctype>
-#include <string>
-#include <vector>
-
-// Define some macros that can be used to wrap the LLVM includes and disable VC warnings.
 #ifdef _MSC_VER
-#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
-	__pragma(warning(push));                                                                       \
-	__pragma(warning(disable : 4267));                                                             \
-	__pragma(warning(disable : 4800));                                                             \
-	__pragma(warning(disable : 4291));                                                             \
-	__pragma(warning(disable : 4244));                                                             \
-	__pragma(warning(disable : 4351));                                                             \
-	__pragma(warning(disable : 4065));                                                             \
-	__pragma(warning(disable : 4624));                                                             \
-	/* conversion from 'int' to 'unsigned int', signed/unsigned mismatch */                        \
-	__pragma(warning(disable : 4245));                                                             \
-	/* unary minus operator applied to unsigned type, result is still unsigned */                  \
-	__pragma(warning(disable : 4146));                                                             \
-	/* declaration of 'x' hides class member */                                                    \
-	__pragma(warning(disable : 4458));                                                             \
-	/* default constructor could not be generated */                                               \
-	__pragma(warning(disable : 4510));                                                             \
-	/* struct can never be instantiated - user defined constructor required */                     \
-	__pragma(warning(disable : 4610));                                                             \
-	/* structure was padded due to alignment specifier */                                          \
-	__pragma(warning(disable : 4324));                                                             \
-	/* unreachable code */                                                                         \
-	__pragma(warning(disable : 4702));
-
+// Disable all VC warnings in the LLVM headers
+#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(push, 0));
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
-#elif __GNUC__
-#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
-	_Pragma("GCC diagnostic push");                                                                \
-	_Pragma("GCC diagnostic ignored \"-Wswitch-enum\"");                                           \
-	_Pragma("GCC diagnostic ignored \"-Wswitch-default\"");
-#define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS _Pragma("GCC diagnostic pop");
 #else
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #endif
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Object/ObjectFile.h"
-#include "llvm/Support/DataTypes.h"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/Config/llvm-config.h>
+#include <llvm/DebugInfo/DWARF/DWARFContext.h>
+#include <llvm/ExecutionEngine/JITSymbol.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
+#include <llvm/Object/ObjectFile.h>
+#include <llvm/Support/DataTypes.h>
+#include <llvm/Target/TargetMachine.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
-#ifdef _WIN32
-#define USE_WINDOWS_SEH 1
-#else
-#define USE_WINDOWS_SEH 0
-#endif
+#define LAZY_PARSE_DWARF_LINE_INFO (LLVM_VERSION_MAJOR >= 9)
 
 namespace llvm {
 	class LoadedObjectInfo;
@@ -90,6 +58,11 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* iptrType;
 
 		llvm::PointerType* i8PtrType;
+
+		llvm::Type* i8x8Type;
+		llvm::Type* i16x4Type;
+		llvm::Type* i32x2Type;
+		llvm::Type* i64x1Type;
 
 		llvm::Type* i8x16Type;
 		llvm::Type* i16x8Type;
@@ -153,7 +126,7 @@ namespace WAVM { namespace LLVMJIT {
 	// Converts a WebAssembly type to a LLVM type.
 	inline llvm::Type* asLLVMType(LLVMContext& llvmContext, IR::ValueType type)
 	{
-		wavmAssert(type < (IR::ValueType)IR::numValueTypes);
+		WAVM_ASSERT(type < (IR::ValueType)IR::numValueTypes);
 		return llvmContext.valueTypes[Uptr(type)];
 	}
 
@@ -171,10 +144,7 @@ namespace WAVM { namespace LLVMJIT {
 		// On X64, the calling conventions can return up to 3 i64s and 4 float/vectors.
 		// For simplicity, just allow up to 3 values to be returned, including the implicitly
 		// returned context pointer.
-		enum
-		{
-			maxDirectlyReturnedValues = 3
-		};
+		static constexpr Uptr maxDirectlyReturnedValues = 3;
 		return results.size() + 1 <= maxDirectlyReturnedValues;
 	}
 
@@ -319,18 +289,29 @@ namespace WAVM { namespace LLVMJIT {
 					  "Function prefix must match Runtime::Function layout");
 	}
 
-	inline void setFramePointerAttribute(llvm::Function* function)
+	inline void setFunctionAttributes(llvm::TargetMachine* targetMachine, llvm::Function* function)
 	{
-#ifndef _WIN32
-		auto attrs = function->getAttributes();
-		// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that WAVM
-		// should use once we can depend on it.
-		attrs = attrs.addAttribute(function->getContext(),
-								   llvm::AttributeList::FunctionIndex,
-								   "no-frame-pointer-elim",
-								   "true");
-		function->setAttributes(attrs);
-#endif
+		// For now, no attributes need to be set on Win32.
+		if(targetMachine->getTargetTriple().getOS() != llvm::Triple::Win32)
+		{
+			auto attrs = function->getAttributes();
+
+			// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that
+			// WAVM should use once we can depend on it.
+			attrs = attrs.addAttribute(function->getContext(),
+									   llvm::AttributeList::FunctionIndex,
+									   "no-frame-pointer-elim",
+									   "true");
+
+			// Set the probe-stack attribute: this will cause functions that allocate more than a
+			// page of stack space to call the wavm_probe_stack function defined in POSIX.S
+			attrs = attrs.addAttribute(function->getContext(),
+									   llvm::AttributeList::FunctionIndex,
+									   "probe-stack",
+									   "wavm_probe_stack");
+
+			function->setAttributes(attrs);
+		}
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function
@@ -339,10 +320,32 @@ namespace WAVM { namespace LLVMJIT {
 		return std::string(baseName) + std::to_string(index);
 	}
 
+	// Reproduces how LLVM symbols are mangled to make object symbols for the current platform.
+	inline std::string mangleSymbol(std::string&& symbol)
+	{
+#if((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
+		return std::string("_") + std::move(symbol);
+#else
+		return std::move(symbol);
+#endif
+	}
+
+	// The inverse of mangleSymbol
+	inline std::string demangleSymbol(std::string&& symbol)
+	{
+#if((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
+		WAVM_ASSERT(symbol[0] == '_');
+		return std::move(symbol).substr(1);
+#else
+		return std::move(symbol);
+#endif
+	}
+
 	// Emits LLVM IR for a module.
 	void emitModule(const IR::Module& irModule,
 					LLVMContext& llvmContext,
-					llvm::Module& outLLVMModule);
+					llvm::Module& outLLVMModule,
+					llvm::TargetMachine* targetMachine);
 
 	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
 	llvm::JITEvaluatedSymbol resolveJITImport(llvm::StringRef name);
@@ -352,8 +355,12 @@ namespace WAVM { namespace LLVMJIT {
 	// Encapsulates a loaded module.
 	struct Module
 	{
-		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
 		HashMap<std::string, Runtime::Function*> nameToFunctionMap;
+		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
+
+#if LAZY_PARSE_DWARF_LINE_INFO
+		std::unique_ptr<llvm::DWARFContext> dwarfContext;
+#endif
 
 		Module(const std::vector<U8>& inObjectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
@@ -371,9 +378,15 @@ namespace WAVM { namespace LLVMJIT {
 #endif
 	};
 
+	extern std::unique_ptr<llvm::TargetMachine> getTargetMachine(const TargetSpec& targetSpec);
+	extern TargetValidationResult validateTargetMachine(
+		const std::unique_ptr<llvm::TargetMachine>& targetMachine,
+		const IR::FeatureSpec& featureSpec);
+
 	extern std::vector<U8> compileLLVMModule(LLVMContext& llvmContext,
 											 llvm::Module&& llvmModule,
-											 bool shouldLogMetrics);
+											 bool shouldLogMetrics,
+											 llvm::TargetMachine* targetMachine);
 
 	extern void processSEHTables(U8* imageBase,
 								 const llvm::LoadedObjectInfo& loadedObject,

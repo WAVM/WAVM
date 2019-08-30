@@ -37,7 +37,7 @@ void Platform::Mutex::unlock()
 	LeaveCriticalSection((CRITICAL_SECTION*)&criticalSection);
 }
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 bool Platform::Mutex::isLockedByCurrentThread()
 {
 	// Windows critical sections are recursive, so TryEnterCriticalSection on a mutex already locked

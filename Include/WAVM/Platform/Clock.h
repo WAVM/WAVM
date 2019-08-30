@@ -2,25 +2,22 @@
 
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 
 namespace WAVM { namespace Platform {
-	// Returns the real-time nanoseconds that have elapsed since 1970/1/1 00:00:00 UTC.
-	PLATFORM_API I128 getRealtimeClock();
+	enum class Clock
+	{
+		// The real-time since 1970/1/1 00:00:00 UTC.
+		realtime,
 
-	// Returns the precision of getRealtimeClock, in nanoseconds per clock tick.
-	PLATFORM_API I128 getRealtimeClockResolution();
+		// A clock with an arbitrary origin that monotonically increases, and so may be used as an
+		// absolute time for wait timeouts.
+		monotonic,
 
-	// Returns the current value of a clock that may be used as an absolute time for wait timeouts.
-	// The resolution is nanoseconds, and the origin is arbitrary.
-	PLATFORM_API I128 getMonotonicClock();
+		// The amount of CPU time used by this process.
+		processCPUTime
+	};
 
-	// Returns the precision of getMonotonicClock, in nanoseconds per clock tick.
-	PLATFORM_API I128 getMonotonicClockResolution();
-
-	// Returns a high-resolution per-process clock: nanoseconds since process start.
-	PLATFORM_API I128 getProcessClock();
-
-	// Returns the precision of getProcessClock, in nanoseconds per clock tick.
-	PLATFORM_API I128 getProcessClockResolution();
+	PLATFORM_API Time getClockTime(Clock clock);
+	PLATFORM_API Time getClockResolution(Clock clock);
 }}

@@ -3,6 +3,7 @@ set(WASTTests
 	align.wast
 	atomic.wast
 	binary.wast
+	binary-leb128.wast
 	block.wast
 	br.wast
 	br_if.wast
@@ -63,7 +64,7 @@ set(WASTTests
 	ref_null.wast
 	return.wast
 	select.wast
-	#skip-stack-guard-page.wast
+	skip-stack-guard-page.wast
 	start.wast
 	stack.wast
 	store.wast
@@ -91,3 +92,5 @@ set_target_properties(SpecTests PROPERTIES FOLDER Testing)
 if(WAVM_ENABLE_RUNTIME)
 	ADD_WAST_TESTS("${WASTTests}")
 endif()
+
+add_subdirectory(simd)

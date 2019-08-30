@@ -4,7 +4,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Lock.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -13,7 +13,7 @@ using namespace WAVM::Runtime;
 #define DEFINE_OBJECT_TYPE(kindId, kindName, Type)                                                 \
 	Runtime::Type* Runtime::as##kindName(Object* object)                                           \
 	{                                                                                              \
-		wavmAssert(!object || object->kind == kindId);                                             \
+		WAVM_ASSERT(!object || object->kind == kindId);                                            \
 		return (Runtime::Type*)object;                                                             \
 	}                                                                                              \
 	Runtime::Type* Runtime::as##kindName##Nullable(Object* object)                                 \
@@ -22,7 +22,7 @@ using namespace WAVM::Runtime;
 	}                                                                                              \
 	const Runtime::Type* Runtime::as##kindName(const Object* object)                               \
 	{                                                                                              \
-		wavmAssert(!object || object->kind == kindId);                                             \
+		WAVM_ASSERT(!object || object->kind == kindId);                                            \
 		return (const Runtime::Type*)object;                                                       \
 	}                                                                                              \
 	const Runtime::Type* Runtime::as##kindName##Nullable(const Object* object)                     \
@@ -85,13 +85,13 @@ void* Runtime::getUserData(const Runtime::Object* object)
 
 Runtime::GCObject::~GCObject()
 {
-	wavmAssert(numRootReferences.load(std::memory_order_acquire) == 0);
+	WAVM_ASSERT(numRootReferences.load(std::memory_order_acquire) == 0);
 	if(finalizeUserData) { (*finalizeUserData)(userData); }
 }
 
 Runtime::FunctionMutableData::~FunctionMutableData()
 {
-	wavmAssert(numRootReferences.load(std::memory_order_acquire) == 0);
+	WAVM_ASSERT(numRootReferences.load(std::memory_order_acquire) == 0);
 	if(finalizeUserData) { (*finalizeUserData)(userData); }
 }
 
@@ -161,7 +161,7 @@ ModuleInstance* Runtime::getModuleInstanceFromRuntimeData(ContextRuntimeData* co
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	wavmAssert(compartment->moduleInstances.contains(moduleInstanceId));
+	WAVM_ASSERT(compartment->moduleInstances.contains(moduleInstanceId));
 	return compartment->moduleInstances[moduleInstanceId];
 }
 
@@ -169,7 +169,7 @@ Table* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, 
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	wavmAssert(compartment->tables.contains(tableId));
+	WAVM_ASSERT(compartment->tables.contains(tableId));
 	return compartment->tables[tableId];
 }
 

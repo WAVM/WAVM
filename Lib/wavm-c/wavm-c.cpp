@@ -1,14 +1,14 @@
 #include <string>
-
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/OptionalStorage.h"
+#include "WAVM/Inline/Serialization.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
 
 using namespace WAVM;
@@ -59,14 +59,14 @@ struct wasm_valtype_t
 
 struct wasm_externtype_t
 {
-	wasm_externkind_t kind;
-	wasm_externtype_t(wasm_externkind_t inKind) : kind(inKind) {}
+	ExternKind kind;
+	wasm_externtype_t(ExternKind inKind) : kind(inKind) {}
 };
 struct wasm_functype_t : wasm_externtype_t
 {
 	FunctionType type;
 
-	wasm_functype_t(FunctionType inType) : wasm_externtype_t(WASM_EXTERN_FUNC), type(inType) {}
+	wasm_functype_t(FunctionType inType) : wasm_externtype_t(ExternKind::function), type(inType) {}
 };
 struct wasm_globaltype_t : wasm_externtype_t
 {
@@ -74,7 +74,7 @@ struct wasm_globaltype_t : wasm_externtype_t
 	wasm_valtype_t* valtype;
 
 	wasm_globaltype_t(GlobalType inType, wasm_valtype_t* inValtype)
-	: wasm_externtype_t(WASM_EXTERN_GLOBAL), type(inType), valtype(inValtype)
+	: wasm_externtype_t(ExternKind::global), type(inType), valtype(inValtype)
 	{
 	}
 };
@@ -85,7 +85,7 @@ struct wasm_tabletype_t : wasm_externtype_t
 	wasm_limits_t limits;
 
 	wasm_tabletype_t(TableType inType, wasm_valtype_t* inElement, wasm_limits_t inLimits)
-	: wasm_externtype_t(WASM_EXTERN_TABLE), type(inType), element(inElement), limits(inLimits)
+	: wasm_externtype_t(ExternKind::table), type(inType), element(inElement), limits(inLimits)
 	{
 	}
 };
@@ -95,7 +95,7 @@ struct wasm_memorytype_t : wasm_externtype_t
 	wasm_limits_t limits;
 
 	wasm_memorytype_t(MemoryType inType, wasm_limits_t inLimits)
-	: wasm_externtype_t(WASM_EXTERN_MEMORY), type(inType), limits(inLimits)
+	: wasm_externtype_t(ExternKind::memory), type(inType), limits(inLimits)
 	{
 	}
 };
@@ -108,8 +108,8 @@ struct wasm_module_t
 
 static wasm_limits_t as_limits(const SizeConstraints& size)
 {
-	errorUnless(size.min <= UINT32_MAX);
-	errorUnless(size.max == UINT64_MAX || size.max <= UINT32_MAX);
+	WAVM_ERROR_UNLESS(size.min <= UINT32_MAX);
+	WAVM_ERROR_UNLESS(size.max == UINT64_MAX || size.max <= UINT32_MAX);
 	return {U32(size.min), size.max == UINT64_MAX ? UINT32_MAX : U32(size.max)};
 }
 static wasm_functype_t* as_externtype(FunctionType type) { return new wasm_functype_t(type); }
@@ -134,7 +134,8 @@ static wasm_externtype_t* as_externtype(ExternType type)
 	case ExternKind::table: return as_externtype(asTableType(type));
 	case ExternKind::memory: return as_externtype(asMemoryType(type));
 	case ExternKind::global: return as_externtype(asGlobalType(type));
-	case ExternKind::exceptionType: WAVM_UNREACHABLE();
+	case ExternKind::exceptionType:
+		Errors::unimplemented("Converting exception type to C API wasm_externtype_t");
 
 	case ExternKind::invalid:
 	default: WAVM_UNREACHABLE();
@@ -152,7 +153,7 @@ static ValueType asValueType(wasm_valkind_t kind)
 	case WASM_V128: return ValueType::v128;
 	case WASM_ANYREF: return ValueType::anyref;
 	case WASM_FUNCREF: return ValueType::funcref;
-	default: WAVM_UNREACHABLE();
+	default: Errors::fatalf("Unknown wasm_valkind_t value: %u", kind);
 	}
 }
 static Value asValue(ValueType type, const wasm_val_t* value)
@@ -163,8 +164,7 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 	case ValueType::i64: return Value(value->i64);
 	case ValueType::f32: return Value(value->f32);
 	case ValueType::f64: return Value(value->f64);
-	case ValueType::v128:
-	{
+	case ValueType::v128: {
 		V128 v128;
 		v128.u64[0] = value->v128.u64[0];
 		v128.u64[1] = value->v128.u64[1];
@@ -189,8 +189,7 @@ static wasm_val_t as_val(const Value& value)
 	case ValueType::i64: result.i64 = value.i64; break;
 	case ValueType::f32: result.f32 = value.f32; break;
 	case ValueType::f64: result.f64 = value.f64; break;
-	case ValueType::v128:
-	{
+	case ValueType::v128: {
 		result.v128.u64[0] = value.v128.u64[0];
 		result.v128.u64[1] = value.v128.u64[1];
 		break;
@@ -222,7 +221,7 @@ void wasm_compartment_delete(wasm_compartment_t* compartment)
 {
 	GCPointer<Compartment> compartmentGCRef = compartment;
 	removeGCRoot(compartment);
-	errorUnless(tryCollectCompartment(std::move(compartmentGCRef)));
+	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartmentGCRef)));
 }
 wasm_compartment_t* wasm_compartment_new(wasm_engine_t*)
 {
@@ -336,7 +335,7 @@ const wasm_valtype_t* wasm_globaltype_content(const wasm_globaltype_t* type)
 }
 wasm_mutability_t wasm_globaltype_mutability(const wasm_globaltype_t* type)
 {
-	return type->type.isMutable ? WASM_VAR : WASM_CONST;
+	return wasm_mutability_t(type->type.isMutable ? WASM_VAR : WASM_CONST);
 }
 
 // wasm_tabletype_t
@@ -353,7 +352,7 @@ wasm_tabletype_t* wasm_tabletype_new(wasm_valtype_t* element,
 									 const wasm_limits_t* limits,
 									 wasm_shared_t shared)
 {
-	errorUnless(isReferenceType(element->type));
+	WAVM_ERROR_UNLESS(isReferenceType(element->type));
 	return new wasm_tabletype_t(TableType(ReferenceType(element->type),
 										  shared == WASM_SHARED,
 										  SizeConstraints{limits->min, limits->max}),
@@ -364,7 +363,7 @@ const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t* type) { ret
 const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_t* type) { return &type->limits; }
 wasm_shared_t wasm_tabletype_shared(const wasm_tabletype_t* type)
 {
-	return type->type.isShared ? WASM_SHARED : WASM_NOTSHARED;
+	return wasm_shared_t(type->type.isShared ? WASM_SHARED : WASM_NOTSHARED);
 }
 
 // wasm_memorytype_t
@@ -381,7 +380,7 @@ wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits, wasm_shared_
 const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* type) { return &type->limits; }
 wasm_shared_t wasm_memorytype_shared(const wasm_memorytype_t* type)
 {
-	return type->type.isShared ? WASM_SHARED : WASM_NOTSHARED;
+	return wasm_shared_t(type->type.isShared ? WASM_SHARED : WASM_NOTSHARED);
 }
 
 // wasm_externtype_t
@@ -389,10 +388,13 @@ void wasm_externtype_delete(wasm_externtype_t* type)
 {
 	switch(type->kind)
 	{
-	case WASM_EXTERN_FUNC: wasm_functype_delete(wasm_externtype_as_functype(type)); break;
-	case WASM_EXTERN_TABLE: wasm_tabletype_delete(wasm_externtype_as_tabletype(type)); break;
-	case WASM_EXTERN_MEMORY: wasm_memorytype_delete(wasm_externtype_as_memorytype(type)); break;
-	case WASM_EXTERN_GLOBAL: wasm_globaltype_delete(wasm_externtype_as_globaltype(type)); break;
+	case ExternKind::function: wasm_functype_delete(wasm_externtype_as_functype(type)); break;
+	case ExternKind::table: wasm_tabletype_delete(wasm_externtype_as_tabletype(type)); break;
+	case ExternKind::memory: wasm_memorytype_delete(wasm_externtype_as_memorytype(type)); break;
+	case ExternKind::global: wasm_globaltype_delete(wasm_externtype_as_globaltype(type)); break;
+	case ExternKind::exceptionType: Errors::unimplemented("exception types in C API");
+
+	case ExternKind::invalid:
 	default: WAVM_UNREACHABLE();
 	};
 }
@@ -400,21 +402,37 @@ wasm_externtype_t* wasm_externtype_copy(wasm_externtype_t* type)
 {
 	switch(type->kind)
 	{
-	case WASM_EXTERN_FUNC:
+	case ExternKind::function:
 		return wasm_functype_as_externtype(wasm_functype_copy(wasm_externtype_as_functype(type)));
-	case WASM_EXTERN_TABLE:
+	case ExternKind::table:
 		return wasm_tabletype_as_externtype(
 			wasm_tabletype_copy(wasm_externtype_as_tabletype(type)));
-	case WASM_EXTERN_MEMORY:
+	case ExternKind::memory:
 		return wasm_memorytype_as_externtype(
 			wasm_memorytype_copy(wasm_externtype_as_memorytype(type)));
-	case WASM_EXTERN_GLOBAL:
+	case ExternKind::global:
 		return wasm_globaltype_as_externtype(
 			wasm_globaltype_copy(wasm_externtype_as_globaltype(type)));
+	case ExternKind::exceptionType: Errors::unimplemented("exception types in C API");
+
+	case ExternKind::invalid:
 	default: WAVM_UNREACHABLE();
 	};
 }
-wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t* type) { return type->kind; }
+wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t* type)
+{
+	switch(type->kind)
+	{
+	case ExternKind::function: return WASM_EXTERN_FUNC;
+	case ExternKind::table: return WASM_EXTERN_TABLE;
+	case ExternKind::memory: return WASM_EXTERN_MEMORY;
+	case ExternKind::global: return WASM_EXTERN_GLOBAL;
+	case ExternKind::exceptionType: Errors::unimplemented("exception types in C API");
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
+	}
+}
 wasm_externtype_t* wasm_functype_as_externtype(wasm_functype_t* type)
 {
 	return (wasm_externtype_t*)type;
@@ -532,7 +550,7 @@ const wasm_memorytype_t* wasm_externtype_as_memorytype_const(const wasm_externty
 										  const wasm_shared_##name##_t* constRef)                  \
 	{                                                                                              \
 		wasm_shared_##name##_t* ref = const_cast<wasm_shared_##name##_t*>(constRef);               \
-		wavmAssert(isInCompartment(asObject(ref), getCompartment(asObject(store))));               \
+		WAVM_ASSERT(isInCompartment(asObject(ref), getCompartment(store)));                        \
 		addGCRoot(ref);                                                                            \
 		return ref;                                                                                \
 	}
@@ -541,7 +559,7 @@ IMPLEMENT_REF_BASE(ref, Object)
 
 // wasm_trap_t
 
-void wasm_trap_delete(wasm_trap_t* trap) { delete trap; }
+void wasm_trap_delete(wasm_trap_t* trap) { destroyException(trap); }
 
 wasm_trap_t* wasm_trap_copy(const wasm_trap_t* trap) { return new Exception(*trap); }
 bool wasm_trap_same(const wasm_trap_t* a, const wasm_trap_t* b) { return a == b; }
@@ -558,21 +576,15 @@ void wasm_trap_set_host_info_with_finalizer(wasm_trap_t* trap,
 	setUserData(trap, userData, finalizeUserData);
 }
 
-wasm_ref_t* wasm_trap_as_ref(wasm_trap_t* trap)
-{
-	Errors::fatal("wasm_trap_as_ref is unimplemented");
-}
-wasm_trap_t* wasm_ref_as_trap(wasm_ref_t* object)
-{
-	Errors::fatal("wasm_ref_as_trap is unimplemented");
-}
+wasm_ref_t* wasm_trap_as_ref(wasm_trap_t* trap) { Errors::unimplemented("wasm_trap_as_ref"); }
+wasm_trap_t* wasm_ref_as_trap(wasm_ref_t* object) { Errors::unimplemented("wasm_ref_as_trap"); }
 const wasm_ref_t* wasm_trap_as_ref_const(const wasm_trap_t*)
 {
-	Errors::fatal("wasm_trap_as_ref_const is unimplemented");
+	Errors::unimplemented("wasm_trap_as_ref_const");
 }
 const wasm_trap_t* wasm_ref_as_trap_const(const wasm_ref_t*)
 {
-	Errors::fatal("wasm_ref_as_trap_const is unimplemented");
+	Errors::unimplemented("wasm_ref_as_trap_const");
 }
 
 wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,
@@ -591,7 +603,7 @@ void wasm_trap_message(const wasm_trap_t* trap,
 void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	wavmAssert(callStack.stackFrames.size() >= 1);
+	WAVM_ASSERT(callStack.frames.size() >= 1);
 	out_frame->instance = nullptr;
 	out_frame->module_offset = 0;
 	out_frame->func_index = 0;
@@ -600,13 +612,13 @@ void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
 size_t wasm_trap_stack_num_frames(const wasm_trap_t* trap)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	wavmAssert(callStack.stackFrames.size() >= 1);
-	return callStack.stackFrames.size() - 1;
+	WAVM_ASSERT(callStack.frames.size() >= 1);
+	return callStack.frames.size() - 1;
 }
 void wasm_trap_stack_frame(const wasm_trap_t* trap, size_t index, wasm_frame_t* out_frame)
 {
 	// const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	// const Platform::CallStack::Frame& frame = callStack.stackFrames[index + 1];
+	// const Platform::CallStack::Frame& frame = callStack.frames[index + 1];
 	out_frame->instance = nullptr;
 	out_frame->module_offset = 0;
 	out_frame->func_index = 0;
@@ -637,16 +649,27 @@ wasm_module_t* wasm_module_copy(wasm_module_t* module) { return new wasm_module_
 wasm_module_t* wasm_module_new(wasm_engine_t*, const char* binary, uintptr_t numBinaryBytes)
 {
 	IR::Module irModule;
-	if(!WASM::loadBinaryModule(binary, numBinaryBytes, irModule, Log::debug)) { return nullptr; }
+	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
+	WASM::LoadError loadError;
+	if(WASM::loadBinaryModule(inputStream, irModule, &loadError))
+	{ return new wasm_module_t{compileModule(irModule)}; }
 	else
 	{
-		return new wasm_module_t{compileModule(irModule)};
+		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
+		return nullptr;
 	}
 }
-bool wasm_module_validate(const char* binary, size_t num_binary_bytes)
+bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 {
 	IR::Module irModule;
-	return WASM::loadBinaryModule(binary, num_binary_bytes, irModule, Log::debug);
+	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
+	WASM::LoadError loadError;
+	if(WASM::loadBinaryModule(inputStream, irModule, &loadError)) { return true; }
+	else
+	{
+		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
+		return false;
+	}
 }
 
 size_t wasm_module_num_imports(const wasm_module_t* module)
@@ -659,8 +682,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	const KindAndIndex& kindAndIndex = irModule.imports[index];
 	switch(kindAndIndex.kind)
 	{
-	case ExternKind::function:
-	{
+	case ExternKind::function: {
 		const auto& functionImport = irModule.functions.imports[kindAndIndex.index];
 		out_import->module = functionImport.moduleName.c_str();
 		out_import->num_module_bytes = functionImport.moduleName.size();
@@ -669,8 +691,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(irModule.types[functionImport.type.index]);
 		break;
 	}
-	case ExternKind::table:
-	{
+	case ExternKind::table: {
 		const auto& tableImport = irModule.tables.imports[kindAndIndex.index];
 		out_import->module = tableImport.moduleName.c_str();
 		out_import->num_module_bytes = tableImport.moduleName.size();
@@ -679,8 +700,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(tableImport.type);
 		break;
 	}
-	case ExternKind::memory:
-	{
+	case ExternKind::memory: {
 		const auto& memoryImport = irModule.memories.imports[kindAndIndex.index];
 		out_import->module = memoryImport.moduleName.c_str();
 		out_import->num_module_bytes = memoryImport.moduleName.size();
@@ -689,8 +709,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(memoryImport.type);
 		break;
 	}
-	case ExternKind::global:
-	{
+	case ExternKind::global: {
 		const auto& globalImport = irModule.globals.imports[kindAndIndex.index];
 		out_import->module = globalImport.moduleName.c_str();
 		out_import->num_module_bytes = globalImport.moduleName.size();
@@ -699,8 +718,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(globalImport.type);
 		break;
 	}
-	case ExternKind::exceptionType:
-	{
+	case ExternKind::exceptionType: {
 		Errors::fatal("wasm_module_import can't handle exception type imports");
 	}
 
@@ -780,22 +798,28 @@ wasm_trap_t* wasm_func_call(wasm_store_t* store,
 							const wasm_val_t args[],
 							wasm_val_t outResults[])
 {
-	FunctionType functionType = getFunctionType((Function*)function);
-	auto wavmArgs = (UntaggedValue*)alloca(functionType.params().size() * sizeof(UntaggedValue));
-	for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
-	{ memcpy(&wavmArgs[argIndex], &args[argIndex], sizeof(wasm_val_t)); }
+	Exception* exception = nullptr;
+	catchRuntimeExceptions(
+		[store, function, &args, &outResults]() {
+			FunctionType functionType = getFunctionType((Function*)function);
+			auto wavmArgs
+				= (UntaggedValue*)alloca(functionType.params().size() * sizeof(UntaggedValue));
+			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
+			{ memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t)); }
 
-	try
-	{
-		UntaggedValue* wavmResults = invokeFunctionUnchecked(store, function, wavmArgs);
-		for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
-		{ memcpy(&outResults[resultIndex], &wavmResults[resultIndex], sizeof(wasm_val_t)); }
-		return nullptr;
-	}
-	catch(Exception* exception)
-	{
-		return exception;
-	}
+			auto wavmResults
+				= (UntaggedValue*)alloca(functionType.results().size() * sizeof(UntaggedValue));
+			invokeFunction(store, function, functionType, wavmArgs, wavmResults);
+
+			for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
+			{
+				memcpy(
+					&outResults[resultIndex], &wavmResults[resultIndex].bytes, sizeof(wasm_val_t));
+			}
+		},
+		[&exception](Exception* caughtException) { exception = caughtException; });
+
+	return exception;
 }
 
 // wasm_global_t
@@ -855,8 +879,8 @@ bool wasm_table_set(wasm_table_t* table, wasm_table_size_t index, wasm_ref_t* va
 wasm_table_size_t wasm_table_size(const wasm_table_t* table)
 {
 	Uptr numElements = getTableNumElements(table);
-	errorUnless(numElements <= UINT32_MAX);
-	return U32(numElements);
+	WAVM_ERROR_UNLESS(numElements <= WASM_TABLE_SIZE_MAX);
+	return wasm_table_size_t(numElements);
 }
 
 bool wasm_table_grow(wasm_table_t* table,
@@ -864,12 +888,12 @@ bool wasm_table_grow(wasm_table_t* table,
 					 wasm_ref_t* init,
 					 wasm_table_size_t* out_previous_size)
 {
-	Iptr result = growTable(table, delta, init);
-	if(result == -1) { return false; }
+	Uptr oldNumElements = 0;
+	if(!growTable(table, delta, &oldNumElements, init)) { return false; }
 	else
 	{
-		errorUnless(result <= UINT32_MAX);
-		if(out_previous_size) { *out_previous_size = U32(result); }
+		WAVM_ERROR_UNLESS(oldNumElements <= WASM_TABLE_SIZE_MAX);
+		if(out_previous_size) { *out_previous_size = wasm_table_size_t(oldNumElements); }
 		return true;
 	}
 }
@@ -898,19 +922,19 @@ size_t wasm_memory_data_size(const wasm_memory_t* memory)
 wasm_memory_pages_t wasm_memory_size(const wasm_memory_t* memory)
 {
 	Uptr numPages = getMemoryNumPages(memory);
-	errorUnless(numPages <= UINT32_MAX);
-	return U32(numPages);
+	WAVM_ERROR_UNLESS(numPages <= WASM_MEMORY_PAGES_MAX);
+	return wasm_memory_pages_t(numPages);
 }
 bool wasm_memory_grow(wasm_memory_t* memory,
 					  wasm_memory_pages_t delta,
 					  wasm_memory_pages_t* out_previous_size)
 {
-	Iptr result = growMemory(memory, delta);
-	if(result == -1) { return false; }
+	Uptr oldNumPages = 0;
+	if(!growMemory(memory, delta, &oldNumPages)) { return false; }
 	else
 	{
-		errorUnless(result <= UINT32_MAX);
-		if(out_previous_size) { *out_previous_size = U32(result); }
+		WAVM_ERROR_UNLESS(oldNumPages <= WASM_MEMORY_PAGES_MAX);
+		if(out_previous_size) { *out_previous_size = wasm_memory_pages_t(oldNumPages); }
 		return true;
 	}
 }
@@ -961,22 +985,37 @@ IMPLEMENT_EXTERN_SUBTYPE(memory, Memory)
 // wasm_instance_t
 wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 								   const wasm_module_t* module,
-								   const wasm_extern_t* const imports[])
+								   const wasm_extern_t* const imports[],
+								   wasm_trap_t** out_trap)
 {
 	const IR::Module& irModule = getModuleIR(module->module);
+
+	if(out_trap) { *out_trap = nullptr; }
 
 	ImportBindings importBindings;
 	for(Uptr importIndex = 0; importIndex < irModule.imports.size(); ++importIndex)
 	{ importBindings.push_back(const_cast<Object*>(imports[importIndex])); }
 
-	ModuleInstance* moduleInstance = instantiateModule(getCompartment(asObject(store)),
-													   module->module,
-													   std::move(importBindings),
-													   "wasm_instance_new");
-	addGCRoot(moduleInstance);
+	ModuleInstance* moduleInstance = nullptr;
+	catchRuntimeExceptions(
+		[store, module, &importBindings, &moduleInstance]() {
+			moduleInstance = instantiateModule(getCompartment(store),
+											   module->module,
+											   std::move(importBindings),
+											   "wasm_instance_new");
 
-	Function* startFunction = getStartFunction(moduleInstance);
-	if(startFunction) { invokeFunctionChecked(store, startFunction, {}); }
+			addGCRoot(moduleInstance);
+
+			Function* startFunction = getStartFunction(moduleInstance);
+			if(startFunction) { invokeFunction(store, startFunction); }
+		},
+		[&](Runtime::Exception* exception) {
+			if(out_trap) { *out_trap = exception; }
+			else
+			{
+				destroyException(exception);
+			}
+		});
 
 	return moduleInstance;
 }

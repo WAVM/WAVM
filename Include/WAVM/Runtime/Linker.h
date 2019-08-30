@@ -4,7 +4,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -14,6 +13,7 @@ namespace WAVM { namespace Runtime {
 	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
 	struct Resolver
 	{
+		virtual ~Resolver() {}
 		virtual bool resolve(const std::string& moduleName,
 							 const std::string& exportName,
 							 IR::ExternType type,
@@ -74,6 +74,32 @@ namespace WAVM { namespace Runtime {
 		}
 	};
 
+	// A resolver that generates stubs for objects that the inner resolver can't find.
+	struct StubResolver : Resolver
+	{
+		enum class FunctionBehavior
+		{
+			zero,
+			trap,
+		};
+
+		RUNTIME_API StubResolver(Compartment* inCompartment,
+								 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
+								 bool inLogErrorOnStubGeneration = true,
+								 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
+
+		RUNTIME_API virtual bool resolve(const std::string& moduleName,
+										 const std::string& exportName,
+										 IR::ExternType type,
+										 Runtime::Object*& outObject) override;
+
+	private:
+		GCPointer<Compartment> compartment;
+		ResourceQuotaRef resourceQuota;
+		FunctionBehavior functionBehavior;
+		bool logErrorOnStubGeneration;
+	};
+
 	// Links a module using the given resolver, returning an array mapping import indices to
 	// objects. If the resolver fails to resolve any imports, throws a LinkException.
 	struct LinkResult
@@ -87,7 +113,7 @@ namespace WAVM { namespace Runtime {
 
 		std::vector<MissingImport> missingImports;
 		ImportBindings resolvedImports;
-		bool success;
+		bool success{false};
 	};
 
 	RUNTIME_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);

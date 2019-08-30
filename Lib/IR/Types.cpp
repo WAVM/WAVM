@@ -1,10 +1,8 @@
 #include "WAVM/IR/Types.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <new>
 #include <utility>
-
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/Lock.h"

@@ -1,3 +1,4 @@
+#include "Parse.h"
 #include <assert.h>
 #include <stdint.h>
 #include <cstdarg>
@@ -5,9 +6,7 @@
 #include <memory>
 #include <string>
 #include <utility>
-
 #include "Lexer.h"
-#include "Parse.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -62,14 +61,14 @@ static void parseErrorfImpl(ParseState* parseState,
 	va_end(messageArgsProbe);
 
 	// Allocate a buffer for the formatted message.
-	errorUnless(numFormattedChars >= 0);
+	WAVM_ERROR_UNLESS(numFormattedChars >= 0);
 	std::string formattedMessage;
 	formattedMessage.resize(numFormattedChars);
 
 	// Print the formatted message
 	int numWrittenChars = std::vsnprintf(
 		(char*)formattedMessage.data(), numFormattedChars + 1, messageFormat, messageArgs);
-	wavmAssert(numWrittenChars == numFormattedChars);
+	WAVM_ASSERT(numWrittenChars == numFormattedChars);
 
 	// Add the error to the cursor's error list.
 	parseState->unresolvedErrors.emplace_back(charOffset, std::move(formattedMessage));
@@ -138,19 +137,30 @@ ValueType WAST::parseValueType(CursorState* cursor)
 	return result;
 }
 
+bool WAST::tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefType)
+{
+	switch(cursor->nextToken->type)
+	{
+	case t_anyref:
+		++cursor->nextToken;
+		outRefType = ReferenceType::anyref;
+		return true;
+	case t_funcref:
+		++cursor->nextToken;
+		outRefType = ReferenceType::funcref;
+		return true;
+	default: return false;
+	};
+}
+
 ReferenceType WAST::parseReferenceType(CursorState* cursor)
 {
 	ReferenceType result;
-	switch(cursor->nextToken->type)
+	if(!tryParseReferenceType(cursor, result))
 	{
-	case t_anyref: result = ReferenceType::anyref; break;
-	case t_funcref: result = ReferenceType::funcref; break;
-	default:
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected reference type");
 		throw RecoverParseException();
-	};
-
-	++cursor->nextToken;
+	}
 	return result;
 }
 
@@ -182,9 +192,9 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 			};
 		}
 	}))
-		;
+	{};
 
-	// Parse <= 1 result type: (result <value type>*)*
+	// Parse the result types: (result <value type>*)*
 	while(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
 	{
 		parseParenthesized(cursor, [&] {
@@ -288,7 +298,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 
 	const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;
 	const char* nextChar = firstChar;
-	wavmAssert(*nextChar == '$');
+	WAVM_ASSERT(*nextChar == '$');
 	++nextChar;
 
 	if(cursor->nextToken->type == t_quotedName)
@@ -296,7 +306,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 		if(!cursor->moduleState->module.featureSpec.quotedNamesInTextFormat)
 		{ parseErrorf(cursor->parseState, cursor->nextToken, "quoted names are disabled"); }
 
-		wavmAssert(*nextChar == '\"');
+		WAVM_ASSERT(*nextChar == '\"');
 		++nextChar;
 		{
 			std::string quotedNameChars;
@@ -313,7 +323,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 					std::unique_ptr<std::string>{new std::string(std::move(quotedNameChars))});
 				const std::unique_ptr<std::string>& quotedName
 					= cursor->parseState->quotedNameStrings.back();
-				wavmAssert(quotedName->size() <= UINT32_MAX);
+				WAVM_ASSERT(quotedName->size() <= UINT32_MAX);
 				outName
 					= Name(quotedName->data(), U32(quotedName->size()), cursor->nextToken->begin);
 			}
@@ -335,10 +345,10 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 		outName = Name(firstChar + 1, U32(nextChar - firstChar - 1), cursor->nextToken->begin);
 	}
 
-	wavmAssert(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
+	WAVM_ASSERT(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
 	++cursor->nextToken;
-	wavmAssert(U32(nextChar - cursor->parseState->string) <= cursor->nextToken->begin);
-	wavmAssert(U32(nextChar - firstChar) <= UINT32_MAX);
+	WAVM_ASSERT(U32(nextChar - cursor->parseState->string) <= cursor->nextToken->begin);
+	WAVM_ASSERT(U32(nextChar - firstChar) <= UINT32_MAX);
 	return true;
 }
 
@@ -370,6 +380,28 @@ bool WAST::tryParseAndResolveNameOrIndexRef(CursorState* cursor,
 	return true;
 }
 
+Name WAST::parseName(CursorState* cursor, const char* context)
+{
+	Name result;
+	if(!tryParseName(cursor, result))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected %s name", context);
+		throw RecoverParseException();
+	}
+	return result;
+}
+
+Reference WAST::parseNameOrIndexRef(CursorState* cursor, const char* context)
+{
+	Reference result;
+	if(!tryParseNameOrIndexRef(cursor, result))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected %s name or index", context);
+		throw RecoverParseException();
+	}
+	return result;
+}
+
 Uptr WAST::parseAndResolveNameOrIndexRef(CursorState* cursor,
 										 const NameToIndexMap& nameToIndexMap,
 										 Uptr maxIndex,
@@ -394,7 +426,7 @@ void WAST::bindName(ParseState* parseState,
 		if(!nameToIndexMap.add(name, index))
 		{
 			const HashMapPair<Name, Uptr>* nameIndexPair = nameToIndexMap.getPair(name);
-			wavmAssert(nameIndexPair);
+			WAVM_ASSERT(nameIndexPair);
 			const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(
 				parseState->string, parseState->lineInfo, nameIndexPair->key.getSourceOffset());
 			parseErrorf(parseState,
@@ -413,17 +445,15 @@ Uptr WAST::resolveRef(ParseState* parseState,
 {
 	switch(ref.type)
 	{
-	case Reference::Type::index:
-	{
+	case Reference::Type::index: {
 		if(ref.index >= maxIndex)
 		{
-			parseErrorf(parseState, ref.token, "invalid index");
+			parseErrorf(parseState, ref.token, "validation error: invalid index");
 			return UINTPTR_MAX;
 		}
 		return ref.index;
 	}
-	case Reference::Type::name:
-	{
+	case Reference::Type::name: {
 		const HashMapPair<Name, Uptr>* nameIndexPair = nameToIndexMap.getPair(ref.name);
 		if(!nameIndexPair)
 		{
@@ -502,8 +532,7 @@ static void parseCharEscapeCode(const char*& nextChar,
 			outString += '\\';
 			++nextChar;
 			break;
-		case 'u':
-		{
+		case 'u': {
 			// \u{...} - Unicode codepoint from hexadecimal number
 			if(nextChar[1] != '{') { parseErrorf(parseState, nextChar, "expected '{'"); }
 			nextChar += 2;
@@ -520,7 +549,7 @@ static void parseCharEscapeCode(const char*& nextChar,
 					while(tryParseHexit(nextChar, hexit)) {};
 					break;
 				}
-				wavmAssert(codepoint * 16 + hexit >= codepoint);
+				WAVM_ASSERT(codepoint * 16 + hexit >= codepoint);
 				codepoint = codepoint * 16 + hexit;
 			}
 
@@ -553,8 +582,7 @@ static void parseStringChars(const char*& nextChar, ParseState* parseState, std:
 	{
 		switch(*nextChar)
 		{
-		case '\\':
-		{
+		case '\\': {
 			++nextChar;
 			parseCharEscapeCode(nextChar, parseState, outString);
 			break;
@@ -572,11 +600,11 @@ bool WAST::tryParseString(CursorState* cursor, std::string& outString)
 	// Parse a string literal; the lexer has already rejected unterminated strings, so this just
 	// needs to copy the characters and evaluate escape codes.
 	const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
-	wavmAssert(*nextChar == '\"');
+	WAVM_ASSERT(*nextChar == '\"');
 	++nextChar;
 	parseStringChars(nextChar, cursor->parseState, outString);
 	++cursor->nextToken;
-	wavmAssert(cursor->parseState->string + cursor->nextToken->begin > nextChar);
+	WAVM_ASSERT(cursor->parseState->string + cursor->nextToken->begin > nextChar);
 	return true;
 }
 

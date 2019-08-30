@@ -5,7 +5,6 @@
 #include <memory>
 #include <utility>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -17,13 +16,13 @@
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace Runtime {
-	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsAtomics)
+	WAVM_DEFINE_INTRINSIC_MODULE(wavmIntrinsicsAtomics)
 }}
 
 // Holds a list of threads (in the form of events that will wake them) that
@@ -73,7 +72,7 @@ static void closeWaitList(Uptr address, WaitList* waitList)
 		Lock<Platform::Mutex> mapLock(addressToWaitListMapMutex);
 		if(!waitList->numReferences)
 		{
-			wavmAssert(!waitList->wakeEvents.size());
+			WAVM_ASSERT(!waitList->wakeEvents.size());
 			delete waitList;
 			addressToWaitListMap.remove(address);
 		}
@@ -136,7 +135,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 
 	// Wait for the thread's wake event to be signaled.
 	bool timedOut = false;
-	if(!threadWakeEvent->wait(timeout < 0 ? INT128_MAX : I128(timeout)))
+	if(!threadWakeEvent->wait(timeout < 0 ? Time::infinity() : Time{I128(timeout)}))
 	{
 		// If the wait timed out, lock the wait list and check if the thread's wake event is still
 		// in the wait list.
@@ -155,7 +154,8 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 			// In between the wait timing out and locking the wait list, some other thread tried to
 			// wake this thread. The event will now be signaled, so use an immediately expiring wait
 			// on it to reset it.
-			errorUnless(threadWakeEvent->wait(Platform::getMonotonicClock()));
+			WAVM_ERROR_UNLESS(
+				threadWakeEvent->wait(Platform::getClockTime(Platform::Clock::monotonic)));
 		}
 	}
 
@@ -194,22 +194,22 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 	return U32(actualNumToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "misalignedAtomicTrap",
-						  void,
-						  misalignedAtomicTrap,
-						  U64 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "misalignedAtomicTrap",
+							   void,
+							   misalignedAtomicTrap,
+							   U64 address)
 {
 	throwException(ExceptionTypes::misalignedAtomicMemoryAccess, {address});
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "atomic_notify",
-						  I32,
-						  atomic_notify,
-						  U32 address,
-						  I32 numToWake,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "atomic_notify",
+							   I32,
+							   atomic_notify,
+							   U32 address,
+							   I32 numToWake,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
@@ -219,43 +219,43 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes}); }
 
 	// The alignment check is done by the caller.
-	wavmAssert(!(address & 3));
+	WAVM_ASSERT(!(address & 3));
 
 	return wakeAddress(memory->baseAddress + address, numToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "atomic_wait_i32",
-						  I32,
-						  atomic_wait_I32,
-						  U32 address,
-						  I32 expectedValue,
-						  I64 timeout,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "atomic_wait_i32",
+							   I32,
+							   atomic_wait_I32,
+							   U32 address,
+							   I32 expectedValue,
+							   I64 timeout,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Assume that the caller has validated the alignment.
-	wavmAssert(!(address & 3));
+	WAVM_ASSERT(!(address & 3));
 
 	// Validate that the address is within the memory's bounds, and convert it to a pointer.
 	I32* valuePointer = &memoryRef<I32>(memory, address);
 
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "atomic_wait_i64",
-						  I32,
-						  atomic_wait_i64,
-						  I32 address,
-						  I64 expectedValue,
-						  I64 timeout,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "atomic_wait_i64",
+							   I32,
+							   atomic_wait_i64,
+							   I32 address,
+							   I64 expectedValue,
+							   I64 timeout,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Assume that the caller has validated the alignment.
-	wavmAssert(!(address & 7));
+	WAVM_ASSERT(!(address & 7));
 
 	// Validate that the address is within the memory's bounds, and convert it to a pointer.
 	I64* valuePointer = &memoryRef<I64>(memory, address);

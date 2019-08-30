@@ -1,7 +1,6 @@
 #include <string.h>
 #include <atomic>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -9,14 +8,14 @@
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
 Context* Runtime::createContext(Compartment* compartment)
 {
-	wavmAssert(compartment);
+	WAVM_ASSERT(compartment);
 	Context* context = new Context(compartment);
 	{
 		Lock<Platform::Mutex> lock(compartment->mutex);
@@ -31,8 +30,9 @@ Context* Runtime::createContext(Compartment* compartment)
 		context->runtimeData = &compartment->runtimeData->contexts[context->id];
 
 		// Commit the page(s) for the context's runtime data.
-		errorUnless(Platform::commitVirtualPages(
-			(U8*)context->runtimeData, sizeof(ContextRuntimeData) >> Platform::getPageSizeLog2()));
+		WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
+			(U8*)context->runtimeData,
+			sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2()));
 
 		// Initialize the context's global data.
 		memcpy(context->runtimeData->mutableGlobals,
@@ -45,9 +45,11 @@ Context* Runtime::createContext(Compartment* compartment)
 
 Runtime::Context::~Context()
 {
-	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+	WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 	compartment->contexts.removeOrFail(id);
 }
+
+Compartment* Runtime::getCompartment(const Context* context) { return context->compartment; }
 
 Context* Runtime::cloneContext(const Context* context, Compartment* newCompartment)
 {

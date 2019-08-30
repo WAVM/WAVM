@@ -7,7 +7,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
@@ -20,12 +19,13 @@
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/ThreadTest/ThreadTest.h"
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"
@@ -35,10 +35,19 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 using namespace WAVM::WAST;
 
-DEFINE_INTRINSIC_MODULE(spectest);
+WAVM_DEFINE_INTRINSIC_MODULE(spectest);
+
+struct Config
+{
+	bool strictAssertInvalid{false};
+	bool strictAssertMalformed{false};
+	bool testCloning{false};
+};
 
 struct TestScriptState
 {
+	const Config& config;
+
 	bool hasInstantiatedModule;
 	GCPointer<ModuleInstance> lastModuleInstance;
 	GCPointer<Compartment> compartment;
@@ -49,19 +58,21 @@ struct TestScriptState
 
 	std::vector<WAST::Error> errors;
 
-	TestScriptState()
-	: hasInstantiatedModule(false)
+	TestScriptState(const Config& inConfig)
+	: config(inConfig)
+	, hasInstantiatedModule(false)
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
-		moduleNameToInstanceMap.set("spectest",
-									Intrinsics::instantiateModule(
-										compartment, {INTRINSIC_MODULE_REF(spectest)}, "spectest"));
+		moduleNameToInstanceMap.set(
+			"spectest",
+			Intrinsics::instantiateModule(
+				compartment, {WAVM_INTRINSIC_MODULE_REF(spectest)}, "spectest"));
 		moduleNameToInstanceMap.set("threadTest", ThreadTest::instantiate(compartment));
 	}
 
 	TestScriptState(const TestScriptState& copyee)
-	: hasInstantiatedModule(copyee.hasInstantiatedModule)
+	: config(copyee.config), hasInstantiatedModule(copyee.hasInstantiatedModule)
 	{
 		compartment = Runtime::cloneCompartment(copyee.compartment);
 		context = Runtime::cloneContext(copyee.context, compartment);
@@ -92,7 +103,7 @@ struct TestScriptState
 		context = nullptr;
 		moduleInternalNameToInstanceMap.clear();
 		moduleNameToInstanceMap.clear();
-		errorUnless(tryCollectCompartment(std::move(compartment)));
+		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 	}
 };
 
@@ -118,7 +129,7 @@ private:
 	const TestScriptState& state;
 };
 
-VALIDATE_AS_PRINTF(3, 4)
+WAVM_VALIDATE_AS_PRINTF(3, 4)
 static void testErrorf(TestScriptState& state,
 					   const TextFileLocus& locus,
 					   const char* messageFormat,
@@ -135,14 +146,14 @@ static void testErrorf(TestScriptState& state,
 	va_end(messageArgsProbe);
 
 	// Allocate a buffer for the formatted message.
-	errorUnless(numFormattedChars >= 0);
+	WAVM_ERROR_UNLESS(numFormattedChars >= 0);
 	std::string formattedMessage;
 	formattedMessage.resize(numFormattedChars);
 
 	// Print the formatted message
 	int numWrittenChars = std::vsnprintf(
 		(char*)formattedMessage.data(), numFormattedChars + 1, messageFormat, messageArgs);
-	wavmAssert(numWrittenChars == numFormattedChars);
+	WAVM_ASSERT(numWrittenChars == numFormattedChars);
 	va_end(messageArgs);
 
 	// Add the error to the cursor's error list.
@@ -245,14 +256,13 @@ static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
 	}
 }
 
-static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple& outResults)
+static bool processAction(TestScriptState& state, Action* action, std::vector<Value>& outResults)
 {
-	outResults = IR::ValueTuple();
+	outResults.clear();
 
 	switch(action->type)
 	{
-	case ActionType::_module:
-	{
+	case ActionType::_module: {
 		auto moduleAction = (ModuleAction*)action;
 
 		// Clear the previous module.
@@ -272,7 +282,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 			// Call the module start function, if it has one.
 			Function* startFunction = getStartFunction(state.lastModuleInstance);
-			if(startFunction) { invokeFunctionChecked(state.context, startFunction, {}); }
+			if(startFunction) { invokeFunction(state.context, startFunction); }
 		}
 		else
 		{
@@ -297,8 +307,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 		return true;
 	}
-	case ActionType::invoke:
-	{
+	case ActionType::invoke: {
 		auto invokeAction = (InvokeAction*)action;
 
 		// Look up the module this invoke uses.
@@ -321,13 +330,39 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 			return false;
 		}
 
-		// Execute the invoke
-		outResults = invokeFunctionChecked(state.context, function, invokeAction->arguments.values);
+		// Split the tagged argument values into their types and untagged values.
+		std::vector<ValueType> argTypes;
+		std::vector<UntaggedValue> untaggedArgs;
+		for(const Value& arg : invokeAction->arguments)
+		{
+			argTypes.push_back(arg.type);
+			untaggedArgs.push_back(arg);
+		}
+
+		// Infer the expected type of the function from the number and type of the invoke's
+		// arguments and the function's actual result types.
+		const FunctionType invokeSig(getFunctionType(function).results(), TypeTuple(argTypes));
+
+		// Allocate an array to receive the invoke results.
+		std::vector<UntaggedValue> untaggedResults;
+		untaggedResults.resize(invokeSig.results().size());
+
+		// Invoke the function.
+		invokeFunction(
+			state.context, function, invokeSig, untaggedArgs.data(), untaggedResults.data());
+
+		// Convert the untagged result values to tagged values.
+		outResults.resize(invokeSig.results().size());
+		for(Uptr resultIndex = 0; resultIndex < untaggedResults.size(); ++resultIndex)
+		{
+			const ValueType resultType = invokeSig.results()[resultIndex];
+			const UntaggedValue& untaggedResult = untaggedResults[resultIndex];
+			outResults[resultIndex] = Value(resultType, untaggedResult);
+		}
 
 		return true;
 	}
-	case ActionType::get:
-	{
+	case ActionType::get: {
 		auto getAction = (GetAction*)action;
 
 		// Look up the module this get uses.
@@ -350,7 +385,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		}
 
 		// Get the value of the specified global.
-		outResults = getGlobalValue(state.context, global);
+		outResults = {getGlobalValue(state.context, global)};
 
 		return true;
 	}
@@ -373,8 +408,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 {
 	switch(command->type)
 	{
-	case Command::_register:
-	{
+	case Command::_register: {
 		auto registerCommand = (RegisterCommand*)command;
 
 		// Look up a module by internal name, and bind the result to the public name.
@@ -383,17 +417,15 @@ static void processCommand(TestScriptState& state, const Command* command)
 		state.moduleNameToInstanceMap.set(registerCommand->moduleName, moduleInstance);
 		break;
 	}
-	case Command::action:
-	{
-		IR::ValueTuple results;
+	case Command::action: {
+		std::vector<Value> results;
 		processAction(state, ((ActionCommand*)command)->action.get(), results);
 		break;
 	}
-	case Command::assert_return:
-	{
+	case Command::assert_return: {
 		auto assertCommand = (AssertReturnCommand*)command;
 		// Execute the action and do a bitwise comparison of the result to the expected result.
-		IR::ValueTuple actionResults;
+		std::vector<Value> actionResults;
 		if(processAction(state, assertCommand->action.get(), actionResults)
 		   && actionResults != assertCommand->expectedResults)
 		{
@@ -406,11 +438,10 @@ static void processCommand(TestScriptState& state, const Command* command)
 		break;
 	}
 	case Command::assert_return_canonical_nan:
-	case Command::assert_return_arithmetic_nan:
-	{
+	case Command::assert_return_arithmetic_nan: {
 		auto assertCommand = (AssertReturnNaNCommand*)command;
 		// Execute the action and check that the result is a NaN of the expected type.
-		IR::ValueTuple actionResults;
+		std::vector<Value> actionResults;
 		if(processAction(state, assertCommand->action.get(), actionResults))
 		{
 			if(actionResults.size() != 1)
@@ -422,7 +453,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 			}
 			else
 			{
-				IR::Value actionResult = actionResults[0];
+				Value actionResult = actionResults[0];
 				const bool requireCanonicalNaN
 					= assertCommand->type == Command::assert_return_canonical_nan;
 				const bool isError
@@ -443,11 +474,10 @@ static void processCommand(TestScriptState& state, const Command* command)
 		}
 		break;
 	}
-	case Command::assert_return_func:
-	{
+	case Command::assert_return_func: {
 		auto assertCommand = (AssertReturnNaNCommand*)command;
 		// Execute the action and check that the result is a function.
-		IR::ValueTuple actionResults;
+		std::vector<Value> actionResults;
 		if(processAction(state, assertCommand->action.get(), actionResults))
 		{
 			if(actionResults.size() != 1 || !isReferenceType(actionResults[0].type)
@@ -461,12 +491,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 		}
 		break;
 	}
-	case Command::assert_trap:
-	{
+	case Command::assert_trap: {
 		auto assertCommand = (AssertTrapCommand*)command;
 		Runtime::catchRuntimeExceptions(
 			[&] {
-				IR::ValueTuple actionResults;
+				std::vector<Value> actionResults;
 				if(processAction(state, assertCommand->action.get(), actionResults))
 				{
 					testErrorf(state,
@@ -488,8 +517,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 			});
 		break;
 	}
-	case Command::assert_throws:
-	{
+	case Command::assert_throws: {
 		auto assertCommand = (AssertThrowsCommand*)command;
 
 		// Look up the module containing the expected exception type.
@@ -517,7 +545,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 
 		Runtime::catchRuntimeExceptions(
 			[&] {
-				IR::ValueTuple actionResults;
+				std::vector<Value> actionResults;
 				if(processAction(state, assertCommand->action.get(), actionResults))
 				{
 					testErrorf(state,
@@ -543,14 +571,14 @@ static void processCommand(TestScriptState& state, const Command* command)
 					for(Uptr argumentIndex = 0; argumentIndex < exceptionParameterTypes.size();
 						++argumentIndex)
 					{
-						IR::Value argumentValue(exceptionParameterTypes[argumentIndex],
-												exception->arguments[argumentIndex]);
+						Value argumentValue(exceptionParameterTypes[argumentIndex],
+											exception->arguments[argumentIndex]);
 						if(argumentValue != assertCommand->expectedArguments[argumentIndex])
 						{
 							testErrorf(
 								state,
 								assertCommand->locus,
-								"expected %s for exception argument %" PRIuPTR " but got %s",
+								"expected %s for exception argument %" WAVM_PRIuPTR " but got %s",
 								asString(assertCommand->expectedArguments[argumentIndex]).c_str(),
 								argumentIndex,
 								asString(argumentValue).c_str());
@@ -561,22 +589,42 @@ static void processCommand(TestScriptState& state, const Command* command)
 			});
 		break;
 	}
-	case Command::assert_invalid:
-	{
+	case Command::assert_invalid: {
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
-		if(assertCommand->wasInvalidOrMalformed == InvalidOrMalformed::wellFormedAndValid)
-		{ testErrorf(state, assertCommand->locus, "module was valid"); }
+		switch(assertCommand->wasInvalidOrMalformed)
+		{
+		case InvalidOrMalformed::wellFormedAndValid:
+			testErrorf(state, assertCommand->locus, "module was well formed and valid");
+			break;
+		case InvalidOrMalformed::malformed:
+			if(state.config.strictAssertInvalid)
+			{ testErrorf(state, assertCommand->locus, "module was malformed"); }
+			break;
+
+		case InvalidOrMalformed::invalid:
+		default: break;
+		};
 		break;
 	}
-	case Command::assert_malformed:
-	{
+	case Command::assert_malformed: {
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
-		if(assertCommand->wasInvalidOrMalformed != InvalidOrMalformed::malformed)
-		{ testErrorf(state, assertCommand->locus, "module was well formed"); }
+		switch(assertCommand->wasInvalidOrMalformed)
+		{
+		case InvalidOrMalformed::wellFormedAndValid:
+			testErrorf(state, assertCommand->locus, "module was well formed and valid");
+			break;
+
+		case InvalidOrMalformed::invalid:
+			if(state.config.strictAssertMalformed)
+			{ testErrorf(state, assertCommand->locus, "module was invalid"); }
+			break;
+
+		case InvalidOrMalformed::malformed:
+		default: break;
+		};
 		break;
 	}
-	case Command::assert_unlinkable:
-	{
+	case Command::assert_unlinkable: {
 		auto assertCommand = (AssertUnlinkableCommand*)command;
 		Runtime::catchRuntimeExceptions(
 			[&] {
@@ -592,7 +640,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 
 					// Call the module start function, if it has one.
 					Function* startFunction = getStartFunction(moduleInstance);
-					if(startFunction) { invokeFunctionChecked(state.context, startFunction, {}); }
+					if(startFunction) { invokeFunction(state.context, startFunction); }
 
 					testErrorf(state, assertCommand->locus, "module was linkable");
 				}
@@ -643,13 +691,13 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 	// Check that the original and cloned memory are the same after processing the command.
 	if(state.lastModuleInstance && clonedState.lastModuleInstance)
 	{
-		wavmAssert(state.lastModuleInstance != clonedState.lastModuleInstance);
+		WAVM_ASSERT(state.lastModuleInstance != clonedState.lastModuleInstance);
 
 		Memory* memory = getDefaultMemory(state.lastModuleInstance);
 		Memory* clonedMemory = getDefaultMemory(clonedState.lastModuleInstance);
 		if(memory && clonedMemory)
 		{
-			wavmAssert(memory != clonedMemory);
+			WAVM_ASSERT(memory != clonedMemory);
 
 			const Uptr numMemoryPages = getMemoryNumPages(memory);
 			const Uptr numClonedMemoryPages = getMemoryNumPages(clonedMemory);
@@ -658,23 +706,25 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 			{
 				testErrorf(state,
 						   command->locus,
-						   "Cloned memory size doesn't match (original = %" PRIuPTR
-						   " pages, cloned = %" PRIuPTR " pages",
+						   "Cloned memory size doesn't match (original = %" WAVM_PRIuPTR
+						   " pages, cloned = %" WAVM_PRIuPTR " pages",
 						   numMemoryPages,
 						   numClonedMemoryPages);
 			}
 			else
 			{
 				const Uptr numMemoryBytes = numMemoryPages * IR::numBytesPerPage;
+				U8* memoryBytes = memoryArrayPtr<U8>(memory, 0, numMemoryBytes);
+				U8* clonedMemoryBytes = memoryArrayPtr<U8>(clonedMemory, 0, numMemoryBytes);
 				for(Uptr byteIndex = 0; byteIndex < numMemoryBytes; ++byteIndex)
 				{
-					const U8 value = memoryRef<U8>(memory, byteIndex);
-					const U8 clonedValue = memoryRef<U8>(clonedMemory, byteIndex);
+					const U8 value = memoryBytes[byteIndex];
+					const U8 clonedValue = clonedMemoryBytes[byteIndex];
 					if(value != clonedValue)
 					{
 						testErrorf(state,
 								   command->locus,
-								   "Memory differs from cloned memory at address 0x08%" PRIxPTR
+								   "Memory differs from cloned memory at address 0x08%" WAVM_PRIxPTR
 								   ": 0x%02x vs 0x%02x",
 								   byteIndex,
 								   value,
@@ -686,53 +736,73 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(spectest, "print", void, spectest_print) {}
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32", void, spectest_print_i32, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print", void, spectest_print) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32", void, spectest_print_i32, I32 a)
 {
 	Log::printf(Log::debug, "%s : i32\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64", void, spectest_print_i64, I64 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64", void, spectest_print_i64, I64 a)
 {
 	Log::printf(Log::debug, "%s : i64\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_f32", void, spectest_print_f32, F32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_f32", void, spectest_print_f32, F32 a)
 {
 	Log::printf(Log::debug, "%s : f32\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64", void, spectest_print_f64, F64 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64", void, spectest_print_f64, F64 a)
 {
 	Log::printf(Log::debug, "%s : f64\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64_f64", void, spectest_print_f64_f64, F64 a, F64 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest,
+							   "print_f64_f64",
+							   void,
+							   spectest_print_f64_f64,
+							   F64 a,
+							   F64 b)
 {
 	Log::printf(Log::debug, "%s : f64\n%s : f64\n", asString(a).c_str(), asString(b).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32_f32", void, spectest_print_i32_f32, I32 a, F32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest,
+							   "print_i32_f32",
+							   void,
+							   spectest_print_i32_f32,
+							   I32 a,
+							   F32 b)
 {
 	Log::printf(Log::debug, "%s : i32\n%s : f32\n", asString(a).c_str(), asString(b).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64_f64", void, spectest_print_i64_f64, I64 a, F64 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest,
+							   "print_i64_f64",
+							   void,
+							   spectest_print_i64_f64,
+							   I64 a,
+							   F64 b)
 {
 	Log::printf(Log::debug, "%s : i64\n%s : f64\n", asString(a).c_str(), asString(b).c_str());
 }
 
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_i32", I32, spectest_global_i32, 666)
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 0)
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 0.0f)
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i32", I32, spectest_global_i32, 666)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 0.0f)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
 
-DEFINE_INTRINSIC_TABLE(spectest,
-					   spectest_table,
-					   table,
-					   TableType(ReferenceType::funcref, false, SizeConstraints{10, 20}))
-DEFINE_INTRINSIC_MEMORY(spectest, spectest_memory, memory, MemoryType(false, SizeConstraints{1, 2}))
-DEFINE_INTRINSIC_MEMORY(spectest,
-						spectest_shared_memory,
-						shared_memory,
-						MemoryType(true, SizeConstraints{1, 2}))
+WAVM_DEFINE_INTRINSIC_TABLE(spectest,
+							spectest_table,
+							table,
+							TableType(ReferenceType::funcref, false, SizeConstraints{10, 20}))
+WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
+							 spectest_memory,
+							 memory,
+							 MemoryType(false, SizeConstraints{1, 2}))
+WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
+							 spectest_shared_memory,
+							 shared_memory,
+							 MemoryType(true, SizeConstraints{1, 2}))
 
 struct SharedState
 {
+	Config config;
+
 	Platform::Mutex mutex;
 	std::vector<const char*> pendingFilenames;
 };
@@ -765,11 +835,11 @@ static I64 threadMain(void* sharedStateVoid)
 		testScriptBytes.push_back(0);
 
 		// Process the test script.
-		TestScriptState testScriptState;
+		TestScriptState testScriptState(sharedState->config);
 		std::vector<std::unique_ptr<Command>> testCommands;
 
-		// Use a WebAssembly standard-compliant feature spec.
-		FeatureSpec featureSpec;
+		// Use a WebAssembly standard-compliant feature spec that includes all proposed extensions.
+		FeatureSpec featureSpec(true);
 		featureSpec.requireSharedFlagForAtomicOperators = true;
 
 		// Parse the test script.
@@ -789,7 +859,12 @@ static I64 threadMain(void* sharedStateVoid)
 							command->locus.describe().c_str());
 				catchRuntimeExceptions(
 					[&testScriptState, &command] {
-						processCommandWithCloning(testScriptState, command.get());
+						if(testScriptState.config.testCloning)
+						{ processCommandWithCloning(testScriptState, command.get()); }
+						else
+						{
+							processCommand(testScriptState, command.get());
+						}
 					},
 					[&testScriptState, &command](Runtime::Exception* exception) {
 						testErrorf(testScriptState,
@@ -811,31 +886,34 @@ static I64 threadMain(void* sharedStateVoid)
 
 static void showHelp()
 {
-	Log::printf(Log::error,
-				"Usage: RunTestScript [options] in.wast [options]\n"
-				"  -h|--help          Display this message\n"
-				"  -d|--debug         Print verbose debug output to stdout\n"
-				"  -l <N>|--loop <N>  Run tests up to N times in a loop until an error occurs\n");
+	Log::printf(
+		Log::error,
+		"Usage: RunTestScript [options] in.wast [options]\n"
+		"  -h|--help                  Display this message\n"
+		"  -l <N>|--loop <N>          Run tests N times in a loop until an error occurs\n"
+		"  --strict-assert-invalid    Strictly evaluate assert_invalid, failing if the\n"
+		"                             module was malformed\n"
+		"  --strict-assert-malformed  Strictly evaluate assert_malformed, failing if the\n"
+		"                             module was invalid\n"
+		"  --test-cloning             Run each test command in the original compartment\n"
+		"                             and a clone of it, and compare the resulting state\n"
+		"  --trace                    Prints instructions to stdout as they are compiled.\n");
 }
 
 int main(int argc, char** argv)
 {
-	// Suppress metrics output.
-	Log::setCategoryEnabled(Log::metrics, false);
+	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
 
 	// Parse the command-line.
 	Uptr numLoops = 1;
 	std::vector<const char*> filenames;
+	Config config;
 	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
 		{
 			showHelp();
 			return EXIT_SUCCESS;
-		}
-		else if(!strcmp(argv[argIndex], "--debug") || !strcmp(argv[argIndex], "-d"))
-		{
-			Log::setCategoryEnabled(Log::debug, true);
 		}
 		else if(!strcmp(argv[argIndex], "--loop") || !strcmp(argv[argIndex], "-l"))
 		{
@@ -852,6 +930,25 @@ int main(int argc, char** argv)
 				return EXIT_FAILURE;
 			}
 			numLoops = Uptr(numLoopsLongInt);
+		}
+		else if(!strcmp(argv[argIndex], "--strict-assert-invalid"))
+		{
+			config.strictAssertInvalid = true;
+			++argIndex;
+		}
+		else if(!strcmp(argv[argIndex], "--strict-assert-malformed"))
+		{
+			config.strictAssertMalformed = true;
+			++argIndex;
+		}
+		else if(!strcmp(argv[argIndex], "--test-cloning"))
+		{
+			config.testCloning = true;
+		}
+		else if(!strcmp(argv[argIndex], "--trace"))
+		{
+			Log::setCategoryEnabled(Log::traceValidation, true);
+			Log::setCategoryEnabled(Log::traceCompilation, true);
 		}
 		else
 		{
@@ -871,6 +968,7 @@ int main(int argc, char** argv)
 		Timing::Timer timer;
 
 		SharedState sharedState;
+		sharedState.config = config;
 		sharedState.pendingFilenames = filenames;
 
 		// Create a thread for each hardware thread.
@@ -879,7 +977,7 @@ int main(int argc, char** argv)
 		const Uptr numTestThreads
 			= std::min(numHardwareThreads, Uptr(sharedState.pendingFilenames.size()));
 		for(Uptr threadIndex = 0; threadIndex < numTestThreads; ++threadIndex)
-		{ threads.push_back(Platform::createThread(1024 * 1024, threadMain, &sharedState)); }
+		{ threads.push_back(Platform::createThread(0, threadMain, &sharedState)); }
 
 		// Wait for the threads to exit, summing up their return code, which will be the number of
 		// errors found by the thread.

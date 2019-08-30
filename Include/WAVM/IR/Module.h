@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
@@ -53,7 +53,7 @@ namespace WAVM { namespace IR {
 		InitializerExpressionBase(V128 inV128) : type(Type::v128_const), v128(inV128) {}
 		InitializerExpressionBase(Type inType, Ref inRef) : type(inType), ref(inRef)
 		{
-			wavmAssert(type == Type::global_get || type == Type::ref_func);
+			WAVM_ASSERT(type == Type::global_get || type == Type::ref_func);
 		}
 		InitializerExpressionBase(std::nullptr_t) : type(Type::ref_null) {}
 
@@ -164,8 +164,8 @@ namespace WAVM { namespace IR {
 		std::shared_ptr<std::vector<U8>> data;
 	};
 
-	// An elem: a literal reference used to initialize a table element.
-	struct Elem
+	// An element expression: a literal reference used to initialize a table element.
+	struct ElemExpr
 	{
 		enum class Type
 		{
@@ -180,38 +180,67 @@ namespace WAVM { namespace IR {
 		};
 		Uptr index;
 
-		friend bool operator==(const Elem& a, const Elem& b)
+		ElemExpr(Type inType = Type::ref_null, Uptr inIndex = UINTPTR_MAX)
+		: type(inType), index(inIndex)
+		{
+		}
+
+		friend bool operator==(const ElemExpr& a, const ElemExpr& b)
 		{
 			if(a.type != b.type) { return false; }
 			switch(a.type)
 			{
-			case Elem::Type::ref_func: return a.index == b.index;
-			case Elem::Type::ref_null:
+			case ElemExpr::Type::ref_func: return a.index == b.index;
+			case ElemExpr::Type::ref_null:
 			default: return true;
 			}
 		}
 
-		friend bool operator!=(const Elem& a, const Elem& b)
+		friend bool operator!=(const ElemExpr& a, const ElemExpr& b)
 		{
 			if(a.type != b.type) { return true; }
 			switch(a.type)
 			{
-			case Elem::Type::ref_func: return a.index != b.index;
-			case Elem::Type::ref_null:
+			case ElemExpr::Type::ref_func: return a.index != b.index;
+			case ElemExpr::Type::ref_null:
 			default: return false;
 			}
 		}
 	};
 
-	// An elem segment: a literal sequence of elems that is copied into a Runtime::Table when
-	// instantiating a module
+	// An elem segment: a literal sequence of table elements.
 	struct ElemSegment
 	{
-		bool isActive;
+		enum class Encoding
+		{
+			index,
+			expr,
+		};
+
+		enum class Type
+		{
+			active,
+			passive
+		};
+		Type type;
+
+		// Only valid if type == active.
 		Uptr tableIndex;
 		InitializerExpression baseOffset;
-		ReferenceType elemType;
-		std::shared_ptr<std::vector<Elem>> elems;
+
+		struct Contents
+		{
+			Encoding encoding;
+
+			// Only valid if encoding == elemExpr.
+			ReferenceType elemType;
+			std::vector<ElemExpr> elemExprs;
+
+			// Only valid if encoding == externIndex.
+			ExternKind externKind;
+			std::vector<Uptr> elemIndices;
+		};
+		std::shared_ptr<Contents> contents;
 	};
 
 	// A user-defined module section as an array of bytes
@@ -238,17 +267,17 @@ namespace WAVM { namespace IR {
 		}
 		bool isImport(Uptr index) const
 		{
-			wavmAssert(index < size());
+			WAVM_ASSERT(index < size());
 			return index < imports.size();
 		}
 		bool isDef(Uptr index) const
 		{
-			wavmAssert(index < size());
+			WAVM_ASSERT(index < size());
 			return index >= imports.size();
 		}
 		const Definition& getDef(Uptr index) const
 		{
-			wavmAssert(isDef(index));
+			WAVM_ASSERT(isDef(index));
 			return defs[index - imports.size()];
 		}
 	};
@@ -274,9 +303,7 @@ namespace WAVM { namespace IR {
 
 		Uptr startFunctionIndex;
 
-		Module() : startFunctionIndex(UINTPTR_MAX) {}
-
-		Module(const FeatureSpec& inFeatureSpec)
+		Module(const FeatureSpec& inFeatureSpec = FeatureSpec())
 		: featureSpec(inFeatureSpec), startFunctionIndex(UINTPTR_MAX)
 		{
 		}
@@ -318,6 +345,13 @@ namespace WAVM { namespace IR {
 			std::string name;
 			std::vector<std::string> locals;
 			std::vector<std::string> labels;
+
+			Function(std::string&& inName = std::string(),
+					 std::initializer_list<std::string>&& inLocals = {},
+					 std::initializer_list<std::string>&& inLabels = {})
+			: name(std::move(inName)), locals(inLocals), labels(inLabels)
+			{
+			}
 		};
 
 		std::string moduleName;

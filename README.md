@@ -1,108 +1,62 @@
-[![Linux/OSX Build Status](https://travis-ci.com/WAVM/WAVM.svg?branch=master)](https://travis-ci.com/WAVM/WAVM)
+[![BSD license](https://img.shields.io/badge/license-BSD-green)](LICENSE)
+[![GitHub repo](https://img.shields.io/badge/repo-github-green.svg)](https://github.com/WAVM/WAVM)
+[![Discord](https://img.shields.io/discord/484466837988573194)](https://discordapp.com/invite/fchkxFM)
+[![Travis Build Status](https://travis-ci.com/WAVM/WAVM.svg?branch=master)](https://travis-ci.com/WAVM/WAVM)
+[![Azure Build Status](https://dev.azure.com/WAVM/WAVM/_apis/build/status/WAVM.WAVM)](https://dev.azure.com/WAVM/WAVM/_build/latest?definitionId=1)
 
-[![Windows Build Status](https://dev.azure.com/WAVM/WAVM/_apis/build/status/WAVM.WAVM)](https://dev.azure.com/WAVM/WAVM/_build/latest?definitionId=1)
+# WAVM
 
-Primary repo: https://github.com/WAVM/WAVM
+[Getting Started](Doc/GettingStarted.md) | [Building WAVM from Source](Doc/Building.md) | [Exploring the WAVM source](Doc/CodeOrganization.md)
 
-Discord (chat room): https://discordapp.com/invite/fchkxFM
+##### WAVM is a WebAssembly virtual machine, designed for use in non-web applications.
 
-# Overview
+### Fast
 
-This is a standalone VM for WebAssembly. It can load both the standard binary format, and the text format defined by the [WebAssembly reference interpreter](https://github.com/WebAssembly/spec/tree/master/interpreter). For the text format, it can load both the standard stack machine syntax and the old-fashioned AST syntax used by the reference interpreter, and all of the testing commands.
+WAVM uses [LLVM](https://llvm.org/) to compile WebAssembly code to machine code with close to
+native performance. It can even beat native performance in some cases, thanks to the ability to
+generate machine code tuned for the exact CPU that is running the code.
 
-# Building and running it
+WAVM also leverages virtual memory and signal handlers to execute WebAssembly's bounds-checked
+memory accesses at the same cost as a native, unchecked memory access.
 
-To build it, you'll need CMake and [LLVM 6.0](http://llvm.org/releases/download.html#6.0.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>\lib\cmake\llvm`.
+### Safe
 
-### Building WAVM on Windows 
+WAVM prevents WebAssembly code from accessing state outside of WebAssembly virtual machine*, or
+calling native code that you do not explicitly link with the WebAssembly module.
 
-**1.) Install the [Visual Studio C++ Build Tools for Visual Studio 2015 or 2017](http://landinghub.visualstudio.com/visual-cpp-build-tools)**
+*&nbsp;WAVM <i>is</i> vulnerable to some side-channel attacks, such as Spectre variant 2. WAVM may
+add further mitigations for specific side-channel attacks, but it's impractical to guard against
+all such attacks. You should use another form of isolation, such as OS processes, to protect
+sensitive data from untrusted WebAssembly code.
 
-Take note of which version you have installed:
+### WebAssembly 1.0+
 
-- If using Visual Studio 2015, use `-G"Visual Studio 14 Win64"` for the `<VS Generator Directive>` placeholder below
-- If using Visual Studio 2017, use `-G"Visual Studio 15 Win64"` for the `<VS Generator Directive>` placeholder below
+WAVM fully supports WebAssembly 1.0, plus many proposed extensions to it:
+* [WASI](https://github.com/WebAssembly/WASI)
+* [128-bit SIMD](https://github.com/WebAssembly/simd)
+* [Threads](https://github.com/WebAssembly/threads)
+* [Reference types](https://github.com/WebAssembly/reference-types)
+* [Multiple results and block parameters](https://github.com/WebAssembly/multi-value)
+* [Bulk memory operations](https://github.com/webassembly/bulk-memory-operations)
+* [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
+* [Sign-extension instructions](https://github.com/WebAssembly/sign-extension-ops)
+* [Exception handling](https://github.com/WebAssembly/exception-handling)
+* [Extended name section](https://github.com/WebAssembly/extended-name-section)
 
-**2.) Build LLVM x64 on Windows with Visual Studio**
+### Portable
 
-Create an llvm_build directory, navigate to that directory and run:
+WAVM is written in portable C/C++, with a small amount of architecture-specific assembly and LLVM
+IR generation code.
 
-    cmake -Thost=x64 <VS Generator Directive> -DCMAKE_INSTALL_PREFIX=<desired install path for LLVM> <path to LLVM source>
+WAVM is tested on and fully supports X86-64 Windows, MacOS, and Linux. It is designed to run on any
+POSIX-compatible system, but is not routinely tested on other systems.
 
-Open the generated LLVM.sln locateed within the 'llvm_build' directory in Visual Studio and build the "INSTALL" Project
+Support for AArch64 is a [work-in-progress](#76).
+WAVM mostly works on AArch64 Linux, but with some known bugs with handling WebAssembly stack
+overflow and partially out-of-bounds stores.
 
-The output binaries should be located in `<desired install path for LLVM>`
+WAVM's runtime requires a 64-bit virtual address space, and so is not portable to 32-bit hosts.
+However, WAVM's assembler and disassembler work on 32-bit hosts.
 
-**3.) Build WAVM x64 on Windows with Visual Studio against LLVM x64**
+[Portability Matrix](Doc/PortabilityMatrix.md)
 
-Create a wavm_build directory, navigate to that directory and run:
-
-    cmake -Thost=x64 <VS Generator Directive> -DLLVM_DIR=<LLVM build directory>\lib\cmake\llvm <path to WAVM source>
-
-Open the generated WAVM.sln located within the 'wavm_build' directory in Visual Studio and build the "ALL_BUILD" Project
-
-The output binaries should be located in `wavm_build\bin`
-
-# Usage
-
-I've tested it on Windows with Visual C++ 2015/2017, Linux with GCC and clang, and MacOS with Xcode/clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
-
-The primary executable is `wavm-run`:
-```
-Usage: wavm-run [switches] [programfile] [--] [arguments]
-  in.wast|in.wasm		Specify program file (.wast/.wasm)
-  -f|--function name		Specify function name to run in module rather than main
-  -c|--check			Exit after checking that the program is valid
-  -d|--debug			Write additional debug information to stdout
-  --				Stop parsing arguments
-```
-
-`wavm-run` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Examples and Test/spec directory such as the following:
-
-```
-wavm-run Examples/helloworld.wast
-wavm-run Examples/Benchmark/Benchmark.wast
-wavm-run Examples/zlib.wast
-```
-
-WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Examples/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
-
-There are a few additional executables that can be used to assemble the WAST file into a binary:
-
-```
-wavm-as in.wast out.wasm
-```
-
-wavm-disas a binary into a WAST file:
-
-```
-wavm-disas in.wasm out.wast
-```
-
-and to execute a test script defined by a WAST file (see the [Test/spec directory](Test/spec) for examples of the syntax):
-
-```
-Test in.wast
-```
-
-# Architecture
-
-## IR
-
-The [IR](Include/WAVM/IR) (Intermediate Representation) is the glue that the WAST parser, the WASM serialization, and the Runtime communicate through. It closely mirrors the semantics of the WebAssembly binary format, but is easier to work with in memory.
-
-## Parsing
-
-Parsing the WebAssembly text format uses a table-driven deterministic finite automaton to scan the input string for tokens. The tables are generated from a set of tokens that match literal strings, and a set of tokens that match regular expressions. The parser is a standard recursive descent parser.
-
-## Runtime
-
-The [Runtime](Lib/Runtime/) is the primary consumer of the byte code. It provides an [API](Include/WAVM/Runtime/Runtime.h) for instantiating WebAssembly modules and calling functions exported from them. To instantiate a module,
-1) Translates the byte code into LLVM IR([1](Lib/LLVMJIT/EmitModule.cpp), [2](Lib/LLVMJIT/EmitFunction.cpp), and the various `Emit*.cpp` in [Lib/LLVMJIT](Lib/LLVMJIT))
-2) [Uses LLVM to compile the LLVM IR to object code](Lib/LLVMJIT/LLVMCompile.cpp) for the module's functions, with symbols in place of literal values for things like the module's imports.
-3) [Instantiates the module's runtime environment](Lib/Runtime/Module.cpp) (globals, memory objects, and table objects).
-4) [Loads the object code](Lib/LLVMJIT/LLVMModule.cpp) created by step 2, replacing symbols with the appropriate values from the module's environment.
-
-# License
-
-WAVM is provided under the terms of [LICENSE.md](LICENSE.md).

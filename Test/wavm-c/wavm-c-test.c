@@ -1,5 +1,4 @@
 #include "WAVM/wavm-c/wavm-c.h"
-
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,7 +51,7 @@ int main(int argc, const char* argv[])
 	printf("Instantiating module...\n");
 	const wasm_extern_t* imports[1];
 	imports[0] = wasm_func_as_extern(hello_func);
-	own wasm_instance_t* instance = wasm_instance_new(store, module, imports);
+	own wasm_instance_t* instance = wasm_instance_new(store, module, imports, NULL);
 	if(!instance)
 	{
 		printf("> Error instantiating module!\n");

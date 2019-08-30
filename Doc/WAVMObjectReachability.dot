@@ -1,0 +1,74 @@
+digraph {
+	rankdir=LR;
+	
+	labelloc="t";
+	label="Reachability Graph Schema";
+	fontsize=30;
+
+	subgraph clusterLegend {
+		label="";
+		style=solid;
+		PerCompartmentObject [shape=record, label="Per-compartment object"];
+		CrossCompartmentObject [shape=record, style=filled, label="Cross-compartment object"];
+		PerCompartmentObject->CrossCompartmentObject [style=invisible, dir=none];
+		
+		anyrefSinkLegend [shape=record, style="rounded, dashed", label=<<i>anyref</i>>];
+
+		ReferenceableObject [shape=record, style=rounded, label="Any referenceable object"];
+		anyrefSinkLegend:e -> ReferenceableObject:w [color="black:invis:black", dir=none];
+	}
+		
+	anyrefSink1 [shape=record, style="rounded, dashed", label=<<i>anyref</i>>];
+	anyrefSink2 [shape=record, style="rounded, dashed", label=<<i>anyref</i>>];
+	anyrefSink3 [shape=record, style="rounded, dashed", label=<<i>anyref</i>>];
+	anyrefSink4 [shape=record, style="rounded, dashed", label=<<i>anyref</i>>];
+	anyrefSink5 [shape=record, style="rounded, dashed", label=<<i>anyref</i>>];
+	anyrefSink6 [shape=record, style="rounded, dashed", label=<<i>anyref</i>>];
+		
+	Exception [shape=record, style=rounded, label="{<ref>Runtime::Exception}|<arguments>arguments|<type>type"];
+
+	Compartment [shape=record, style=rounded, label="{<ref>Runtime::Compartment}|<idToModuleInstanceMap> idToModuleInstanceMap|<mutableGlobalInitialValues>mutableGlobalInitialValues}"];
+	ModuleInstance [shape=record, style=rounded, label="{<ref>Runtime::ModuleInstance}|<environment>...|<jitModule> jitModule"];
+	Context [shape=record, style=rounded, label="{<ref>Runtime::Context}|<compartment> compartment|<mutableGlobalValues> mutableGlobalValues|<stack> stack"];
+	Memory [shape=record, style=rounded, label="{<ref>Runtime::Memory}"];
+	Global [shape=record, style=rounded, label="{<ref>Runtime::Global}|<immutableValue> immutableValue"];
+	Table [shape=record, style=rounded, label="{<ref>Runtime::Table}|<elements> elements"];
+	ExceptionType [shape=record, style=rounded, label="{<ref>Runtime::ExceptionType}"];
+
+	Function [shape=record, style="filled, rounded", label="{<ref>Runtime::Function}|<mutableData> mutableData|<moduleInstanceId> moduleInstanceId|<code>code"];
+	moduleInstanceIdSink [shape=plaintext, label=<<i>moduleInstanceId</i>>];
+	moduleInstanceIdSource [shape=plaintext, label=<<i>moduleInstanceId</i>>];
+		
+	LLVMJITModule [shape=record, style=filled, label="{<ref>LLVMJIT::Module}|<functions>functions"];
+	FunctionMutableData [shape=record, style=filled, label="{<ref>Runtime::FunctionMutableData}"];
+
+	Context:compartment:e -> Compartment:ref:w;
+	Context:mutableGlobalValues:e -> anyrefSink1:w;
+	Context:stack:e -> Function:code:w;
+	Context:stack:e -> anyrefSink5:w;
+
+	Compartment:mutableGlobalInitialValues:e -> anyrefSink6:w
+
+	ModuleInstance:environment:e -> Function:ref:w;
+	ModuleInstance:environment:e -> Global:ref:w;
+	ModuleInstance:environment:e -> Memory:ref:w;
+	ModuleInstance:environment:e -> Table:ref:w;
+	ModuleInstance:environment:e -> ExceptionType:ref:w;
+
+	ModuleInstance:jitModule:e -> LLVMJITModule:ref:w;
+
+	Global:immutableValue:e -> anyrefSink2:w;
+	
+	Table:elements:e -> anyrefSink3:w;
+
+	Function:moduleInstanceId:e -> moduleInstanceIdSink:w;
+	moduleInstanceIdSource:e:e -> Compartment:idToModuleInstanceMap:w;
+	Compartment:idToModuleInstanceMap:e -> ModuleInstance:ref:w;
+
+	LLVMJITModule:functions:e -> Function:ref:w;
+
+	Function:mutableData:e -> FunctionMutableData:ref:w;
+
+	Exception:type:e -> ExceptionType:ref:w;
+	Exception:arguments:e -> anyrefSink4:w;
+}

@@ -3,7 +3,7 @@
 // https://github.com/CraneStation/wasi-sysroot/blob/320054e84f8f2440def3b1c8700cedb8fd697bf8/libc-bottom-half/headers/public/wasi/core.h
 // The wasi-sysroot code is licensed under the terms of the CC0 1.0 Universal license:
 // https://github.com/CraneStation/wasi-sysroot/blob/320054e84f8f2440def3b1c8700cedb8fd697bf8/libc-bottom-half/headers/LICENSE
-// That license has been mirrored in WASIDefinitions.LICENSE for posterity.
+// That license has been mirrored in WASITypes.LICENSE for posterity.
 // Thank you to the wasi-sysroot developers for their contributions to the public domain.
 
 #pragma once

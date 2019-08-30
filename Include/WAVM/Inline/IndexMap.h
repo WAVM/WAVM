@@ -11,7 +11,7 @@ namespace WAVM {
 		IndexMap(Index inMinIndex, Index inMaxIndex)
 		: lastIndex(inMinIndex - 1), minIndex(inMinIndex), maxIndex(inMaxIndex)
 		{
-			wavmAssert(maxIndex >= minIndex);
+			WAVM_ASSERT(maxIndex >= minIndex);
 		}
 
 		// Allocates an index, and adds the element to the map. Indices are allocated sequentially,
@@ -34,8 +34,8 @@ namespace WAVM {
 			} while(map.contains(lastIndex));
 
 			// Add the element to the map with the given index.
-			wavmAssert(lastIndex >= minIndex);
-			wavmAssert(lastIndex <= maxIndex);
+			WAVM_ASSERT(lastIndex >= minIndex);
+			WAVM_ASSERT(lastIndex <= maxIndex);
 			map.addOrFail(lastIndex, std::forward<Args>(args)...);
 
 			return lastIndex;
@@ -44,8 +44,8 @@ namespace WAVM {
 		// Inserts an element at a specific index. If the index is already allocated, asserts.
 		template<typename... Args> void insertOrFail(Index index, Args&&... args)
 		{
-			wavmAssert(index >= minIndex);
-			wavmAssert(index <= maxIndex);
+			WAVM_ASSERT(index >= minIndex);
+			WAVM_ASSERT(index <= maxIndex);
 			map.addOrFail(index, std::forward<Args>(args)...);
 		}
 
@@ -53,16 +53,16 @@ namespace WAVM {
 		// asserts.
 		void removeOrFail(Index index)
 		{
-			wavmAssert(index >= minIndex);
-			wavmAssert(index <= maxIndex);
+			WAVM_ASSERT(index >= minIndex);
+			WAVM_ASSERT(index <= maxIndex);
 			map.removeOrFail(index);
 		}
 
 		// Returns whether the specified index is allocated.
 		bool contains(Index index) const
 		{
-			wavmAssert(index >= minIndex);
-			wavmAssert(index <= maxIndex);
+			WAVM_ASSERT(index >= minIndex);
+			WAVM_ASSERT(index <= maxIndex);
 			return map.contains(index);
 		}
 
@@ -70,15 +70,15 @@ namespace WAVM {
 		// isn't allocated.
 		const Element& operator[](Index index) const
 		{
-			wavmAssert(index >= minIndex);
-			wavmAssert(index <= maxIndex);
+			WAVM_ASSERT(index >= minIndex);
+			WAVM_ASSERT(index <= maxIndex);
 			return map[index];
 		}
 		Element& operator[](Index index)
 		{
-			wavmAssert(index >= minIndex);
-			wavmAssert(index <= maxIndex);
-			wavmAssert(map.contains(index));
+			WAVM_ASSERT(index >= minIndex);
+			WAVM_ASSERT(index <= maxIndex);
+			WAVM_ASSERT(map.contains(index));
 			return map.getOrAdd(index);
 		}
 
@@ -86,14 +86,14 @@ namespace WAVM {
 		// allocated.
 		const Element* get(Index index) const
 		{
-			wavmAssert(index >= minIndex);
-			wavmAssert(index <= maxIndex);
+			WAVM_ASSERT(index >= minIndex);
+			WAVM_ASSERT(index <= maxIndex);
 			return map.get(index);
 		}
 		Element* get(Index index)
 		{
-			wavmAssert(index >= minIndex);
-			wavmAssert(index <= maxIndex);
+			WAVM_ASSERT(index >= minIndex);
+			WAVM_ASSERT(index <= maxIndex);
 			return map.get(index);
 		}
 

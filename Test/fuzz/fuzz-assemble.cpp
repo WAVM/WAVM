@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <vector>
-
+#include "FuzzTargetCommonMain.h"
 #include "ModuleMatcher.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -21,25 +21,27 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	std::vector<U8> wastBytes(data, data + numBytes);
 	wastBytes.push_back(0);
 
-	Module wastModule;
+	Module wastModule(FeatureSpec(true));
 	std::vector<WAST::Error> parseErrors;
 	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), wastModule, parseErrors))
 	{
 		std::vector<U8> wasmBytes;
-		try
 		{
-			Serialization::ArrayOutputStream stream;
-			WASM::serialize(stream, wastModule);
-			wasmBytes = stream.getBytes();
-		}
-		catch(Serialization::FatalSerializationException const&)
-		{
-			return 0;
+			Serialization::ArrayOutputStream outputStream;
+			WASM::saveBinaryModule(outputStream, wastModule);
+			wasmBytes = outputStream.getBytes();
 		}
 
-		Module wasmModule;
-		if(!WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), wasmModule))
-		{ Errors::fatal("Failed to deserialize the generated WASM file"); }
+		Module wasmModule(FeatureSpec(true));
+		{
+			Serialization::MemoryInputStream inputStream(wasmBytes.data(), wasmBytes.size());
+			WASM::LoadError loadError;
+			if(!WASM::loadBinaryModule(inputStream, wasmModule, &loadError))
+			{
+				Errors::fatalf("Failed to load the generated WASM binary: %s",
+							   loadError.message.c_str());
+			}
+		}
 
 		ModuleMatcher moduleMatcher(wastModule, wasmModule);
 		moduleMatcher.verify();
@@ -47,22 +49,3 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 	return 0;
 }
-
-#if !WAVM_ENABLE_LIBFUZZER
-
-I32 main(int argc, char** argv)
-{
-	if(argc != 2)
-	{
-		Log::printf(Log::error, "Usage: FuzzAssemble in.wast\n");
-		return EXIT_FAILURE;
-	}
-	const char* inputFilename = argv[1];
-
-	std::vector<U8> wastBytes;
-	if(!loadFile(inputFilename, wastBytes)) { return EXIT_FAILURE; }
-
-	LLVMFuzzerTestOneInput(wastBytes.data(), wastBytes.size());
-	return EXIT_SUCCESS;
-}
-#endif

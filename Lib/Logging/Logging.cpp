@@ -1,9 +1,8 @@
+#include "WAVM/Logging/Logging.h"
 #include <atomic>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Config.h"
-#include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
@@ -12,13 +11,16 @@ using namespace WAVM;
 using namespace WAVM::Log;
 
 static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
-	{true},                     // error
-	{WAVM_DEBUG != 0},          // debug
-	{WAVM_METRICS_OUTPUT != 0}, // metrics
-	{true},                     // output
+	{true},         // error
+	{!!WAVM_DEBUG}, // debug
+	{false},        // metrics
+	{true},         // output
+	{false},        // trace validation
+	{false},        // trace compilation
 };
+static std::atomic<OutputFunction*> atomicOutputFunction{nullptr};
 
-static VFS::FD* getFileForCategory(Log::Category category)
+static VFS::VFD* getFileForCategory(Log::Category category)
 {
 	return category == Log::error ? Platform::getStdFD(Platform::StdDevice::err)
 								  : Platform::getStdFD(Platform::StdDevice::out);
@@ -26,13 +28,13 @@ static VFS::FD* getFileForCategory(Log::Category category)
 
 void Log::setCategoryEnabled(Category category, bool enable)
 {
-	wavmAssert(category < Category::num);
+	WAVM_ASSERT(category < Category::num);
 	categoryEnabled[(Uptr)category].store(enable);
 }
 
 bool Log::isCategoryEnabled(Category category)
 {
-	wavmAssert(category < Category::num);
+	WAVM_ASSERT(category < Category::num);
 	return categoryEnabled[(Uptr)category].load();
 }
 
@@ -54,15 +56,32 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 		va_list argListCopy;
 		va_copy(argListCopy, argList);
 		const I32 numChars = vsnprintf(nullptr, 0, format, argListCopy);
-		wavmAssert(numChars >= 0);
+		WAVM_ASSERT(numChars >= 0);
 
 		const Uptr numBufferBytes = numChars + 1;
-		char* buffer = (char*)alloca(numBufferBytes);
+		static constexpr Uptr maxAllocaBytes = 4096;
+		char* buffer = (char*)(numBufferBytes > maxAllocaBytes ? malloc(numBufferBytes)
+															   : alloca(numBufferBytes));
 		vsnprintf(buffer, numBufferBytes, format, argList);
 
-		VFS::FD* fd = getFileForCategory(category);
-		Uptr numBytesWritten = 0;
-		errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::WriteResult::success);
-		errorUnless(numBytesWritten == U32(numChars));
+		// If an output function is set, call it with the message.
+		OutputFunction* outputFunction = atomicOutputFunction.load(std::memory_order_acquire);
+		if(outputFunction) { (*outputFunction)(category, buffer, Uptr(numChars)); }
+		else
+		{
+			// Otherwise, write the message to the appropriate stdio device.
+			VFS::VFD* fd = getFileForCategory(category);
+			Uptr numBytesWritten = 0;
+			WAVM_ERROR_UNLESS(fd->write(buffer, numChars, &numBytesWritten)
+							  == VFS::Result::success);
+			WAVM_ERROR_UNLESS(numBytesWritten == U32(numChars));
+		}
+
+		if(numBufferBytes > maxAllocaBytes) { free(buffer); }
 	}
+}
+
+void Log::setOutputFunction(OutputFunction* newOutputFunction)
+{
+	atomicOutputFunction.store(newOutputFunction, std::memory_order_release);
 }

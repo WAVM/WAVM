@@ -3,47 +3,38 @@
 #include <sys/time.h>
 #include <time.h>
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
 
 using namespace WAVM;
 using namespace WAVM::Platform;
 
-static I128 timespecToNS(timespec t)
-{
-	return assumeNoOverflow(I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_nsec));
-}
+static I128 timespecToNS(timespec t) { return I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_nsec); }
 
 static I128 getClockAsI128(clockid_t clockId)
 {
 	timespec clockTime;
-	errorUnless(!clock_gettime(clockId, &clockTime));
+	WAVM_ERROR_UNLESS(!clock_gettime(clockId, &clockTime));
 	return timespecToNS(clockTime);
 }
 
 static I128 getClockResAsI128(clockid_t clockId)
 {
 	timespec clockResolution;
-	errorUnless(!clock_getres(clockId, &clockResolution));
+	WAVM_ERROR_UNLESS(!clock_getres(clockId, &clockResolution));
 	return timespecToNS(clockResolution);
 }
 
-// Real-time clock
-I128 Platform::getRealtimeClock() { return getClockAsI128(CLOCK_REALTIME); }
-I128 Platform::getRealtimeClockResolution() { return getClockResAsI128(CLOCK_REALTIME); }
-
-// Monotonic clock
-#ifdef CLOCK_MONOTONIC
-I128 Platform::getMonotonicClock() { return getClockAsI128(CLOCK_MONOTONIC); }
-I128 Platform::getMonotonicClockResolution() { return getClockResAsI128(CLOCK_MONOTONIC); }
-#elif defined(__APPLE__)
+#if defined(__APPLE__)
 
 #include <mach/mach_time.h>
 
 static mach_timebase_info_data_t getTimebaseInfoData()
 {
 	mach_timebase_info_data_t timebaseInfoData;
-	errorUnless(mach_timebase_info(&timebaseInfoData) == KERN_SUCCESS);
+	WAVM_ERROR_UNLESS(mach_timebase_info(&timebaseInfoData) == KERN_SUCCESS);
 	return timebaseInfoData;
 }
 
@@ -59,7 +50,7 @@ static I128 getMachAbsoluteClock()
 	const I128 ticks = mach_absolute_time();
 	const I128 ns = ticks * cachedTimebaseInfoData.numer / cachedTimebaseInfoData.denom;
 
-	return assumeNoOverflow(ns);
+	return ns;
 }
 static I128 getMachAbsoluteClockResolution()
 {
@@ -68,27 +59,56 @@ static I128 getMachAbsoluteClockResolution()
 	if(ticksPerNanosecond == 0) { ticksPerNanosecond = 1; }
 	return ticksPerNanosecond;
 }
+#endif
 
-I128 Platform::getMonotonicClock() { return getMachAbsoluteClock(); }
-I128 Platform::getMonotonicClockResolution() { return getMachAbsoluteClockResolution(); }
+Time Platform::getClockTime(Clock clock)
+{
+	switch(clock)
+	{
+	case Clock::realtime: return Time{getClockAsI128(CLOCK_REALTIME)};
+	case Clock::monotonic: {
+#if defined(__APPLE__)
+		return Time{getMachAbsoluteClock()};
+#elif defined(CLOCK_MONOTONIC)
+		return Time{getClockAsI128(CLOCK_MONOTONIC)};
 #else
 #error CLOCK_MONOTONIC not supported on this platform.
 #endif
-
-// Process CPU time clock
+	}
+	case Clock::processCPUTime: {
 #ifdef CLOCK_PROCESS_CPUTIME_ID
-I128 Platform::getProcessClock() { return getClockAsI128(CLOCK_PROCESS_CPUTIME_ID); }
-I128 Platform::getProcessClockResolution() { return getClockResAsI128(CLOCK_PROCESS_CPUTIME_ID); }
+		return Time{getClockAsI128(CLOCK_PROCESS_CPUTIME_ID)};
 #else
-static I128 timevalToNS(timeval t)
-{
-	return assumeNoOverflow(I128(U64(t.tv_sec)) * 1000000 + U64(t.tv_usec));
-}
-I128 Platform::getProcessClock()
-{
-	struct rusage ru;
-	errorUnless(!getrusage(RUSAGE_SELF, &ru));
-	return assumeNoOverflow(timevalToNS(ru.ru_stime) + timevalToNS(ru.ru_utime));
-}
-I128 Platform::getProcessClockResolution() { return 1000; }
+		struct rusage ru;
+		WAVM_ERROR_UNLESS(!getrusage(RUSAGE_SELF, &ru));
+		return Time{timevalToNS(ru.ru_stime) + timevalToNS(ru.ru_utime)};
 #endif
+	}
+	default: WAVM_UNREACHABLE();
+	}
+}
+
+Time Platform::getClockResolution(Clock clock)
+{
+	switch(clock)
+	{
+	case Clock::realtime: return Time{getClockResAsI128(CLOCK_REALTIME)};
+	case Clock::monotonic: {
+#if defined(__APPLE__)
+		return Time{getMachAbsoluteClockResolution()};
+#elif defined(CLOCK_MONOTONIC)
+		return Time{getClockResAsI128(CLOCK_MONOTONIC)};
+#else
+#error CLOCK_MONOTONIC not supported on this platform.
+#endif
+	}
+	case Clock::processCPUTime: {
+#ifdef CLOCK_PROCESS_CPUTIME_ID
+		return Time{getClockResAsI128(CLOCK_PROCESS_CPUTIME_ID)};
+#else
+		return Time{1000};
+#endif
+	}
+	default: WAVM_UNREACHABLE();
+	}
+}

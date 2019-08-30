@@ -1,13 +1,14 @@
 #pragma once
 
+#include <cstdarg>
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Error.h"
 
-#include <cstdarg>
+#define WAVM_ENABLE_ASSERTS (WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS)
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
-#define wavmAssert(condition)                                                                      \
+#if WAVM_ENABLE_ASSERTS
+#define WAVM_ASSERT(condition)                                                                     \
 	if(!(condition))                                                                               \
 	{                                                                                              \
 		for(static const WAVM::Platform::AssertMetadata wavmAssertMetadata{                        \
@@ -15,16 +16,16 @@
 			;)                                                                                     \
 		{                                                                                          \
 			WAVM::Platform::handleAssertionFailure(wavmAssertMetadata);                            \
-			DEBUG_TRAP();                                                                          \
+			WAVM_DEBUG_TRAP();                                                                     \
 			break;                                                                                 \
 		}                                                                                          \
 	}
 #else
-#define wavmAssert(condition)                                                                      \
+#define WAVM_ASSERT(condition)                                                                     \
 	if(false && !(condition)) {}
 #endif
 
-#define errorUnless(condition)                                                                     \
+#define WAVM_ERROR_UNLESS(condition)                                                               \
 	if(!(condition))                                                                               \
 	{                                                                                              \
 		for(static const WAVM::Platform::AssertMetadata wavmAssertMetadata{                        \
@@ -32,7 +33,10 @@
 			;)                                                                                     \
 		{                                                                                          \
 			WAVM::Platform::handleAssertionFailure(wavmAssertMetadata);                            \
-			DEBUG_TRAP();                                                                          \
+			WAVM_DEBUG_TRAP();                                                                     \
 			break;                                                                                 \
 		}                                                                                          \
 	}
+
+#define WAVM_UNREACHABLE()                                                                         \
+	while(true) { WAVM_DEBUG_TRAP(); };

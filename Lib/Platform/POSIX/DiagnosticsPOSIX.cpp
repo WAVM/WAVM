@@ -1,15 +1,11 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
-#include <cstdio>
 #include <string>
-
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/Mutex.h"
 
-#if WAVM_ENABLE_RUNTIME
+#if WAVM_ENABLE_UNWIND
 #define UNW_LOCAL_ONLY
 #include "libunwind.h"
 #endif
@@ -25,85 +21,39 @@ extern "C" const char* __asan_default_options()
 		   ":replace_intrin=false";
 }
 
-static Mutex& getErrorReportingMutex()
-{
-	static Platform::Mutex mutex;
-	return mutex;
-}
-
 CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 {
 	CallStack result;
 
-#if WAVM_ENABLE_RUNTIME
+#if WAVM_ENABLE_UNWIND
 	unw_context_t context;
-	errorUnless(!unw_getcontext(&context));
+	WAVM_ERROR_UNLESS(!unw_getcontext(&context));
 
 	unw_cursor_t cursor;
-	bool lastFrameWasSignalFrame = false;
 
-	errorUnless(!unw_init_local(&cursor, &context));
-	while(unw_step(&cursor) > 0)
+	WAVM_ERROR_UNLESS(!unw_init_local(&cursor, &context));
+	for(Uptr frameIndex = 0; !result.frames.isFull() && unw_step(&cursor) > 0; ++frameIndex)
 	{
-		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
-		else
+		if(frameIndex >= numOmittedFramesFromTop)
 		{
 			unw_word_t ip;
-			errorUnless(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
-			result.stackFrames.push_back(CallStack::Frame{lastFrameWasSignalFrame ? ip : (ip - 1)});
+			WAVM_ERROR_UNLESS(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
+			result.frames.push_back(CallStack::Frame{frameIndex == 0 ? ip : (ip - 1)});
 		}
-
-		lastFrameWasSignalFrame = unw_is_signal_frame(&cursor) > 0;
 	}
 #endif
 
 	return result;
 }
 
-void Platform::dumpErrorCallStack(Uptr numOmittedFramesFromTop)
-{
-	std::fprintf(stderr, "Call stack:\n");
-	CallStack callStack = captureCallStack(numOmittedFramesFromTop);
-	for(auto frame : callStack.stackFrames)
-	{
-		std::string frameDescription;
-		if(!Platform::describeInstructionPointer(frame.ip, frameDescription))
-		{ frameDescription = "<unknown function>"; }
-		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
-	}
-	std::fflush(stderr);
-}
-
-void Platform::handleFatalError(const char* messageFormat, bool printCallStack, va_list varArgs)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::vfprintf(stderr, messageFormat, varArgs);
-	std::fprintf(stderr, "\n");
-	if(printCallStack) { dumpErrorCallStack(2); }
-	std::fflush(stderr);
-	std::abort();
-}
-
-void Platform::handleAssertionFailure(const AssertMetadata& metadata)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::fprintf(stderr,
-				 "Assertion failed at %s(%u): %s\n",
-				 metadata.file,
-				 metadata.line,
-				 metadata.condition);
-	dumpErrorCallStack(2);
-	std::fflush(stderr);
-}
-
 bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
-#if WAVM_ENABLE_RUNTIME
+#if defined(__linux__) || defined(__APPLE__)
 	// Look up static symbol information for the address.
 	Dl_info symbolInfo;
 	if(dladdr((void*)ip, &symbolInfo))
 	{
-		wavmAssert(symbolInfo.dli_fname);
+		WAVM_ASSERT(symbolInfo.dli_fname);
 		outDescription = "host!";
 		outDescription += symbolInfo.dli_fname;
 		outDescription += '!';

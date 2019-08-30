@@ -1,5 +1,4 @@
 #include <stdint.h>
-
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "EmitWorkarounds.h"
@@ -9,11 +8,11 @@
 #include "WAVM/Inline/BasicTypes.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Intrinsics.h"
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Intrinsics.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
@@ -335,3 +334,77 @@ EMIT_SIMD_SPLAT(i32x4, scalar, 4)
 EMIT_SIMD_SPLAT(i64x2, scalar, 2)
 EMIT_SIMD_SPLAT(f32x4, scalar, 4)
 EMIT_SIMD_SPLAT(f64x2, scalar, 2)
+
+#define EMIT_SIMD_NARROW(name, sourceType, halfDestType, x86IntrinsicId, aarch64IntrinsicId)       \
+	void EmitFunctionContext::name(IR::NoImm)                                                      \
+	{                                                                                              \
+		auto right = irBuilder.CreateBitCast(pop(), sourceType);                                   \
+		auto left = irBuilder.CreateBitCast(pop(), sourceType);                                    \
+		const llvm::Triple::ArchType targetArch                                                    \
+			= moduleContext.targetMachine->getTargetTriple().getArch();                            \
+		if(targetArch == llvm::Triple::x86_64 || targetArch == llvm::Triple::x86)                  \
+		{ push(callLLVMIntrinsic({}, x86IntrinsicId, {left, right})); }                            \
+		else if(targetArch == llvm::Triple::aarch64)                                               \
+		{                                                                                          \
+			llvm::Value* halfInput[2]{left, right};                                                \
+			llvm::Value* result = llvm::UndefValue::get(llvmContext.i64x2Type);                    \
+			for(U64 halfIndex = 0; halfIndex < 2; ++halfIndex)                                     \
+			{                                                                                      \
+				result = irBuilder.CreateInsertElement(                                            \
+					result,                                                                        \
+					irBuilder.CreateExtractElement(                                                \
+						irBuilder.CreateBitCast(                                                   \
+							callLLVMIntrinsic(                                                     \
+								{halfDestType}, aarch64IntrinsicId, {halfInput[halfIndex]}),       \
+							llvmContext.i64x1Type),                                                \
+						U64(0)),                                                                   \
+					halfIndex);                                                                    \
+			}                                                                                      \
+			push(result);                                                                          \
+		}                                                                                          \
+	}
+
+EMIT_SIMD_NARROW(i8x16_narrow_i16x8_s,
+				 llvmContext.i16x8Type,
+				 llvmContext.i8x8Type,
+				 llvm::Intrinsic::x86_sse2_packsswb_128,
+				 llvm::Intrinsic::aarch64_neon_sqxtn)
+EMIT_SIMD_NARROW(i8x16_narrow_i16x8_u,
+				 llvmContext.i16x8Type,
+				 llvmContext.i8x8Type,
+				 llvm::Intrinsic::x86_sse2_packuswb_128,
+				 llvm::Intrinsic::aarch64_neon_sqxtun)
+EMIT_SIMD_NARROW(i16x8_narrow_i32x4_s,
+				 llvmContext.i32x4Type,
+				 llvmContext.i16x4Type,
+				 llvm::Intrinsic::x86_sse2_packssdw_128,
+				 llvm::Intrinsic::aarch64_neon_sqxtn)
+EMIT_SIMD_NARROW(i16x8_narrow_i32x4_u,
+				 llvmContext.i32x4Type,
+				 llvmContext.i16x4Type,
+				 llvm::Intrinsic::x86_sse41_packusdw,
+				 llvm::Intrinsic::aarch64_neon_sqxtun)
+
+#define EMIT_SIMD_WIDEN(name, destType, sourceType, baseSourceElementIndex, numElements, extend)   \
+	void EmitFunctionContext::name(IR::NoImm)                                                      \
+	{                                                                                              \
+		auto operand = irBuilder.CreateBitCast(pop(), sourceType);                                 \
+		llvm::Value* result = llvm::UndefValue::get(destType);                                     \
+		for(Uptr index = 0; index < numElements; ++index)                                          \
+		{                                                                                          \
+			auto scalar = irBuilder.CreateExtractElement(operand, baseSourceElementIndex + index); \
+			result = irBuilder.CreateInsertElement(                                                \
+				result, extend(scalar, destType->getScalarType()), index);                         \
+		}                                                                                          \
+		push(result);                                                                              \
+	}
+
+EMIT_SIMD_WIDEN(i16x8_widen_low_i8x16_s, llvmContext.i16x8Type, llvmContext.i8x16Type, 0, 8, sext)
+EMIT_SIMD_WIDEN(i16x8_widen_high_i8x16_s, llvmContext.i16x8Type, llvmContext.i8x16Type, 8, 8, sext)
+EMIT_SIMD_WIDEN(i16x8_widen_low_i8x16_u, llvmContext.i16x8Type, llvmContext.i8x16Type, 0, 8, zext)
+EMIT_SIMD_WIDEN(i16x8_widen_high_i8x16_u, llvmContext.i16x8Type, llvmContext.i8x16Type, 8, 8, zext)
+
+EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, sext)
+EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, sext)
+EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, zext)
+EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, zext)

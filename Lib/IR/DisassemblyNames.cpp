@@ -4,11 +4,11 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/LEB128.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Logging/Logging.h"
 
@@ -88,13 +88,11 @@ static void deserializeNameSubsection(const Module& module,
 	MemoryInputStream substream(stream.advance(numSubsectionBytes), numSubsectionBytes);
 	switch((NameSubsectionType)subsectionType)
 	{
-	case NameSubsectionType::module:
-	{
+	case NameSubsectionType::module: {
 		serialize(substream, outNames.moduleName);
 		break;
 	}
-	case NameSubsectionType::function:
-	{
+	case NameSubsectionType::function: {
 		U32 numFunctionNames = 0;
 		serializeVarUInt32(substream, numFunctionNames);
 		for(Uptr functionNameIndex = 0; functionNameIndex < numFunctionNames; ++functionNameIndex)
@@ -110,8 +108,7 @@ static void deserializeNameSubsection(const Module& module,
 		}
 		break;
 	}
-	case NameSubsectionType::local:
-	{
+	case NameSubsectionType::local: {
 		U32 numFunctionLocalNameMaps = 0;
 		serializeVarUInt32(substream, numFunctionLocalNameMaps);
 		for(Uptr functionNameIndex = 0; functionNameIndex < numFunctionLocalNameMaps;
@@ -128,19 +125,19 @@ static void deserializeNameSubsection(const Module& module,
 			}
 			else
 			{
-				Log::printf(Log::debug,
-							"Invalid WASM binary local name section function index: %u >= %" PRIuPTR
-							"\n",
-							functionIndex,
-							Uptr(outNames.functions.size()));
+				Log::printf(
+					Log::debug,
+					"Invalid WASM binary local name section function index: %u >= %" WAVM_PRIuPTR
+					"\n",
+					functionIndex,
+					Uptr(outNames.functions.size()));
 				break;
 			}
 		}
 
 		break;
 	}
-	case NameSubsectionType::label:
-	{
+	case NameSubsectionType::label: {
 		if(!module.featureSpec.extendedNamesSection)
 		{
 			throw FatalSerializationException(
@@ -163,11 +160,12 @@ static void deserializeNameSubsection(const Module& module,
 			}
 			else
 			{
-				Log::printf(Log::debug,
-							"Invalid WASM binary label name section function index: %u >= %" PRIuPTR
-							"\n",
-							functionIndex,
-							Uptr(outNames.functions.size()));
+				Log::printf(
+					Log::debug,
+					"Invalid WASM binary label name section function index: %u >= %" WAVM_PRIuPTR
+					"\n",
+					functionIndex,
+					Uptr(outNames.functions.size()));
 				break;
 			}
 		}

@@ -15,51 +15,6 @@
 using namespace WAVM;
 using namespace WAVM::Platform;
 
-static Mutex& getErrorReportingMutex()
-{
-	static Platform::Mutex mutex;
-	return mutex;
-}
-
-static void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
-{
-	std::fprintf(stderr, "Call stack:\n");
-	CallStack callStack = captureCallStack(numOmittedFramesFromTop);
-	for(auto frame : callStack.stackFrames)
-	{
-		std::string frameDescription;
-		if(!Platform::describeInstructionPointer(frame.ip, frameDescription))
-		{ frameDescription = "<unknown function>"; }
-		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
-	}
-	std::fflush(stderr);
-}
-
-void Platform::handleFatalError(const char* messageFormat, bool printCallStack, va_list varArgs)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::vfprintf(stderr, messageFormat, varArgs);
-	std::fprintf(stderr, "\n");
-	if(printCallStack) { dumpErrorCallStack(2); }
-	std::fflush(stderr);
-	if(IsDebuggerPresent()) { DebugBreak(); }
-	TerminateProcess(GetCurrentProcess(), 1);
-
-	// This throw is necessary to convince clang-cl that the function doesn't return.
-	throw;
-}
-
-void Platform::handleAssertionFailure(const AssertMetadata& metadata)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::fprintf(stderr,
-				 "Assertion failed at %s(%u): %s\n",
-				 metadata.file,
-				 metadata.line,
-				 metadata.condition);
-	dumpErrorCallStack(2);
-}
-
 // The interface to the DbgHelp DLL
 struct DbgHelp
 {
@@ -167,13 +122,13 @@ CallStack Platform::unwindStack(const CONTEXT& immutableContext, Uptr numOmitted
 	// Unwind the stack until there isn't a valid instruction pointer, which signals we've
 	// reached the base.
 	CallStack callStack;
-#ifdef _WIN64
-	while(context.Rip)
+#if WAVM_ENABLE_UNWIND
+	for(Uptr frameIndex = 0; !callStack.frames.isFull() && context.Rip; ++frameIndex)
 	{
-		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
-		else
+		if(frameIndex >= numOmittedFramesFromTop)
 		{
-			callStack.stackFrames.push_back({context.Rip});
+			callStack.frames.push_back(
+				CallStack::Frame{frameIndex == 0 ? context.Rip : (context.Rip - 1)});
 		}
 
 		// Look up the SEH unwind information for this function.

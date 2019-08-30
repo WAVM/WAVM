@@ -1,11 +1,10 @@
+#include "WAVM/IR/Module.h"
 #include <string.h>
 #include <atomic>
 #include <memory>
 #include <utility>
-
 #include "RuntimePrivate.h"
 #include "WAVM/IR/IR.h"
-#include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
@@ -14,14 +13,19 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Serialization.h"
+#include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/WASM/WASM.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
+
+Platform::Mutex globalObjectCacheMutex;
+std::shared_ptr<ObjectCacheInterface> globalObjectCache;
 
 static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 								 InitializerExpression expression)
@@ -33,13 +37,12 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	case InitializerExpression::Type::f32_const: return expression.f32;
 	case InitializerExpression::Type::f64_const: return expression.f64;
 	case InitializerExpression::Type::v128_const: return expression.v128;
-	case InitializerExpression::Type::global_get:
-	{
+	case InitializerExpression::Type::global_get: {
 		// Find the import this refers to.
-		errorUnless(expression.ref < moduleGlobals.size());
+		WAVM_ERROR_UNLESS(expression.ref < moduleGlobals.size());
 		Global* global = moduleGlobals[expression.ref];
-		errorUnless(global);
-		errorUnless(!global->type.isMutable);
+		WAVM_ERROR_UNLESS(global);
+		WAVM_ERROR_UNLESS(!global->type.isMutable);
 		return IR::Value(global->type.valueType, global->initialValue);
 	}
 	case InitializerExpression::Type::ref_null: return nullptr;
@@ -53,13 +56,77 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	};
 }
 
-ModuleRef Runtime::compileModule(const IR::Module& irModule)
+void Runtime::setGlobalObjectCache(std::shared_ptr<ObjectCacheInterface>&& objectCache)
 {
-	std::vector<U8> objectCode = LLVMJIT::compileModule(irModule);
-	return std::make_shared<Module>(IR::Module(irModule), std::move(objectCode));
+	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
+	globalObjectCache = std::move(objectCache);
 }
 
-std::vector<U8> Runtime::getObjectCode(ModuleConstRefParam module) { return module->objectCode; }
+static std::shared_ptr<ObjectCacheInterface> getGlobalObjectCache()
+{
+	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
+	return globalObjectCache;
+}
+
+ModuleRef Runtime::compileModule(const IR::Module& irModule)
+{
+	// Get a pointer to the global object cache, if there is one.
+	std::shared_ptr<ObjectCacheInterface> objectCache = getGlobalObjectCache();
+
+	std::vector<U8> objectCode;
+	if(!objectCache)
+	{
+		// If there's no global object cache, just compile the module.
+		objectCode = LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+	}
+	else
+	{
+		// Serialize the IR module to WASM.
+		Timing::Timer keyTimer;
+		Serialization::ArrayOutputStream stream;
+		WASM::saveBinaryModule(stream, irModule);
+		Timing::logTimer("Created object cache key from IR module", keyTimer);
+		std::vector<U8> wasmBytes = stream.getBytes();
+
+		// Check for cached object code for the module before compiling it.
+		objectCode = objectCache->getCachedObject(wasmBytes, [&irModule]() {
+			return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+		});
+	}
+
+	return std::make_shared<Runtime::Module>(IR::Module(irModule), std::move(objectCode));
+}
+
+bool Runtime::loadBinaryModule(const std::vector<U8>& wasmBytes,
+							   ModuleRef& outModule,
+							   const IR::FeatureSpec& featureSpec,
+							   WASM::LoadError* outError)
+{
+	// Load the module IR.
+	IR::Module irModule(std::move(featureSpec));
+	Serialization::MemoryInputStream stream(wasmBytes.data(), wasmBytes.size());
+	if(!WASM::loadBinaryModule(stream, irModule, outError)) { return false; }
+
+	// Get a pointer to the global object cache, if there is one.
+	std::shared_ptr<ObjectCacheInterface> objectCache = getGlobalObjectCache();
+
+	std::vector<U8> objectCode;
+	if(!objectCache)
+	{
+		// If there's no global object cache, just compile the module.
+		objectCode = LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+	}
+	else
+	{
+		// Check for cached object code for the module before compiling it.
+		objectCode = objectCache->getCachedObject(wasmBytes, [&irModule]() {
+			return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+		});
+	}
+
+	outModule = std::make_shared<Runtime::Module>(std::move(irModule), std::move(objectCode));
+	return true;
+}
 
 ModuleRef Runtime::loadPrecompiledModule(const IR::Module& irModule,
 										 const std::vector<U8>& objectCode)
@@ -68,12 +135,13 @@ ModuleRef Runtime::loadPrecompiledModule(const IR::Module& irModule,
 }
 
 const IR::Module& Runtime::getModuleIR(ModuleConstRefParam module) { return module->ir; }
+std::vector<U8> Runtime::getObjectCode(ModuleConstRefParam module) { return module->objectCode; }
 
 ModuleInstance::~ModuleInstance()
 {
 	if(id != UINTPTR_MAX)
 	{
-		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->moduleInstances.removeOrFail(id);
 	}
 }
@@ -81,7 +149,8 @@ ModuleInstance::~ModuleInstance()
 ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 										   ModuleConstRefParam module,
 										   ImportBindings&& imports,
-										   std::string&& moduleDebugName)
+										   std::string&& moduleDebugName,
+										   ResourceQuotaRefParam resourceQuota)
 {
 	Uptr id = UINTPTR_MAX;
 	{
@@ -97,52 +166,48 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	std::vector<ExceptionType*> exceptionTypes;
 
 	// Check the types of the ModuleInstance's imports.
-	errorUnless(imports.size() == module->ir.imports.size());
+	WAVM_ERROR_UNLESS(imports.size() == module->ir.imports.size());
 	for(Uptr importIndex = 0; importIndex < imports.size(); ++importIndex)
 	{
 		const auto& kindIndex = module->ir.imports[importIndex];
 		Object* importObject = imports[importIndex];
 
-		errorUnless(isInCompartment(importObject, compartment));
-		errorUnless(importObject->kind == ObjectKind(kindIndex.kind));
+		WAVM_ERROR_UNLESS(isInCompartment(importObject, compartment));
+		WAVM_ERROR_UNLESS(importObject->kind == ObjectKind(kindIndex.kind));
 
 		switch(kindIndex.kind)
 		{
-		case ExternKind::function:
-		{
+		case ExternKind::function: {
 			Function* function = asFunction(importObject);
 			const auto& importType
 				= module->ir.types[module->ir.functions.getType(kindIndex.index).index];
-			errorUnless(function->encodedType == importType);
+			WAVM_ERROR_UNLESS(function->encodedType == importType);
 			functions.push_back(function);
 			break;
 		}
-		case ExternKind::table:
-		{
+		case ExternKind::table: {
 			Table* table = asTable(importObject);
-			errorUnless(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
+			WAVM_ERROR_UNLESS(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
 			tables.push_back(table);
 			break;
 		}
-		case ExternKind::memory:
-		{
+		case ExternKind::memory: {
 			Memory* memory = asMemory(importObject);
-			errorUnless(isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
+			WAVM_ERROR_UNLESS(
+				isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
 			memories.push_back(memory);
 			break;
 		}
-		case ExternKind::global:
-		{
+		case ExternKind::global: {
 			Global* global = asGlobal(importObject);
-			errorUnless(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
+			WAVM_ERROR_UNLESS(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
 			globals.push_back(global);
 			break;
 		}
-		case ExternKind::exceptionType:
-		{
+		case ExternKind::exceptionType: {
 			ExceptionType* exceptionType = asExceptionType(importObject);
-			errorUnless(isSubtype(exceptionType->sig.params,
-								  module->ir.exceptionTypes.getType(kindIndex.index).params));
+			WAVM_ERROR_UNLESS(isSubtype(exceptionType->sig.params,
+										module->ir.exceptionTypes.getType(kindIndex.index).params));
 			exceptionTypes.push_back(exceptionType);
 			break;
 		}
@@ -152,11 +217,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		};
 	}
 
-	wavmAssert(functions.size() == module->ir.functions.imports.size());
-	wavmAssert(tables.size() == module->ir.tables.imports.size());
-	wavmAssert(memories.size() == module->ir.memories.imports.size());
-	wavmAssert(globals.size() == module->ir.globals.imports.size());
-	wavmAssert(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
+	WAVM_ASSERT(functions.size() == module->ir.functions.imports.size());
+	WAVM_ASSERT(tables.size() == module->ir.tables.imports.size());
+	WAVM_ASSERT(memories.size() == module->ir.memories.imports.size());
+	WAVM_ASSERT(globals.size() == module->ir.globals.imports.size());
+	WAVM_ASSERT(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
 
 	// Deserialize the disassembly names.
 	DisassemblyNames disassemblyNames;
@@ -167,25 +232,40 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		std::string debugName
 			= disassemblyNames.tables[module->ir.tables.imports.size() + tableDefIndex];
-		auto table = createTable(
-			compartment, module->ir.tables.defs[tableDefIndex].type, nullptr, std::move(debugName));
-		if(!table) { throwException(ExceptionTypes::outOfMemory); }
+		auto table = createTable(compartment,
+								 module->ir.tables.defs[tableDefIndex].type,
+								 nullptr,
+								 std::move(debugName),
+								 resourceQuota);
+		if(!table)
+		{
+			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+			compartment->moduleInstances.removeOrFail(id);
+			throwException(ExceptionTypes::outOfMemory);
+		}
 		tables.push_back(table);
 	}
 	for(Uptr memoryDefIndex = 0; memoryDefIndex < module->ir.memories.defs.size(); ++memoryDefIndex)
 	{
 		std::string debugName
 			= disassemblyNames.memories[module->ir.memories.imports.size() + memoryDefIndex];
-		auto memory = createMemory(
-			compartment, module->ir.memories.defs[memoryDefIndex].type, std::move(debugName));
-		if(!memory) { throwException(ExceptionTypes::outOfMemory); }
+		auto memory = createMemory(compartment,
+								   module->ir.memories.defs[memoryDefIndex].type,
+								   std::move(debugName),
+								   resourceQuota);
+		if(!memory)
+		{
+			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+			compartment->moduleInstances.removeOrFail(id);
+			throwException(ExceptionTypes::outOfMemory);
+		}
 		memories.push_back(memory);
 	}
 
 	// Instantiate the module's global definitions.
 	for(const GlobalDef& globalDef : module->ir.globals.defs)
 	{
-		Global* global = createGlobal(compartment, globalDef.type);
+		Global* global = createGlobal(compartment, globalDef.type, resourceQuota);
 		globals.push_back(global);
 
 		// Defer evaluation of globals with (ref.func ...) initializers until the module's code is
@@ -193,7 +273,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		if(globalDef.initializer.type != InitializerExpression::Type::ref_func)
 		{
 			const Value initialValue = evaluateInitializer(globals, globalDef.initializer);
-			errorUnless(isSubtype(initialValue.type, globalDef.type.valueType));
+			WAVM_ERROR_UNLESS(isSubtype(initialValue.type, globalDef.type.valueType));
 			initializeGlobal(global, initialValue);
 		}
 	}
@@ -215,11 +295,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	// Set up the values to bind to the symbols in the LLVMJIT object code.
 	HashMap<std::string, LLVMJIT::FunctionBinding> wavmIntrinsicsExportMap;
 	for(const HashMapPair<std::string, Intrinsics::Function*>& intrinsicFunctionPair :
-		Intrinsics::getUninstantiatedFunctions({INTRINSIC_MODULE_REF(wavmIntrinsics),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsAtomics),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsException),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsMemory),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsTable)}))
+		Intrinsics::getUninstantiatedFunctions({WAVM_INTRINSIC_MODULE_REF(wavmIntrinsics),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsAtomics),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsException),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsMemory),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsTable)}))
 	{
 		LLVMJIT::FunctionBinding functionBinding{
 			intrinsicFunctionPair.value->getCallingConvention(),
@@ -321,14 +401,17 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	for(const DataSegment& dataSegment : module->ir.dataSegments)
 	{ dataSegments.push_back(dataSegment.isActive ? nullptr : dataSegment.data); }
 	for(const ElemSegment& elemSegment : module->ir.elemSegments)
-	{ elemSegments.push_back(elemSegment.isActive ? nullptr : elemSegment.elems); }
+	{
+		elemSegments.push_back(elemSegment.type == ElemSegment::Type::passive ? elemSegment.contents
+																			  : nullptr);
+	}
 
 	// Look up the module's start function.
 	Function* startFunction = nullptr;
 	if(module->ir.startFunctionIndex != UINTPTR_MAX)
 	{
 		startFunction = functions[module->ir.startFunctionIndex];
-		wavmAssert(FunctionType(startFunction->encodedType) == FunctionType());
+		WAVM_ASSERT(FunctionType(startFunction->encodedType) == FunctionType());
 	}
 
 	// Create the ModuleInstance and add it to the compartment's modules list.
@@ -345,7 +428,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 														std::move(dataSegments),
 														std::move(elemSegments),
 														std::move(jitModule),
-														std::move(moduleDebugName));
+														std::move(moduleDebugName),
+														resourceQuota);
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		compartment->moduleInstances[id] = moduleInstance;
@@ -370,11 +454,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		const DataSegment& dataSegment = module->ir.dataSegments[segmentIndex];
 		if(dataSegment.isActive)
 		{
-			wavmAssert(moduleInstance->dataSegments[segmentIndex] == nullptr);
+			WAVM_ASSERT(moduleInstance->dataSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, dataSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
+			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
 			initDataSegment(moduleInstance,
@@ -391,23 +475,35 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	for(Uptr segmentIndex = 0; segmentIndex < module->ir.elemSegments.size(); ++segmentIndex)
 	{
 		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
-		if(elemSegment.isActive)
+		if(elemSegment.type == ElemSegment::Type::active)
 		{
-			wavmAssert(moduleInstance->elemSegments[segmentIndex] == nullptr);
+			WAVM_ASSERT(moduleInstance->elemSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, elemSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
+			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
+
+			Uptr numElements = 0;
+			switch(elemSegment.contents->encoding)
+			{
+			case ElemSegment::Encoding::expr:
+				numElements = elemSegment.contents->elemExprs.size();
+				break;
+			case ElemSegment::Encoding::index:
+				numElements = elemSegment.contents->elemIndices.size();
+				break;
+			default: WAVM_UNREACHABLE();
+			};
 
 			Table* table = moduleInstance->tables[elemSegment.tableIndex];
 			initElemSegment(moduleInstance,
 							segmentIndex,
-							elemSegment.elems.get(),
+							elemSegment.contents.get(),
 							table,
 							baseOffset,
 							0,
-							elemSegment.elems->size());
+							numElements);
 		}
 	}
 
@@ -473,7 +569,8 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 														   std::move(newDataSegments),
 														   std::move(newElemSegments),
 														   std::move(jitModuleCopy),
-														   std::string(moduleInstance->debugName));
+														   std::string(moduleInstance->debugName),
+														   moduleInstance->resourceQuota);
 	{
 		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 		newCompartment->moduleInstances.insertOrFail(moduleInstance->id, newModuleInstance);
@@ -498,7 +595,7 @@ Table* Runtime::getDefaultTable(const ModuleInstance* moduleInstance)
 
 Object* Runtime::getInstanceExport(const ModuleInstance* moduleInstance, const std::string& name)
 {
-	wavmAssert(moduleInstance);
+	WAVM_ASSERT(moduleInstance);
 	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
 	return exportedObjectPtr ? *exportedObjectPtr : nullptr;
 }

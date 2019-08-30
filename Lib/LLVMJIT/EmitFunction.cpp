@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
@@ -17,31 +16,30 @@
 #include "WAVM/Logging/Logging.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/raw_ostream.h"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/Twine.h>
+#include <llvm/IR/Argument.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DIBuilder.h>
+#include <llvm/IR/DebugInfoMetadata.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalValue.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
+#include <llvm/Support/raw_ostream.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
 	class Metadata;
 }
 
-#define ENABLE_LOGGING 0
 #define EMIT_ENTER_EXIT_HOOKS 0
 
 using namespace WAVM;
@@ -76,10 +74,6 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 		default: WAVM_UNREACHABLE();
 		};
 	}
-	else if(value->getType()->isX86_MMXTy())
-	{
-		return irBuilder.CreateBitCast(value, llvmContext.i64x2Type);
-	}
 	else
 	{
 		return value;
@@ -87,47 +81,44 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 }
 
 // Debug logging.
-void EmitFunctionContext::logOperator(const std::string& operatorDescription)
+void EmitFunctionContext::traceOperator(const std::string& operatorDescription)
 {
-	if(ENABLE_LOGGING)
+	std::string controlStackString;
+	for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
 	{
-		std::string controlStackString;
-		for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
+		if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
+		switch(controlStack[stackIndex].type)
 		{
-			if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
-			switch(controlStack[stackIndex].type)
-			{
-			case ControlContext::Type::function: controlStackString += "F"; break;
-			case ControlContext::Type::block: controlStackString += "B"; break;
-			case ControlContext::Type::ifThen: controlStackString += "I"; break;
-			case ControlContext::Type::ifElse: controlStackString += "E"; break;
-			case ControlContext::Type::loop: controlStackString += "L"; break;
-			case ControlContext::Type::try_: controlStackString += "T"; break;
-			case ControlContext::Type::catch_: controlStackString += "C"; break;
-			default: WAVM_UNREACHABLE();
-			};
-			if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
-		}
-
-		std::string stackString;
-		const Uptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
-		for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
-		{
-			if(stackIndex == stackBase) { stackString += "| "; }
-			{
-				llvm::raw_string_ostream stackTypeStream(stackString);
-				stack[stackIndex]->getType()->print(stackTypeStream, true);
-			}
-			stackString += " ";
-		}
-		if(stack.size() == stackBase) { stackString += "|"; }
-
-		Log::printf(Log::debug,
-					"%-50s %-50s %-50s\n",
-					controlStackString.c_str(),
-					operatorDescription.c_str(),
-					stackString.c_str());
+		case ControlContext::Type::function: controlStackString += "F"; break;
+		case ControlContext::Type::block: controlStackString += "B"; break;
+		case ControlContext::Type::ifThen: controlStackString += "I"; break;
+		case ControlContext::Type::ifElse: controlStackString += "E"; break;
+		case ControlContext::Type::loop: controlStackString += "L"; break;
+		case ControlContext::Type::try_: controlStackString += "T"; break;
+		case ControlContext::Type::catch_: controlStackString += "C"; break;
+		default: WAVM_UNREACHABLE();
+		};
+		if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 	}
+
+	std::string stackString;
+	const Uptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
+	for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
+	{
+		if(stackIndex == stackBase) { stackString += "| "; }
+		{
+			llvm::raw_string_ostream stackTypeStream(stackString);
+			stack[stackIndex]->getType()->print(stackTypeStream, true);
+		}
+		stackString += " ";
+	}
+	if(stack.size() == stackBase) { stackString += "|"; }
+
+	Log::printf(Log::traceCompilation,
+				"%-50s %-50s %-50s\n",
+				controlStackString.c_str(),
+				operatorDescription.c_str(),
+				stackString.c_str());
 }
 
 // Traps a divide-by-zero
@@ -219,7 +210,7 @@ void EmitFunctionContext::pushControlStack(ControlContext::Type type,
 										   const ValueVector& elseArgs)
 {
 	// The unreachable operator filtering should filter out any opcodes that call pushControlStack.
-	if(controlStack.size()) { errorUnless(controlStack.back().isReachable); }
+	if(controlStack.size()) { WAVM_ERROR_UNLESS(controlStack.back().isReachable); }
 
 	controlStack.push_back({type,
 							endBlock,
@@ -258,13 +249,13 @@ void EmitFunctionContext::branchToEndOfControlContext()
 		// Branch to the control context's end.
 		irBuilder.CreateBr(currentContext.endBlock);
 	}
-	wavmAssert(stack.size() == currentContext.outerStackSize);
+	WAVM_ASSERT(stack.size() == currentContext.outerStackSize);
 }
 
 void EmitFunctionContext::enterUnreachable()
 {
 	// Unwind the operand stack to the outer control context.
-	wavmAssert(controlStack.back().outerStackSize <= stack.size());
+	WAVM_ASSERT(controlStack.back().outerStackSize <= stack.size());
 	stack.resize(controlStack.back().outerStackSize);
 
 	// Mark the current control context as unreachable: this will cause the outer loop to stop
@@ -284,7 +275,7 @@ struct UnreachableOpVisitor
 	}
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	void name(Imm imm) {}
-	ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+	WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 	VISIT_OP(_, unknown, "unknown", Opcode)
 #undef VISIT_OP
 
@@ -406,11 +397,13 @@ void EmitFunctionContext::emit()
 	UnreachableOpVisitor unreachableOpVisitor(*this);
 	OperatorPrinter operatorPrinter(irModule, functionDef);
 	Uptr opIndex = 0;
+	const bool enableTracing = Log::isCategoryEnabled(Log::traceCompilation);
 	while(decoder && controlStack.size())
 	{
+		if(enableTracing) { traceOperator(decoder.decodeOpWithoutConsume(operatorPrinter)); }
+
 		irBuilder.SetCurrentDebugLocation(
 			llvm::DILocation::get(llvmContext, (unsigned int)opIndex++, 0, diFunction));
-		if(ENABLE_LOGGING) { logOperator(decoder.decodeOpWithoutConsume(operatorPrinter)); }
 
 		if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
 		else
@@ -418,7 +411,7 @@ void EmitFunctionContext::emit()
 			decoder.decodeOp(unreachableOpVisitor);
 		}
 	};
-	wavmAssert(irBuilder.GetInsertBlock() == returnBlock);
+	WAVM_ASSERT(irBuilder.GetInsertBlock() == returnBlock);
 
 	if(EMIT_ENTER_EXIT_HOOKS)
 	{

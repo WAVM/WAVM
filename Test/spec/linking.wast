@@ -93,30 +93,30 @@
 )
 
 
-(module $Mref-ex
+(module $Mref_ex
   (global (export "g-const") funcref (ref.null))
   (global (export "g-var") (mut funcref) (ref.null))
 )
-(register "Mref-ex" $Mref-ex)
+(register "Mref_ex" $Mref_ex)
 
-(module $Mref-im
-  (global (import "Mref-ex" "g-const") anyref)
+(module $Mref_im
+  (global (import "Mref_ex" "g-const") anyref)
 )
 
 (assert_unlinkable
-  (module (global (import "Mref-ex" "g-var") (mut anyref)))
+  (module (global (import "Mref_ex" "g-var") (mut anyref)))
   "incompatible import type"
 )
 
 
-(module $Mglobal-ex
+(module $Mglobal_ex
   (func $f)
   (global (export "g") anyref (ref.func $f))
 )
-(register "Mglobal-ex" $Mglobal-ex)
+(register "Mglobal_ex" $Mglobal_ex)
 
 (assert_unlinkable
-  (module (global (import "Mglobal-ex" "g") funcref))
+  (module (global (import "Mglobal_ex" "g") funcref))
   "incompatible import type"
 )
 
@@ -279,15 +279,15 @@
 (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
 
 
-(module $Mtable-ex
+(module $Mtable_ex
   (func $f)
   (table $t (export "t") 1 anyref)
   (elem (i32.const 0) $f)
 )
-(register "Mtable-ex" $Mtable-ex)
+(register "Mtable_ex" $Mtable_ex)
 
 (assert_unlinkable
-  (module (table (import "Mtable-ex" "t") 1 funcref))
+  (module (table (import "Mtable_ex" "t") 1 funcref))
   "incompatible import type"
 )
 

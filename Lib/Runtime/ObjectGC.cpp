@@ -2,7 +2,6 @@
 #include <atomic>
 #include <utility>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
@@ -37,13 +36,13 @@ IMPLEMENT_GCOBJECT_REFCOUNTING(Foreign)
 
 void Runtime::addGCRoot(const Function* function)
 {
-	wavmAssert(function->mutableData);
+	WAVM_ASSERT(function->mutableData);
 	++function->mutableData->numRootReferences;
 }
 
 void Runtime::removeGCRoot(const Function* function)
 {
-	wavmAssert(function->mutableData);
+	WAVM_ASSERT(function->mutableData);
 	--function->mutableData->numRootReferences;
 }
 
@@ -84,7 +83,7 @@ struct GCState
 				Function* function = asFunction(object);
 				if(function->moduleInstanceId != UINTPTR_MAX)
 				{
-					wavmAssert(compartment->moduleInstances.contains(function->moduleInstanceId));
+					WAVM_ASSERT(compartment->moduleInstances.contains(function->moduleInstanceId));
 					ModuleInstance* moduleInstance
 						= compartment->moduleInstances[function->moduleInstanceId];
 					visitReference(moduleInstance);
@@ -113,14 +112,13 @@ struct GCState
 
 	void scanObject(GCObject* object)
 	{
-		wavmAssert(!object->compartment || object->compartment == compartment);
+		WAVM_ASSERT(!object->compartment || object->compartment == compartment);
 		visitReference(object->compartment);
 
 		// Gather the child references for this object based on its kind.
 		switch(object->kind)
 		{
-		case ObjectKind::table:
-		{
+		case ObjectKind::table: {
 			Table* table = asTable(object);
 
 			Lock<Platform::Mutex> resizingLock(table->resizingMutex);
@@ -129,8 +127,7 @@ struct GCState
 			{ visitReference(getTableElement(table, elementIndex)); }
 			break;
 		}
-		case ObjectKind::global:
-		{
+		case ObjectKind::global: {
 			Global* global = asGlobal(object);
 			if(isReferenceType(global->type.valueType))
 			{
@@ -150,8 +147,7 @@ struct GCState
 			}
 			break;
 		}
-		case ObjectKind::moduleInstance:
-		{
+		case ObjectKind::moduleInstance: {
 			ModuleInstance* moduleInstance = asModuleInstance(object);
 			visitReferenceArray(moduleInstance->functions);
 			visitReferenceArray(moduleInstance->tables);
@@ -160,9 +156,8 @@ struct GCState
 			visitReferenceArray(moduleInstance->exceptionTypes);
 			break;
 		}
-		case ObjectKind::compartment:
-		{
-			wavmAssert(object == compartment);
+		case ObjectKind::compartment: {
+			WAVM_ASSERT(object == compartment);
 			break;
 		}
 
@@ -189,18 +184,21 @@ static bool collectGarbageImpl(Compartment* compartment)
 	state.initGCObject(compartment);
 	for(ModuleInstance* moduleInstance : compartment->moduleInstances)
 	{
-		// Transfer root markings from functions to their module instance.
-		bool hasRootFunction = false;
-		for(Function* function : moduleInstance->functions)
+		if(moduleInstance)
 		{
-			if(function->mutableData->numRootReferences)
+			// Transfer root markings from functions to their module instance.
+			bool hasRootFunction = false;
+			for(Function* function : moduleInstance->functions)
 			{
-				hasRootFunction = true;
-				break;
+				if(function->mutableData->numRootReferences)
+				{
+					hasRootFunction = true;
+					break;
+				}
 			}
-		}
 
-		state.initGCObject(moduleInstance, hasRootFunction);
+			state.initGCObject(moduleInstance, hasRootFunction);
+		}
 	}
 	for(Memory* memory : compartment->memories) { state.initGCObject(memory); }
 	for(Table* table : compartment->tables) { state.initGCObject(table); }
@@ -237,8 +235,8 @@ static bool collectGarbageImpl(Compartment* compartment)
 	if(wasCompartmentUnreferenced) { delete compartment; }
 
 	Log::printf(Log::metrics,
-				"Collected garbage in %.2fms: %" PRIuPTR " roots, %" PRIuPTR " objects, %" PRIuPTR
-				" garbage\n",
+				"Collected garbage in %.2fms: %" WAVM_PRIuPTR " roots, %" WAVM_PRIuPTR
+				" objects, %" WAVM_PRIuPTR " garbage\n",
 				timer.getMilliseconds(),
 				numRoots,
 				numInitialObjects,

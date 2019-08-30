@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <string>
 #include <utility>
-
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/DenseStaticIntSet.h"
 
@@ -14,17 +13,14 @@ namespace WAVM { namespace NFA {
 	// An index of a DFA state. A negative index indicates an "accepting" or terminal state.
 	typedef I16 StateIndex;
 
-	enum
-	{
-		// A flag that's set on terminal DFA state transitions that don't consume any input
-		edgeDoesntConsumeInputFlag = (StateIndex)0x4000,
+	// A flag that's set on terminal DFA state transitions that don't consume any input
+	static constexpr StateIndex edgeDoesntConsumeInputFlag = 0x4000;
 
-		// An implicit terminal state that indicates the DFA didn't recognize the input
-		unmatchedCharacterTerminal = (StateIndex)0x8000,
+	// An implicit terminal state that indicates the DFA didn't recognize the input
+	static constexpr StateIndex unmatchedCharacterTerminal = StateIndex(0x8000);
 
-		// Should be the largest negative number that doesn't have edgeDoesntConsumeInputFlag set.
-		maximumTerminalStateIndex = (StateIndex)0xbfff,
-	};
+	// Should be the largest negative number that doesn't have edgeDoesntConsumeInputFlag set.
+	static constexpr StateIndex maximumTerminalStateIndex = StateIndex(0xbfff);
 
 	// Creates an abstract object that holds the state of an under-construction BFA.
 	struct Builder;
@@ -96,10 +92,7 @@ namespace WAVM { namespace NFA {
 
 	private:
 		typedef I16 InternalStateIndex;
-		enum
-		{
-			internalMaxStates = INT16_MAX
-		};
+		static constexpr InternalStateIndex internalMaxStates = INT16_MAX;
 
 		U32 charToOffsetMap[256];
 		InternalStateIndex* stateAndOffsetToNextStateMap;

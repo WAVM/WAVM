@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <memory>
 #include <vector>
-
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
@@ -12,23 +11,23 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Signal.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/APInt.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
+#include <llvm/ADT/APInt.h>
+#include <llvm/IR/Argument.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalValue.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
@@ -66,7 +65,7 @@ static llvm::Function* getCXAEndCatchFunction(EmitModuleContext& moduleContext)
 
 void EmitFunctionContext::endTryWithoutCatch()
 {
-	wavmAssert(tryStack.size());
+	WAVM_ASSERT(tryStack.size());
 	tryStack.pop_back();
 
 	endTryCatch();
@@ -74,7 +73,7 @@ void EmitFunctionContext::endTryWithoutCatch()
 
 void EmitFunctionContext::endTryCatch()
 {
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(catchStack.size());
 	CatchContext& catchContext = catchStack.back();
 
 	exitCatch();
@@ -97,9 +96,9 @@ void EmitFunctionContext::endTryCatch()
 void EmitFunctionContext::exitCatch()
 {
 	ControlContext& currentContext = controlStack.back();
-	wavmAssert(currentContext.type == ControlContext::Type::catch_);
+	WAVM_ASSERT(currentContext.type == ControlContext::Type::catch_);
 
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(catchStack.size());
 	CatchContext& catchContext = catchStack.back();
 
 	if(currentContext.isReachable)
@@ -125,7 +124,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 {
 	auto originalInsertBlock = irBuilder.GetInsertBlock();
 
-	if(USE_WINDOWS_SEH)
+	if(moduleContext.useWindowsSEH)
 	{
 		// Insert an alloca for the exception pointer at the beginning of the function.
 		irBuilder.SetInsertPoint(&function->getEntryBlock(),
@@ -220,15 +219,15 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 
 void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 {
-	wavmAssert(controlStack.size());
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(controlStack.size());
+	WAVM_ASSERT(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext = catchStack.back();
-	wavmAssert(controlContext.type == ControlContext::Type::try_
-			   || controlContext.type == ControlContext::Type::catch_);
+	WAVM_ASSERT(controlContext.type == ControlContext::Type::try_
+				|| controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
-		wavmAssert(tryStack.size());
+		WAVM_ASSERT(tryStack.size());
 		tryStack.pop_back();
 	}
 	else
@@ -239,7 +238,7 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 	branchToEndOfControlContext();
 
 	// Look up the exception type instance to be caught
-	wavmAssert(imm.exceptionTypeIndex < moduleContext.exceptionTypeIds.size());
+	WAVM_ASSERT(imm.exceptionTypeIndex < moduleContext.exceptionTypeIds.size());
 	const IR::ExceptionType catchType = irModule.exceptionTypes.getType(imm.exceptionTypeIndex);
 	llvm::Constant* catchTypeId = moduleContext.exceptionTypeIds[imm.exceptionTypeIndex];
 
@@ -273,15 +272,15 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 }
 void EmitFunctionContext::catch_all(NoImm)
 {
-	wavmAssert(controlStack.size());
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(controlStack.size());
+	WAVM_ASSERT(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext = catchStack.back();
-	wavmAssert(controlContext.type == ControlContext::Type::try_
-			   || controlContext.type == ControlContext::Type::catch_);
+	WAVM_ASSERT(controlContext.type == ControlContext::Type::try_
+				|| controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
-		wavmAssert(tryStack.size());
+		WAVM_ASSERT(tryStack.size());
 		tryStack.pop_back();
 	}
 	else
@@ -353,7 +352,7 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 }
 void EmitFunctionContext::rethrow(RethrowImm imm)
 {
-	wavmAssert(imm.catchDepth < catchStack.size());
+	WAVM_ASSERT(imm.catchDepth < catchStack.size());
 	CatchContext& catchContext = catchStack[catchStack.size() - imm.catchDepth - 1];
 	emitRuntimeIntrinsic(
 		"throwException",

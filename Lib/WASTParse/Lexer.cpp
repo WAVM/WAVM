@@ -1,11 +1,10 @@
+#include "Lexer.h"
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
 #include <tuple>
 #include <utility>
-
-#include "Lexer.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
@@ -32,7 +31,6 @@ namespace WAVM { namespace WAST {
 
 const char* WAST::describeToken(TokenType tokenType)
 {
-	wavmAssert(tokenType < numTokenTypes);
 	static const char* tokenDescriptions[] = {
 // This ENUM_TOKENS must come before the literalTokenPairs definition that redefines
 // VISIT_OPERATOR_TOKEN.
@@ -40,6 +38,7 @@ const char* WAST::describeToken(TokenType tokenType)
 		ENUM_TOKENS()
 #undef VISIT_TOKEN
 	};
+	WAVM_ASSERT(tokenType * sizeof(const char*) < sizeof(tokenDescriptions));
 	return tokenDescriptions[tokenType];
 }
 
@@ -134,7 +133,7 @@ static const std::tuple<TokenType, const char*, bool> literalTokenTuples[] = {
 
 	#undef VISIT_OPERATOR_TOKEN
 	#define VISIT_OPERATOR_TOKEN(_, name, nameString, ...) std::make_tuple(t_##name, nameString, false),
-	ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
+	WAVM_ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
 	#undef VISIT_OPERATOR_TOKEN
 };
 
@@ -209,7 +208,8 @@ static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
 	if(DUMP_NFA_GRAPH)
 	{
 		std::string nfaGraphVizString = NFA::dumpNFAGraphViz(nfaBuilder);
-		errorUnless(saveFile("nfaGraph.dot", nfaGraphVizString.data(), nfaGraphVizString.size()));
+		WAVM_ERROR_UNLESS(
+			saveFile("nfaGraph.dot", nfaGraphVizString.data(), nfaGraphVizString.size()));
 	}
 
 	nfaMachine = NFA::Machine(nfaBuilder);
@@ -217,7 +217,8 @@ static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
 	if(DUMP_DFA_GRAPH)
 	{
 		std::string dfaGraphVizString = nfaMachine.dumpDFAGraphViz().c_str();
-		errorUnless(saveFile("dfaGraph.dot", dfaGraphVizString.data(), dfaGraphVizString.size()));
+		WAVM_ERROR_UNLESS(
+			saveFile("dfaGraph.dot", dfaGraphVizString.data(), dfaGraphVizString.size()));
 	}
 
 	Timing::logTimer("built lexer tables", timer);
@@ -258,8 +259,8 @@ Token* WAST::lex(const char* string,
 				 LineInfo*& outLineInfo,
 				 bool allowLegacyOperatorNames)
 {
-	errorUnless(string);
-	errorUnless(string[stringLength - 1] == 0);
+	WAVM_ERROR_UNLESS(string);
+	WAVM_ERROR_UNLESS(string[stringLength - 1] == 0);
 
 	StaticData& staticData = StaticData::get(allowLegacyOperatorNames);
 
@@ -404,9 +405,9 @@ Token* WAST::lex(const char* string,
 	// Create the LineInfo object that encapsulates the line start information.
 	outLineInfo = new LineInfo{lineStarts, U32(numLineStarts)};
 
-	Timing::logRatePerSecond("lexed WAST file", timer, stringLength / 1024.0 / 1024.0, "MB");
+	Timing::logRatePerSecond("lexed WAST file", timer, stringLength / 1024.0 / 1024.0, "MiB");
 	Log::printf(Log::metrics,
-				"lexer produced %" PRIuPTR " tokens (%.1fMB)\n",
+				"lexer produced %" WAVM_PRIuPTR " tokens (%.1fMiB)\n",
 				numTokens,
 				numTokens * sizeof(Token) / 1024.0 / 1024.0);
 
@@ -423,7 +424,7 @@ void WAST::freeLineInfo(LineInfo* lineInfo)
 
 static Uptr getLineOffset(const LineInfo* lineInfo, Uptr lineIndex)
 {
-	errorUnless(lineIndex < lineInfo->numLineStarts);
+	WAVM_ERROR_UNLESS(lineIndex < lineInfo->numLineStarts);
 	return lineInfo->lineStarts[lineIndex];
 }
 
@@ -434,7 +435,7 @@ TextFileLocus WAST::calcLocusFromOffset(const char* string,
 	// The last line start is at the end of the string, so use it to sanity check that the
 	// charOffset isn't past the end of the string.
 	const Uptr numChars = lineInfo->lineStarts[lineInfo->numLineStarts - 1];
-	wavmAssert(charOffset <= numChars);
+	WAVM_ASSERT(charOffset <= numChars);
 
 	// Binary search the line starts for the last one before charIndex.
 	Uptr minLineIndex = 0;

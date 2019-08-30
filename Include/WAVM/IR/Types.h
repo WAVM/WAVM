@@ -6,7 +6,6 @@
 #include <initializer_list>
 #include <string>
 #include <vector>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -34,11 +33,7 @@ namespace WAVM { namespace IR {
 		nullref
 	};
 
-	enum : U8
-	{
-		maxValueType = (U8)ValueType::nullref,
-		numValueTypes
-	};
+	static constexpr U8 numValueTypes = U8(ValueType::nullref) + 1;
 
 	// The reference types subset of ValueType.
 	enum class ReferenceType : U8
@@ -47,12 +42,8 @@ namespace WAVM { namespace IR {
 
 		anyref = U8(ValueType::anyref),
 		funcref = U8(ValueType::funcref),
+		nullref = U8(ValueType::nullref),
 	};
-
-	static_assert(Uptr(ValueType::anyref) == Uptr(ReferenceType::anyref),
-				  "ReferenceType and ValueType must match");
-	static_assert(Uptr(ValueType::funcref) == Uptr(ReferenceType::funcref),
-				  "ReferenceType and ValueType must match");
 
 	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
 
@@ -100,12 +91,69 @@ namespace WAVM { namespace IR {
 		{
 			switch(supertype)
 			{
-			case ReferenceType::anyref: return subtype == ReferenceType::funcref;
-			case ReferenceType::funcref: return subtype == ReferenceType::funcref;
+			case ReferenceType::anyref:
+				return subtype == ReferenceType::funcref || subtype == ReferenceType::nullref;
+			case ReferenceType::funcref: return subtype == ReferenceType::nullref;
 
+			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: return false;
 			}
+		}
+	}
+
+	// Returns the type that includes all values that are an instance of a OR b.
+	inline ValueType join(ValueType a, ValueType b)
+	{
+		if(a == b) { return a; }
+		else if(isReferenceType(a) && isReferenceType(b))
+		{
+			// a \ b    anyref  funcref  nullref
+			// anyref   anyref  anyref   anyref
+			// funcref  anyref  funcref  funcref
+			// nullref  anyref  funcref  nullref
+			if(a == ValueType::nullref) { return b; }
+			else if(b == ValueType::nullref)
+			{
+				return a;
+			}
+			else
+			{
+				// Because we know a != b, and neither a or b are nullref, we can infer that one is
+				// anyref, and one is funcref.
+				return ValueType::anyref;
+			}
+		}
+		else
+		{
+			return ValueType::any;
+		}
+	}
+
+	// Returns the type that includes all values that are an instance of both a AND b.
+	inline ValueType meet(ValueType a, ValueType b)
+	{
+		if(a == b) { return a; }
+		else if(isReferenceType(a) && isReferenceType(b))
+		{
+			// a \ b    anyref   funcref  nullref
+			// anyref   anyref   funcref  nullref
+			// funcref  funcref  funcref  nullref
+			// nullref  nullref  nullref  nullref
+			if(a == ValueType::nullref || b == ValueType::nullref) { return ValueType::nullref; }
+			else if(a == ValueType::anyref)
+			{
+				return b;
+			}
+			else
+			{
+				WAVM_ASSERT(b == ValueType::anyref);
+				return a;
+			}
+		}
+		else
+		{
+			return ValueType::none;
 		}
 	}
 
@@ -168,6 +216,18 @@ namespace WAVM { namespace IR {
 		};
 	}
 
+	inline const char* asString(ReferenceType type)
+	{
+		switch(type)
+		{
+		case ReferenceType::none: return "none";
+		case ReferenceType::anyref: return "anyref";
+		case ReferenceType::funcref: return "funcref";
+		case ReferenceType::nullref: return "nullref";
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
 	// The tuple of value types.
 	struct TypeTuple
 	{
@@ -183,7 +243,7 @@ namespace WAVM { namespace IR {
 
 		ValueType operator[](Uptr index) const
 		{
-			wavmAssert(index < impl->numElems);
+			WAVM_ASSERT(index < impl->numElems);
 			return impl->elems[index];
 		}
 
@@ -240,7 +300,11 @@ namespace WAVM { namespace IR {
 
 	inline bool isSubtype(TypeTuple subtype, TypeTuple supertype)
 	{
-		if(subtype.size() != supertype.size()) { return false; }
+		if(subtype == supertype) { return true; }
+		else if(subtype.size() != supertype.size())
+		{
+			return false;
+		}
 		else
 		{
 			for(Uptr elementIndex = 0; elementIndex < subtype.size(); ++elementIndex)
@@ -283,6 +347,14 @@ namespace WAVM { namespace IR {
 		return TypeTuple(inferValueType<T>());
 	}
 	template<> inline TypeTuple inferResultType<void>() { return TypeTuple(); }
+
+	// Don't allow quietly promoting I8/I16 return types to an I32 WebAssembly type: the C function
+	// may not zero the extra bits in the I32 register before returning, and the WebAssembly
+	// function will see that junk in the returned I32.
+	template<> inline TypeTuple inferResultType<I8>();
+	template<> inline TypeTuple inferResultType<U8>();
+	template<> inline TypeTuple inferResultType<I16>();
+	template<> inline TypeTuple inferResultType<U16>();
 
 	// The type of a WebAssembly function
 	struct FunctionType
@@ -356,6 +428,16 @@ namespace WAVM { namespace IR {
 	inline std::string asString(const FunctionType& functionType)
 	{
 		return asString(functionType.params()) + "->" + asString(functionType.results());
+	}
+
+	inline bool isSubtype(FunctionType subtype, FunctionType supertype)
+	{
+		if(subtype == supertype) { return true; }
+		else
+		{
+			return isSubtype(supertype.params(), subtype.params())
+				   && isSubtype(subtype.results(), supertype.results());
+		}
 	}
 
 	// A size constraint: a range of expected sizes for some size-constrained type.
@@ -543,27 +625,27 @@ namespace WAVM { namespace IR {
 
 		friend FunctionType asFunctionType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::function);
+			WAVM_ASSERT(objectType.kind == ExternKind::function);
 			return objectType.function;
 		}
 		friend TableType asTableType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::table);
+			WAVM_ASSERT(objectType.kind == ExternKind::table);
 			return objectType.table;
 		}
 		friend MemoryType asMemoryType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::memory);
+			WAVM_ASSERT(objectType.kind == ExternKind::memory);
 			return objectType.memory;
 		}
 		friend GlobalType asGlobalType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::global);
+			WAVM_ASSERT(objectType.kind == ExternKind::global);
 			return objectType.global;
 		}
 		friend ExceptionType asExceptionType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::exceptionType);
+			WAVM_ASSERT(objectType.kind == ExternKind::exceptionType);
 			return objectType.exceptionType;
 		}
 
@@ -620,18 +702,23 @@ namespace WAVM { namespace IR {
 	};
 }}
 
-template<> struct WAVM::Hash<WAVM::IR::TypeTuple>
-{
-	Uptr operator()(WAVM::IR::TypeTuple typeTuple, Uptr seed = 0) const
+// These specializations need to be declared within a WAVM namespace scope to work around a GCC bug.
+// It should be ok to write "template<> struct WAVM::Hash...", but old versions of GCC will
+// erroneously reject that. See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=56480
+namespace WAVM {
+	template<> struct Hash<IR::TypeTuple>
 	{
-		return WAVM::Hash<Uptr>()(typeTuple.getHash(), seed);
-	}
-};
+		Uptr operator()(IR::TypeTuple typeTuple, Uptr seed = 0) const
+		{
+			return Hash<Uptr>()(typeTuple.getHash(), seed);
+		}
+	};
 
-template<> struct WAVM::Hash<WAVM::IR::FunctionType>
-{
-	Uptr operator()(WAVM::IR::FunctionType functionType, Uptr seed = 0) const
+	template<> struct Hash<IR::FunctionType>
 	{
-		return WAVM::Hash<Uptr>()(functionType.getHash(), seed);
-	}
-};
+		Uptr operator()(IR::FunctionType functionType, Uptr seed = 0) const
+		{
+			return Hash<Uptr>()(functionType.getHash(), seed);
+		}
+	};
+}

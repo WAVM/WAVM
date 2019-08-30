@@ -6,17 +6,17 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM::IR;
@@ -146,7 +146,7 @@ void EmitFunctionContext::table_grow(TableImm imm)
 		{value,
 		 deltaNumElements,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
-	wavmAssert(previousNumElements.size() == 1);
+	WAVM_ASSERT(previousNumElements.size() == 1);
 	push(previousNumElements[0]);
 }
 void EmitFunctionContext::table_size(TableImm imm)
@@ -155,6 +155,6 @@ void EmitFunctionContext::table_size(TableImm imm)
 		"table.size",
 		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
 		{getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
-	wavmAssert(currentNumElements.size() == 1);
+	WAVM_ASSERT(currentNumElements.size() == 1);
 	push(currentNumElements[0]);
 }
