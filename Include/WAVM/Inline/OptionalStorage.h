@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM {
 	// A type that holds an optional instance of another type. The lifetime of the contained
@@ -10,49 +11,43 @@ namespace WAVM {
 			 bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
 	struct OptionalStorage
 	{
-		union
-		{
-			// Putting contents in a union allows this type to be default-constructible without
-			// calling the Contents default constructor.
-			Contents contents;
-		};
-
-		OptionalStorage() {}
-		~OptionalStorage() {}
-
-		template<typename... Args>
-		OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
-		{
-		}
-
 		template<typename... Args> void construct(Args&&... args)
 		{
 			new(&contents) Contents(std::forward<Args>(args)...);
 		}
 
-		void destruct() { contents.~Contents(); }
+		void destruct() { get().~Contents(); }
+
+		Contents& get() { return *(Contents*)&contents; }
+		const Contents& get() const { return *(const Contents*)&contents; }
+
+	private:
+		alignas(Contents) U8 contents[sizeof(Contents)];
 	};
 
 	// Partial specialization for types with trivial destructors.
 	template<typename Contents> struct OptionalStorage<Contents, true>
 	{
-		union
-		{
-			Contents contents;
-		};
-		OptionalStorage() {}
-		~OptionalStorage() {}
-
-		template<typename... Args>
-		OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
-		{
-		}
-
 		template<typename... Args> void construct(Args&&... args)
 		{
 			new(&contents) Contents(std::forward<Args>(args)...);
 		}
 
 		void destruct() {}
+
+		Contents& get() { return *(Contents*)&contents; }
+		const Contents& get() const { return *(const Contents*)&contents; }
+
+	private:
+		alignas(Contents) U8 contents[sizeof(Contents)];
+	};
+
+	namespace OptionalStorageAssertions {
+		struct NonTrivialType
+		{
+			NonTrivialType();
+		};
+		static_assert(std::is_trivial<OptionalStorage<NonTrivialType>>::value,
+					  "OptionalStorage<NonTrivialType> is non-trivial");
 	};
 }

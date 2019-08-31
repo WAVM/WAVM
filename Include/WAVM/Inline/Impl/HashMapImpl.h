@@ -34,7 +34,7 @@ Value& HashMap<HASHMAP_ARGUMENTS>::getOrAdd(const Key& key, ValueArgs&&... value
 		bucket.hashAndOccupancy = hashAndOccupancy;
 		bucket.storage.construct(key, std::forward<ValueArgs>(valueArgs)...);
 	}
-	return bucket.storage.contents.value;
+	return bucket.storage.get().value;
 }
 
 template<HASHMAP_PARAMETERS>
@@ -82,9 +82,9 @@ Value& HashMap<HASHMAP_ARGUMENTS>::set(const Key& key, ValueArgs&&... valueArgs)
 	}
 	else
 	{
-		bucket.storage.contents.value = Value(std::forward<ValueArgs>(valueArgs)...);
+		bucket.storage.get().value = Value(std::forward<ValueArgs>(valueArgs)...);
 	}
-	return bucket.storage.contents.value;
+	return bucket.storage.get().value;
 }
 
 template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::remove(const Key& key)
@@ -114,7 +114,7 @@ const Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key) const
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
 	WAVM_ASSERT(bucket);
 	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
-	return bucket->storage.contents.value;
+	return bucket->storage.get().value;
 }
 
 template<HASHMAP_PARAMETERS> Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key)
@@ -123,7 +123,7 @@ template<HASHMAP_PARAMETERS> Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const
 	HashTableBucket<Pair>* bucket = table.getBucketForModify(hash, key);
 	WAVM_ASSERT(bucket);
 	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
-	return bucket->storage.contents.value;
+	return bucket->storage.get().value;
 }
 
 template<HASHMAP_PARAMETERS> const Value* HashMap<HASHMAP_ARGUMENTS>::get(const Key& key) const
@@ -134,7 +134,7 @@ template<HASHMAP_PARAMETERS> const Value* HashMap<HASHMAP_ARGUMENTS>::get(const 
 	else
 	{
 		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
-		return &bucket->storage.contents.value;
+		return &bucket->storage.get().value;
 	}
 }
 
@@ -146,7 +146,7 @@ template<HASHMAP_PARAMETERS> Value* HashMap<HASHMAP_ARGUMENTS>::get(const Key& k
 	else
 	{
 		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
-		return &bucket->storage.contents.value;
+		return &bucket->storage.get().value;
 	}
 }
 
@@ -159,7 +159,7 @@ const HashMapPair<Key, Value>* HashMap<HASHMAP_ARGUMENTS>::getPair(const Key& ke
 	else
 	{
 		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
-		return &bucket->storage.contents;
+		return &bucket->storage.get();
 	}
 }
 
@@ -235,14 +235,14 @@ template<typename Key, typename Value>
 const HashMapPair<Key, Value>& HashMapIterator<Key, Value>::operator*() const
 {
 	WAVM_ASSERT(bucket->hashAndOccupancy);
-	return bucket->storage.contents;
+	return bucket->storage.get();
 }
 
 template<typename Key, typename Value>
 const HashMapPair<Key, Value>* HashMapIterator<Key, Value>::operator->() const
 {
 	WAVM_ASSERT(bucket->hashAndOccupancy);
-	return &bucket->storage.contents;
+	return &bucket->storage.get();
 }
 
 template<typename Key, typename Value>

@@ -17,8 +17,8 @@
         <Loop>
           <Break Condition="bucketIndex > table.hashToBucketIndexMask" />
           <If Condition="table.buckets[bucketIndex].hashAndOccupancy">
-            <Item Name="{table.buckets[bucketIndex].storage.contents.key}">
-              table.buckets[bucketIndex].storage.contents.value
+            <Item Name="{((WAVM::HashMapPair&lt;$T1,$T2&gt;*)table.buckets[bucketIndex].storage.contents)->key}">
+              ((WAVM::HashMapPair&lt;$T1,$T2&gt;*)table.buckets[bucketIndex].storage.contents)->value
             </Item>
           </If>
           <Exec>++bucketIndex</Exec>
