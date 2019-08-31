@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <signal.h>
 #include <unistd.h>
 #include <atomic>
@@ -9,10 +10,27 @@
 using namespace WAVM;
 using namespace WAVM::Platform;
 
+#if defined(__APPLE__)
+#define UC_RESET_ALT_STACK 0x80000000
+extern "C" int __sigreturn(ucontext_t*, int);
+#endif
+
 thread_local SignalContext* Platform::innermostSignalContext = nullptr;
+
+static void maskSignals(int how)
+{
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGFPE);
+	sigaddset(&set, SIGSEGV);
+	sigaddset(&set, SIGBUS);
+	pthread_sigmask(how, &set, nullptr);
+}
 
 [[noreturn]] static void signalHandler(int signalNumber, siginfo_t* signalInfo, void*)
 {
+	maskSignals(SIG_BLOCK);
+
 	Signal signal;
 
 	// Derive the exception cause the from signal that was received.
@@ -72,19 +90,14 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 
 bool Platform::initGlobalSignalsOnce()
 {
-	// Set up a signal mask for the signals we handle that will disable them inside the handler.
-	struct sigaction signalAction;
-	sigemptyset(&signalAction.sa_mask);
-	sigaddset(&signalAction.sa_mask, SIGFPE);
-	sigaddset(&signalAction.sa_mask, SIGSEGV);
-	sigaddset(&signalAction.sa_mask, SIGBUS);
-
 	// Set the signal handler for the signals we want to intercept.
+	struct sigaction signalAction;
 	signalAction.sa_sigaction = signalHandler;
-	signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
-	sigaction(SIGSEGV, &signalAction, nullptr);
-	sigaction(SIGBUS, &signalAction, nullptr);
-	sigaction(SIGFPE, &signalAction, nullptr);
+	signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
+	sigemptyset(&signalAction.sa_mask);
+	WAVM_ERROR_UNLESS(!sigaction(SIGSEGV, &signalAction, nullptr));
+	WAVM_ERROR_UNLESS(!sigaction(SIGBUS, &signalAction, nullptr));
+	WAVM_ERROR_UNLESS(!sigaction(SIGFPE, &signalAction, nullptr));
 
 	return true;
 }
@@ -104,8 +117,10 @@ bool Platform::catchSignals(void (*thunk)(void*),
 	Errors::unimplemented("Wavix catchSignals");
 #else
 	// Use sigsetjmp to capture the execution state into the signal context. If a signal is raised,
-	// the signal handler will jump back to here.
-	bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump, 1) != 0;
+	// the signal handler will jump back to here. Tell sigsetjmp not to save the signal mask, since
+	// that's quite expensive (a syscall). Instead, just unblock the signals that our handler blocks
+	// after handling those signals.
+	bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump, 0) != 0;
 	if(!isReturningFromSignalHandler)
 	{
 		innermostSignalContext = &signalContext;
@@ -113,10 +128,21 @@ bool Platform::catchSignals(void (*thunk)(void*),
 		// Call the thunk.
 		thunk(argument);
 	}
+	else
+	{
+#if defined(__APPLE__)
+		// On MacOS, it's necessary to call __sigreturn to restore the sigaltstack state after
+		// exiting the signal handler.
+		__sigreturn(nullptr, UC_RESET_ALT_STACK);
+#endif
+
+		// Unblock the signals that are blocked by the signal handler.
+		maskSignals(SIG_UNBLOCK);
+	}
 	innermostSignalContext = signalContext.outerContext;
+#endif
 
 	return isReturningFromSignalHandler;
-#endif
 }
 
 // The LLVM project libunwind implementation that WAVM uses matches the Apple ABI, which expects
