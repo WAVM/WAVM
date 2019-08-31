@@ -66,12 +66,33 @@ void Runtime::invokeFunction(Context* context,
 	}
 	WAVM_ASSERT(invokeThunk);
 
+	// MacOS std::function is a little more pessimistic about heap allocating captures, and without
+	// wrapping these captured variables into a single reference, does a heap allocation for the
+	// thunk passed to unwindSignalsAsExceptions below.
+	struct InvokeContext
+	{
+		Context* context;
+		const Function* function;
+		const UntaggedValue* arguments;
+		UntaggedValue* outResults;
+		InvokeThunkPointer invokeThunk;
+	};
+	InvokeContext invokeContext;
+	invokeContext.context = context;
+	invokeContext.function = function;
+	invokeContext.arguments = arguments;
+	invokeContext.outResults = outResults;
+	invokeContext.invokeThunk = invokeThunk;
+
 	// Use unwindSignalsAsExceptions to ensure that any signal that occurs in WebAssembly code calls
 	// C++ destructors on the stack between here and where it is caught.
-	unwindSignalsAsExceptions([&] {
-		ContextRuntimeData* contextRuntimeData = getContextRuntimeData(context);
+	unwindSignalsAsExceptions([&invokeContext] {
+		ContextRuntimeData* contextRuntimeData = getContextRuntimeData(invokeContext.context);
 
 		// Call the invoke thunk.
-		(*invokeThunk)(function, contextRuntimeData, arguments, outResults);
+		(*invokeContext.invokeThunk)(invokeContext.function,
+									 contextRuntimeData,
+									 invokeContext.arguments,
+									 invokeContext.outResults);
 	});
 }
