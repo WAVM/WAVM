@@ -1,5 +1,6 @@
 #pragma once
 
+#include <new>
 #include <type_traits>
 #include "WAVM/Inline/BasicTypes.h"
 
@@ -18,11 +19,19 @@ namespace WAVM {
 
 		void destruct() { get().~Contents(); }
 
-		Contents& get() { return *(Contents*)&contents; }
-		const Contents& get() const { return *(const Contents*)&contents; }
+#if __cplusplus >= 201703L
+		Contents& get() { return *std::launder(reinterpret_cast<Contents*>(&contents)); }
+		const Contents& get() const
+		{
+			return *std::launder(reinterpret_cast<const Contents*>(&contents));
+		}
+#else
+		Contents& get() { return *reinterpret_cast<Contents*>(&contents); }
+		const Contents& get() const { return *reinterpret_cast<const Contents*>(&contents); }
+#endif
 
 	private:
-		alignas(Contents) U8 contents[sizeof(Contents)];
+		typename std::aligned_storage<sizeof(Contents), alignof(Contents)>::type contents;
 	};
 
 	// Partial specialization for types with trivial destructors.
@@ -35,11 +44,19 @@ namespace WAVM {
 
 		void destruct() {}
 
-		Contents& get() { return *(Contents*)&contents; }
-		const Contents& get() const { return *(const Contents*)&contents; }
+#if __cplusplus >= 201703L
+		Contents& get() { return *std::launder(reinterpret_cast<Contents*>(&contents)); }
+		const Contents& get() const
+		{
+			return *std::launder(reinterpret_cast<const Contents*>(&contents));
+		}
+#else
+		Contents& get() { return *reinterpret_cast<Contents*>(&contents); }
+		const Contents& get() const { return *reinterpret_cast<const Contents*>(&contents); }
+#endif
 
 	private:
-		alignas(Contents) U8 contents[sizeof(Contents)];
+		typename std::aligned_storage<sizeof(Contents), alignof(Contents)>::type contents;
 	};
 
 	namespace OptionalStorageAssertions {
