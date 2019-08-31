@@ -70,7 +70,7 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 	};
 }
 
-static bool initSignals()
+bool Platform::initGlobalSignalsOnce()
 {
 	// Set up a signal mask for the signals we handle that will disable them inside the handler.
 	struct sigaction signalAction;
@@ -93,10 +93,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 							bool (*filter)(void*, Signal, CallStack&&),
 							void* argument)
 {
-	static bool initedSignals = initSignals();
-	WAVM_ASSERT(initedSignals);
-
-	sigAltStack.init();
+	initThreadAndGlobalSignals();
 
 	SignalContext signalContext;
 	signalContext.outerContext = innermostSignalContext;

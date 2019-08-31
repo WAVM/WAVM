@@ -140,6 +140,13 @@ WAVM_NO_ASAN static void touchStackPages(U8* minAddr, Uptr numBytesPerPage)
 	}
 }
 
+bool Platform::initThreadAndGlobalSignalsOnce()
+{
+	sigAltStack.init();
+	initGlobalSignals();
+	return true;
+}
+
 void SigAltStack::init()
 {
 	if(!base)
@@ -217,7 +224,7 @@ WAVM_NO_ASAN static void* createThreadEntry(void* argsVoid)
 {
 	std::unique_ptr<CreateThreadArgs> args((CreateThreadArgs*)argsVoid);
 
-	sigAltStack.init();
+	initThreadAndGlobalSignals();
 
 	I64 exitCode = (*args->entry)(args->entryArgument);
 

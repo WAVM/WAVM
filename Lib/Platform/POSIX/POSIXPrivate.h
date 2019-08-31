@@ -78,6 +78,20 @@ namespace WAVM { namespace Platform {
 	extern thread_local SigAltStack sigAltStack;
 	extern thread_local SignalContext* innermostSignalContext;
 
+	extern bool initThreadAndGlobalSignalsOnce();
+	extern bool initGlobalSignalsOnce();
+
+	inline void initGlobalSignals()
+	{
+		static bool initedGlobalSignals = initGlobalSignalsOnce();
+		WAVM_ASSERT(initedGlobalSignals);
+	}
+	inline void initThreadAndGlobalSignals()
+	{
+		static thread_local bool initedThread = initThreadAndGlobalSignalsOnce();
+		WAVM_ASSERT(initedThread);
+	}
+
 	void dumpErrorCallStack(Uptr numOmittedFramesFromTop);
 	void getCurrentThreadStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr);
 }}
