@@ -25,6 +25,6 @@ set(PublicHeaders
 	LEB128.h)
 
 WAVM_ADD_LIB_COMPONENT(Inline
-	NONCOMPILED_SOURCES ${PublicHeaders})
+	SOURCES ${PublicHeaders})
 
 add_subdirectory(xxhash)
