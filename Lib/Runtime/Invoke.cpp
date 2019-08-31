@@ -55,12 +55,15 @@ void Runtime::invokeFunction(Context* context,
 	// to avoid the global lock implied by LLVMJIT::getInvokeThunk.
 	InvokeThunkPointer invokeThunk
 		= function->mutableData->invokeThunk.load(std::memory_order_acquire);
-	while(!invokeThunk)
+	if(WAVM_UNLIKELY(!invokeThunk))
 	{
-		InvokeThunkPointer newInvokeThunk = LLVMJIT::getInvokeThunk(functionType);
-		function->mutableData->invokeThunk.compare_exchange_strong(
-			invokeThunk, newInvokeThunk, std::memory_order_acq_rel);
-	};
+		invokeThunk = LLVMJIT::getInvokeThunk(functionType);
+
+		// Replace the cached thunk pointer, but since LLVMJIT::getInvokeThunk is guaranteed to
+		// return the same thunk when called with the same FunctionType, we can assume that any
+		// other writes this might race with were are writing the same value.
+		function->mutableData->invokeThunk.store(invokeThunk, std::memory_order_release);
+	}
 	WAVM_ASSERT(invokeThunk);
 
 	// Use unwindSignalsAsExceptions to ensure that any signal that occurs in WebAssembly code calls
