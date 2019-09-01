@@ -331,6 +331,12 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# without using the slow libunwind path.
 		target_compile_options(${TARGET_NAME} PRIVATE "-fno-omit-frame-pointer")
 	endif()
+
+	if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		# Compile with -pthread on Linux.
+		target_compile_options(${TARGET_NAME} PRIVATE "-pthread")
+		target_link_options(${TARGET_NAME} PRIVATE "-pthread")
+	endif()
 endfunction()
 
 function(WAVM_INSTALL_TARGET TARGET_NAME)

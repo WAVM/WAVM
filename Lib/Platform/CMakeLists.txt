@@ -64,7 +64,7 @@ else()
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	list(APPEND PLATFORM_PRIVATE_LIBS pthread rt)
+	list(APPEND PLATFORM_PRIVATE_LIBS rt)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
