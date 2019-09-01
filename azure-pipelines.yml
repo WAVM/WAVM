@@ -10,7 +10,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
           cmakeBuildArgs: '--config RelWithDebInfo'
           ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_VS2017_Release.zip
+          llvmBuildAssetName: Win64_Release.zip
           packageSuffix: '-windows-x64-vs2017'
           cpackGenerators: 'ZIP;NSIS64'
       - template: Build/azure-build-job-template.yml
@@ -20,7 +20,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64" -DWAVM_ENABLE_STATIC_LINKING=1'
           cmakeBuildArgs: '--config RelWithDebInfo'
           ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_VS2017_Release.zip
+          llvmBuildAssetName: Win64_Release.zip
           packageSuffix: '-windows-x64-vs2017-static'
           cpackGenerators: 'ZIP'
       - template: Build/azure-build-job-template.yml
@@ -30,7 +30,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
           cmakeBuildArgs: '--config Debug'
           ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_VS2017_Debug.zip
+          llvmBuildAssetName: Win64_Checked.zip
           packageSuffix: '-windows-x64-vs2017-debug'
           cpackGenerators: 'ZIP'
       - template: Build/azure-build-job-template.yml
@@ -40,7 +40,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64" -DWAVM_ENABLE_STATIC_LINKING=1'
           cmakeBuildArgs: '--config Debug'
           ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_VS2017_Debug.zip
+          llvmBuildAssetName: Win64_Checked.zip
           packageSuffix: '-windows-x64-vs2017-debug-static'
           cpackGenerators: 'ZIP'
 
@@ -53,7 +53,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
           cmakeBuildArgs: '--config RelWithDebInfo'
           ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_VS2019_Release.zip
+          llvmBuildAssetName: Win64_Release.zip
           packageSuffix: '-windows-x64'
           cpackGenerators: 'ZIP;NSIS64'
       - template: Build/azure-build-job-template.yml
@@ -64,7 +64,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64 -DWAVM_ENABLE_STATIC_LINKING=1'
           cmakeBuildArgs: '--config RelWithDebInfo'
           ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_VS2019_Release.zip
+          llvmBuildAssetName: Win64_Release.zip
           packageSuffix: '-windows-x64-static'
           cpackGenerators: 'ZIP'
       - template: Build/azure-build-job-template.yml
@@ -75,7 +75,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
           cmakeBuildArgs: '--config Debug'
           ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_VS2019_Debug.zip
+          llvmBuildAssetName: Win64_Checked.zip
           packageSuffix: '-windows-x64-debug'
           cpackGenerators: 'ZIP'
       - template: Build/azure-build-job-template.yml
@@ -86,7 +86,7 @@ stages:
           cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64 -DWAVM_ENABLE_STATIC_LINKING=1'
           cmakeBuildArgs: '--config Debug'
           ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_VS2019_Debug.zip
+          llvmBuildAssetName: Win64_Checked.zip
           packageSuffix: '-windows-x64-debug-static'
           cpackGenerators: 'ZIP'
 
@@ -115,7 +115,7 @@ stages:
           vmImage: 'ubuntu-16.04'
           cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
           cmakeBuildArgs: ''
-          llvmBuildAssetName: Ubuntu1604_Debug.zip
+          llvmBuildAssetName: Ubuntu1604_Checked.zip
           packageSuffix: '-linux-x64-debug'
           cpackGenerators: 'TGZ'
       - template: Build/azure-build-job-template.yml
@@ -124,7 +124,7 @@ stages:
           vmImage: 'ubuntu-16.04'
           cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DWAVM_ENABLE_STATIC_LINKING=1'
           cmakeBuildArgs: ''
-          llvmBuildAssetName: Ubuntu1604_Debug.zip
+          llvmBuildAssetName: Ubuntu1604_Checked.zip
           packageSuffix: '-linux-x64-debug-static'
           cpackGenerators: 'TGZ'
 
@@ -135,7 +135,7 @@ stages:
           vmImage: 'macOS-10.14'
           cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo'
           cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOSX14_Release.zip
+          llvmBuildAssetName: MacOS_Release.zip
           packageSuffix: '-macos10.14-x64'
           cpackGenerators: 'TGZ'
       - template: Build/azure-build-job-template.yml
@@ -144,7 +144,7 @@ stages:
           vmImage: 'macOS-10.14'
           cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWAVM_ENABLE_STATIC_LINKING=1'
           cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOSX14_Release.zip
+          llvmBuildAssetName: MacOS_Release.zip
           packageSuffix: '-macos10.14-x64-static'
           cpackGenerators: 'TGZ'
       - template: Build/azure-build-job-template.yml
@@ -153,7 +153,7 @@ stages:
           vmImage: 'macOS-10.14'
           cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
           cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOSX14_Debug.zip
+          llvmBuildAssetName: MacOS_Checked.zip
           packageSuffix: '-macos10.14-x64-debug'
           cpackGenerators: 'TGZ'
       - template: Build/azure-build-job-template.yml
@@ -162,7 +162,7 @@ stages:
           vmImage: 'macOS-10.14'
           cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DWAVM_ENABLE_STATIC_LINKING=1'
           cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOSX14_Debug.zip
+          llvmBuildAssetName: MacOS_Checked.zip
           packageSuffix: '-macos10.14-x64-debug-static'
           cpackGenerators: 'TGZ'
 
