@@ -210,5 +210,5 @@ stages:
             releaseNotes: 
             addChangeLog: true
             changeLogCompareToRelease: lastNonDraftReleaseByTag
-            changeLogCompareToReleaseTag: nightly-[\d-]+
+            changeLogCompareToReleaseTag: nightly-[\d\-]+
             isPreRelease: true
