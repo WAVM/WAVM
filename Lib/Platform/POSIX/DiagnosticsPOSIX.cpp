@@ -56,8 +56,11 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 		WAVM_ASSERT(symbolInfo.dli_fname);
 		outDescription = "host!";
 		outDescription += symbolInfo.dli_fname;
-		outDescription += '!';
-		if(!symbolInfo.dli_sname) { outDescription += "<unknown>"; }
+		if(!symbolInfo.dli_sname)
+		{
+			outDescription
+				+= '+' + std::to_string(ip - reinterpret_cast<Uptr>(symbolInfo.dli_fbase));
+		}
 		else
 		{
 			char demangledBuffer[1024];
@@ -72,6 +75,7 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 									   &demangleStatus))
 				{ demangledSymbolName = demangledBuffer; }
 			}
+			outDescription += '!';
 			outDescription += demangledSymbolName;
 			outDescription += '+';
 			outDescription += std::to_string(ip - reinterpret_cast<Uptr>(symbolInfo.dli_saddr));
