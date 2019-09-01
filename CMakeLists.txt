@@ -207,7 +207,10 @@ function(add_c_cxx_flag_if_supported OPTIONAL_FLAG)
 endfunction()
 
 if(NOT MSVC)
-	add_c_cxx_flag_if_supported("-Wnull-dereference")
+	# GCC's -Wnull-dereference triggers a bunch of warnings that seem harmless. It would be nice to
+	# fix them, but for now just disable the warning.
+	#add_c_cxx_flag_if_supported("-Wnull-dereference")
+
 	add_c_cxx_flag_if_supported("-Wduplicated-cond")
 	add_c_cxx_flag_if_supported("-Wduplicated-branches")
 	add_c_cxx_flag_if_supported("-Wlogical-op")
