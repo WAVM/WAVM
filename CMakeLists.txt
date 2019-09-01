@@ -205,8 +205,6 @@ function(add_c_cxx_flag_if_supported OPTIONAL_FLAG)
 		set(WAVM_CXX_FLAGS ${WAVM_CXX_FLAGS} PARENT_SCOPE)
 	endif()
 endfunction()
-	endif()
-endfunction()
 
 if(NOT MSVC)
 	add_c_cxx_flag_if_supported("-Wnull-dereference")
