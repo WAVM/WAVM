@@ -9,7 +9,10 @@ namespace WAVM {
 		InlineArray() : numElements(0) {}
 		~InlineArray()
 		{
-			for(Uptr index = 0; index < numElements; ++index) { elements[index].destruct(); }
+			if(!std::is_trivially_destructible<Element>::value)
+			{
+				for(Uptr index = 0; index < numElements; ++index) { elements[index].destruct(); }
+			}
 		}
 
 		template<typename... ElementArgs> void push_back(ElementArgs&&... elementArgs)
@@ -42,12 +45,12 @@ namespace WAVM {
 		const Element& operator[](Uptr index) const
 		{
 			WAVM_ASSERT(index < numElements);
-			return elements[index].contents;
+			return elements[index].get();
 		}
 		Element& operator[](Uptr index)
 		{
 			WAVM_ASSERT(index < numElements);
-			return elements[index].contents;
+			return elements[index].get();
 		}
 
 	private:

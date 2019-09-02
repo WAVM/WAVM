@@ -59,13 +59,13 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::resize(Uptr 
 			if(oldBuckets[bucketIndex].hashAndOccupancy)
 			{
 				Bucket& oldBucket = oldBuckets[bucketIndex];
-				const Key& oldKey = HashTablePolicy::getKey(oldBucket.storage.contents);
+				const Key& oldKey = HashTablePolicy::getKey(oldBucket.storage.get());
 
 				// Find the new bucket to write the element to.
 				Bucket& newBucket = getBucketForWrite(oldBucket.hashAndOccupancy, oldKey);
 
 				// Move the element from the old bucket to the new.
-				newBucket.storage.construct(std::move(oldBucket.storage.contents));
+				newBucket.storage.construct(std::move(oldBucket.storage.get()));
 				newBucket.hashAndOccupancy = oldBucket.hashAndOccupancy;
 				oldBucket.storage.destruct();
 				oldBucket.hashAndOccupancy = 0;
@@ -120,7 +120,7 @@ const HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForRead
 		}
 		else if(bucket.hashAndOccupancy == hashAndOccupancy
 				&& HashTablePolicy::areKeysEqual(
-					HashTablePolicy::getKey(buckets[bucketIndex].storage.contents), key))
+					HashTablePolicy::getKey(buckets[bucketIndex].storage.get()), key))
 		{
 			// If the bucket holds the specified key, return null.
 			return &bucket;
@@ -192,7 +192,7 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(Uptr
 			return bucket;
 		}
 		else if(bucket.hashAndOccupancy == hashAndOccupancy
-				&& HashTablePolicy::areKeysEqual(HashTablePolicy::getKey(bucket.storage.contents),
+				&& HashTablePolicy::areKeysEqual(HashTablePolicy::getKey(bucket.storage.get()),
 												 key))
 		{
 			// If the bucket already holds the specified key, return it.
@@ -227,7 +227,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::evictHashBucket(Uptr bucketIndex)
 	// Move the bucket's element into a local variable and empty the bucket.
 	Bucket& evictedBucket = buckets[bucketIndex];
 	WAVM_ASSERT(evictedBucket.hashAndOccupancy);
-	Element evictedElement{std::move(evictedBucket.storage.contents)};
+	Element evictedElement{std::move(evictedBucket.storage.get())};
 	Uptr evictedHashAndOccupancy = evictedBucket.hashAndOccupancy;
 	evictedBucket.hashAndOccupancy = 0;
 	evictedBucket.storage.destruct();
@@ -249,7 +249,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::evictHashBucket(Uptr bucketIndex)
 		{
 			// Otherwise, swap the evicted element with the bucket's element and continue
 			// searching for an empty bucket.
-			std::swap(evictedElement, bucket.storage.contents);
+			std::swap(evictedElement, bucket.storage.get());
 			std::swap(evictedHashAndOccupancy, bucket.hashAndOccupancy);
 		}
 	};
@@ -292,7 +292,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 			{
 				// Otherwise, shift the contents of the following bucket into the erase bucket
 				// and continue with the following bucket as the new erase bucket.
-				bucketToErase.storage.contents = std::move(bucket.storage.contents);
+				bucketToErase.storage.get() = std::move(bucket.storage.get());
 				bucketToErase.hashAndOccupancy = bucket.hashAndOccupancy;
 				eraseBucketIndex = bucketIndex;
 			}
@@ -407,7 +407,7 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(con
 			buckets[bucketIndex].hashAndOccupancy = copy.buckets[bucketIndex].hashAndOccupancy;
 			if(buckets[bucketIndex].hashAndOccupancy)
 			{
-				buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.contents);
+				buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.get());
 			}
 		}
 	}

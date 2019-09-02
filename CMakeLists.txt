@@ -175,27 +175,49 @@ install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
 		DESTINATION $<IF:$<PLATFORM_ID:Windows>,examples,share/wavm/examples>
 		PATTERN *.txt EXCLUDE)
 
-set(OPTIONAL_C_FLAGS)
-set(OPTIONAL_CXX_FLAGS)
-function(ADD_COMPILER_FLAG_IF_SUPPORTED OPTIONAL_FLAG)
-	check_c_compiler_flag(${OPTIONAL_FLAG} C_HAS_FLAG)
-	check_cxx_compiler_flag(${OPTIONAL_FLAG} CXX_HAS_FLAG)
-	if(C_HAS_FLAG)
-		list(APPEND OPTIONAL_C_FLAGS ${OPTIONAL_FLAG})
-	endif()
-	if(CXX_HAS_FLAG)
-		list(APPEND OPTIONAL_CXX_FLAGS ${OPTIONAL_FLAG})
+set(WAVM_C_FLAGS)
+set(WAVM_CXX_FLAGS)
+
+function(get_config_var_name_for_flag FLAG VAR_NAME)
+	string(SUBSTRING ${FLAG} 1 -1 FLAG_NAME)
+	string(MAKE_C_IDENTIFIER ${FLAG_NAME} FLAG_NAME)
+	string(TOUPPER ${FLAG_NAME} FLAG_NAME)
+	set(${VAR_NAME} ${FLAG_NAME} PARENT_SCOPE)
+endfunction()
+
+function(add_cxx_flag_if_supported OPTIONAL_FLAG)
+	get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
+	list(JOIN WAVM_CXX_FLAGS " " WAVM_CXX_FLAGS_SPACE_SEPARATED)
+	check_cxx_compiler_flag("${WAVM_CXX_FLAGS_SPACE_SEPARATED} ${OPTIONAL_FLAG}" "CXX_HAS_${FLAG_VAR}")
+	if(CXX_HAS_${FLAG_VAR})
+		list(APPEND WAVM_CXX_FLAGS ${OPTIONAL_FLAG})
+		set(WAVM_CXX_FLAGS ${WAVM_CXX_FLAGS} PARENT_SCOPE)
 	endif()
 endfunction()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wnull-dereference")
-	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wduplicated-cond")
-	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wduplicated-branches")
-	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wlogical-op")
-	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wnon-virtual-dtor")
-	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wrestrict")
-	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wdouble-promotion")
+function(add_c_cxx_flag_if_supported OPTIONAL_FLAG)
+	get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
+	list(JOIN WAVM_CXX_FLAGS " " WAVM_CXX_FLAGS_SPACE_SEPARATED)
+	check_cxx_compiler_flag("${WAVM_CXX_FLAGS_SPACE_SEPARATED} ${OPTIONAL_FLAG}" "CXX_HAS_${FLAG_VAR}")
+	if(CXX_HAS_${FLAG_VAR})
+		list(APPEND WAVM_C_FLAGS ${OPTIONAL_FLAG})
+		list(APPEND WAVM_CXX_FLAGS ${OPTIONAL_FLAG})
+		set(WAVM_C_FLAGS ${WAVM_C_FLAGS} PARENT_SCOPE)
+		set(WAVM_CXX_FLAGS ${WAVM_CXX_FLAGS} PARENT_SCOPE)
+	endif()
+endfunction()
+
+if(NOT MSVC)
+	# GCC's -Wnull-dereference triggers a bunch of warnings that seem harmless. It would be nice to
+	# fix them, but for now just disable the warning.
+	#add_c_cxx_flag_if_supported("-Wnull-dereference")
+
+	add_c_cxx_flag_if_supported("-Wduplicated-cond")
+	add_c_cxx_flag_if_supported("-Wduplicated-branches")
+	add_c_cxx_flag_if_supported("-Wlogical-op")
+	add_cxx_flag_if_supported("-Wnon-virtual-dtor")
+	add_c_cxx_flag_if_supported("-Wrestrict")
+	add_c_cxx_flag_if_supported("-Wdouble-promotion")
 endif()
 
 # A function that sets sanitizer options on a target.
@@ -311,8 +333,8 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-parameter")
 		
 		# Add the optional warnings that the compiler was detected to support.
-		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${OPTIONAL_C_FLAGS}>")
-		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${OPTIONAL_CXX_FLAGS}>")
+		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${WAVM_C_FLAGS}>")
+		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${WAVM_CXX_FLAGS}>")
 		
 		# Warn if a switch doesn't handle an enum case even if it has a default label.
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-enum")
@@ -331,6 +353,12 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# sanitizers requires a frame pointer, and makes ASAN's stack trace on malloc much better
 		# without using the slow libunwind path.
 		target_compile_options(${TARGET_NAME} PRIVATE "-fno-omit-frame-pointer")
+	endif()
+
+	if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		# Compile with -pthread on Linux.
+		target_compile_options(${TARGET_NAME} PRIVATE "-pthread")
+		target_link_libraries(${TARGET_NAME} PRIVATE "-pthread")
 	endif()
 endfunction()
 

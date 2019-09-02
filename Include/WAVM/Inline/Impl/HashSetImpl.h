@@ -27,13 +27,13 @@ template<typename Element> void HashSetIterator<Element>::operator++()
 template<typename Element> const Element& HashSetIterator<Element>::operator*() const
 {
 	WAVM_ASSERT(bucket->hashAndOccupancy);
-	return bucket->storage.contents;
+	return bucket->storage.get();
 }
 
 template<typename Element> const Element* HashSetIterator<Element>::operator->() const
 {
 	WAVM_ASSERT(bucket->hashAndOccupancy);
-	return &bucket->storage.contents;
+	return &bucket->storage.get();
 }
 
 template<typename Element>
@@ -103,7 +103,7 @@ const Element& HashSet<Element, ElementHashPolicy>::operator[](const Element& el
 	const HashTableBucket<Element>* bucket = table.getBucketForRead(hash, element);
 	WAVM_ASSERT(bucket);
 	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
-	return bucket->storage.contents;
+	return bucket->storage.get();
 }
 
 template<typename Element, typename ElementHashPolicy>
@@ -125,7 +125,7 @@ const Element* HashSet<Element, ElementHashPolicy>::get(const Element& element) 
 	else
 	{
 		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
-		return &bucket->storage.contents;
+		return &bucket->storage.get();
 	}
 }
 

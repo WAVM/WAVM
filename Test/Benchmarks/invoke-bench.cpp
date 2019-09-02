@@ -20,7 +20,7 @@
 
 enum
 {
-	numInvokesPerThread = 100000
+	numInvokesPerThread = 100000000
 };
 
 using namespace WAVM;
@@ -85,7 +85,7 @@ void runBenchmarkSingleAndMultiThreaded(Compartment* compartment,
 										const char* description,
 										I64 (*threadFunc)(void*))
 {
-	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
+	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads() / 2;
 	runBenchmark(compartment, nopFunction, 1, description, threadFunc);
 	runBenchmark(compartment, nopFunction, numHardwareThreads, description, threadFunc);
 }

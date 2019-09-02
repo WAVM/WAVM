@@ -1,6 +1,8 @@
 #pragma once
 
+#include <new>
 #include <type_traits>
+#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM {
 	// A type that holds an optional instance of another type. The lifetime of the contained
@@ -10,49 +12,59 @@ namespace WAVM {
 			 bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
 	struct OptionalStorage
 	{
-		union
-		{
-			// Putting contents in a union allows this type to be default-constructible without
-			// calling the Contents default constructor.
-			Contents contents;
-		};
-
-		OptionalStorage() {}
-		~OptionalStorage() {}
-
-		template<typename... Args>
-		OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
-		{
-		}
-
 		template<typename... Args> void construct(Args&&... args)
 		{
 			new(&contents) Contents(std::forward<Args>(args)...);
 		}
 
-		void destruct() { contents.~Contents(); }
+		void destruct() { get().~Contents(); }
+
+#if __cplusplus >= 201703L
+		Contents& get() { return *std::launder(reinterpret_cast<Contents*>(&contents)); }
+		const Contents& get() const
+		{
+			return *std::launder(reinterpret_cast<const Contents*>(&contents));
+		}
+#else
+		Contents& get() { return *reinterpret_cast<Contents*>(&contents); }
+		const Contents& get() const { return *reinterpret_cast<const Contents*>(&contents); }
+#endif
+
+	private:
+		typename std::aligned_storage<sizeof(Contents), alignof(Contents)>::type contents;
 	};
 
 	// Partial specialization for types with trivial destructors.
 	template<typename Contents> struct OptionalStorage<Contents, true>
 	{
-		union
-		{
-			Contents contents;
-		};
-		OptionalStorage() {}
-		~OptionalStorage() {}
-
-		template<typename... Args>
-		OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
-		{
-		}
-
 		template<typename... Args> void construct(Args&&... args)
 		{
 			new(&contents) Contents(std::forward<Args>(args)...);
 		}
 
 		void destruct() {}
+
+#if __cplusplus >= 201703L
+		Contents& get() { return *std::launder(reinterpret_cast<Contents*>(&contents)); }
+		const Contents& get() const
+		{
+			return *std::launder(reinterpret_cast<const Contents*>(&contents));
+		}
+#else
+		Contents& get() { return *reinterpret_cast<Contents*>(&contents); }
+		const Contents& get() const { return *reinterpret_cast<const Contents*>(&contents); }
+#endif
+
+	private:
+		typename std::aligned_storage<sizeof(Contents), alignof(Contents)>::type contents;
+	};
+
+	namespace OptionalStorageAssertions {
+		struct NonTrivialType
+		{
+			NonTrivialType();
+		};
+		static_assert(std::is_trivial<OptionalStorage<NonTrivialType>>::value,
+					  "OptionalStorage<NonTrivialType> is non-trivial");
 	};
 }

@@ -8,7 +8,7 @@
         <Loop>
           <Break Condition="bucketIndex > table.hashToBucketIndexMask" />
           <If Condition="table.buckets[bucketIndex].hashAndOccupancy">
-            <Item>table.buckets[bucketIndex].storage.contents</Item>
+            <Item>table.buckets[bucketIndex].storage</Item>
           </If>
           <Exec>++bucketIndex</Exec>
         </Loop>

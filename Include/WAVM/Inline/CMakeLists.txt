@@ -17,7 +17,7 @@ set(PublicHeaders
 	IntrusiveSharedPtr.h
 	IsNameChar.h
 	Lock.h
-	OptionalStorage.h
+	OptionalStorage.h Impl/OptionalStorage.natvis
 	Serialization.h
 	Time.h
 	Timing.h
@@ -25,6 +25,6 @@ set(PublicHeaders
 	LEB128.h)
 
 WAVM_ADD_LIB_COMPONENT(Inline
-	NONCOMPILED_SOURCES ${PublicHeaders})
+	SOURCES ${PublicHeaders})
 
 add_subdirectory(xxhash)
