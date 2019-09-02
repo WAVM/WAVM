@@ -11,7 +11,7 @@
 
 namespace WAVM { namespace Runtime {
 	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
-	struct Resolver
+	struct RUNTIME_API Resolver
 	{
 		virtual ~Resolver() {}
 		virtual bool resolve(const std::string& moduleName,
@@ -75,7 +75,7 @@ namespace WAVM { namespace Runtime {
 	};
 
 	// A resolver that generates stubs for objects that the inner resolver can't find.
-	struct StubResolver : Resolver
+	struct RUNTIME_API StubResolver : Resolver
 	{
 		enum class FunctionBehavior
 		{
@@ -83,15 +83,15 @@ namespace WAVM { namespace Runtime {
 			trap,
 		};
 
-		RUNTIME_API StubResolver(Compartment* inCompartment,
-								 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
-								 bool inLogErrorOnStubGeneration = true,
-								 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
+		StubResolver(Compartment* inCompartment,
+					 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
+					 bool inLogErrorOnStubGeneration = true,
+					 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
-		RUNTIME_API virtual bool resolve(const std::string& moduleName,
-										 const std::string& exportName,
-										 IR::ExternType type,
-										 Runtime::Object*& outObject) override;
+		virtual bool resolve(const std::string& moduleName,
+							 const std::string& exportName,
+							 IR::ExternType type,
+							 Runtime::Object*& outObject) override;
 
 	private:
 		GCPointer<Compartment> compartment;

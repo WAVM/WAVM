@@ -220,6 +220,10 @@ if(NOT MSVC)
 	add_c_cxx_flag_if_supported("-Wdouble-promotion")
 	add_c_cxx_flag_if_supported("-Wno-missing-field-initializers")
 
+	# Use -fvisibility=hidden if available. The *_API definitions are also changed by the value of
+	# CXX_HAS_FVISIBILITY_HIDDEN.
+	add_c_cxx_flag_if_supported("-fvisibility=hidden")
+
 	# Check if the -fuse-ld=x option is available.
 	check_c_compiler_flag("-fuse-ld=ld" C_HAS_FUSE_LD)
 	if(C_HAS_FUSE_LD)
@@ -343,6 +347,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4204") # nonstandard extension used : non-constant aggregate initializer
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4251") # struct '' needs to have dll-interface to be used by clients of struct ''
 
 		target_link_libraries(${TARGET_NAME} PRIVATE "-ignore:4199") # /DELAYLOAD:... ignored; no imports found from ...
 
@@ -477,6 +482,8 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
 		target_compile_definitions(libWAVM PRIVATE "\"${COMPONENT_C_NAME}_API=__declspec(dllexport)\"")
 		target_compile_definitions(libWAVM INTERFACE "\"${COMPONENT_C_NAME}_API=__declspec(dllimport)\"")
+	elseif(NOT WAVM_ENABLE_STATIC_LINKING AND CXX_HAS_FVISIBILITY_HIDDEN)
+		target_compile_definitions(libWAVM PUBLIC "${COMPONENT_C_NAME}_API=__attribute__((visibility(\"default\")))")
 	else()
 		target_compile_definitions(libWAVM PUBLIC "${COMPONENT_C_NAME}_API=")
 	endif()
