@@ -134,6 +134,8 @@ ExternType Runtime::getExternType(const Object* object)
 
 FunctionType Runtime::getFunctionType(const Function* function) { return function->encodedType; }
 
+std::string Runtime::getFunctionDebugName(const Function* function) { return function->mutableData->debugName; };
+
 Context* Runtime::getContextFromRuntimeData(ContextRuntimeData* contextRuntimeData)
 {
 	const CompartmentRuntimeData* compartmentRuntimeData

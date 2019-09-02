@@ -278,6 +278,8 @@ namespace WAVM { namespace Runtime {
 	// Returns the type of a Function.
 	RUNTIME_API IR::FunctionType getFunctionType(const Function* function);
 
+    RUNTIME_API std::string getFunctionDebugName(const Function* function);
+
 	//
 	// Tables
 	//
