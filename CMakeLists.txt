@@ -525,13 +525,7 @@ install(
 # Create a dummy target to hold various files in the project root
 add_custom_target(RootFiles SOURCES
 	.clang-format
-	.travis.yml
-	azure-pipelines.yml
-	Build/azure-build-job-template.yml
-	Build/notify-discord.sh
-	Build/travis-build.sh
 	LICENSE
 	README.md
-	run-clang-format.sh
 	VERSION
 	WebAssembly.tmLanguage)
