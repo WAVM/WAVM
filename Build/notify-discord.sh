@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Copied from this repo: https://github.com/k3rn31p4nic/travis-ci-discord-webhook
+# Modified by Andrew Scheidecker to support running in both Travis and Azure Pipelines environments
 
 # MIT License
 # 
@@ -28,6 +29,21 @@ if [ -z "$2" ]; then
   echo -e "WARNING!!\nYou need to pass the WEBHOOK_URL environment variable as the second argument to this script.\nFor details & guide, visit: https://github.com/k3rn31p4nic/travis-ci-discord-webhook" && exit
 fi
 
+if [ "$TRAVIS_COMMIT" ]; then
+  COMMIT_ID=$TRAVIS_COMMIT
+  BUILD_DESC="Job #$TRAVIS_JOB_NUMBER (Build #$(TRAVIS_BUILD_NUMBER))"
+  BUILD_URL="https://travis-ci.com/WAVM/WAVM/builds/$TRAVIS_BUILD_ID"
+  BRANCH=$BRANCH
+elif [ "$BUILD_SOURCEVERSION" ]; then
+  COMMIT_ID=$BUILD_SOURCEVERSION
+  BUILD_DESC="Build #$BUILD_BUILDID"
+  BUILD_URL="https://dev.azure.com/WAVM/WAVM/_build/results?buildId=$BUILD_BUILDID"
+  BRANCH=$BUILD_SOURCEBRANCH
+else
+  echo -e "Couldn't detect build information from environment!"
+  exit 1
+fi
+
 echo -e "[Webhook]: Sending webhook to Discord...\\n";
 
 case $1 in
@@ -50,10 +66,10 @@ case $1 in
     ;;
 esac
 
-AUTHOR_NAME="$(git log -1 "$TRAVIS_COMMIT" --pretty="%aN")"
-COMMITTER_NAME="$(git log -1 "$TRAVIS_COMMIT" --pretty="%cN")"
-COMMIT_SUBJECT="$(git log -1 "$TRAVIS_COMMIT" --pretty="%s")"
-COMMIT_MESSAGE="$(git log -1 "$TRAVIS_COMMIT" --pretty="%b")"
+AUTHOR_NAME="$(git log -1 "$COMMIT_ID" --pretty="%aN")"
+COMMITTER_NAME="$(git log -1 "$COMMIT_ID" --pretty="%cN")"
+COMMIT_SUBJECT="$(git log -1 "$COMMIT_ID" --pretty="%s")"
+COMMIT_MESSAGE="$(git log -1 "$COMMIT_ID" --pretty="%b")"
 
 if [ "$AUTHOR_NAME" == "$COMMITTER_NAME" ]; then
   CREDITS="$AUTHOR_NAME authored & committed"
@@ -61,21 +77,17 @@ else
   CREDITS="$AUTHOR_NAME authored & $COMMITTER_NAME committed"
 fi
 
-if [[ $TRAVIS_PULL_REQUEST != false ]]; then
-  URL="https://github.com/$TRAVIS_REPO_SLUG/pull/$TRAVIS_PULL_REQUEST"
-else
-  URL=""
-fi
+URL=""
 
-TIMESTAMP=$(date --utc +%FT%TZ)
+TIMESTAMP=$(date -u +%FT%TZ)
 WEBHOOK_DATA='{
   "username": "",
   "avatar_url": "https://travis-ci.com/images/logos/TravisCI-Mascot-1.png",
   "embeds": [ {
     "color": '$EMBED_COLOR',
     "author": {
-      "name": "Job #'"$TRAVIS_JOB_NUMBER"' (Build #'"$TRAVIS_BUILD_NUMBER"') '"$STATUS_MESSAGE"' - '"$TRAVIS_REPO_SLUG"'",
-      "url": "https://travis-ci.com/'"$TRAVIS_REPO_SLUG"'/builds/'"$TRAVIS_BUILD_ID"'",
+      "name": "'"$BUILD_DESC"' '"$STATUS_MESSAGE"' - WAVM/WAVM",
+      "url": "'$BUILD_URL'",
       "icon_url": "'$AVATAR'"
     },
     "title": "'"$COMMIT_SUBJECT"'",
@@ -84,12 +96,12 @@ WEBHOOK_DATA='{
     "fields": [
       {
         "name": "Commit",
-        "value": "'"[\`${TRAVIS_COMMIT:0:7}\`](https://github.com/$TRAVIS_REPO_SLUG/commit/$TRAVIS_COMMIT)"'",
+        "value": "'"[\`${COMMIT_ID:0:7}\`](https://github.com/WAVM/WAVM/commit/$COMMIT_ID)"'",
         "inline": true
       },
       {
         "name": "Branch/Tag",
-        "value": "'"[\`$TRAVIS_BRANCH\`](https://github.com/$TRAVIS_REPO_SLUG/tree/$TRAVIS_BRANCH)"'",
+        "value": "'"[\`$BRANCH\`](https://github.com/WAVM/WAVM/tree/$BRANCH)"'",
         "inline": true
       }
     ],
@@ -97,5 +109,7 @@ WEBHOOK_DATA='{
   } ]
 }'
 
-(curl --fail --progress-bar -A "TravisCI-Webhook" -H Content-Type:application/json -H X-Author:k3rn31p4nic#8383 -d "$WEBHOOK_DATA" "$2" \
+echo "WEBHOOK_DATA=$WEBOOK_DATA"
+
+(curl --fail --progress-bar -A "Discord-Webhook" -H Content-Type:application/json -H X-Author:k3rn31p4nic#8383 -d "$WEBHOOK_DATA" "$2" \
   && echo -e "\\n[Webhook]: Successfully sent the webhook.") || echo -e "\\n[Webhook]: Unable to send webhook."

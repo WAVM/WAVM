@@ -1,0 +1,21 @@
+parameters:
+    llvmBuildAssetName: ''
+    llvmVersion: ''
+
+steps:
+  # Download and extract the LLVM build from the pipeline for https://github.com/WAVM/WAVM-LLVM/
+  - task: DownloadGitHubRelease@0
+    displayName: Download LLVM Build
+    inputs:
+      connection: GitHubPAT
+      userRepository: WAVM/WAVM-LLVM
+      itemPattern: ${{parameters.llvmBuildAssetName}}.*
+      downloadPath: $(Pipeline.Workspace)
+      defaultVersionType: specificTag
+      version: ${{parameters.llvmVersion}}
+  - task: ExtractFiles@1
+    displayName: Extract LLVM Build
+    inputs:
+      archiveFilePatterns: $(Pipeline.Workspace)/${{parameters.llvmBuildAssetName}}.*
+      destinationFolder: $(Build.ArtifactStagingDirectory)/llvm
+      cleanDestinationFolder: false
