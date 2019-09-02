@@ -121,21 +121,6 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Put executables/DLLs in the <build>/bin directory.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
-# This is a hack around the fact that CMake doesn't allow generator expressions in INSTALL_RPATH.
-# This means that platforms that need an RPATH but have multi-configuration generators (i.e. Xcode)
-# can't install the shared libraries into a configuration-dependent directory, so only one
-# configuration may be installed at a time.
-if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-	set(WAVM_DISABLE_PER_CONFIG_RPATH 1)
-elseif(CMAKE_BUILD_TYPE)
-	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_BUILD_TYPE}")
-	set(WAVM_DISABLE_PER_CONFIG_RPATH 0)
-else()
-	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-	set(WAVM_DISABLE_PER_CONFIG_RPATH 1)
-endif()
-
 # If MSVC LTO is enabled, remove the /INCREMENTAL option from the link flags to avoid link warnings.
 function(REMOVE_INCREMENTAL_FLAG INOUT_FLAGS)
 	set(INOUT_FLAGS ${OUT_FLAGS_LOCAL} PARENT_SCOPE)
@@ -359,22 +344,23 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "-pthread")
 		target_link_libraries(${TARGET_NAME} PRIVATE "-pthread")
 	endif()
+
+	target_link_libraries(${TARGET_NAME} PRIVATE ${WAVM_LINKER_FLAGS})
 endfunction()
 
 function(WAVM_INSTALL_TARGET TARGET_NAME)
 	install(TARGETS ${TARGET_NAME}
 			EXPORT WAVMInstallTargets
-			LIBRARY DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,lib,lib/WAVM/$<CONFIG>>
-			ARCHIVE DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,lib,lib/WAVM/$<CONFIG>>
-			# Install RelWithDebInfo binaries to bin, and all others to bin/WAVM/config
-			RUNTIME DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>)
+			LIBRARY DESTINATION lib
+			ARCHIVE DESTINATION lib
+			RUNTIME DESTINATION bin)
 
 	# Install PDB files to the same directory as the binaries.
 	# Exclude static libraries as TARGET_PDB_FILE only works for linked targets.
 	get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
 	if(MSVC AND NOT ${TARGET_TYPE} STREQUAL "STATIC_LIBRARY")
 		install(FILES $<TARGET_PDB_FILE:${TARGET_NAME}>
-				DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>
+				DESTINATION bin
 				OPTIONAL)
 	endif()
 endfunction()
