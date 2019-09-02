@@ -13,6 +13,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
@@ -43,13 +44,37 @@ using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 using namespace WAVM::Runtime;
 
+struct IntrinsicThunkKey
+{
+	void* nativeFunction;
+	FunctionType type;
+
+	friend bool operator==(const IntrinsicThunkKey& a, const IntrinsicThunkKey& b)
+	{
+		return a.nativeFunction == b.nativeFunction && a.type == b.type;
+	}
+};
+
+namespace WAVM {
+	template<> struct Hash<IntrinsicThunkKey>
+	{
+		Uptr operator()(const IntrinsicThunkKey& key, Uptr seed = 0) const
+		{
+			Uptr hash = seed;
+			hash = Hash<Uptr>()(reinterpret_cast<Uptr>(key.nativeFunction), hash);
+			hash = Hash<Uptr>()(key.type.getHash(), hash);
+			return hash;
+		}
+	};
+}
+
 // A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
 static Platform::Mutex invokeThunkMutex;
 static HashMap<FunctionType, Runtime::Function*> invokeThunkTypeToFunctionMap;
 
 // A map from function types to JIT symbols for cached native thunks (WASM -> C++)
 static Platform::Mutex intrinsicThunkMutex;
-static HashMap<void*, Runtime::Function*> intrinsicFunctionToThunkFunctionMap;
+static HashMap<IntrinsicThunkKey, Runtime::Function*> intrinsicFunctionToThunkFunctionMap;
 
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 {
@@ -160,9 +185,9 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 
 	LLVMContext llvmContext;
 
-	// Reuse cached intrinsic thunks for the same function type.
+	// Reuse cached intrinsic thunks for the same function+type.
 	Runtime::Function*& intrinsicThunkFunction
-		= intrinsicFunctionToThunkFunctionMap.getOrAdd(nativeFunction, nullptr);
+		= intrinsicFunctionToThunkFunctionMap.getOrAdd({nativeFunction, functionType}, nullptr);
 	if(intrinsicThunkFunction) { return intrinsicThunkFunction; }
 
 	// Create a FunctionMutableData object for the thunk.
