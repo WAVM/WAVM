@@ -218,6 +218,7 @@ if(NOT MSVC)
 	add_cxx_flag_if_supported("-Wnon-virtual-dtor")
 	add_c_cxx_flag_if_supported("-Wrestrict")
 	add_c_cxx_flag_if_supported("-Wdouble-promotion")
+	add_c_cxx_flag_if_supported("-Wno-missing-field-initializers")
 
 	# Check if the -fuse-ld=x option is available.
 	check_c_compiler_flag("-fuse-ld=ld" C_HAS_FUSE_LD)
