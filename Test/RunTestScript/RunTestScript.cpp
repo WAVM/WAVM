@@ -971,13 +971,24 @@ int main(int argc, char** argv)
 		sharedState.config = config;
 		sharedState.pendingFilenames = filenames;
 
+		// Try to use the default thread stack size to make sure WAVM passes tests with it, but on
+		// MacOS the default thread stack size of 512KB is not enough for sanitized builds.
+#if defined(__APPLE__) && (WAVM_ENABLE_ASAN || WAVM_ENABLE_UBSAN)
+		constexpr Uptr threadStackNumBytes = 1 * 1024 * 1024;
+#else
+		constexpr Uptr threadStackNumBytes = 0;
+#endif
+
 		// Create a thread for each hardware thread.
 		std::vector<Platform::Thread*> threads;
 		const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
 		const Uptr numTestThreads
 			= std::min(numHardwareThreads, Uptr(sharedState.pendingFilenames.size()));
 		for(Uptr threadIndex = 0; threadIndex < numTestThreads; ++threadIndex)
-		{ threads.push_back(Platform::createThread(0, threadMain, &sharedState)); }
+		{
+			threads.push_back(
+				Platform::createThread(threadStackNumBytes, threadMain, &sharedState));
+		}
 
 		// Wait for the threads to exit, summing up their return code, which will be the number of
 		// errors found by the thread.
