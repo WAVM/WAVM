@@ -54,16 +54,6 @@ extern "C" {
 ///////////////////////////////////////////////////////////////////////////////
 // Auxiliaries
 
-// Machine types
-
-inline void assertions()
-{
-	static_assert(sizeof(float) == sizeof(uint32_t), "incompatible wasm_float32_t type");
-	static_assert(sizeof(double) == sizeof(uint64_t), "incompatible wasm_float64_t type");
-	static_assert(sizeof(intptr_t) == sizeof(uint32_t) || sizeof(intptr_t) == sizeof(uint64_t),
-				  "incompatible pointer type");
-}
-
 typedef float wasm_float32_t;
 typedef double wasm_float64_t;
 
