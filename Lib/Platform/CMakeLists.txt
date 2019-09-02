@@ -1,3 +1,5 @@
+include(CheckSymbolExists)
+
 set(POSIXSources
 	POSIX/ClockPOSIX.cpp
 	POSIX/DiagnosticsPOSIX.cpp
@@ -53,6 +55,22 @@ if(MSVC)
 		set(NonCompiledSources ${Win32Sources} ${POSIXSources} ${POSIXSourcesX86_64} ${POSIXSourcesAArch64})
 	endif()
 else()
+	# Prevent check_symbol_exists from using API that is not supported for a given deployment target.
+	check_c_compiler_flag("-Werror=unguarded-availability-new" C_HAS_WERROR_UNGUARDED_AVAILABILITY_NEW)
+	if(C_HAS_WERROR_UNGUARDED_AVAILABILITY_NEW)
+		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -Werror=unguarded-availability-new")
+	endif()
+
+	# futimens/utimensat isn't available on MacOS until 10.13.
+	check_symbol_exists(futimens sys/stat.h HAS_FUTIMENS)
+	if(HAS_FUTIMENS)
+		list(APPEND PLATFORM_PRIVATE_DEFINITIONS "HAS_FUTIMENS")
+	endif()
+	check_symbol_exists(utimensat sys/stat.h HAS_UTIMENSAT)
+	if(HAS_FUTIMENS)
+		list(APPEND PLATFORM_PRIVATE_DEFINITIONS "HAS_UTIMENSAT")
+	endif()
+
 	set(Sources ${POSIXSources})
 	set(NonCompiledSources ${WindowsSources} ${Win32Sources} ${Win64Sources})
 
@@ -87,4 +105,5 @@ WAVM_ADD_LIB_COMPONENT(Platform
 	SOURCES ${Sources}
 	NONCOMPILED_SOURCES ${Headers} ${NonCompiledSources}
 	PRIVATE_LIBS ${PLATFORM_PRIVATE_LIBS}
-	PRIVATE_INCLUDE_DIRECTORIES ${PLATFORM_PRIVATE_INCLUDE_DIRECTORIES})
+	PRIVATE_INCLUDE_DIRECTORIES ${PLATFORM_PRIVATE_INCLUDE_DIRECTORIES}
+	PRIVATE_DEFINITIONS ${PLATFORM_PRIVATE_DEFINITIONS})
