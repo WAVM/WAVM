@@ -227,6 +227,36 @@ if(NOT MSVC)
 			list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
 		endif()
 	endif()
+
+	if(WAVM_ENABLE_LTO)
+		string(TOUPPER "${WAVM_ENABLE_LTO}" UPPERCASE_WAVM_ENABLE_LTO)
+		if(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "THIN")
+			list(APPEND WAVM_C_FLAGS "-flto=thin")
+			list(APPEND WAVM_CXX_FLAGS "-flto=thin")
+			list(APPEND WAVM_LINKER_FLAGS "-flto=thin")
+
+			# LLD ThinLTO cache options
+			check_linker_flag("-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_LLD_THINLTO_CMD_SYNTAX)
+			if(LINKER_HAS_LLD_THINLTO_CMD_SYNTAX)
+				list(APPEND WAVM_LINKER_FLAGS "-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/.thinltocache")
+				list(APPEND WAVM_LINKER_FLAGS "-Wl,--thinlto-cache-policy,cache_size_bytes=1g")
+			else()
+				# Gold ThinLTO cache options
+				check_linker_flag("-Wl,-plugin-opt,cache-dir=${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_GOLD_THINLTO_CMD_SYNTAX)
+				if(LINKER_HAS_GOLD_THINLTO_CMD_SYNTAX)
+					list(APPEND WAVM_LINKER_FLAGS "-Wl,-plugin-opt,cache-dir=${CMAKE_BINARY_DIR}/.thinltocache")
+					list(APPEND WAVM_LINKER_FLAGS "-Wl,-plugin-opt,cache-polixy=cache_size_bytes=1g")
+				else()
+					# ld64 ThinLTO cache options
+					add_linker_flag_if_supported("-Wl,-cache_path_lto,${CMAKE_BINARY_DIR}/.thinltocache")
+				endif()
+			endif()
+		else()
+			list(APPEND WAVM_C_FLAGS "-flto")
+			list(APPEND WAVM_CXX_FLAGS "-flto")
+			list(APPEND WAVM_LINKER_FLAGS "-flto")
+		endif()
+	endif()
 endif()
 
 # A function that sets sanitizer options on a target.
@@ -327,11 +357,6 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_definitions(${TARGET_NAME} PRIVATE "_ENABLE_EXTENDED_ALIGNED_STORAGE")
 
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	
-		if(WAVM_ENABLE_LTO)
-			target_compile_options(${TARGET_NAME} PRIVATE "-flto")
-			target_link_libraries(${TARGET_NAME} PRIVATE "-flto")
-		endif()
 
 		# Compile with all+extra warnings and fatal warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
