@@ -161,6 +161,7 @@ install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
 
 set(WAVM_C_FLAGS)
 set(WAVM_CXX_FLAGS)
+set(WAVM_LINKER_FLAGS)
 
 function(get_config_var_name_for_flag FLAG VAR_NAME)
 	string(SUBSTRING ${FLAG} 1 -1 FLAG_NAME)
@@ -191,6 +192,21 @@ function(add_c_cxx_flag_if_supported OPTIONAL_FLAG)
 	endif()
 endfunction()
 
+function(check_linker_flag FLAG VARIABLE_NAME)
+	list(JOIN WAVM_LINKER_FLAGS " " WAVM_LINKER_FLAGS_SPACE_SEPARATED)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${WAVM_LINKER_FLAGS_SPACE_SEPARATED} ${FLAG}")
+	check_cxx_compiler_flag("" ${VARIABLE_NAME})
+endfunction()
+
+function(add_linker_flag_if_supported OPTIONAL_FLAG)
+	get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
+	check_linker_flag(${OPTIONAL_FLAG} "LINKER_HAS_${FLAG_VAR}")
+	if(LINKER_HAS_${FLAG_VAR})
+		list(APPEND WAVM_LINKER_FLAGS ${OPTIONAL_FLAG})
+		set(WAVM_LINKER_FLAGS ${WAVM_LINKER_FLAGS} PARENT_SCOPE)
+	endif()
+endfunction()
+
 if(NOT MSVC)
 	# GCC's -Wnull-dereference triggers a bunch of warnings that seem harmless. It would be nice to
 	# fix them, but for now just disable the warning.
@@ -202,6 +218,15 @@ if(NOT MSVC)
 	add_cxx_flag_if_supported("-Wnon-virtual-dtor")
 	add_c_cxx_flag_if_supported("-Wrestrict")
 	add_c_cxx_flag_if_supported("-Wdouble-promotion")
+
+	# Check if the -fuse-ld=x option is available.
+	check_c_compiler_flag("-fuse-ld=ld" C_HAS_FUSE_LD)
+	if(C_HAS_FUSE_LD)
+		option(WAVM_USE_LINKER "If set, overrides the default linker (as the compiler option -fuse-ld=<WAVM_USE_LINKER>)" "")
+		if(WAVM_USE_LINKER)
+			list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
+		endif()
+	endif()
 endif()
 
 # A function that sets sanitizer options on a target.
