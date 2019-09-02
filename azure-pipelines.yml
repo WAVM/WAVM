@@ -167,13 +167,17 @@ stages:
           cpackGenerators: 'TGZ'
 
       # Win32
-      - template: Build/azure-windows-build-job-template-no-llvm.yml
+      - template: Build/azure-build-job-template.yml
         parameters:
-          name: Win32_VS2019
+          name: Win32_VS2019_RelWithDebInfo
           buildConfiguration: RelWithDebInfo
           vmImage: 'windows-2019'
-          cmakeArgs: '-G "Visual Studio 16 2019" -A Win32'
-          vsPlatform: Win32
+          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A Win32 -DWAVM_ENABLE_RUNTIME=OFF'
+          cmakeBuildArgs: '--config RelWithDebInfo'
+          ctestArgs: '-C RelWithDebInfo'
+          llvmBuildAssetName: Win32_Release.zip
+          packageSuffix: '-windows-x86'
+          cpackGenerators: 'ZIP'
 
 
   - stage:
