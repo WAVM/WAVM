@@ -102,6 +102,12 @@ const Element& HashSet<Element, ElementHashPolicy>::operator[](const Element& el
 	const Uptr hash = ElementHashPolicy::getKeyHash(element);
 	const HashTableBucket<Element>* bucket = table.getBucketForRead(hash, element);
 	WAVM_ASSERT(bucket);
+	if(!bucket)
+	{
+		// In addition to the assert, use WAVM_UNREACHABLE to ensure that GCC's -Wnull-dereference
+		// warning isn't triggered because it thinks this function might return nullptr.
+		WAVM_UNREACHABLE();
+	}
 	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
 	return bucket->storage.get();
 }

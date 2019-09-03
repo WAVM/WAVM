@@ -33,7 +33,7 @@
 			;)                                                                                     \
 		{                                                                                          \
 			WAVM::Platform::handleAssertionFailure(wavmAssertMetadata);                            \
-			WAVM_DEBUG_TRAP();                                                                     \
+			WAVM_UNREACHABLE();                                                                    \
 			break;                                                                                 \
 		}                                                                                          \
 	}

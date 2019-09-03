@@ -105,8 +105,9 @@ static void testU32Map()
 		WAVM_ERROR_UNLESS(!map.get(U32(i)));
 		WAVM_ERROR_UNLESS(map.add(U32(i), U32(i * 2)));
 		WAVM_ERROR_UNLESS(map.contains(U32(i)));
-		WAVM_ERROR_UNLESS(map.get(U32(i)));
-		WAVM_ERROR_UNLESS(*map.get(U32(i)) == U32(i * 2));
+		const U32* value = map.get(U32(i));
+		WAVM_ERROR_UNLESS(value);
+		WAVM_ERROR_UNLESS(*value == U32(i * 2));
 		WAVM_ERROR_UNLESS(map.size() == i + 1);
 	}
 
@@ -142,7 +143,9 @@ static void testMapCopy()
 		WAVM_ERROR_UNLESS(!a.get(i + 2000));
 
 		WAVM_ERROR_UNLESS(!b.get(i));
-		WAVM_ERROR_UNLESS(*b.get(i + 1000) == i);
+		const Uptr* value = b.get(i + 1000);
+		WAVM_ERROR_UNLESS(value);
+		WAVM_ERROR_UNLESS(*value == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 
@@ -153,7 +156,9 @@ static void testMapCopy()
 	for(Uptr i = 0; i < 1000; ++i)
 	{
 		WAVM_ERROR_UNLESS(!b.get(i));
-		WAVM_ERROR_UNLESS(*b.get(i + 1000) == i);
+		const Uptr* value = b.get(i + 1000);
+		WAVM_ERROR_UNLESS(value);
+		WAVM_ERROR_UNLESS(*value == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 
@@ -183,7 +188,9 @@ static void testMapMove()
 	for(Uptr i = 0; i < 1000; ++i)
 	{
 		WAVM_ERROR_UNLESS(!b.get(i));
-		WAVM_ERROR_UNLESS(*b.get(i + 1000) == i);
+		const Uptr* value = b.get(i + 1000);
+		WAVM_ERROR_UNLESS(value);
+		WAVM_ERROR_UNLESS(*value == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 
@@ -194,7 +201,9 @@ static void testMapMove()
 	for(Uptr i = 0; i < 1000; ++i)
 	{
 		WAVM_ERROR_UNLESS(!b.get(i));
-		WAVM_ERROR_UNLESS(*b.get(i + 1000) == i);
+		const Uptr* value = b.get(i + 1000);
+		WAVM_ERROR_UNLESS(value);
+		WAVM_ERROR_UNLESS(*value == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 }
