@@ -172,13 +172,11 @@ stages:
         condition: always()
         pool: { vmImage: macOS-10.14 }
         steps:
-        - bash: |
-            echo "AGENT_JOBSTATUS=$AGENT_JOBSTATUS"
-            if [[ $AGENT_JOBSTATUS -eq "Succeeded" ]]; then
-              $(Build.SourcesDirectory)/Build/notify-discord.sh success $DISCORD_WEBHOOK_URL
-            elif [[ $AGENT_JOBSTATUS -eq "Failed" ]]; then
-              $(Build.SourcesDirectory)/Build/notify-discord.sh failed $DISCORD_WEBHOOK_URL
-            fi
-          displayName: Notify Discord
-          env:
-            DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL)
+        - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh success $DISCORD_WEBHOOK_URL
+          condition: succeeded()
+          displayName: Notify Discord (success)
+          env: { DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL) }
+        - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh failed $DISCORD_WEBHOOK_URL
+          condition: failed()
+          displayName: Notify Discord (failure)
+          env: { DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL) }
