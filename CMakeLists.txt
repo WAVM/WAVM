@@ -222,7 +222,7 @@ if(NOT MSVC)
 
 	# Use -fvisibility=hidden if available. The *_API definitions are also changed by the value of
 	# CXX_HAS_FVISIBILITY_HIDDEN.
-	add_c_cxx_flag_if_supported("-fvisibility=hidden")
+	#add_c_cxx_flag_if_supported("-fvisibility=hidden")
 
 	# Check if the -fuse-ld=x option is available.
 	check_c_compiler_flag("-fuse-ld=ld" C_HAS_FUSE_LD)
