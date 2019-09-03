@@ -145,18 +145,18 @@ stages:
 
         # Rename and move the packages we want to add to the release into a separate folder.
         - task: Bash@3
-            inputs:
-              script: |
-                VERSION=$(cat $(Build.SourcesDirectory)/VERSION)
-                mkdir -p release
-                mv Win64_VS2019_LTO/wavm.exe            release/wavm-$VERSION-windows.exe
-                mv Win64_VS2019_LTO/wavm.zip            release/wavm-$VERSION-windows.zip
-                mv MacOS_StaticLTO/wavm.tar.gz          release/wavm-$VERSION-macos.tar.gz
-                mv Ubuntu1604_Clang_LTO/wavm.deb        release/wavm-$VERSION-linux.deb
-                mv CentOS70_Clang_LTO/wavm.rpm          release/wavm-$VERSION-linux.rpm
-                mv CentOS70_Clang_StaticLTO/wavm.tar.gz release/wavm-$VERSION-linux.tar.gz
-              workingDirectory: $(Build.ArtifactStagingDirectory)
-              displayName: Stage release artifacts
+          displayName: Stage release artifacts
+          inputs:
+            script: |
+              VERSION=$(cat $(Build.SourcesDirectory)/VERSION)
+              mkdir -p release
+              mv Win64_VS2019_LTO/wavm.exe            release/wavm-$VERSION-windows.exe
+              mv Win64_VS2019_LTO/wavm.zip            release/wavm-$VERSION-windows.zip
+              mv MacOS_StaticLTO/wavm.tar.gz          release/wavm-$VERSION-macos.tar.gz
+              mv Ubuntu1604_Clang_LTO/wavm.deb        release/wavm-$VERSION-linux.deb
+              mv CentOS70_Clang_LTO/wavm.rpm          release/wavm-$VERSION-linux.rpm
+              mv CentOS70_Clang_StaticLTO/wavm.tar.gz release/wavm-$VERSION-linux.tar.gz
+            workingDirectory: $(Build.ArtifactStagingDirectory)
 
         # Create a GitHub release containing the artifacts.
         - task: GitHubRelease@0
