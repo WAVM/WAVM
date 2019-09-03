@@ -6,7 +6,6 @@ parameters:
 
 jobs:
   - job: ${{parameters.name}}
-    timeoutInMinutes: 120
 
     variables:
       vs2017Generator: 'Visual Studio 15 2017'

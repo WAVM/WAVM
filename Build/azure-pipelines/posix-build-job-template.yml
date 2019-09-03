@@ -14,7 +14,6 @@ jobs:
       vmImage: ${{parameters.vmImage}}
     ${{ if ne(parameters.container, '') }}:
       container: ${{parameters.container}}
-    timeoutInMinutes: 120
 
     variables:
       gccCmakeArgs: >
