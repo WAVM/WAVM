@@ -22,29 +22,35 @@ jobs:
 
     strategy:
       matrix:
-        NoRuntimeRelease:
+        NoRuntime:
+          configName: NoRuntime
           buildConfig: Release
           llvmConfig: Release
           cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
         # Disable all the configs but NoRuntimeRelease on non-x64 platforms (i.e. Win32).
         ${{if eq(parameters.platform, 'x64')}}:
           LTO:
+            configName: LTO
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: -DWAVM_ENABLE_LTO=ON
           Release:
+            configName: Release
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: ''
           Debug:
+            configName: Debug
             buildConfig: Debug
             llvmConfig: Debug
             cmakeArgs: ''
           Checked:
+            configName: Checked
             buildConfig: RelWithDebInfo
             llvmConfig: Release
             cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
           Static:
+            configName: Static
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
@@ -106,4 +112,4 @@ jobs:
     # Publish the packages.
     - template: publish-step-template.yml
       parameters:
-        artifactName: ${{parameters.name}}_$(Agent.JobName)
+        artifactName: ${{parameters.name}}_$(configName)

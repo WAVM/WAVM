@@ -36,10 +36,12 @@ jobs:
         # The LLVM LTO build uses ThinLTO, so don't use it with GCC.
         ${{ if ne(parameters.compiler, 'gcc') }}:
           LTO:
+            configName: LTO
             buildConfig: Release
             llvmConfig: LTO
             cmakeArgs: -DWAVM_ENABLE_LTO=Thin
           StaticLTO:
+            configName: StaticLTO
             buildConfig: Release
             llvmConfig: LTO
             cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON -DWAVM_ENABLE_LTO=Thin'
@@ -52,21 +54,25 @@ jobs:
         #    cmakeArgs: -DWAVM_ENABLE_LTO=ON
 
         Release:
+          configName: Release
           buildConfig: Release
           llvmConfig: Release
           cmakeArgs: ''
 
         Debug:
+          configName: Debug
           buildConfig: Debug
           llvmConfig: Checked
           cmakeArgs: ''
 
         Checked:
+          configName: Checked
           buildConfig: RelWithDebInfo
           llvmConfig: Checked
           cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
 
         Static:
+          configName: Static
           buildConfig: Release
           llvmConfig: Release
           cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
@@ -75,6 +81,7 @@ jobs:
         # UndefinedBehaviorSanitizer: undefined-behavior /usr/lib/gcc/x86_64-redhat-linux/4.8.5/../../../../include/c++/4.8.5/bits/stl_iterator.h:739:16 in
         ${{ if ne(parameters.container, 'wavm/centos7.0-builder:latest') }}:
           UBASAN:
+            configName: UBASAN
             buildConfig: Release
             # Old versions of GCC aren't compatible with the sanitized LLVM build created by clang 9,
             # so fall back to the non-sanitized LLVM build for GCC.
@@ -93,16 +100,19 @@ jobs:
         # siglongjmp to exit the signal handler correctly.
         ${{ if ne(parameters.compiler, 'gcc') }}:
           TSAN:
+            configName: TSAN
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: -DWAVM_ENABLE_TSAN=ON
 
         NoRuntime:
+          configName: NoRuntime
           buildConfig: Debug
           llvmConfig: Release
           cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
 
         NoUnwind:
+          configName: NoUnwind
           buildConfig: Debug
           llvmConfig: Release
           cmakeArgs: -DWAVM_ENABLE_UNWIND=NO
@@ -146,4 +156,4 @@ jobs:
     # Publish the packages.
     - template: publish-step-template.yml
       parameters:
-        artifactName: ${{parameters.name}}_$(Agent.JobName)
+        artifactName: ${{parameters.name}}_$(configName)
