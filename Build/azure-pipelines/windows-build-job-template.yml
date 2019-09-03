@@ -3,7 +3,6 @@ parameters:
   platform: ''
   llvmBuildBaseName: ''
   llvmVersion: ''
-  artifactName: ''
 
 jobs:
   - job: ${{parameters.name}}
@@ -27,33 +26,27 @@ jobs:
           buildConfig: Release
           llvmConfig: Release
           cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
-          packageSuffix: '-noruntime'
         # Disable all the configs but NoRuntimeRelease on non-x64 platforms (i.e. Win32).
         ${{if eq(parameters.platform, 'x64')}}:
           LTO:
             buildConfig: Release
             llvmConfig: Release
-            packageSuffix: '-lto'
             cmakeArgs: -DWAVM_ENABLE_LTO=ON
           Release:
             buildConfig: Release
             llvmConfig: Release
-            packageSuffix: '-release'
             cmakeArgs: ''
           Debug:
             buildConfig: Debug
             llvmConfig: Debug
-            packageSuffix: '-debug'
             cmakeArgs: ''
           Checked:
             buildConfig: RelWithDebInfo
             llvmConfig: Release
-            packageSuffix: '-checked'
             cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
-          StaticRelease:
+          Static:
             buildConfig: Release
             llvmConfig: Release
-            packageSuffix: '-static'
             cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
 
     steps:
@@ -75,9 +68,6 @@ jobs:
         overWrite: true
 
 
-    # Extract the contents of the VERSION file to the job variable VERSION.
-    - template: read-version-step-template.yml
-
     # Download and extract the LLVM build from the pipeline for https://github.com/WAVM/WAVM-LLVM/
     - template: download-llvm-step-template.yml
       parameters:
@@ -91,7 +81,7 @@ jobs:
           -G "$(vs${{parameters.vsVersion}}Generator)"
           -A $(${{parameters.platform}}Arch)
           -DCPACK_GENERATOR="ZIP;NSIS"
-          -DCPACK_PACKAGE_FILE_NAME=wavm-$(VERSION)$(packageSuffix)
+          -DCPACK_PACKAGE_FILE_NAME=wavm
           $(cmakeArgs)
 
     # Build WAVM
@@ -116,4 +106,4 @@ jobs:
     # Publish the packages.
     - template: publish-step-template.yml
       parameters:
-        artifactName: ${{parameters.artifactName}}$(packageSuffix)
+        artifactName: ${{parameters.name}}_$(Agent.JobName)

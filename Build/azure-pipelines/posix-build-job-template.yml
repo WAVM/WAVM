@@ -1,6 +1,5 @@
 parameters:
   name: ''
-  artifactName: ''
   vmImage: ''
   container: ''
   llvmBuildBaseName: ''
@@ -40,11 +39,9 @@ jobs:
             buildConfig: Release
             llvmConfig: LTO
             cmakeArgs: -DWAVM_ENABLE_LTO=Thin
-            packageSuffix: '-lto'
           StaticLTO:
             buildConfig: Release
             llvmConfig: LTO
-            packageSuffix: '-static-lto'
             cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON -DWAVM_ENABLE_LTO=Thin'
 
         # GCC 5.4 doesn't produce a usable binary when compiling with LTO for some reason.
@@ -57,25 +54,21 @@ jobs:
         Release:
           buildConfig: Release
           llvmConfig: Release
-          packageSuffix: '-release'
           cmakeArgs: ''
 
         Debug:
           buildConfig: Debug
           llvmConfig: Checked
-          packageSuffix: '-debug'
           cmakeArgs: ''
 
         Checked:
           buildConfig: RelWithDebInfo
           llvmConfig: Checked
-          packageSuffix: '-checked'
           cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
 
-        StaticRelease:
+        Static:
           buildConfig: Release
           llvmConfig: Release
-          packageSuffix: '-static'
           cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
 
         # UBSAN produces an error in the libstdc++ 4.8.5 code in the CentOS 7.0 builder:
@@ -89,7 +82,6 @@ jobs:
               llvmConfig: Sanitized
             ${{ if eq(parameters.compiler, 'gcc') }}:
               llvmConfig: Release
-            packageSuffix: '-ubasan'
             # Xcode doesn't ship the libfuzzer runtime library, so it can't link with WAVM_ENABLE_LIBFUZZER=ON.
             ${{ if ne(parameters.compiler, 'appleClang') }}:
               cmakeArgs: -DWAVM_ENABLE_ASAN=ON -DWAVM_ENABLE_UBSAN=ON -DWAVM_ENABLE_LIBFUZZER=ON
@@ -103,19 +95,16 @@ jobs:
           TSAN:
             buildConfig: Release
             llvmConfig: Release
-            packageSuffix: '-tsan'
             cmakeArgs: -DWAVM_ENABLE_TSAN=ON
 
-        NoRuntimeRelease:
-          buildConfig: Release
+        NoRuntime:
+          buildConfig: Debug
           llvmConfig: Release
-          packageSuffix: '-noruntime'
           cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
 
-        NoUnwindRelease:
-          buildConfig: Release
+        NoUnwind:
+          buildConfig: Debug
           llvmConfig: Release
-          packageSuffix: '-nounwind'
           cmakeArgs: -DWAVM_ENABLE_UNWIND=NO
 
     steps:
@@ -123,9 +112,6 @@ jobs:
       submodules: recursive
 
     - ${{parameters.toolchainInstallSteps}}
-
-    # Extract the contents of the VERSION file to the job variable VERSION.
-    - template: read-version-step-template.yml
 
     # Download and extract the LLVM build from the pipeline for https://github.com/WAVM/WAVM-LLVM/
     - template: download-llvm-step-template.yml
@@ -140,7 +126,7 @@ jobs:
           -G Ninja
           -DCMAKE_BUILD_TYPE=$(buildConfig)
           -DCPACK_GENERATOR="${{parameters.cpackGenerators}}"
-          -DCPACK_PACKAGE_FILE_NAME=wavm-$(VERSION)$(packageSuffix)
+          -DCPACK_PACKAGE_FILE_NAME=wavm
           $(cmakeArgs)
           $(${{parameters.compiler}}CmakeArgs)
 
@@ -160,4 +146,4 @@ jobs:
     # Publish the packages.
     - template: publish-step-template.yml
       parameters:
-        artifactName: ${{parameters.artifactName}}$(packageSuffix)
+        artifactName: ${{parameters.name}}_$(Agent.JobName)

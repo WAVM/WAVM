@@ -6,7 +6,6 @@ stages:
       - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
           name: Win64_VS2017
-          artifactName: win64-vs2017
           vsVersion: '2017'
           platform: 'x64'
           llvmBuildBaseName: 'Win64'
@@ -16,7 +15,6 @@ stages:
       - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
           name: Win64_VS2019
-          artifactName: win64-vs2019
           vsVersion: '2019'
           platform: 'x64'
           llvmBuildBaseName: 'Win64'
@@ -26,7 +24,6 @@ stages:
       - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
           name: Win32_VS2019
-          artifactName: win32-vs2019
           vsVersion: '2019'
           platform: 'x86'
           llvmBuildBaseName: 'Win32'
@@ -38,7 +35,6 @@ stages:
           name: Ubuntu1604_GCC
           vmImage: 'ubuntu-16.04'
           container: 'wavm/ubuntu16.04-builder:latest'
-          artifactName: ubuntu16.04-gcc
           llvmBuildBaseName: 'Ubuntu1604'
           llvmVersion: '9.x'
           cpackGenerators: 'TGZ;DEB'
@@ -50,7 +46,6 @@ stages:
           name: Ubuntu1604_Clang
           vmImage: 'ubuntu-16.04'
           container: 'wavm/ubuntu16.04-builder:latest'
-          artifactName: ubuntu16.04-clang
           llvmBuildBaseName: 'Ubuntu1604'
           llvmVersion: '9.x'
           cpackGenerators: 'TGZ;DEB'
@@ -62,7 +57,6 @@ stages:
           name: CentOS70_Clang
           vmImage: 'ubuntu-16.04'
           container: 'wavm/centos7.0-builder:latest'
-          artifactName: centos7.0-clang
           llvmBuildBaseName: 'Centos70'
           llvmVersion: '9.x'
           cpackGenerators: 'TGZ;RPM'
@@ -73,7 +67,6 @@ stages:
         parameters:
           name: MacOS
           vmImage: 'macOS-10.14'
-          artifactName: macos
           llvmBuildBaseName: 'MacOS'
           llvmVersion: '9.x'
           cpackGenerators: 'TGZ'
@@ -85,7 +78,17 @@ stages:
 
   - stage:
     # Only upload a "nightly" build if this is the scheduled build of the master branch (implies it's not a pull request).
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['Build.Reason'], 'Schedule'))
+    condition:
+      and(
+        succeeded(),
+        or(
+          and(
+            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            eq(variables['Build.Reason'], 'Schedule')
+          ),
+          eq(variables['WAVM.ForceNightlyRelease'], 'true')
+        )
+      )
     displayName: Create nightly GitHub release
     jobs:
       - job: UploadGitHubRelease
@@ -140,6 +143,19 @@ stages:
           displayName: Delete old GitHub release tag
           condition: and(succeeded(), eq(variables.deleteOldRelease, 'true'))
 
+        # Rename and move the packages we want to add to the release into a separate folder.
+        - script: |
+            VERSION=$(cat $(Build.SourcesDirectory)/VERSION)
+            mkdir -p release
+            mv Win64_VS2019_LTO/wavm.exe release/wavm-$VERSION-windows.exe
+            mv Win64_VS2019_LTO/wavm.zip release/wavm-$VERSION-windows.zip
+            mv MacOS_StaticLTO/wavm.tar.gz release/wavm-$VERSION-macos.tar.gz
+            mv Ubuntu1604_Clang_LTO/wavm.deb release/wavm-$VERSION-linux.deb
+            mv CentOS70_Clang_LTO/wavm.rpm release/wavm-$VERSION-linux.rpm
+            mv CentOS70_Clang_StaticLTO/wavm.tar.gz release/wavm-$(VERSION)-linux.tar.gz
+          cwd: $(Build.ArtifactStagingDirectory)
+          displayName: Stage release artifacts
+
         # Create a GitHub release containing the artifacts.
         - task: GitHubRelease@0
           inputs:
@@ -149,12 +165,7 @@ stages:
             target: $(Build.SourceVersion)
             tagSource: manual
             tag: nightly/$(buildDate)
-            assets: |
-              $(Build.ArtifactStagingDirectory)/**/*.exe
-              $(Build.ArtifactStagingDirectory)/**/*.zip
-              $(Build.ArtifactStagingDirectory)/**/*.deb
-              $(Build.ArtifactStagingDirectory)/**/*.rpm
-              $(Build.ArtifactStagingDirectory)/**/*-static.tar.gz
+            assets: $(Build.ArtifactStagingDirectory)/release/*
             releaseNotesSource: input
             releaseNotes: 
             addChangeLog: true

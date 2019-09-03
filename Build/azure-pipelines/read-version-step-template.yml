@@ -1,5 +1,0 @@
-steps:
-  # Extract the contents of the VERSION file to the job variable VERSION.
-  - bash: Build/azure-pipelines/read-version.sh
-    displayName: Read WAVM version
-    workingDirectory: $(Build.SourcesDirectory)
