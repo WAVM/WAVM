@@ -8,7 +8,7 @@ steps:
     displayName: Isolate WAVM packages
     inputs:
       sourceFolder: $(Build.ArtifactStagingDirectory)
-      contents: wavm-$(VERSION)*.*
+      contents: wavm-package.*
       targetFolder: $(Build.ArtifactStagingDirectory)/packages
 
   - publish: $(Build.ArtifactStagingDirectory)/packages

@@ -126,7 +126,7 @@ jobs:
           -G Ninja
           -DCMAKE_BUILD_TYPE=$(buildConfig)
           -DCPACK_GENERATOR="${{parameters.cpackGenerators}}"
-          -DCPACK_PACKAGE_FILE_NAME=wavm
+          -DCPACK_PACKAGE_FILE_NAME=wavm-package
           $(cmakeArgs)
           $(${{parameters.compiler}}CmakeArgs)
 

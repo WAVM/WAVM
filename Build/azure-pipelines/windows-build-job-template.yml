@@ -81,7 +81,7 @@ jobs:
           -G "$(vs${{parameters.vsVersion}}Generator)"
           -A $(${{parameters.platform}}Arch)
           -DCPACK_GENERATOR="ZIP;NSIS"
-          -DCPACK_PACKAGE_FILE_NAME=wavm
+          -DCPACK_PACKAGE_FILE_NAME=wavm-package
           $(cmakeArgs)
 
     # Build WAVM
