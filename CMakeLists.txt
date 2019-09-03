@@ -212,6 +212,20 @@ function(add_linker_flag_if_supported OPTIONAL_FLAG)
 	endif()
 endfunction()
 
+# By default, CMake uses different optimization settings for Release vs RelWithDebInfo builds.
+# For GCC, it uses -O3 in Release and -O2 in RelWithDebInfo.
+# For MSVC, it uses /Ob2 in Release and /Ob1 in RelWithDebInfo (amount of inlining).
+# In order to reduce problems that only occur in Release builds without debug symbols, override the
+# default optimization settings so RelWithDebInfo uses the same optimization settings as Release.
+set(CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL ${CMAKE_C_FLAGS_RELWITHDEBINFO})
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+string(REPLACE "-O2" "-O3" CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL ${CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL})
+string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL ${CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL})
+string(REPLACE "/Ob1" "/Ob2" CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL ${CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL})
+string(REPLACE "/Ob1" "/Ob2" CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL ${CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL})
+set(CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL} CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL} CACHE STRING "" FORCE)
+
 if(NOT MSVC)
 	# GCC's -Wnull-dereference triggers a bunch of warnings that seem harmless. It would be nice to
 	# fix them, but for now just disable the warning.
