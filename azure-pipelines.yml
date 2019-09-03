@@ -107,7 +107,7 @@ stages:
             - bash: echo "##vso[task.setvariable variable=buildDate]$(TZ=America/New_York date +%Y-%m-%d)"
               displayName: Read today's date
         - ${{if eq(variables['Build.Reason'], 'Schedule')}}:
-            - bash: echo "##vso[task.setvariable variable=buildDate]$(TZ=America/New_York date --date="yesterday" +%Y-%m-%d)"
+            - bash: echo "##vso[task.setvariable variable=buildDate]$(TZ=America/New_York date --date=yesterday +%Y-%m-%d)"
               displayName: Read yesterday's date
 
         # Check whether this nightly release already exists.
