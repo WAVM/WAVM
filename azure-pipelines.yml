@@ -180,7 +180,7 @@ stages:
     displayName: Notify Discord
     condition: always()
     jobs:
-      - job: NotifyDiscord
+      - job: NotifyDiscordSuccess
         displayName: Notify Discord (succeeded)
         condition: succeeded()
         pool: { vmImage: macOS-10.14 }
@@ -188,7 +188,7 @@ stages:
         - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh success $DISCORD_WEBHOOK_URL
           displayName: Notify Discord
           env: { DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL) }
-      - job: NotifyDiscord
+      - job: NotifyDiscordFailure
         displayName: Notify Discord (failed)
         condition: failed()
         pool: { vmImage: macOS-10.14 }
