@@ -105,9 +105,7 @@ static void testU32Map()
 		WAVM_ERROR_UNLESS(!map.get(U32(i)));
 		WAVM_ERROR_UNLESS(map.add(U32(i), U32(i * 2)));
 		WAVM_ERROR_UNLESS(map.contains(U32(i)));
-		const U32* value = map.get(U32(i));
-		WAVM_ERROR_UNLESS(value);
-		WAVM_ERROR_UNLESS(*value == U32(i * 2));
+		WAVM_ERROR_UNLESS(map[U32(i)] == U32(i * 2));
 		WAVM_ERROR_UNLESS(map.size() == i + 1);
 	}
 
@@ -139,13 +137,11 @@ static void testMapCopy()
 	for(Uptr i = 0; i < 1000; ++i)
 	{
 		WAVM_ERROR_UNLESS(!a.get(i));
-		WAVM_ERROR_UNLESS(*a.get(i + 1000) == i);
+		WAVM_ERROR_UNLESS(a[i + 1000] == i);
 		WAVM_ERROR_UNLESS(!a.get(i + 2000));
 
 		WAVM_ERROR_UNLESS(!b.get(i));
-		const Uptr* value = b.get(i + 1000);
-		WAVM_ERROR_UNLESS(value);
-		WAVM_ERROR_UNLESS(*value == i);
+		WAVM_ERROR_UNLESS(b[i + 1000] == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 
@@ -156,15 +152,13 @@ static void testMapCopy()
 	for(Uptr i = 0; i < 1000; ++i)
 	{
 		WAVM_ERROR_UNLESS(!b.get(i));
-		const Uptr* value = b.get(i + 1000);
-		WAVM_ERROR_UNLESS(value);
-		WAVM_ERROR_UNLESS(*value == i);
+		WAVM_ERROR_UNLESS(b[i + 1000] == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 
 	// Test removing an element from the map.
 	b.remove(1000);
-	WAVM_ERROR_UNLESS(*a.get(1000) == 0);
+	WAVM_ERROR_UNLESS(a[1000] == 0);
 	WAVM_ERROR_UNLESS(!b.get(1000));
 }
 #if defined(__clang__)
@@ -188,9 +182,7 @@ static void testMapMove()
 	for(Uptr i = 0; i < 1000; ++i)
 	{
 		WAVM_ERROR_UNLESS(!b.get(i));
-		const Uptr* value = b.get(i + 1000);
-		WAVM_ERROR_UNLESS(value);
-		WAVM_ERROR_UNLESS(*value == i);
+		WAVM_ERROR_UNLESS(b[i + 1000] == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 
@@ -201,9 +193,7 @@ static void testMapMove()
 	for(Uptr i = 0; i < 1000; ++i)
 	{
 		WAVM_ERROR_UNLESS(!b.get(i));
-		const Uptr* value = b.get(i + 1000);
-		WAVM_ERROR_UNLESS(value);
-		WAVM_ERROR_UNLESS(*value == i);
+		WAVM_ERROR_UNLESS(b[i + 1000] == i);
 		WAVM_ERROR_UNLESS(!b.get(i + 2000));
 	}
 }
@@ -215,23 +205,23 @@ static void testMapInitializerList()
 {
 	HashMap<Uptr, Uptr> map{{1, 1}, {3, 2}, {5, 3}, {7, 4}, {11, 5}, {13, 6}, {17, 7}};
 	WAVM_ERROR_UNLESS(!map.get(0));
-	WAVM_ERROR_UNLESS(*map.get(1) == 1);
+	WAVM_ERROR_UNLESS(map[1] == 1);
 	WAVM_ERROR_UNLESS(!map.get(2));
-	WAVM_ERROR_UNLESS(*map.get(3) == 2);
+	WAVM_ERROR_UNLESS(map[3] == 2);
 	WAVM_ERROR_UNLESS(!map.get(4));
-	WAVM_ERROR_UNLESS(*map.get(5) == 3);
+	WAVM_ERROR_UNLESS(map[5] == 3);
 	WAVM_ERROR_UNLESS(!map.get(6));
-	WAVM_ERROR_UNLESS(*map.get(7) == 4);
+	WAVM_ERROR_UNLESS(map[7] == 4);
 	WAVM_ERROR_UNLESS(!map.get(8));
 	WAVM_ERROR_UNLESS(!map.get(9));
 	WAVM_ERROR_UNLESS(!map.get(10));
-	WAVM_ERROR_UNLESS(*map.get(11) == 5);
+	WAVM_ERROR_UNLESS(map[11] == 5);
 	WAVM_ERROR_UNLESS(!map.get(12));
-	WAVM_ERROR_UNLESS(*map.get(13) == 6);
+	WAVM_ERROR_UNLESS(map[13] == 6);
 	WAVM_ERROR_UNLESS(!map.get(14));
 	WAVM_ERROR_UNLESS(!map.get(15));
 	WAVM_ERROR_UNLESS(!map.get(16));
-	WAVM_ERROR_UNLESS(*map.get(17) == 7);
+	WAVM_ERROR_UNLESS(map[17] == 7);
 }
 
 static void testMapIterator()
@@ -276,11 +266,11 @@ static void testMapGetOrAdd()
 
 	WAVM_ERROR_UNLESS(!map.get(0));
 	WAVM_ERROR_UNLESS(map.getOrAdd(0, 1) == 1);
-	WAVM_ERROR_UNLESS(*map.get(0) == 1);
+	WAVM_ERROR_UNLESS(map[0] == 1);
 	WAVM_ERROR_UNLESS(map.getOrAdd(0, 3) == 1);
-	WAVM_ERROR_UNLESS(*map.get(0) == 1);
+	WAVM_ERROR_UNLESS(map[0] == 1);
 	WAVM_ERROR_UNLESS((map.getOrAdd(0, 5) += 7) == 8);
-	WAVM_ERROR_UNLESS(*map.get(0) == 8);
+	WAVM_ERROR_UNLESS(map[0] == 8);
 }
 
 static void testMapSet()
@@ -289,9 +279,9 @@ static void testMapSet()
 
 	WAVM_ERROR_UNLESS(!map.get(0));
 	WAVM_ERROR_UNLESS(map.set(0, 1) == 1);
-	WAVM_ERROR_UNLESS(*map.get(0) == 1);
+	WAVM_ERROR_UNLESS(map[0] == 1);
 	WAVM_ERROR_UNLESS(map.set(0, 3) == 3);
-	WAVM_ERROR_UNLESS(*map.get(0) == 3);
+	WAVM_ERROR_UNLESS(map[0] == 3);
 }
 
 struct EmplacedValue
