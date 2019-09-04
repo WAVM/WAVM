@@ -685,7 +685,7 @@ protected:
 	WindowsFS() {}
 };
 
-PLATFORM_API HostFS& Platform::getHostFS() { return WindowsFS::get(); }
+HostFS& Platform::getHostFS() { return WindowsFS::get(); }
 
 Result WindowsFS::open(const std::string& path,
 					   FileAccessMode accessMode,

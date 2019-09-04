@@ -10,9 +10,9 @@ namespace WAVM { namespace Platform {
 		U32 line;
 	});
 
-	PLATFORM_API void handleAssertionFailure(const AssertMetadata& metadata);
-	[[noreturn]] PLATFORM_API void handleFatalError(const char* messageFormat,
-													bool printCallStack,
-													va_list varArgs);
+	WAVM_API void handleAssertionFailure(const AssertMetadata& metadata);
+	[[noreturn]] WAVM_API void handleFatalError(const char* messageFormat,
+												bool printCallStack,
+												va_list varArgs);
 
 }}

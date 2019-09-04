@@ -8,8 +8,8 @@ namespace WAVM { namespace Platform {
 	// Platform-independent mutexes.
 	struct Mutex
 	{
-		PLATFORM_API Mutex();
-		PLATFORM_API ~Mutex();
+		WAVM_API Mutex();
+		WAVM_API ~Mutex();
 
 		// Don't allow copying or moving a Mutex.
 		Mutex(const Mutex&) = delete;
@@ -17,11 +17,11 @@ namespace WAVM { namespace Platform {
 		void operator=(const Mutex&) = delete;
 		void operator=(Mutex&&) = delete;
 
-		PLATFORM_API void lock();
-		PLATFORM_API void unlock();
+		WAVM_API void lock();
+		WAVM_API void unlock();
 
 #if WAVM_ENABLE_ASSERTS
-		PLATFORM_API bool isLockedByCurrentThread();
+		WAVM_API bool isLockedByCurrentThread();
 #endif
 
 	private:

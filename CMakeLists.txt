@@ -504,18 +504,6 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	target_include_directories(libWAVM SYSTEM PRIVATE ${COMPONENT_PRIVATE_SYSTEM_INCLUDE_DIRECTORIES})
 	target_compile_definitions(libWAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
 	target_compile_definitions(libWAVM PUBLIC ${COMPONENT_PUBLIC_DEFINITIONS})
-
-	# Set up the component's API definitions.
-	string(TOUPPER ${COMPONENT_NAME} COMPONENT_C_NAME)
-	string(REPLACE "-" "_" COMPONENT_C_NAME ${COMPONENT_C_NAME})
-	if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
-		target_compile_definitions(libWAVM PRIVATE "\"${COMPONENT_C_NAME}_API=__declspec(dllexport)\"")
-		target_compile_definitions(libWAVM INTERFACE "\"${COMPONENT_C_NAME}_API=__declspec(dllimport)\"")
-	elseif(NOT WAVM_ENABLE_STATIC_LINKING AND CXX_HAS_FVISIBILITY_HIDDEN)
-		target_compile_definitions(libWAVM PUBLIC "${COMPONENT_C_NAME}_API=__attribute__((visibility(\"default\")))")
-	else()
-		target_compile_definitions(libWAVM PUBLIC "${COMPONENT_C_NAME}_API=")
-	endif()
 endfunction()
 
 function(WAVM_ADD_EXECUTABLE EXE_NAME)
@@ -557,6 +545,16 @@ set_target_properties(libWAVM PROPERTIES FOLDER Libraries)
 set_target_properties(libWAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 set_target_properties(libWAVM PROPERTIES SOVERSION ${WAVM_VERSION_MAJOR})
 set_target_properties(libWAVM PROPERTIES PREFIX "")
+
+# Set up the WAVM_API definitions.
+if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
+	target_compile_definitions(libWAVM PRIVATE "\"WAVM_API=__declspec(dllexport)\"")
+	target_compile_definitions(libWAVM INTERFACE "\"WAVM_API=__declspec(dllimport)\"")
+elseif(NOT WAVM_ENABLE_STATIC_LINKING AND CXX_HAS_FVISIBILITY_HIDDEN)
+	target_compile_definitions(libWAVM PUBLIC "WAVM_API=__attribute__((visibility(\"default\")))")
+else()
+	target_compile_definitions(libWAVM PUBLIC "WAVM_API=")
+endif()
 
 # Process the CMake scripts in subdirectories.
 add_subdirectory(Examples)

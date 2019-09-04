@@ -26,10 +26,10 @@ namespace WAVM { namespace Platform {
 		};
 	};
 
-	PLATFORM_API bool catchSignals(void (*thunk)(void*),
-								   bool (*filter)(void*, Signal, CallStack&&),
-								   void* argument);
+	WAVM_API bool catchSignals(void (*thunk)(void*),
+							   bool (*filter)(void*, Signal, CallStack&&),
+							   void* argument);
 
-	PLATFORM_API void registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes);
-	PLATFORM_API void deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes);
+	WAVM_API void registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes);
+	WAVM_API void deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes);
 }}

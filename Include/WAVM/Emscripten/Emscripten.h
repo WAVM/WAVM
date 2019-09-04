@@ -35,13 +35,12 @@ namespace WAVM { namespace Emscripten {
 		U32 exitCode;
 	};
 
-	EMSCRIPTEN_API Instance* instantiate(Runtime::Compartment* compartment,
-										 const IR::Module& module);
-	EMSCRIPTEN_API void initializeGlobals(Emscripten::Instance* instance,
-										  Runtime::Context* context,
-										  const IR::Module& module,
-										  Runtime::ModuleInstance* moduleInstance);
-	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,
-										  const std::vector<std::string>& argStrings,
-										  std::vector<IR::Value>& outInvokeArgs);
+	WAVM_API Instance* instantiate(Runtime::Compartment* compartment, const IR::Module& module);
+	WAVM_API void initializeGlobals(Emscripten::Instance* instance,
+									Runtime::Context* context,
+									const IR::Module& module,
+									Runtime::ModuleInstance* moduleInstance);
+	WAVM_API void injectCommandArgs(Emscripten::Instance* instance,
+									const std::vector<std::string>& argStrings,
+									std::vector<IR::Value>& outInvokeArgs);
 }}

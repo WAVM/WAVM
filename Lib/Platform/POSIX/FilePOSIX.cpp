@@ -626,7 +626,7 @@ protected:
 	POSIXFS() {}
 };
 
-PLATFORM_API HostFS& Platform::getHostFS() { return POSIXFS::get(); }
+HostFS& Platform::getHostFS() { return POSIXFS::get(); }
 
 Result POSIXFS::open(const std::string& path,
 					 FileAccessMode accessMode,

@@ -11,7 +11,7 @@
 
 namespace WAVM { namespace Runtime {
 	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
-	struct RUNTIME_API Resolver
+	struct WAVM_API Resolver
 	{
 		virtual ~Resolver() {}
 		virtual bool resolve(const std::string& moduleName,
@@ -75,7 +75,7 @@ namespace WAVM { namespace Runtime {
 	};
 
 	// A resolver that generates stubs for objects that the inner resolver can't find.
-	struct RUNTIME_API StubResolver : Resolver
+	struct WAVM_API StubResolver : Resolver
 	{
 		enum class FunctionBehavior
 		{
@@ -116,5 +116,5 @@ namespace WAVM { namespace Runtime {
 		bool success{false};
 	};
 
-	RUNTIME_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);
+	WAVM_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);
 }}

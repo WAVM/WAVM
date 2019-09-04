@@ -52,11 +52,10 @@ namespace WAVM { namespace WAST {
 
 	// Parse a module from a string. Returns true if it succeeds, and writes the module to
 	// outModule. If it fails, returns false and appends a list of errors to outErrors.
-	WASTPARSE_API bool parseModule(const char* string,
-								   Uptr stringLength,
-								   IR::Module& outModule,
-								   std::vector<Error>& outErrors);
+	WAVM_API bool parseModule(const char* string,
+							  Uptr stringLength,
+							  IR::Module& outModule,
+							  std::vector<Error>& outErrors);
 
-	WASTPARSE_API void reportParseErrors(const char* filename,
-										 const std::vector<Error>& parseErrors);
+	WAVM_API void reportParseErrors(const char* filename, const std::vector<Error>& parseErrors);
 }}

@@ -35,11 +35,11 @@ namespace WAVM { namespace WAST {
 
 	// Parse a test script from a string. Returns true if it succeeds, and writes the test commands
 	// to outTestCommands.
-	WASTPARSE_API void parseTestCommands(const char* string,
-										 Uptr stringLength,
-										 const IR::FeatureSpec& featureSpec,
-										 std::vector<std::unique_ptr<Command>>& outTestCommands,
-										 std::vector<Error>& outErrors);
+	WAVM_API void parseTestCommands(const char* string,
+									Uptr stringLength,
+									const IR::FeatureSpec& featureSpec,
+									std::vector<std::unique_ptr<Command>>& outTestCommands,
+									std::vector<Error>& outErrors);
 
 	// Actions
 
