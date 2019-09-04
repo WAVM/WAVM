@@ -512,11 +512,15 @@ function(WAVM_ADD_EXECUTABLE EXE_NAME)
 	cmake_parse_arguments(EXE
 		""
 		"FOLDER"
-		"SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS"
+		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS"
 		${ARGN})
 
-	add_executable(${EXE_NAME} ${EXE_SOURCES})
+	add_executable(${EXE_NAME} ${EXE_SOURCES} ${EXE_NONCOMPILED_SOURCES})
 	WAVM_SET_TARGET_COMPILE_OPTIONS(${EXE_NAME})
+
+	# Mark the non-compiled sources as header-only, which includes the files in IDE projects, but
+	# doesn't compile them.
+	set_source_files_properties(${EXE_NONCOMPILED_SOURCES} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 	# Add the executable's link libraries.
 	target_link_libraries(${EXE_NAME} PRIVATE ${EXE_PRIVATE_LIBS})
@@ -557,6 +561,7 @@ add_subdirectory(Lib/WASM)
 add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
 add_subdirectory(Programs/wavm)
+add_subdirectory(Programs/wavm-test)
 add_subdirectory(Test)
 add_subdirectory(ThirdParty/gdtoa)
 add_subdirectory(ThirdParty/liblmdb)

@@ -1,14 +1,14 @@
+#include "WAVM/Inline/HashSet.h"
 #include <stdlib.h>
 #include <initializer_list>
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
-#include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/Timing.h"
+#include "wavm-test.h"
 
 using namespace WAVM;
 
@@ -252,7 +252,7 @@ static void testSetBracketOperator()
 	WAVM_ERROR_UNLESS(set[17] == 17);
 }
 
-I32 main()
+I32 execHashSetTest(int argc, char** argv)
 {
 	Timing::Timer timer;
 	testStringSet();

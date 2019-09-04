@@ -1,8 +1,9 @@
-#include "WAVM/wavm-c/wavm-c.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "WAVM/wavm-c/wavm-c.h"
+#include "wavm-test.h"
 
 #define own
 
@@ -14,7 +15,7 @@ own wasm_trap_t* hello_callback(const wasm_val_t args[], wasm_val_t results[])
 	return NULL;
 }
 
-int main(int argc, const char* argv[])
+int execCAPITest(int argc, char** argv)
 {
 	// Initialize.
 	printf("Initializing...\n");

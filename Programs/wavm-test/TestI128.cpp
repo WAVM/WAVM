@@ -3,6 +3,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "wavm-test.h"
 
 using namespace WAVM;
 
@@ -22,7 +23,7 @@ private:
 
 static bool isEqualOrNaN(I128 a, I128 b) { return isNaN(a) || isNaN(b) || a == b; }
 
-I32 main()
+I32 execI128Test(int argc, char** argv)
 {
 	Timing::Timer timer;
 	RandomStream random(0);

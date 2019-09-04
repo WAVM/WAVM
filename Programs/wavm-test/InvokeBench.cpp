@@ -90,8 +90,19 @@ void runBenchmarkSingleAndMultiThreaded(Compartment* compartment,
 	runBenchmark(compartment, nopFunction, numHardwareThreads, description, threadFunc);
 }
 
-int main(int argc, char** argv)
+void showBenchHelp(WAVM::Log::Category outputCategory)
 {
+	Log::printf(outputCategory, "Usage: wavm bench\n");
+}
+
+int execInvokeBench(int argc, char** argv)
+{
+	if(argc != 0)
+	{
+		showBenchHelp(Log::Category::error);
+		return EXIT_FAILURE;
+	}
+
 	// Generate a nop function.
 	Serialization::ArrayOutputStream codeStream;
 	OperatorEncoderStream encoder(codeStream);

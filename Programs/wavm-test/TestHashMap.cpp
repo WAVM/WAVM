@@ -9,6 +9,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/Timing.h"
+#include "wavm-test.h"
 
 using namespace WAVM;
 
@@ -326,7 +327,7 @@ static void testMapBracketOperator()
 	WAVM_ERROR_UNLESS(map[17] == 7);
 }
 
-I32 main()
+I32 execHashMapTest(int argc, char** argv)
 {
 	Timing::Timer timer;
 	testStringMap();

@@ -17,6 +17,7 @@
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"
 #include "WAVM/WASTPrint/WASTPrint.h"
+#include "wavm-test.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -114,16 +115,14 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 	};
 }
 
-int main(int argc, char** argv)
+int execDumpTestModules(int argc, char** argv)
 {
-	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
-
 	const char* filename = nullptr;
 	const char* outputDir = ".";
 	DumpFormat dumpFormat = DumpFormat::both;
 	bool showHelpAndExit = false;
 
-	for(Iptr argumentIndex = 1; argumentIndex < argc; ++argumentIndex)
+	for(Iptr argumentIndex = 0; argumentIndex < argc; ++argumentIndex)
 	{
 		if(!strcmp(argv[argumentIndex], "--output-dir"))
 		{

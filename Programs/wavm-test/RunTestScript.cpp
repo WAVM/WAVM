@@ -29,6 +29,7 @@
 #include "WAVM/ThreadTest/ThreadTest.h"
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"
+#include "wavm-test.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -888,7 +889,7 @@ static void showHelp()
 {
 	Log::printf(
 		Log::error,
-		"Usage: RunTestScript [options] in.wast [options]\n"
+		"Usage: wavm-test script [options] in.wast [options]\n"
 		"  -h|--help                  Display this message\n"
 		"  -l <N>|--loop <N>          Run tests N times in a loop until an error occurs\n"
 		"  --strict-assert-invalid    Strictly evaluate assert_invalid, failing if the\n"
@@ -900,15 +901,13 @@ static void showHelp()
 		"  --trace                    Prints instructions to stdout as they are compiled.\n");
 }
 
-int main(int argc, char** argv)
+int execRunTestScript(int argc, char** argv)
 {
-	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
-
 	// Parse the command-line.
 	Uptr numLoops = 1;
 	std::vector<const char*> filenames;
 	Config config;
-	for(int argIndex = 1; argIndex < argc; ++argIndex)
+	for(int argIndex = 0; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
 		{
