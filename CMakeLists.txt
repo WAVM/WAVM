@@ -3,6 +3,7 @@ project (WAVM C CXX ASM)
 
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
+include(GNUInstallDirs)
 
 # Parse the VERSION file.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS VERSION)
@@ -139,25 +140,25 @@ install(DIRECTORY ${WAVM_SOURCE_DIR}/Include/WAVM
 		PATTERN *.txt EXCLUDE
 		PATTERN *.h.in EXCLUDE)
 
-# Generate Inline/Config.h in the build/install directories from Inline/Config.h.in in the source
+# Generate Inline/Config.h in the build+install directories from Inline/Config.h.in in the source
 configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Config.h.in
 			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h)
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h
-		DESTINATION include/WAVM/Inline)
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/WAVM/Inline)
 
-# Generate Inline/Version.h in the build/install directories from Inline/Version.h.in in the source
+# Generate Inline/Version.h in the build+install directories from Inline/Version.h.in in the source
 configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Version.h.in
 			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h)
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
-		DESTINATION include/WAVM/Inline)
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/WAVM/Inline)
 
 # Install LICENSE to <install root> on Windows and <install root>/share/wavm on other systems.
 install(FILES ${WAVM_SOURCE_DIR}/LICENSE
-		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,share/wavm>)
+		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,${CMAKE_INSTALL_DATAROOTDIR}/wavm>)
 
 # Install the Examples directory to <install root>/examples on Windows, and <install root>/share/wavm/examples on other systems.
 install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
-		DESTINATION $<IF:$<PLATFORM_ID:Windows>,examples,share/wavm/examples>
+		DESTINATION $<IF:$<PLATFORM_ID:Windows>,examples,${CMAKE_INSTALL_DATAROOTDIR}/wavm/examples>
 		PATTERN *.txt EXCLUDE)
 
 set(WAVM_C_FLAGS)
@@ -428,9 +429,9 @@ endfunction()
 function(WAVM_INSTALL_TARGET TARGET_NAME)
 	install(TARGETS ${TARGET_NAME}
 			EXPORT WAVMInstallTargets
-			LIBRARY DESTINATION lib
-			ARCHIVE DESTINATION lib
-			RUNTIME DESTINATION bin)
+			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 	# Install PDB files to the same directory as the binaries.
 	# Exclude static libraries as TARGET_PDB_FILE only works for linked targets.
@@ -603,7 +604,7 @@ export(
 install(
 	EXPORT WAVMInstallTargets
 	FILE WAVMConfig.cmake
-	DESTINATION lib/cmake/WAVM
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/WAVM
 	NAMESPACE WAVM::)
 
 # Create a dummy target to hold various files in the project root
