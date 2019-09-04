@@ -25,19 +25,23 @@ jobs:
     - bash: ls -l $(Build.SourcesDirectory)
     - bash: ls -l $(Build.ArtifactStagingDirectory)
 
+    # Read the version into an job variable.
+    - bash: echo "##vso[task.setvariable variable=VERSION]`cat VERSION`"
+      displayName: Read WAVM version
+      workingDirectory: $(Build.SourcesDirectory)
+
     # Rename and move the packages we want to add to the release into a separate folder.
     - task: Bash@3
       displayName: Stage release artifacts
       inputs:
         script: |
-          VERSION=`cat $(Build.SourcesDirectory)/VERSION`
           mkdir -p release
-          mv Win64_VS2019_LTO/wavm-package.exe            release/wavm-$VERSION-windows.exe
-          mv Win64_VS2019_LTO/wavm-package.zip            release/wavm-$VERSION-windows.zip
-          mv MacOS_StaticLTO/wavm-package.tar.gz          release/wavm-$VERSION-macos.tar.gz
-          mv Ubuntu1604_Clang_LTO/wavm-package.deb        release/wavm-$VERSION-linux.deb
-          mv CentOS70_Clang_LTO/wavm-package.rpm          release/wavm-$VERSION-linux.rpm
-          mv CentOS70_Clang_StaticLTO/wavm-package.tar.gz release/wavm-$VERSION-linux.tar.gz
+          mv Win64_VS2019_LTO/wavm-package.exe            release/wavm-$(VERSION)-windows.exe
+          mv Win64_VS2019_LTO/wavm-package.zip            release/wavm-$(VERSION)-windows.zip
+          mv MacOS_StaticLTO/wavm-package.tar.gz          release/wavm-$(VERSION)-macos.tar.gz
+          mv Ubuntu1604_Clang_LTO/wavm-package.deb        release/wavm-$(VERSION)-linux.deb
+          mv CentOS70_Clang_LTO/wavm-package.rpm          release/wavm-$(VERSION)-linux.rpm
+          mv CentOS70_Clang_StaticLTO/wavm-package.tar.gz release/wavm-$(VERSION)-linux.tar.gz
         workingDirectory: $(Build.ArtifactStagingDirectory)
 
     # Check whether this nightly release already exists.
