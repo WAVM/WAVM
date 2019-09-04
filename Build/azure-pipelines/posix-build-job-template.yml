@@ -43,7 +43,7 @@ jobs:
             configName: StaticLTO
             buildConfig: Release
             llvmConfig: LTO
-            cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON -DWAVM_ENABLE_LTO=Thin'
+            cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON -DWAVM_ENABLE_LTO=Thin -DWAVM_ENABLE_FUZZ_TARGETS=OFF'
 
         # GCC 5.4 doesn't produce a usable binary when compiling with LTO for some reason.
         #${{ if eq(parameters.compiler, 'gcc') }}:

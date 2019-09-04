@@ -41,9 +41,11 @@ if(WAVM_ENABLE_RUNTIME)
 
 	# TODO: fix the memory leak in this test.
 	set_tests_properties(exceptions.wast PROPERTIES ENVIRONMENT ASAN_OPTIONS=detect_leaks=0)
-
 endif()
 
-add_subdirectory(fuzz)
+if(WAVM_ENABLE_FUZZ_TARGETS)
+	add_subdirectory(fuzz)
+endif()
+
 add_subdirectory(spec)
 add_subdirectory(wasi)
