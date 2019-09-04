@@ -14,11 +14,10 @@
     (local $stdout i32)
     (local.set $stdout (i32.load align=4 (global.get $stdoutPtr)))
 
-    (return (call $__fwrite
+	(i32.ne (i32.const 13) (call $__fwrite
        (i32.const 8)         ;; void *ptr    => Address of our string
        (i32.const 1)         ;; size_t size  => Data size
        (i32.const 13)        ;; size_t nmemb => Length of our string
-       (local.get $stdout))  ;; stream
-    )
+       (local.get $stdout))) ;; stream
   )
 )

@@ -1297,9 +1297,9 @@
 
 		;; Print the string to the output.
 		(local.set $stdout (i32.load align=4 (global.get $stdoutPtr)))
-		(return (call $__fwrite (global.get $outputStringAddress) (i32.const 1) (i32.const 129) (local.get $stdout)))
+		(drop (call $__fwrite (global.get $outputStringAddress) (i32.const 1) (i32.const 129) (local.get $stdout)))
 
-		(return (i32.const 1))
+		(return (i32.const 0))
 	)
 
 	(func (export "establishStackSpace") (param i32 i32) (nop))
