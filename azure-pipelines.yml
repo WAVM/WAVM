@@ -150,7 +150,6 @@ stages:
             Fedora31:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora31'}
             OpenSUSELeap150: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.0'}
             OpenSUSELeap151: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.1'}
-            ArchLinux:       {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-pacman:archlinux'}
           useContainer: true
           examplesDir: '/usr/share/wavm/examples'
           artifactName: 'CentOS70_Clang_LTO'
@@ -175,6 +174,7 @@ stages:
             Debian8:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian8'}
             Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
             Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
+            ArchLinux:  {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-pacman:archlinux'}
           useContainer: true
           examplesDir: '/opt/wavm/share/wavm/examples'
           executable: '/opt/wavm/bin/wavm'
