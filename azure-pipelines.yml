@@ -100,8 +100,9 @@ stages:
         parameters:
           name: 'WindowsInstaller'
           matrix:
-            Windows2019: {vmImage: 'windows-2019',   container: ''}
-            Windows2017: {vmImage: 'vs2017-win2016', container: ''}
+            Windows2019: {vmImage: 'windows-2019',     container: ''}
+            Windows2017: {vmImage: 'vs2017-win2016',   container: ''}
+            Windows2015: {vmImage: 'vs2015-win2012r2', container: ''}
           examplesDir: 'C:\Program Files\WAVM\examples'
           executable: 'C:\Program Files\WAVM\bin\wavm.exe'
           artifactName: 'Win64_VS2019_LTO'
@@ -176,8 +177,8 @@ stages:
           artifactName: 'CentOS70_Clang_StaticLTO'
           installSteps:
             - script: |
-                mkdir -p /opt/wavm || exit 1
-                tar -xz -C /opt/wavm -f $(Build.ArtifactStagingDirectory)/wavm-package.tar.gz || exit 1
+                sudo mkdir -p /opt/wavm || exit 1
+                sudo tar -xz -C /opt/wavm -f $(Build.ArtifactStagingDirectory)/wavm-package.tar.gz || exit 1
                 ldd -v /opt/wavm/bin/wavm || exit 1
               displayName: Extract archive
 
