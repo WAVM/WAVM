@@ -151,7 +151,7 @@ stages:
           artifactName: 'CentOS70_Clang_LTO'
           installSteps:
             - script: |
-                sudo yum install -y $(Build.ArtifactStagingDirectory)/wavm-package.rpm || exit 1
+                sudo rpm -i $(Build.ArtifactStagingDirectory)/wavm-package.rpm || exit 1
                 echo "which wavm: `which wavm`" || exit 1
                 echo "ldd wavm:" || exit 1
                 ldd -v `which wavm` || exit 1
