@@ -57,7 +57,7 @@ jobs:
       displayName: Stage release artifacts
       inputs:
         script: |
-          VERSION=$(cat $(Build.SourcesDirectory)/VERSION)
+          VERSION=`cat $(Build.SourcesDirectory)/VERSION`
           mkdir -p release
           mv Win64_VS2019_LTO/wavm-package.exe            release/wavm-$VERSION-windows.exe
           mv Win64_VS2019_LTO/wavm-package.zip            release/wavm-$VERSION-windows.zip
