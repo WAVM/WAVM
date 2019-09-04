@@ -176,23 +176,28 @@ stages:
             isPreRelease: true
 
 
+  # Notify Discord of success or failure.
+  # AFAICT the Azure Pipelines succeeded() and failed() predicates aren't able to observe the
+  # result of other stages unless they are in the stage condition.
   - stage:
-    displayName: Notify Discord
-    condition: always()
+    displayName: Notify Discord (succeeded)
+    condition: succeeded()
     jobs:
       - job: NotifyDiscordSuccess
         displayName: Notify Discord (succeeded)
-        condition: succeeded()
         pool: { vmImage: macOS-10.14 }
         steps:
         - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh success $DISCORD_WEBHOOK_URL
           displayName: Notify Discord
           env: { DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL) }
+  - stage:
+    displayName: Notify Discord (failed)
+    condition: failed()
+    jobs:
       - job: NotifyDiscordFailure
         displayName: Notify Discord (failed)
-        condition: failed()
         pool: { vmImage: macOS-10.14 }
         steps:
-        - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh failed $DISCORD_WEBHOOK_URL
+        - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh failure $DISCORD_WEBHOOK_URL
           displayName: Notify Discord
           env: { DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL) }
