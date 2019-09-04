@@ -125,7 +125,7 @@ stages:
             Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
             Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
             Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
-            Debian8:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian8'}
+            #Debian8:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian8'}
             Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
             Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
           useContainer: true
