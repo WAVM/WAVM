@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.8.0)
 
-include(CheckCCompilerFlag)
-include(CheckCXXCompilerFlag)
-include(GNUInstallDirs)
-
 # Parse the VERSION file.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS VERSION)
 file(READ "VERSION" VERSION_FILE_CONTENTS)
@@ -22,6 +18,12 @@ project(
 	VERSION "${WAVM_VERSION_MAJOR}.${WAVM_VERSION_MINOR}.${WAVM_VERSION_PATCH}"
 	LANGUAGES C CXX ASM
 )
+
+# Include some modules we use. GNUInstallDirs must be included after the project is declared, since it
+# uses configuration variables initialized when the project is declared (CMAKE_SIZEOF_VOID_P).
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
+include(GNUInstallDirs)
 
 # Configure CPack
 set(CPACK_PACKAGE_NAME "WAVM")
