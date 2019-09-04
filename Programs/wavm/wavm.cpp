@@ -137,11 +137,7 @@ int execVersionCommand(int argc, char** argv)
 		showVersionHelp(Log::error);
 		return EXIT_FAILURE;
 	}
-	Log::printf(Log::output,
-				"WAVM version %u.%u.%u\n",
-				WAVM_VERSION_MAJOR,
-				WAVM_VERSION_MINOR,
-				WAVM_VERSION_PATCH);
+	Log::printf(Log::output, "WAVM version %s\n", WAVM_VERSION_STRING);
 	return false;
 }
 
