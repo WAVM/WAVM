@@ -92,7 +92,113 @@ stages:
             - script: brew install ninja
               displayName: Install Ninja
 
+  # Do some basic testing that the packaged builds install and work as expected.
+  - stage:
+    displayName: Test packages
+    jobs:
 
+      # Windows installer
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'WindowsInstaller'
+          matrix:
+            Windows2019: {vmImage: 'windows-2019',   container: ''}
+            Windows2017: {vmImage: 'vs2017-win2016', container: ''}
+          examplesDir: 'C:\Program Files\WAVM\examples'
+          executable: 'C:\Program Files\WAVM\bin\wavm.exe'
+          artifactName: 'Win64_VS2019_LTO'
+          installSteps:
+            # Run the installer in silent mode. Since it's not a command-line app, we need to use
+            # "start /wait" to wait for it to complete.
+            - script: |
+                dir /s $(Build.ArtifactStagingDirectory) || exit 1
+                echo "PATH=%PATH%"
+                start /wait $(Build.ArtifactStagingDirectory)\wavm-package.exe /S || exit 1
+                dir /s "C:\Program Files\WAVM"
+                echo "PATH=%PATH%" || exit 1
+              displayName: Run installer
+
+      # DEB package
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'LinuxDEB'
+          matrix:
+            Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
+            Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
+            Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
+            Debian8:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian8'}
+            Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
+            Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
+          useContainer: true
+          examplesDir: '/usr/share/wavm/examples'
+          artifactName: 'Ubuntu1604_Clang_LTO'
+          installSteps:
+            - script: |
+                sudo apt-get install -y $(Build.ArtifactStagingDirectory)/wavm-package.deb || exit 1
+                echo "which wavm: `which wavm`" || exit 1
+                echo "ldd wavm:" || exit 1
+                ldd -v `which wavm` || exit 1
+              displayName: apt-get install
+
+      # RPM package
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'LinuxRPM'
+          matrix:
+            CentOS7x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
+            CentOS70:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+          useContainer: true
+          examplesDir: '/usr/share/wavm/examples'
+          artifactName: 'CentOS70_Clang_LTO'
+          installSteps:
+            - script: |
+                sudo yum install -y $(Build.ArtifactStagingDirectory)/wavm-package.rpm || exit 1
+                echo "which wavm: `which wavm`" || exit 1
+                echo "ldd wavm:" || exit 1
+                ldd -v `which wavm` || exit 1
+              displayName: yum install
+
+      # Linux archive
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'LinuxTGZ'
+          matrix:
+            CentOS7x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
+            CentOS70:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+            Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
+            Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
+            Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
+            Debian8:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian8'}
+            Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
+            Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
+          useContainer: true
+          examplesDir: '/usr/share/wavm/examples'
+          executable: '/opt/wavm/bin/wavm'
+          artifactName: 'CentOS70_Clang_StaticLTO'
+          installSteps:
+            - script: |
+                mkdir -p /opt/wavm || exit 1
+                tar -xz -C /opt/wavm -f $(Build.ArtifactStagingDirectory)/wavm-package.tar.gz || exit 1
+                ldd -v /opt/wavm/bin/wavm || exit 1
+              displayName: Extract archive
+
+      # MacOS TGZ
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'MacOSTGZ'
+          matrix:
+            MacOS1013: {vmImage: 'macOS-10.13', container: ''}
+            MacOS1014: {vmImage: 'macOS-10.14', container: ''}
+          examplesDir: '/usr/local/share/wavm/examples'
+          artifactName: 'MacOS_StaticLTO'
+          installSteps:
+            - script: |
+                sudo tar -xz -C /usr/local -f $(Build.ArtifactStagingDirectory)/wavm-package.tar.gz
+                echo "which wavm: `which wavm`"
+              displayName: Extract archive
+
+
+  # Nightly build job
   - stage:
     # Only upload a "nightly" build if this is the scheduled build of the master branch (implies it's not a pull request).
     condition:
