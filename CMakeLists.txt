@@ -136,6 +136,7 @@ endif()
 
 # Install Include/WAVM to <install root>/include/WAVM
 install(DIRECTORY ${WAVM_SOURCE_DIR}/Include/WAVM
+		COMPONENT devel
 		DESTINATION include
 		PATTERN *.txt EXCLUDE
 		PATTERN *.h.in EXCLUDE)
@@ -144,21 +145,25 @@ install(DIRECTORY ${WAVM_SOURCE_DIR}/Include/WAVM
 configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Config.h.in
 			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h)
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h
+		COMPONENT devel
 		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/WAVM/Inline)
 
 # Generate Inline/Version.h in the build+install directories from Inline/Version.h.in in the source
 configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Version.h.in
 			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h)
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
+		COMPONENT devel
 		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/WAVM/Inline)
 
 # Install LICENSE to <install root> on Windows and <install root>/share/wavm on other systems.
 install(FILES ${WAVM_SOURCE_DIR}/LICENSE
+		COMPONENT wavm
 		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,${CMAKE_INSTALL_DATAROOTDIR}/wavm>)
 
 # Install the Examples directory to <install root>/examples on Windows, and <install root>/share/wavm/examples on other systems.
 install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
 		DESTINATION $<IF:$<PLATFORM_ID:Windows>,examples,${CMAKE_INSTALL_DATAROOTDIR}/wavm/examples>
+		COMPONENT wavm
 		PATTERN *.txt EXCLUDE)
 
 set(WAVM_C_FLAGS)
@@ -428,6 +433,7 @@ endfunction()
 
 function(WAVM_INSTALL_TARGET TARGET_NAME)
 	install(TARGETS ${TARGET_NAME}
+			COMPONENT wavm
 			EXPORT WAVMInstallTargets
 			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 			ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -438,6 +444,7 @@ function(WAVM_INSTALL_TARGET TARGET_NAME)
 	get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
 	if(MSVC AND NOT ${TARGET_TYPE} STREQUAL "STATIC_LIBRARY")
 		install(FILES $<TARGET_PDB_FILE:${TARGET_NAME}>
+				COMPONENT devel
 				DESTINATION bin
 				OPTIONAL)
 	endif()
@@ -603,6 +610,7 @@ export(
 # Create a CMake package in <install root>/lib/cmake/WAVM containing the WAVM library targets.
 install(
 	EXPORT WAVMInstallTargets
+	COMPONENT devel
 	FILE WAVMConfig.cmake
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/WAVM
 	NAMESPACE WAVM::)
