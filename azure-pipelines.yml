@@ -205,19 +205,6 @@ stages:
 
   # Nightly build job
   - stage:
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-    # Only upload a "nightly" build if this is the scheduled build of the master branch (implies it's not a pull request).
-    #condition:
-    #  and(
-    #    succeeded(),
-    #    or(
-    #      and(
-    #        eq(variables['Build.SourceBranch'], 'refs/heads/master'),
-    #        eq(variables['Build.Reason'], 'Schedule')
-    #      ),
-    #      eq(variables['WAVM.ForceNightlyRelease'], 'true')
-    #    )
-    #  )
     displayName: Create nightly GitHub release
     jobs:
       - template: Build/azure-pipelines/release-job-template.yml

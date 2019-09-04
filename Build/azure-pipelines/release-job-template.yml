@@ -2,6 +2,19 @@ jobs:
   - job: UploadGitHubRelease
     pool:
       vmImage: ubuntu-16.04
+
+    # Only upload a "nightly" build if this is the scheduled build of the master branch.
+    # Even if not uploading a release, do the rest of the release job to ensure that breakage will
+    # be noticed faster.
+    variables:
+      uploadRelease: $[or(
+          and(
+            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            eq(variables['Build.Reason'], 'Schedule')
+          ),
+          eq(variables['WAVM.ForceNightlyRelease'], 'true')
+        )]
+
     steps:
     - checkout: self
       persistCredentials: true
@@ -46,17 +59,17 @@ jobs:
         #if [[ $(curl --write-out %{http_code} --silent --output /dev/null https://api.github.com/repos/WAVM/WAVM/releases/tags/nightly/$(buildDate)) = 200 ]]
         if [[ $(curl --write-out %{http_code} --silent --output /dev/null https://github.com/WAVM/WAVM/releases/tag/nightly%2F$(buildDate)) = 200 ]]
         then
-          echo "##vso[task.setvariable variable=deleteOldRelease]true"
+          echo "##vso[task.setvariable variable=oldReleaseExists]true"
           echo "Found old release with the build's date"
         else
-          echo "##vso[task.setvariable variable=deleteOldRelease]false"
+          echo "##vso[task.setvariable variable=oldReleaseExists]false"
           echo "Did not find old release with the build's date"
         fi
       displayName: Check for existing release
 
     # If there's an old version of this release, delete the old GitHub release.
     - task: GitHubRelease@0
-      condition: and(succeeded(), eq(variables.deleteOldRelease, 'true'))
+      condition: and(succeeded(), eq(variables.uploadRelease, 'true'), eq(variables.oldReleaseExists, 'true'))
       displayName: Delete old GitHub release
       inputs:
         gitHubConnection: GitHub-WAVM-AzurePipelines
@@ -67,7 +80,7 @@ jobs:
     - script: |
         git -c http.extraheader="AUTHORIZATION: basic ***" push origin :nightly/$(buildDate)
       displayName: Delete old GitHub release tag
-      condition: and(succeeded(), eq(variables.deleteOldRelease, 'true'))
+      condition: and(succeeded(), eq(variables.uploadRelease, 'true'), eq(variables.oldReleaseExists, 'true'))
 
     # Create a GitHub release containing the artifacts.
     - task: GitHubRelease@0
