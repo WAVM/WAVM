@@ -14,17 +14,30 @@ instructions below assume that you have done so.
 
 ### Linux
 
-Linux builds are available as either a `deb` package or `.tar.gz` archives. If your distribution
+Linux builds are available as `deb` or `rpm` packages, or `.tar.gz` archives. If your distribution
 uses `apt` for package management, you can install the `deb` package with the command:
 
   ```
   sudo apt install ./wavm-1.0.0-linux.deb
   ```
 
+Or if your distribution uses `yum` for package management, you can install the `rpm package with the
+command:
+
+  ```
+  sudo yum install ./wavm-1.0.0-linux.rpm
+  ```
+
 Once it is installed, you may remove it with the command:
 
   ```
   sudo apt remove wavm
+  ```
+
+Or:
+
+  ```
+  sudo yum remove wavm
   ```
 
 You may extract a `.tar.gz` build anywhere in your filesystem, but a few things are smoother if
