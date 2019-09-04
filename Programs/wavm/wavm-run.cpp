@@ -214,7 +214,7 @@ void showRunHelp(Log::Category outputCategory)
 				"  --sys=<system>        Specifies the system to host the module. See the list\n"
 				"                        of supported sytems below. The default is to detect\n"
 				"                        the system based on the module imports/exports.\n"
-				"  --mount-root=<dir>    Mounts <dir> as the WASI root directory\n"
+				"  --mount-root <dir>    Mounts <dir> as the WASI root directory\n"
 				"  --wasi-trace=<level>  Sets the level of WASI tracing:\n"
 				"                        - syscalls\n"
 				"                        - syscalls-with-callstacks\n"
@@ -337,15 +337,23 @@ struct State
 			{
 				precompiled = true;
 			}
-			else if(stringStartsWith(*nextArg, "--mount-root="))
+			else if(!strcmp(*nextArg, "--mount-root"))
 			{
 				if(rootMountPath)
 				{
 					Log::printf(Log::error,
-								"--mount-root=' may only occur once on the command line.\n");
+								"'--mount-root' may only occur once on the command line.\n");
 					return false;
 				}
-				rootMountPath = *nextArg + strlen("--mount-root=");
+
+				++nextArg;
+				if(!*nextArg)
+				{
+					Log::printf(Log::error, "Expected path following '--mount-root'.\n");
+					return false;
+				}
+
+				rootMountPath = *nextArg;
 			}
 			else if(stringStartsWith(*nextArg, "--wasi-trace="))
 			{
@@ -370,11 +378,16 @@ struct State
 					return false;
 				}
 			}
-			else
+			else if((*nextArg)[0] != '-')
 			{
 				filename = *nextArg;
 				++nextArg;
 				break;
+			}
+			else
+			{
+				Log::printf(Log::error, "Unknown command-line argument: '%s'\n", *nextArg);
+				return false;
 			}
 
 			++nextArg;
