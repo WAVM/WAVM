@@ -172,7 +172,7 @@ stages:
             Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
             Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
           useContainer: true
-          examplesDir: '/usr/share/wavm/examples'
+          examplesDir: '/opt/wavm/share/wavm/examples'
           executable: '/opt/wavm/bin/wavm'
           artifactName: 'CentOS70_Clang_StaticLTO'
           installSteps:
