@@ -17,7 +17,6 @@ stages:
 
               git diff --exit-code
 
-      # Disabled for iteration time. UNCOMMENT BEFORE MERGING TO MASTER
       # Win64 VS2017
       - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
