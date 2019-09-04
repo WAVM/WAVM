@@ -161,7 +161,7 @@ stages:
                 echo "which wavm: `which wavm`" || exit 1
                 echo "ldd wavm:" || exit 1
                 ldd -v `which wavm` || exit 1
-              displayName: yum install
+              displayName: rpm install
 
       # Linux archive
       - template: Build/azure-pipelines/test-package-job-template.yml
