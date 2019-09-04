@@ -2,6 +2,23 @@ stages:
   - stage:
     displayName: Build
     jobs:
+      # clang-format checker
+      - job: CheckClangFormat
+        displayName: Check clang-format
+        pool: {vmImage: 'ubuntu-16.04'}
+        container: 'wavm/clang-format-check:latest'
+        steps:
+          - script: |
+              find \
+                . \( -iname "*.h" -o -iname "*.cpp" \) \
+                -not -path "./ThirdParty/*" \
+                -not -path "./Include/WAVM/Inline/xxhash/*" \
+                | xargs clang-format-9 -i \
+
+              git diff --exit-code
+              exit 0
+
+      # Disabled for iteration time. UNCOMMENT BEFORE MERGING TO MASTER
       # Win64 VS2017
       - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
