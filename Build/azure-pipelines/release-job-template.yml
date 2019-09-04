@@ -85,6 +85,7 @@ jobs:
     # Create a GitHub release containing the artifacts.
     - task: GitHubRelease@0
       displayName: Create GitHub release
+      condition: and(succeeded(), eq(variables.uploadRelease, 'true'))
       inputs:
         gitHubConnection: GitHub-WAVM-AzurePipelines
         action: create
