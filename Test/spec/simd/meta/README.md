@@ -11,6 +11,7 @@ Currently it only support following simd test files generation.
 - 'simd_i16x8_arith.wast'
 - 'simd_i32x4_arith.wast'
 - 'simd_f32x4_arith.wast'
+- 'simd_bitwise.wast'
 
 
 Usage:
