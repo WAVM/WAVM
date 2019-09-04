@@ -144,8 +144,13 @@ stages:
         parameters:
           name: 'LinuxRPM'
           matrix:
-            CentOS7x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
-            CentOS70:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+            CentOS7x:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
+            CentOS70:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+            Fedora29:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora29'}
+            Fedora30:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora30'}
+            Fedora31:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora31'}
+            OpenSUSELeap150: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.0'}
+            OpenSUSELeap151: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.1'}
           useContainer: true
           examplesDir: '/usr/share/wavm/examples'
           artifactName: 'CentOS70_Clang_LTO'
