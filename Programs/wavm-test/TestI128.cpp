@@ -1,6 +1,6 @@
-#include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "wavm-test.h"

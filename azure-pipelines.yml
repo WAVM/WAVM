@@ -16,7 +16,6 @@ stages:
                 | xargs clang-format-9 -i \
 
               git diff --exit-code
-              exit 0
 
       # Disabled for iteration time. UNCOMMENT BEFORE MERGING TO MASTER
       # Win64 VS2017

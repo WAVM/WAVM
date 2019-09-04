@@ -1,4 +1,3 @@
-#include "WAVM/Inline/HashSet.h"
 #include <stdlib.h>
 #include <initializer_list>
 #include <string>
@@ -7,6 +6,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/Timing.h"
 #include "wavm-test.h"
 
