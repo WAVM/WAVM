@@ -1,7 +1,7 @@
 jobs:
   - job: UploadGitHubRelease
     pool:
-      vmImage: windows-2019
+      vmImage: ubuntu-16.04
     steps:
     - checkout: self
       persistCredentials: true
