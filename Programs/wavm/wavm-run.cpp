@@ -574,7 +574,7 @@ struct State
 
 		// Read the specified file into a byte array.
 		std::vector<U8> fileBytes;
-		if(!loadFile(filename, fileBytes)) { return false; }
+		if(!loadFile(filename, fileBytes)) { return EXIT_FAILURE; }
 
 		// Load the module from the byte array
 		Runtime::ModuleRef module = nullptr;
