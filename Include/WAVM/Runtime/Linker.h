@@ -21,47 +21,6 @@ namespace WAVM { namespace Runtime {
 			= 0;
 	};
 
-	// A resolver that ignores the moduleName, and looks for the exportName in a single module.
-	struct ModuleExportResolver : Resolver
-	{
-		ModuleExportResolver(const IR::Module& inModule, ModuleInstance* inModuleInstance)
-		: module(inModule), moduleInstance(inModuleInstance)
-		{
-		}
-
-		bool resolve(const std::string& moduleName,
-					 const std::string& exportName,
-					 IR::ExternType type,
-					 Object*& outObject) override;
-
-	private:
-		const IR::Module& module;
-		ModuleInstance* moduleInstance;
-	};
-
-	// A resolver that lazily creates an inner resolver when it's first used, then forwards all
-	// queries to the inner resolver.
-	struct LazyResolver : Resolver
-	{
-		LazyResolver(std::function<Resolver*()>& inInnerResolverThunk)
-		: innerResolverThunk(std::move(inInnerResolverThunk)), innerResolver(nullptr)
-		{
-		}
-
-		bool resolve(const std::string& moduleName,
-					 const std::string& exportName,
-					 IR::ExternType type,
-					 Runtime::Object*& outObject) override
-		{
-			if(!innerResolver) { innerResolver = innerResolverThunk(); }
-			return innerResolver->resolve(moduleName, exportName, type, outObject);
-		}
-
-	private:
-		std::function<Resolver*()> innerResolverThunk;
-		Resolver* innerResolver;
-	};
-
 	// A resolver that always returns failure.
 	struct NullResolver : Resolver
 	{
