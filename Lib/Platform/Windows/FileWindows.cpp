@@ -576,11 +576,7 @@ private:
 		}
 
 		// Write the total number of bytes read.
-		if(outNumBytesRead)
-		{
-			WAVM_ASSERT(numBytesRead <= UINTPTR_MAX);
-			*outNumBytesRead = Uptr(numBytesRead);
-		}
+		if(outNumBytesRead) { *outNumBytesRead = Uptr(numBytesRead); }
 
 		return Result::success;
 	}
@@ -607,11 +603,7 @@ private:
 		}
 
 		// Write the total number of bytes written.
-		if(outNumBytesWritten)
-		{
-			WAVM_ASSERT(numBytesWritten <= UINTPTR_MAX);
-			*outNumBytesWritten = Uptr(numBytesWritten);
-		}
+		if(outNumBytesWritten) { *outNumBytesWritten = Uptr(numBytesWritten); }
 
 		return Result::success;
 	}
