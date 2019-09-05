@@ -45,9 +45,9 @@ const char* WAST::describeToken(TokenType tokenType)
 struct StaticData
 {
 	NFA::Machine nfaMachine;
-	StaticData(bool allowLegacyOperatorNames);
+	StaticData(bool allowLegacyInstructionNames);
 
-	static StaticData& get(bool allowLegacyOperatorNames);
+	static StaticData& get(bool allowLegacyInstructionNames);
 };
 
 static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder,
@@ -101,7 +101,7 @@ static void addLiteralTokenToNFA(const char* literalString,
 	addLiteralStringToNFA(literalString, builder, 0, finalState);
 }
 
-StaticData::StaticData(bool allowLegacyOperatorNames)
+StaticData::StaticData(bool allowLegacyInstructionNames)
 {
 	// clang-format off
 static const std::pair<TokenType, const char*> regexpTokenPairs[] = {
@@ -195,14 +195,14 @@ static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
 		addLiteralTokenToNFA(literalString, nfaBuilder, tokenType, isTokenSeparator);
 	}
 
-	if(allowLegacyOperatorNames)
+	for(auto legacyOperatorAliasTuple : legacyOperatorAliasTuples)
 	{
-		for(auto legacyOperatorAliasTuple : legacyOperatorAliasTuples)
-		{
-			const TokenType tokenType = std::get<0>(legacyOperatorAliasTuple);
-			const char* literalString = std::get<1>(legacyOperatorAliasTuple);
-			addLiteralTokenToNFA(literalString, nfaBuilder, tokenType, false);
-		}
+		const TokenType tokenType = std::get<0>(legacyOperatorAliasTuple);
+		const char* literalString = std::get<1>(legacyOperatorAliasTuple);
+		addLiteralTokenToNFA(literalString,
+							 nfaBuilder,
+							 allowLegacyInstructionNames ? tokenType : t_legacyInstructionName,
+							 false);
 	}
 
 	if(DUMP_NFA_GRAPH)
@@ -224,9 +224,9 @@ static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
 	Timing::logTimer("built lexer tables", timer);
 }
 
-StaticData& StaticData::get(bool allowLegacyOperatorNames)
+StaticData& StaticData::get(bool allowLegacyInstructionNames)
 {
-	if(allowLegacyOperatorNames)
+	if(allowLegacyInstructionNames)
 	{
 		static StaticData staticData(true);
 		return staticData;
@@ -257,12 +257,12 @@ inline bool isRecoveryPointChar(char c)
 Token* WAST::lex(const char* string,
 				 Uptr stringLength,
 				 LineInfo*& outLineInfo,
-				 bool allowLegacyOperatorNames)
+				 bool allowLegacyInstructionNames)
 {
 	WAVM_ERROR_UNLESS(string);
 	WAVM_ERROR_UNLESS(string[stringLength - 1] == 0);
 
-	StaticData& staticData = StaticData::get(allowLegacyOperatorNames);
+	StaticData& staticData = StaticData::get(allowLegacyInstructionNames);
 
 	Timing::Timer timer;
 

@@ -526,7 +526,7 @@ void WAST::parseTestCommands(const char* string,
 {
 	// Lex the input string.
 	LineInfo* lineInfo = nullptr;
-	Token* tokens = lex(string, stringLength, lineInfo, featureSpec.allowLegacyOperatorNames);
+	Token* tokens = lex(string, stringLength, lineInfo, featureSpec.allowLegacyInstructionNames);
 	ParseState parseState(string, lineInfo);
 	CursorState cursor(tokens, &parseState);
 

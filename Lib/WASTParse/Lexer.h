@@ -66,6 +66,7 @@
                                                                                                    \
 	VISIT_TOKEN(unterminatedComment, "unterminated comment", _)                                    \
 	VISIT_TOKEN(unrecognized, "unrecognized token", _)                                             \
+	VISIT_TOKEN(legacyInstructionName, "legacy operator name", _)                                  \
                                                                                                    \
 	VISIT_TOKEN(decimalFloat, "decimal float literal", _)                                          \
 	VISIT_TOKEN(decimalInt, "decimal int literal", _)                                              \
@@ -108,7 +109,7 @@ namespace WAVM { namespace WAST {
 	Token* lex(const char* string,
 			   Uptr stringLength,
 			   LineInfo*& outLineInfo,
-			   bool allowLegacyOperatorNames);
+			   bool allowLegacyInstructionNames);
 
 	void freeTokens(Token* tokens);
 	void freeLineInfo(LineInfo* lineInfo);

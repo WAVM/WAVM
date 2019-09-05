@@ -60,14 +60,14 @@
 (module
 	(func (result i32)	
 		(i64.gt_u (i64.const 0)
-		          (i64.reinterpret/f64 (f64x2.extract_lane 0 (v128.const i32x4 25 26 27 28))))
+		          (i64.reinterpret_f64 (f64x2.extract_lane 0 (v128.const i32x4 25 26 27 28))))
 	)
 )
 
 (module
 	(func (result i32)
 		(i32.eq (i32.const 0x6c2964f6)
-		        (i32.reinterpret/f32 (f32x4.extract_lane 0 (v128.const f32x4 1.0 2.0 3.0 4.0))))
+		        (i32.reinterpret_f32 (f32x4.extract_lane 0 (v128.const f32x4 1.0 2.0 3.0 4.0))))
 	)
 )
 
@@ -462,7 +462,7 @@
 	(func (export "if-then") (param $x f64) (param $y i32) (result v128)
 		local.get $x
 		f64x2.splat
-		get_local $y
+		local.get $y
 		if (param v128) (result v128)
 			f64x2.neg
 		end

@@ -11,7 +11,8 @@ const char* getFeatureListHelpText()
 		   "  prestd-atomics         WebAssembly atomics extension.\n"
 		   "  prestd-eh              WebAssembly exception handling extension.\n"
 		   "  prestd-multivalue      WebAssembly multi-value extension.\n"
-		   "  prestd-reftypes        WebAssembly reference types extension.\n";
+		   "  prestd-reftypes        WebAssembly reference types extension.\n"
+		   "  legacy-instr-names     Allow legacy instruction names.\n";
 }
 
 bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
@@ -44,6 +45,11 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	else if(!strcmp(featureName, "prestd-reftypes"))
 	{
 		featureSpec.referenceTypes = enable;
+		return true;
+	}
+	else if(!strcmp(featureName, "legacy-instr-names"))
+	{
+		featureSpec.allowLegacyInstructionNames = enable;
 		return true;
 	}
 	else

@@ -29,7 +29,7 @@ namespace WAVM { namespace IR {
 		// WAVM-specific extensions
 		bool sharedTables = true;
 		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
-		bool allowLegacyOperatorNames = true;
+		bool allowLegacyInstructionNames = false;
 		bool allowAnyExternKindElemSegments = false;
 
 		Uptr maxLocals = 65536;

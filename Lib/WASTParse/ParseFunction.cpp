@@ -814,8 +814,13 @@ static void parseExpr(CursorState* cursor, Uptr depth)
 		break;
 				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
+			case t_legacyInstructionName:
+				parseErrorf(cursor->parseState,
+							cursor->nextToken,
+							"legacy instruction name: requires the legacy-instr-name feature.");
+				throw RecoverParseException();
 			default:
-				parseErrorf(cursor->parseState, cursor->nextToken, "expected opcode");
+				parseErrorf(cursor->parseState, cursor->nextToken, "expected instruction name");
 				throw RecoverParseException();
 			}
 		}
@@ -870,8 +875,13 @@ static void parseInstrSequence(CursorState* cursor, Uptr depth)
 	case t_##name: parseOp_##name(cursor, false, depth); break;
 				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
+			case t_legacyInstructionName:
+				parseErrorf(cursor->parseState,
+							cursor->nextToken,
+							"legacy instruction name: requires the legacy-instr-name feature.");
+				throw RecoverParseException();
 			default:
-				parseErrorf(cursor->parseState, cursor->nextToken, "expected opcode");
+				parseErrorf(cursor->parseState, cursor->nextToken, "expected instruction name");
 				throw RecoverParseException();
 			}
 		}
