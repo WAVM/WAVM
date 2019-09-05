@@ -7,6 +7,7 @@
 #include "WAVM/IR/Operators.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Mutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 #ifdef _MSC_VER
@@ -359,6 +360,7 @@ namespace WAVM { namespace LLVMJIT {
 		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
 
 #if LAZY_PARSE_DWARF_LINE_INFO
+		Platform::Mutex dwarfContextMutex;
 		std::unique_ptr<llvm::DWARFContext> dwarfContext;
 #endif
 

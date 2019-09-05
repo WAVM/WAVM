@@ -521,6 +521,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Create a DWARF context to interpret the debug information in this compilation unit.
 #if LAZY_PARSE_DWARF_LINE_INFO
+	Lock<Platform::Mutex> dwarfContextLock(dwarfContextMutex);
 	dwarfContext
 		= llvm::DWARFContext::create(memoryManager->getSectionNameToContentsMap(), sizeof(Uptr));
 #else
@@ -772,6 +773,7 @@ InstructionSource LLVMJIT::getInstructionSourceByAddress(Uptr address)
 	{ return InstructionSource{nullptr, UINTPTR_MAX}; }
 
 #if LAZY_PARSE_DWARF_LINE_INFO
+	Lock<Platform::Mutex> dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
 		llvm::object::SectionedAddress(address, llvm::object::SectionedAddress::UndefSection),
 		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
