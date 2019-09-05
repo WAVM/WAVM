@@ -197,12 +197,11 @@ static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
 
 	for(auto legacyOperatorAliasTuple : legacyOperatorAliasTuples)
 	{
-		const TokenType tokenType = std::get<0>(legacyOperatorAliasTuple);
+		const TokenType tokenType = allowLegacyInstructionNames
+										? std::get<0>(legacyOperatorAliasTuple)
+										: TokenType(t_legacyInstructionName);
 		const char* literalString = std::get<1>(legacyOperatorAliasTuple);
-		addLiteralTokenToNFA(literalString,
-							 nfaBuilder,
-							 allowLegacyInstructionNames ? tokenType : t_legacyInstructionName,
-							 false);
+		addLiteralTokenToNFA(literalString, nfaBuilder, tokenType, false);
 	}
 
 	if(DUMP_NFA_GRAPH)
