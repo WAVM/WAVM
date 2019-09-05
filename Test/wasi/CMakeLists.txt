@@ -3,6 +3,7 @@ set(TestNames
 	args
 	cat
 	clock
+	exit
 	fd_filestat_set_size
 	fd_filestat_set_times
 	fd_renumber
@@ -40,6 +41,10 @@ if(WAVM_ENABLE_RUNTIME)
 	add_test(
 		NAME wasi_clock
 		COMMAND $<TARGET_FILE:wavm> run --abi=wasi ${CMAKE_CURRENT_LIST_DIR}/clock.wasm)
+		
+	#add_test(
+	#	NAME wasi_exit
+	#	COMMAND $<TARGET_FILE:wavm> run --abi=wasi ${CMAKE_CURRENT_LIST_DIR}/exit.wasm)
 
 	add_test(
 		NAME wasi_random
