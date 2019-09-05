@@ -29,71 +29,65 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 
-static HashMap<std::string, const char*> runtimeSymbolMap = {
-	// LLVM usually won't use these, but may generate a call to them if the target doesn't have
-	// anything better.
-	{"ceilf", "ceilf"},
-	{"ceil", "ceil"},
-	{"floorf", "floorf"},
-	{"floor", "floor"},
-	{"truncf", "truncf"},
-	{"trunc", "trunc"},
-	{"rintf", "rintf"},
-	{"rint", "rint"},
+namespace LLVMRuntimeSymbols {
+	// When using static linking, these functions can't be found using dladdr/GetProcAddress.
+	// Declare static references to them so they may be found by the resolveJITImport.
+	extern "C" F32 ceilf(F32);
+	extern "C" F64 ceil(F64);
+	extern "C" F32 floorf(F32);
+	extern "C" F64 floor(F64);
+	extern "C" F32 truncf(F32);
+	extern "C" F64 trunc(F64);
+	extern "C" F32 rintf(F32);
+	extern "C" F64 rint(F64);
 
 #ifdef _WIN32
-	// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
-	{"__chkstk", "__chkstk"},
-	{"__CxxFrameHandler3", "__CxxFrameHandler3"},
-#ifndef _WIN64
-	{"__aullrem", "_aullrem"},
-	{"__allrem", "_allrem"},
-	{"__aulldiv", "_aulldiv"},
-	{"__alldiv", "_alldiv"},
-#endif
+	extern "C" U8 __chkstk;
+	extern "C" U8 __CxxFrameHandler3;
 #else
-	{"__cxa_begin_catch", "__cxa_begin_catch"},
-	{"__cxa_end_catch", "__cxa_end_catch"},
-	{"__gxx_personality_v0", "__gxx_personality_v0"},
+	extern "C" U8 wavm_probe_stack;
+	extern "C" U8 __gxx_personality_v0;
+	extern "C" void* __cxa_begin_catch(void*) throw();
+	extern "C" void __cxa_end_catch();
 #endif
-#ifdef __arm__
-	{"__aeabi_uidiv", "__aeabi_uidiv"},
-	{"__aeabi_idiv", "__aeabi_idiv"},
-	{"__aeabi_idivmod", "__aeabi_idivmod"},
-	{"__aeabi_uldiv", "__aeabi_uldiv"},
-	{"__aeabi_uldivmod", "__aeabi_uldivmod"},
-	{"__aeabi_unwind_cpp_pr0", "__aeabi_unwind_cpp_pr0"},
-	{"__aeabi_unwind_cpp_pr1", "__aeabi_unwind_cpp_pr1"},
-#endif
-};
 
-// wavm_probe_stack can't be looked up by dladdr when WAVM_USE_STATIC_LINKING=1, so get a reference
-// to it directly.
-#ifndef _WIN32
-extern "C" void wavm_probe_stack();
+	static HashMap<std::string, void*> map = {
+		// LLVM usually won't use these, but may generate a call to them if the target doesn't have
+		// anything better.
+		{"ceilf", (void*)&ceilf},
+		{"ceil", (void*)&ceil},
+		{"floorf", (void*)&floorf},
+		{"floor", (void*)&floor},
+		{"truncf", (void*)&trunc},
+		{"trunc", (void*)&trunc},
+		{"rintf", (void*)&rintf},
+		{"rint", (void*)&rint},
+
+#ifdef _WIN32
+		// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
+		{"__chkstk", (void*)&__chkstk},
+		{"__CxxFrameHandler3", (void*)&__CxxFrameHandler3},
+#else
+		{"wavm_probe_stack", (void*)&wavm_probe_stack},
+		{"__gxx_personality_v0", (void*)&__gxx_personality_v0},
+		{"__cxa_begin_catch", (void*)&__cxa_begin_catch},
+		{"__cxa_end_catch", (void*)&__cxa_end_catch},
 #endif
+	};
+}
 
 llvm::JITEvaluatedSymbol LLVMJIT::resolveJITImport(llvm::StringRef name)
 {
-	void* addr = nullptr;
-#ifndef _WIN32
-	if(name == "wavm_probe_stack") { addr = (void*)&wavm_probe_stack; }
-	else
-#endif
+	// Allow some intrinsics used by LLVM
+	void** symbolValue = LLVMRuntimeSymbols::map.get(name.str());
+	if(!symbolValue)
 	{
-		// Allow some intrinsics used by LLVM
-		const char* const* runtimeSymbolName = runtimeSymbolMap.get(name.str());
-		if(!runtimeSymbolName) { return llvm::JITEvaluatedSymbol(nullptr); }
-
-		addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(*runtimeSymbolName);
-	}
-
-	if(!addr)
-	{
-		Errors::fatalf("LLVM generated code references undefined external symbol: %s",
+		Errors::fatalf("LLVM generated code references unknown external symbol: %s",
 					   name.str().c_str());
 	}
-	return llvm::JITEvaluatedSymbol(reinterpret_cast<Uptr>(addr), llvm::JITSymbolFlags::None);
+
+	return llvm::JITEvaluatedSymbol(reinterpret_cast<Uptr>(*symbolValue),
+									llvm::JITSymbolFlags::None);
 }
 
 static bool globalInitLLVM()
