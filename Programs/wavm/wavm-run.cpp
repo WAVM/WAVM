@@ -192,11 +192,11 @@ static bool isEmscriptenModule(const IR::Module& irModule)
 	return false;
 }
 
-static const char* getSystemListHelpText()
+static const char* getABIListHelpText()
 {
-	return "  bare        A minimal runtime system.\n"
-		   "  emscripten  A system that emulates the Emscripten runtime.\n"
-		   "  wasi        A system that implements the WASI ABI.\n";
+	return "  none        No ABI: bare virtual metal.\n"
+		   "  emscripten  Emscripten ABI, such as it is.\n"
+		   "  wasi        WebAssembly System Interface ABI.\n";
 }
 
 void showRunHelp(Log::Category outputCategory)
@@ -211,21 +211,21 @@ void showRunHelp(Log::Category outputCategory)
 				"  --precompiled         Use precompiled object code in program file\n"
 				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
 				"                        features below.\n"
-				"  --sys=<system>        Specifies the system to host the module. See the list\n"
-				"                        of supported sytems below. The default is to detect\n"
-				"                        the system based on the module imports/exports.\n"
+				"  --abi=<abi>           Specifies the ABI used by the WASM module. See the list\n"
+				"                        of supported ABIs below. The default is to detect the\n"
+				"                        ABI based on the module imports/exports.\n"
 				"  --mount-root <dir>    Mounts <dir> as the WASI root directory\n"
 				"  --wasi-trace=<level>  Sets the level of WASI tracing:\n"
 				"                        - syscalls\n"
 				"                        - syscalls-with-callstacks\n"
 				"\n"
-				"Systems:\n"
+				"ABIs:\n"
 				"%s"
 				"\n"
 				"Features:\n"
 				"%s"
 				"\n",
-				getSystemListHelpText(),
+				getABIListHelpText(),
 				getFeatureListHelpText());
 }
 
@@ -235,7 +235,7 @@ static bool stringStartsWith(const char* string, const char (&prefix)[numPrefixC
 	return !strncmp(string, prefix, numPrefixChars - 1);
 }
 
-enum class System
+enum class ABI
 {
 	detect,
 	bare,
@@ -252,7 +252,7 @@ struct State
 	const char* functionName = nullptr;
 	const char* rootMountPath = nullptr;
 	std::vector<std::string> runArgs;
-	System system = System::detect;
+	ABI abi = ABI::detect;
 	bool precompiled = false;
 	WASI::SyscallTraceLevel wasiTraceLavel = WASI::SyscallTraceLevel::none;
 
@@ -284,32 +284,32 @@ struct State
 				}
 				functionName = *nextArg;
 			}
-			else if(stringStartsWith(*nextArg, "--sys="))
+			else if(stringStartsWith(*nextArg, "--abi="))
 			{
-				if(system != System::detect)
+				if(abi != ABI::detect)
 				{
 					Log::printf(Log::error, "'--sys=' may only occur once on the command line.\n");
 					return false;
 				}
 
-				const char* systemString = *nextArg + strlen("--sys=");
-				if(!strcmp(systemString, "bare")) { system = System::bare; }
-				else if(!strcmp(systemString, "emscripten"))
+				const char* abiString = *nextArg + strlen("--abi=");
+				if(!strcmp(abiString, "bare")) { abi = ABI::bare; }
+				else if(!strcmp(abiString, "emscripten"))
 				{
-					system = System::emscripten;
+					abi = ABI::emscripten;
 				}
-				else if(!strcmp(systemString, "wasi"))
+				else if(!strcmp(abiString, "wasi"))
 				{
-					system = System::wasi;
+					abi = ABI::wasi;
 				}
 				else
 				{
 					Log::printf(Log::error,
-								"Unknown system '%s'. Supported systems:\n"
+								"Unknown ABI '%s'. Supported ABIs:\n"
 								"%s"
 								"\n",
-								systemString,
-								getSystemListHelpText());
+								abiString,
+								getABIListHelpText());
 					return false;
 				}
 			}
@@ -496,25 +496,25 @@ struct State
 		return true;
 	}
 
-	bool initSystem(const IR::Module& irModule)
+	bool initABIEnvironment(const IR::Module& irModule)
 	{
-		// If the user didn't specify a system on the command-line, try to figure it out from the
+		// If the user didn't specify an ABI on the command-line, try to figure it out from the
 		// module's imports.
-		if(system == System::detect)
+		if(abi == ABI::detect)
 		{
 			if(isWASIModule(irModule))
 			{
 				Log::printf(Log::debug, "Module appears to be a WASI module.\n");
-				system = System::wasi;
+				abi = ABI::wasi;
 			}
 			else if(isEmscriptenModule(irModule))
 			{
 				Log::printf(Log::debug, "Module appears to be an Emscripten module.\n");
-				system = System::emscripten;
+				abi = ABI::emscripten;
 			}
 			else
 			{
-				system = System::bare;
+				abi = ABI::bare;
 			}
 		}
 
@@ -522,9 +522,9 @@ struct State
 		// SandboxFS for it.
 		if(rootMountPath)
 		{
-			if(system != System::wasi)
+			if(abi != ABI::wasi)
 			{
-				Log::printf(Log::error, "--mount-root may only be used with the WASI system.\n");
+				Log::printf(Log::error, "--mount-root may only be used with the WASI ABI.\n");
 				return false;
 			}
 
@@ -540,7 +540,7 @@ struct State
 			sandboxFS = VFS::makeSandboxFS(&Platform::getHostFS(), absoluteRootMountPath);
 		}
 
-		if(system == System::emscripten)
+		if(abi == ABI::emscripten)
 		{
 			// Instantiate the Emscripten environment.
 			emscriptenInstance = Emscripten::instantiate(compartment, irModule);
@@ -551,7 +551,7 @@ struct State
 				emscriptenInstance->stdErr = Platform::getStdFD(Platform::StdDevice::err);
 			}
 		}
-		else if(system == System::wasi)
+		else if(abi == ABI::wasi)
 		{
 			std::vector<std::string> args = runArgs;
 			args.insert(args.begin(), "/proc/1/exe");
@@ -568,9 +568,9 @@ struct State
 
 		if(wasiTraceLavel != WASI::SyscallTraceLevel::none)
 		{
-			if(system != System::wasi)
+			if(abi != ABI::wasi)
 			{
-				Log::printf(Log::error, "--wasi-trace may only be used with the WASI system.\n");
+				Log::printf(Log::error, "--wasi-trace may only be used with the WASI ABI.\n");
 				return false;
 			}
 
@@ -602,12 +602,12 @@ struct State
 		}
 		const IR::Module& irModule = Runtime::getModuleIR(module);
 
-		// Initialize the system environment.
-		if(!initSystem(irModule)) { return EXIT_FAILURE; }
+		// Initialize the ABI-specific environment.
+		if(!initABIEnvironment(irModule)) { return EXIT_FAILURE; }
 
 		// Link the module with the intrinsic modules.
 		LinkResult linkResult;
-		if(system == System::emscripten || system == System::bare)
+		if(abi == ABI::emscripten)
 		{
 			RootResolver rootResolver(compartment);
 
@@ -620,10 +620,15 @@ struct State
 
 			linkResult = linkModule(irModule, rootResolver);
 		}
-		else if(system == System::wasi)
+		else if(abi == ABI::wasi)
 		{
 			Resolver* resolver = WASI::getProcessResolver(wasiProcess);
 			linkResult = linkModule(irModule, *resolver);
+		}
+		else if(abi == ABI::bare)
+		{
+			NullResolver nullResolver;
+			linkResult = linkModule(irModule, nullResolver);
 		}
 		else
 		{
@@ -642,7 +647,7 @@ struct State
 		if(!moduleInstance) { return EXIT_FAILURE; }
 
 		// Take the module's memory as the WASI process memory.
-		if(system == System::wasi)
+		if(abi == ABI::wasi)
 		{
 			Memory* memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
 			if(!memory)
@@ -705,7 +710,7 @@ struct State
 				invokeArgs.push_back(value);
 			}
 		}
-		else if(system == System::wasi)
+		else if(abi == ABI::wasi)
 		{
 			// WASI just calls a _start function with the signature ()->().
 			function = asFunctionNullable(getInstanceExport(moduleInstance, "_start"));
