@@ -428,7 +428,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 			# Ensure that even static libraries are relocatable so they can be linked into a .so
 			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
 		elseif(TARGET_TYPE STREQUAL "EXECUTABLE" AND WAVM_ENABLE_STATIC_LINKING)
-			target_link_libraries(${TARGET_NAME} PRIVATE "-static")
+			#target_link_libraries(${TARGET_NAME} PRIVATE "-static")
 		endif()
 
 		# Don't eliminate frame pointers: this makes thread forking work robustly if one of the
