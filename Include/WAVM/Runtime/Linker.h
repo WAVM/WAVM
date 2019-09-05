@@ -33,17 +33,27 @@ namespace WAVM { namespace Runtime {
 		}
 	};
 
+	// Generates stub objects that conform to the given ExternType.
+	// Returns true if successful, false if stub creation failed due to resource exhaustion.
+	// Upon successful return, outObject will contain a pointer to the stub object.
+	enum class StubFunctionBehavior
+	{
+		zero,
+		trap,
+	};
+	WAVM_API bool generateStub(const std::string& moduleName,
+							   const std::string& exportName,
+							   IR::ExternType type,
+							   Runtime::Object*& outObject,
+							   Compartment* compartment,
+							   StubFunctionBehavior functionBehavior = StubFunctionBehavior::trap,
+							   ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
+
 	// A resolver that generates stubs for objects that the inner resolver can't find.
 	struct WAVM_API StubResolver : Resolver
 	{
-		enum class FunctionBehavior
-		{
-			zero,
-			trap,
-		};
-
 		StubResolver(Compartment* inCompartment,
-					 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
+					 StubFunctionBehavior inFunctionBehavior = StubFunctionBehavior::trap,
 					 bool inLogErrorOnStubGeneration = true,
 					 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
@@ -55,7 +65,7 @@ namespace WAVM { namespace Runtime {
 	private:
 		GCPointer<Compartment> compartment;
 		ResourceQuotaRef resourceQuota;
-		FunctionBehavior functionBehavior;
+		StubFunctionBehavior functionBehavior;
 		bool logErrorOnStubGeneration;
 	};
 
