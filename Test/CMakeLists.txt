@@ -51,6 +51,7 @@ if(WAVM_ENABLE_FUZZ_TARGETS)
 	add_subdirectory(fuzz)
 endif()
 
+add_subdirectory(emscripten)
 add_subdirectory(spec)
 add_subdirectory(wasi)
 
