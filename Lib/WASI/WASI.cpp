@@ -232,9 +232,9 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 	return process;
 }
 
-Resolver* WASI::getProcessResolver(const std::shared_ptr<Process>& process)
+Resolver& WASI::getProcessResolver(const std::shared_ptr<Process>& process)
 {
-	return &process->resolver;
+	return process->resolver;
 }
 
 Memory* WASI::getProcessMemory(const std::shared_ptr<Process>& process) { return process->memory; }

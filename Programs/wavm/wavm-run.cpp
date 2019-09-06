@@ -622,8 +622,7 @@ struct State
 		}
 		else if(abi == ABI::wasi)
 		{
-			Resolver* resolver = WASI::getProcessResolver(wasiProcess);
-			linkResult = linkModule(irModule, *resolver);
+			linkResult = linkModule(irModule, WASI::getProcessResolver(wasiProcess));
 		}
 		else if(abi == ABI::bare)
 		{

@@ -30,7 +30,7 @@ namespace WAVM { namespace WASI {
 													VFS::VFD* stdOut,
 													VFS::VFD* stdErr);
 
-	WAVM_API Runtime::Resolver* getProcessResolver(const std::shared_ptr<Process>& process);
+	WAVM_API Runtime::Resolver& getProcessResolver(const std::shared_ptr<Process>& process);
 
 	WAVM_API Runtime::Memory* getProcessMemory(const std::shared_ptr<Process>& process);
 	WAVM_API void setProcessMemory(const std::shared_ptr<Process>& process,
