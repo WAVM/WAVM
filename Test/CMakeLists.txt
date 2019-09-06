@@ -1,44 +1,48 @@
-# Helper functions for adding WAST test scripts.
-function(ADD_WAST_TEST WAST_PATH)
-	get_filename_component(WAST_NAME ${WAST_PATH} NAME)
-	add_test(
-		NAME ${WAST_NAME}
-		COMMAND $<TARGET_FILE:wavm-test> script ${CMAKE_CURRENT_LIST_DIR}/${WAST_PATH} "--test-cloning" ${ARGN})
-endfunction()
+# Helper function for adding WAST test scripts.
+set(TestScriptSources "" CACHE INTERNAL "" FORCE)
+function(ADD_WAST_TESTS)
+	cmake_parse_arguments(TEST
+		""
+		""
+		"SOURCES"
+		${ARGN})
 
-function(ADD_WAST_TESTS WAST_PATHS)
-	foreach(WAST_PATH ${WAST_PATHS})
-		ADD_WAST_TEST(${WAST_PATH} ${ARGN})
+	foreach(TEST_SOURCE ${TEST_SOURCES})
+		get_filename_component(TEST_SOURCE_ABSOLUTE ${TEST_SOURCE} ABSOLUTE)
+		list(APPEND TestScriptSources ${TEST_SOURCE_ABSOLUTE})
+		set(TestScriptSources ${TestScriptSources} CACHE INTERNAL "" FORCE)
+			
+		if(WAVM_ENABLE_RUNTIME)
+			get_filename_component(TEST_NAME ${TEST_SOURCE} NAME)
+			add_test(
+				NAME ${TEST_NAME}
+				COMMAND $<TARGET_FILE:wavm-test> script ${TEST_SOURCE_ABSOLUTE} "--test-cloning")
+		endif()
 	endforeach()
 endfunction()
 
-set(WASTTests
-	binaryen/binaryen_simd.wast
-	wabt/wabt_simd_basic.wast
-	wabt/wabt_simd_binary.wast
-	wabt/wabt_simd_bitselect.wast
-	wabt/wabt_simd_compare.wast
-	wabt/wabt_simd_lane.wast
-	wabt/wabt_simd_load_store.wast
-	wabt/wabt_simd_shift.wast
-	wabt/wabt_simd_splat.wast
-	wabt/wabt_simd_unary.wast
-	bulk_memory_ops.wast
-	exceptions.wast
-	misc.wast
-	reference_types.wast
-	simd.wast
-	syntax_recursion.wast
-	threads.wast
-	trunc_sat.wast
-	wavm_atomic.wast
-)
-add_custom_target(WAVMTests SOURCES ${WASTTests})
-set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
+ADD_WAST_TESTS(
+	SOURCES binaryen/binaryen_simd.wast
+			wabt/wabt_simd_basic.wast
+			wabt/wabt_simd_binary.wast
+			wabt/wabt_simd_bitselect.wast
+			wabt/wabt_simd_compare.wast
+			wabt/wabt_simd_lane.wast
+			wabt/wabt_simd_load_store.wast
+			wabt/wabt_simd_shift.wast
+			wabt/wabt_simd_splat.wast
+			wabt/wabt_simd_unary.wast
+			bulk_memory_ops.wast
+			exceptions.wast
+			misc.wast
+			reference_types.wast
+			simd.wast
+			syntax_recursion.wast
+			threads.wast
+			trunc_sat.wast
+			wavm_atomic.wast)
 
 if(WAVM_ENABLE_RUNTIME)
-	ADD_WAST_TESTS("${WASTTests}")
-
 	# TODO: fix the memory leak in this test.
 	set_tests_properties(exceptions.wast PROPERTIES ENVIRONMENT ASAN_OPTIONS=detect_leaks=0)
 endif()
@@ -49,3 +53,6 @@ endif()
 
 add_subdirectory(spec)
 add_subdirectory(wasi)
+
+add_custom_target(TestScripts SOURCES ${TestScriptSources})
+set_target_properties(TestScripts PROPERTIES FOLDER Testing)
