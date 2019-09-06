@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,41 +38,6 @@
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
-
-struct RootResolver : Resolver
-{
-	StubResolver stubResolver;
-	HashMap<std::string, ModuleInstance*> moduleNameToInstanceMap;
-
-	RootResolver(Compartment* compartment) : stubResolver(compartment) {}
-
-	bool resolve(const std::string& moduleName,
-				 const std::string& exportName,
-				 ExternType type,
-				 Object*& outObject) override
-	{
-		auto namedInstance = moduleNameToInstanceMap.get(moduleName);
-		if(namedInstance)
-		{
-			outObject = getInstanceExport(*namedInstance, exportName);
-			if(outObject)
-			{
-				if(isA(outObject, type)) { return true; }
-				else
-				{
-					Log::printf(Log::error,
-								"Resolved import %s.%s to a %s, but was expecting %s\n",
-								moduleName.c_str(),
-								exportName.c_str(),
-								asString(getExternType(outObject)).c_str(),
-								asString(type).c_str());
-				}
-			}
-		}
-
-		return stubResolver.resolve(moduleName, exportName, type, outObject);
-	}
-};
 
 static bool loadTextOrBinaryModule(const char* filename,
 								   std::vector<U8>&& fileBytes,
@@ -258,13 +224,13 @@ struct State
 
 	// Objects that need to be cleaned up before exiting.
 	GCPointer<Compartment> compartment = createCompartment();
-	Emscripten::Instance* emscriptenInstance = nullptr;
+	std::shared_ptr<Emscripten::Instance> emscriptenInstance;
 	std::shared_ptr<WASI::Process> wasiProcess;
 	std::shared_ptr<VFS::FileSystem> sandboxFS;
 
 	~State()
 	{
-		if(emscriptenInstance) { delete emscriptenInstance; }
+		emscriptenInstance.reset();
 		wasiProcess.reset();
 
 		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
@@ -543,13 +509,12 @@ struct State
 		if(abi == ABI::emscripten)
 		{
 			// Instantiate the Emscripten environment.
-			emscriptenInstance = Emscripten::instantiate(compartment, irModule);
-			if(emscriptenInstance)
-			{
-				emscriptenInstance->stdIn = Platform::getStdFD(Platform::StdDevice::in);
-				emscriptenInstance->stdOut = Platform::getStdFD(Platform::StdDevice::out);
-				emscriptenInstance->stdErr = Platform::getStdFD(Platform::StdDevice::err);
-			}
+			emscriptenInstance
+				= Emscripten::instantiate(compartment,
+										  irModule,
+										  Platform::getStdFD(Platform::StdDevice::in),
+										  Platform::getStdFD(Platform::StdDevice::out),
+										  Platform::getStdFD(Platform::StdDevice::err));
 		}
 		else if(abi == ABI::wasi)
 		{
@@ -609,16 +574,7 @@ struct State
 		LinkResult linkResult;
 		if(abi == ABI::emscripten)
 		{
-			RootResolver rootResolver(compartment);
-
-			if(emscriptenInstance)
-			{
-				rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
-				rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
-				rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
-			}
-
-			linkResult = linkModule(irModule, rootResolver);
+			linkResult = linkModule(irModule, Emscripten::getInstanceResolver(emscriptenInstance));
 		}
 		else if(abi == ABI::wasi)
 		{
@@ -755,7 +711,7 @@ struct State
 					args.insert(args.begin(), filename);
 
 					WAVM_ASSERT(emscriptenInstance);
-					Emscripten::injectCommandArgs(emscriptenInstance, args, invokeArgs);
+					invokeArgs = Emscripten::injectCommandArgs(emscriptenInstance, args);
 				}
 			}
 			else if(functionType.params().size() > 0)
