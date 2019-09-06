@@ -82,7 +82,7 @@ jobs:
     # Configure WAVM
     - template: cmake-configure-step-template.yml
       parameters:
-        cmakeArgs: >
+        cmakeArgs:
           -G "$(vs${{parameters.vsVersion}}Generator)"
           -A $(${{parameters.platform}}Arch)
           -DCPACK_GENERATOR="ZIP;NSIS"

@@ -7,7 +7,7 @@ steps:
     displayName: Configure WAVM
     inputs:
       workingDirectory: $(Build.ArtifactStagingDirectory)
-      cmakeArgs: >
+      cmakeArgs:
           $(Build.SourcesDirectory)
           -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm/lib/cmake/llvm
           ${{parameters.cmakeArgs}}

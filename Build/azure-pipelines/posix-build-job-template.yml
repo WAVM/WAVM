@@ -16,10 +16,10 @@ jobs:
       container: ${{parameters.container}}
 
     variables:
-      gccCmakeArgs: >
+      gccCmakeArgs:
         -DCMAKE_C_COMPILER=gcc
         -DCMAKE_CXX_COMPILER=g++
-      clangCmakeArgs: >
+      clangCmakeArgs:
         -DCMAKE_C_COMPILER=/usr/local/bin/clang
         -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
         -DCMAKE_AR=/usr/local/bin/llvm-ar
@@ -131,7 +131,7 @@ jobs:
     # Configure WAVM
     - template: cmake-configure-step-template.yml
       parameters:
-        cmakeArgs: >
+        cmakeArgs:
           -G Ninja
           -DCMAKE_BUILD_TYPE=$(buildConfig)
           -DCPACK_GENERATOR="${{parameters.cpackGenerators}}"
