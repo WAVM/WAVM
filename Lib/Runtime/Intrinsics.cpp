@@ -8,6 +8,7 @@
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Timing.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
 
@@ -116,6 +117,8 @@ ModuleInstance* Intrinsics::instantiateModule(
 	std::string&& debugName,
 	const HashMap<std::string, Object*>& extraExports)
 {
+	Timing::Timer timer;
+
 	std::vector<Runtime::Object*> exports;
 	HashMap<std::string, Object*> exportMap = extraExports;
 	std::vector<Runtime::Function*> functions;
@@ -203,6 +206,8 @@ ModuleInstance* Intrinsics::instantiateModule(
 											 std::move(debugName),
 											 ResourceQuotaRef());
 	compartment->moduleInstances[id] = moduleInstance;
+
+	Timing::logTimer("Instantiated intrinsic module", timer);
 	return moduleInstance;
 }
 
