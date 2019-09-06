@@ -42,11 +42,11 @@ namespace LLVMRuntimeSymbols {
 	extern "C" F64 rint(F64);
 
 #ifdef _WIN32
-	extern "C" U8 __chkstk;
-	extern "C" U8 __CxxFrameHandler3;
+	extern "C" void __chkstk();
+	extern "C" void __CxxFrameHandler3();
 #else
-	extern "C" U8 wavm_probe_stack;
-	extern "C" U8 __gxx_personality_v0;
+	extern "C" void wavm_probe_stack();
+	extern "C" void __gxx_personality_v0();
 	extern "C" void* __cxa_begin_catch(void*) throw();
 	extern "C" void __cxa_end_catch();
 #endif
