@@ -109,6 +109,11 @@ namespace WAVM { namespace WASI {
 		~Process();
 	};
 
+	struct ExitException
+	{
+		U32 exitCode;
+	};
+
 	typedef U32 WASIAddress;
 #define WASIADDRESS_MAX UINT32_MAX
 #define WASIADDRESS_FORMAT "0x%08x"

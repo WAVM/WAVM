@@ -21,9 +21,9 @@ if(WAVM_ENABLE_RUNTIME)
 		NAME emscripten_clock
 		COMMAND $<TARGET_FILE:wavm> run --abi=emscripten ${CMAKE_CURRENT_LIST_DIR}/clock.wasm)
 		
-	#add_test(
-	#	NAME emscripten_exit
-	#	COMMAND $<TARGET_FILE:wavm> run --abi=emscripten ${CMAKE_CURRENT_LIST_DIR}/exit.wasm)
+	add_test(
+		NAME emscripten_exit
+		COMMAND $<TARGET_FILE:wavm> run --abi=emscripten ${CMAKE_CURRENT_LIST_DIR}/exit.wasm)
 		
 	add_test(
 		NAME emscripten_stdout

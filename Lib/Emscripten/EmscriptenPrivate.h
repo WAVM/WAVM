@@ -100,6 +100,11 @@ namespace WAVM { namespace Emscripten {
 					 Runtime::Object*& outObject) override;
 	};
 
+	struct ExitException
+	{
+		U32 exitCode;
+	};
+
 	struct ExitThreadException
 	{
 		U32 exitCode;

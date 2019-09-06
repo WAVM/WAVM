@@ -545,6 +545,69 @@ struct State
 		return true;
 	}
 
+	I32 execute(const IR::Module& irModule,
+				ModuleInstance* moduleInstance,
+				Function* function,
+				std::vector<IR::Value>&& invokeArgs)
+	{
+		// Create a WASM execution context.
+		Context* context = Runtime::createContext(compartment);
+
+		// Call the module start function, if it has one.
+		Function* startFunction = getStartFunction(moduleInstance);
+		if(startFunction) { invokeFunction(context, startFunction); }
+
+		if(emscriptenInstance)
+		{
+			// Call the Emscripten global initalizers.
+			Emscripten::initializeGlobals(emscriptenInstance, context, irModule, moduleInstance);
+		}
+
+		// Split the tagged argument values into their types and untagged values.
+		std::vector<ValueType> invokeArgTypes;
+		std::vector<UntaggedValue> untaggedInvokeArgs;
+		for(const Value& arg : invokeArgs)
+		{
+			invokeArgTypes.push_back(arg.type);
+			untaggedInvokeArgs.push_back(arg);
+		}
+
+		// Infer the expected type of the function from the number and type of the invoke's
+		// arguments and the function's actual result types.
+		const FunctionType invokeSig(getFunctionType(function).results(),
+									 TypeTuple(invokeArgTypes));
+
+		// Allocate an array to receive the invoke results.
+		std::vector<UntaggedValue> untaggedInvokeResults;
+		untaggedInvokeResults.resize(invokeSig.results().size());
+
+		// Invoke the function.
+		Timing::Timer executionTimer;
+		invokeFunction(
+			context, function, invokeSig, untaggedInvokeArgs.data(), untaggedInvokeResults.data());
+		Timing::logTimer("Invoked function", executionTimer);
+
+		if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
+		{ return untaggedInvokeResults[0].i32; }
+		else
+		{
+			// Convert the untagged result values to tagged values.
+			std::vector<Value> invokeResults;
+			invokeResults.resize(invokeSig.results().size());
+			for(Uptr resultIndex = 0; resultIndex < untaggedInvokeResults.size(); ++resultIndex)
+			{
+				const ValueType resultType = invokeSig.results()[resultIndex];
+				const UntaggedValue& untaggedResult = untaggedInvokeResults[resultIndex];
+				invokeResults[resultIndex] = Value(resultType, untaggedResult);
+			}
+
+			Log::printf(
+				Log::debug, "%s returned: %s\n", functionName, asString(invokeResults).c_str());
+
+			return EXIT_SUCCESS;
+		}
+	}
+
 	int run(char** argv)
 	{
 		// Parse the command line.
@@ -612,9 +675,6 @@ struct State
 			}
 			WASI::setProcessMemory(wasiProcess, memory);
 		}
-
-		// Create a WASM execution context.
-		Context* context = Runtime::createContext(compartment);
 
 		// Look up the function export to call, validate its type, and set up the invoke arguments.
 		Function* function = nullptr;
@@ -724,78 +784,18 @@ struct State
 			}
 		}
 
-		int result = EXIT_SUCCESS;
-		try
+		// Execute the program.
+		auto executeThunk
+			= [&] { return execute(irModule, moduleInstance, function, std::move(invokeArgs)); };
+		int result;
+		if(emscriptenInstance) { result = Emscripten::catchExit(std::move(executeThunk)); }
+		else if(wasiProcess)
 		{
-			// Call the module start function, if it has one.
-			Function* startFunction = getStartFunction(moduleInstance);
-			if(startFunction) { invokeFunction(context, startFunction); }
-
-			if(emscriptenInstance)
-			{
-				// Call the Emscripten global initalizers.
-				Emscripten::initializeGlobals(
-					emscriptenInstance, context, irModule, moduleInstance);
-			}
-
-			// Split the tagged argument values into their types and untagged values.
-			std::vector<ValueType> invokeArgTypes;
-			std::vector<UntaggedValue> untaggedInvokeArgs;
-			for(const Value& arg : invokeArgs)
-			{
-				invokeArgTypes.push_back(arg.type);
-				untaggedInvokeArgs.push_back(arg);
-			}
-
-			// Infer the expected type of the function from the number and type of the invoke's
-			// arguments and the function's actual result types.
-			const FunctionType invokeSig(getFunctionType(function).results(),
-										 TypeTuple(invokeArgTypes));
-
-			// Allocate an array to receive the invoke results.
-			std::vector<UntaggedValue> untaggedInvokeResults;
-			untaggedInvokeResults.resize(invokeSig.results().size());
-
-			// Invoke the function.
-			Timing::Timer executionTimer;
-			invokeFunction(context,
-						   function,
-						   invokeSig,
-						   untaggedInvokeArgs.data(),
-						   untaggedInvokeResults.data());
-			Timing::logTimer("Invoked function", executionTimer);
-
-			if(functionName)
-			{
-				// Convert the untagged result values to tagged values.
-				std::vector<Value> invokeResults;
-				invokeResults.resize(invokeSig.results().size());
-				for(Uptr resultIndex = 0; resultIndex < untaggedInvokeResults.size(); ++resultIndex)
-				{
-					const ValueType resultType = invokeSig.results()[resultIndex];
-					const UntaggedValue& untaggedResult = untaggedInvokeResults[resultIndex];
-					invokeResults[resultIndex] = Value(resultType, untaggedResult);
-				}
-
-				Log::printf(
-					Log::debug, "%s returned: %s\n", functionName, asString(invokeResults).c_str());
-			}
-			else if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
-			{
-				result = untaggedInvokeResults[0].i32;
-			}
+			result = WASI::catchExit(std::move(executeThunk));
 		}
-		catch(const WASI::ExitException& exitException)
+		else
 		{
-			// If either the WASM or WASI start functions call the WASI exit API, they will throw a
-			// WASI::ExitException. Catch it here, and return the exit code.
-			result = int(exitException.exitCode);
-		}
-		catch(const Emscripten::ExitException& exitException)
-		{
-			// If either the WASM or WASI start functions call the Emscripten exit API, they will
-			// throw an Emscripten::ExitException. Catch it here, and return the exit code.
-			result = int(exitException.exitCode);
+			result = executeThunk();
 		}
 
 		// Log the peak memory usage.

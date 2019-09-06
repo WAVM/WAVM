@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -16,11 +17,6 @@ namespace WAVM { namespace Runtime {
 namespace WAVM { namespace WASI {
 
 	struct Process;
-
-	struct ExitException
-	{
-		U32 exitCode;
-	};
 
 	WAVM_API std::shared_ptr<Process> createProcess(Runtime::Compartment* compartment,
 													std::vector<std::string>&& inArgs,
@@ -44,4 +40,6 @@ namespace WAVM { namespace WASI {
 	};
 
 	WAVM_API void setSyscallTraceLevel(SyscallTraceLevel newLevel);
+
+	WAVM_API I32 catchExit(std::function<I32()>&& thunk);
 }}

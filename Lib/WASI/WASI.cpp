@@ -243,3 +243,15 @@ void WASI::setProcessMemory(const std::shared_ptr<Process>& process, Memory* mem
 {
 	process->memory = memory;
 }
+
+I32 WASI::catchExit(std::function<I32()>&& thunk)
+{
+	try
+	{
+		return std::move(thunk)();
+	}
+	catch(ExitException const& exitException)
+	{
+		return I32(exitException.exitCode);
+	}
+}

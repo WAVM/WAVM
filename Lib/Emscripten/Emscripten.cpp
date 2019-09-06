@@ -1387,3 +1387,15 @@ bool Emscripten::Instance::resolve(const std::string& moduleName,
 	return generateStub(
 		moduleName, exportName, type, outObject, compartment, StubFunctionBehavior::trap);
 }
+
+I32 Emscripten::catchExit(std::function<I32()>&& thunk)
+{
+	try
+	{
+		return std::move(thunk)();
+	}
+	catch(ExitException const& exitException)
+	{
+		return I32(exitException.exitCode);
+	}
+}

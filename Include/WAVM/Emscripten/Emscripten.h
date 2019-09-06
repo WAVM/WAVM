@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <vector>
 #include "WAVM/IR/Value.h"
@@ -23,11 +24,6 @@ namespace WAVM { namespace Emscripten {
 
 	struct Instance;
 
-	struct ExitException
-	{
-		U32 exitCode;
-	};
-
 	WAVM_API std::shared_ptr<Instance> instantiate(Runtime::Compartment* compartment,
 												   const IR::Module& module,
 												   VFS::VFD* stdIn = nullptr,
@@ -43,4 +39,6 @@ namespace WAVM { namespace Emscripten {
 	WAVM_API Runtime::Resolver& getInstanceResolver(const std::shared_ptr<Instance>& instance);
 
 	WAVM_API void joinAllThreads(Instance* instance);
+
+	WAVM_API I32 catchExit(std::function<I32()>&& thunk);
 }}
