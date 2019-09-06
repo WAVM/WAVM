@@ -54,7 +54,7 @@ endif()
 
 option(WAVM_ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
-option(WAVM_ENABLE_LTO "use link-time optimization" OFF)
+set(WAVM_ENABLE_LTO "use link-time optimization" "OFF" CACHE STRING "enable link-time optimization (off, on, or thin)")
 
 option(WAVM_ENABLE_FUZZ_TARGETS "build the fuzz targets" ON)
 
@@ -267,7 +267,7 @@ if(NOT MSVC)
 	# Check if the -fuse-ld=x option is available.
 	check_c_compiler_flag("-fuse-ld=ld" C_HAS_FUSE_LD)
 	if(C_HAS_FUSE_LD)
-		option(WAVM_USE_LINKER "If set, overrides the default linker (as the compiler option -fuse-ld=<WAVM_USE_LINKER>)" "")
+		set(WAVM_USE_LINKER "" CACHE STRING "If set, overrides the default linker (as the compiler option -fuse-ld=<WAVM_USE_LINKER>)")
 		if(WAVM_USE_LINKER)
 			list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
 		endif()
