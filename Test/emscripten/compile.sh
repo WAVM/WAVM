@@ -14,4 +14,5 @@ emcc $TEST_CPP \
 
 rm -f $TEST_DIR/$TEST_NAME.wasm.map
 rm -f $TEST_DIR/$TEST_NAME.wast
+rm -f $TEST_DIR/$TEST_NAME.js
 rm -f $TEST_DIR/$TEST_NAME.worker.js
