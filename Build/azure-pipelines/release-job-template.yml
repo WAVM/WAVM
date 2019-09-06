@@ -92,6 +92,7 @@ jobs:
         target: $(Build.SourceVersion)
         tagSource: manual
         tag: nightly/$(buildDate)
+        title: nightly/$(buildDate)
         assets: $(Build.ArtifactStagingDirectory)/release/*
         releaseNotesSource: input
         releaseNotes: 
