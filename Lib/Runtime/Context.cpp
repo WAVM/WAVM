@@ -38,6 +38,8 @@ Context* Runtime::createContext(Compartment* compartment)
 		memcpy(context->runtimeData->mutableGlobals,
 			   compartment->initialContextMutableGlobals,
 			   maxMutableGlobals * sizeof(IR::UntaggedValue));
+
+		context->runtimeData->context = context;
 	}
 
 	return context;
