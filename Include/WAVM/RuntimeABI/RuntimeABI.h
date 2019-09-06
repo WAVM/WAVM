@@ -56,8 +56,8 @@ namespace WAVM { namespace Runtime {
 
 	static constexpr Uptr wavmCompartmentReservedBytes = Uptr(2) * 1024 * 1024 * 1024;
 	static constexpr Uptr maxThunkArgAndReturnBytes = 256;
-	static constexpr Uptr maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes;
-	static constexpr Uptr maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue);
+	static constexpr Uptr maxMutableGlobals
+		= (4096 - maxThunkArgAndReturnBytes - sizeof(Context*)) / sizeof(IR::UntaggedValue);
 	static constexpr Uptr maxMemories = 255;
 	static constexpr Uptr maxTables = 128 * 1024 - maxMemories - 1;
 	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
@@ -70,6 +70,7 @@ namespace WAVM { namespace Runtime {
 	struct ContextRuntimeData
 	{
 		U8 thunkArgAndReturnData[maxThunkArgAndReturnBytes];
+		Context* context;
 		IR::UntaggedValue mutableGlobals[maxMutableGlobals];
 	};
 
