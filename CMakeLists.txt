@@ -54,7 +54,7 @@ endif()
 
 option(WAVM_ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
-set(WAVM_ENABLE_LTO "use link-time optimization" "OFF" CACHE STRING "enable link-time optimization (off, on, or thin)")
+set(WAVM_ENABLE_LTO "OFF" CACHE STRING "enable link-time optimization (off, on, or thin)")
 
 option(WAVM_ENABLE_FUZZ_TARGETS "build the fuzz targets" ON)
 
