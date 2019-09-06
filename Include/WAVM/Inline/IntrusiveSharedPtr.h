@@ -8,7 +8,7 @@ namespace WAVM {
 	template<typename Pointee> struct IntrusiveSharedPtr
 	{
 		// Constructors/destructor
-		IntrusiveSharedPtr() : value(nullptr) {}
+		constexpr IntrusiveSharedPtr() : value(nullptr) {}
 		IntrusiveSharedPtr(Pointee* inValue)
 		{
 			value = inValue;
@@ -28,6 +28,15 @@ namespace WAVM {
 		~IntrusiveSharedPtr()
 		{
 			if(value) { value->removeRef(); }
+		}
+
+		// Adopt a raw pointer: coerces the pointer to an IntrusiveSharedPtr without calling addRef
+		// or removeRef.
+		static IntrusiveSharedPtr<Pointee> adopt(Pointee*&& inValue)
+		{
+			IntrusiveSharedPtr<Pointee> result(adoptConstructorSelector, inValue);
+			inValue = nullptr;
+			return result;
 		}
 
 		// Assignment operators
@@ -54,11 +63,18 @@ namespace WAVM {
 		}
 
 		// Accessors
-		operator Pointee*() const { return value; }
-		Pointee& operator*() const { return *value; }
-		Pointee* operator->() const { return value; }
+		constexpr operator Pointee*() const { return value; }
+		constexpr Pointee& operator*() const { return *value; }
+		constexpr Pointee* operator->() const { return value; }
 
 	private:
 		Pointee* value;
+
+		enum AdoptConstructorSelector
+		{
+			adoptConstructorSelector
+		};
+
+		constexpr IntrusiveSharedPtr(AdoptConstructorSelector, Pointee* inValue) : value(inValue) {}
 	};
 }
