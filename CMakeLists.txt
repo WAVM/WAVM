@@ -362,6 +362,10 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 	
 	# Set sanitizer options.
 	WAVM_SET_TARGET_SANITIZER_OPTIONS(${TARGET_NAME})
+	
+	# Add the optional warnings that the compiler was detected to support.
+	target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${WAVM_C_FLAGS}>")
+	target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${WAVM_CXX_FLAGS}>")
 
 	if(MSVC)
 		if(WAVM_ENABLE_LTO)
@@ -411,10 +415,6 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		
 		# Exclude some warnings included in Wextra that we don't care about.
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-parameter")
-		
-		# Add the optional warnings that the compiler was detected to support.
-		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${WAVM_C_FLAGS}>")
-		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${WAVM_CXX_FLAGS}>")
 		
 		# Warn if a switch doesn't handle an enum case even if it has a default label.
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-enum")
