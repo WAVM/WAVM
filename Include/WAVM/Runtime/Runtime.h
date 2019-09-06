@@ -35,7 +35,8 @@ namespace WAVM {
 	WAVM_API Object* asObject(Type* object);                                                       \
 	WAVM_API const Object* asObject(const Runtime::Type* object);                                  \
                                                                                                    \
-	WAVM_API void setUserData(Runtime::Type* object, void* userData, void (*finalizer)(void*));    \
+	WAVM_API void setUserData(                                                                     \
+		Runtime::Type* object, void* userData, void (*finalizer)(void*) = nullptr);                \
 	WAVM_API void* getUserData(const Runtime::Type* object);                                       \
                                                                                                    \
 	template<> inline Runtime::Type* as<Type>(Object * object) { return as##kindName(object); }    \
@@ -53,7 +54,7 @@ namespace WAVM { namespace Runtime {
 
 	WAVM_API IR::ExternType getExternType(const Object* object);
 
-	WAVM_API void setUserData(Object* object, void* userData, void (*finalizer)(void*));
+	WAVM_API void setUserData(Object* object, void* userData, void (*finalizer)(void*) = nullptr);
 	WAVM_API void* getUserData(const Object* object);
 
 	inline Object* asObject(Object* object) { return object; }
