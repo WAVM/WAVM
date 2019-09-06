@@ -65,7 +65,7 @@ static IndexMap<Uptr, IntrusiveSharedPtr<Thread>> threads(1, UINTPTR_MAX);
 
 // A shared pointer to the current thread. This is used to decrement the thread's reference count
 // when the thread exits.
-thread_local IntrusiveSharedPtr<Thread> currentThread = nullptr;
+static thread_local IntrusiveSharedPtr<Thread> currentThread = nullptr;
 
 // Adds the thread to the global thread array, assigning it an ID corresponding to its index in the
 // array.
