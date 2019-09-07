@@ -179,54 +179,58 @@ install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
 		COMPONENT wavm
 		PATTERN *.txt EXCLUDE)
 
-set(WAVM_C_FLAGS)
+set(WAVM_C_CXX_FLAGS)
 set(WAVM_CXX_FLAGS)
+set(WAVM_LTO_C_CXX_FLAGS)
+
 set(WAVM_LINKER_FLAGS)
+set(WAVM_STATIC_LIBRARY_FLAGS)
 
 # CMake 3.12+ has a list(JOIN) operation, but as of 2019/9, the newest Ubuntu LTS (18.04) only ships with CMake 3.10.
-function(list_join STRING_LIST SEPARATOR VARIABLE_NAME)
-	string(REPLACE "${STRING_LIST}" ";" ${SEPARATOR} JOINED_STRING)
+function(wavm_list_join STRING_LIST SEPARATOR VARIABLE_NAME)
+	string(REPLACE ";" ${SEPARATOR} JOINED_STRING "${STRING_LIST}")
 	set(${VARIABLE_NAME} ${JOINED_STRING} PARENT_SCOPE)
 endfunction()
 
-function(get_config_var_name_for_flag FLAG VAR_NAME)
+function(wavm_get_config_var_name_for_flag FLAG VAR_NAME)
 	string(SUBSTRING ${FLAG} 1 -1 FLAG_NAME)
 	string(MAKE_C_IDENTIFIER ${FLAG_NAME} FLAG_NAME)
 	string(TOUPPER ${FLAG_NAME} FLAG_NAME)
 	set(${VAR_NAME} ${FLAG_NAME} PARENT_SCOPE)
 endfunction()
 
-function(add_cxx_flag_if_supported OPTIONAL_FLAG)
-	get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
-	list_join(WAVM_CXX_FLAGS " " WAVM_CXX_FLAGS_SPACE_SEPARATED)
-	check_cxx_compiler_flag("${WAVM_CXX_FLAGS_SPACE_SEPARATED} ${OPTIONAL_FLAG}" "CXX_HAS_${FLAG_VAR}")
+function(wavm_check_cxx_compiler_flag FLAG VARIABLE_NAME)
+	wavm_list_join("${WAVM_C_CXX_FLAGS};${WAVM_CXX_FLAGS};${WAVM_LTO_C_CXX_FLAGS}" " " WAVM_CXX_FLAGS_SPACE_SEPARATED)
+	check_cxx_compiler_flag("${WAVM_CXX_FLAGS_SPACE_SEPARATED} ${OPTIONAL_FLAG}" ${VARIABLE_NAME})
+endfunction()
+
+function(wavm_add_cxx_flag_if_supported OPTIONAL_FLAG)
+	wavm_get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
+	wavm_check_cxx_compiler_flag("${OPTIONAL_FLAG}" "CXX_HAS_${FLAG_VAR}")
 	if(CXX_HAS_${FLAG_VAR})
 		list(APPEND WAVM_CXX_FLAGS ${OPTIONAL_FLAG})
 		set(WAVM_CXX_FLAGS ${WAVM_CXX_FLAGS} PARENT_SCOPE)
 	endif()
 endfunction()
 
-function(add_c_cxx_flag_if_supported OPTIONAL_FLAG)
-	get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
-	list_join(WAVM_CXX_FLAGS " " WAVM_CXX_FLAGS_SPACE_SEPARATED)
-	check_cxx_compiler_flag("${WAVM_CXX_FLAGS_SPACE_SEPARATED} ${OPTIONAL_FLAG}" "CXX_HAS_${FLAG_VAR}")
+function(wavm_add_c_cxx_flag_if_supported OPTIONAL_FLAG)
+	wavm_get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
+	wavm_check_cxx_compiler_flag("${OPTIONAL_FLAG}" "CXX_HAS_${FLAG_VAR}")
 	if(CXX_HAS_${FLAG_VAR})
-		list(APPEND WAVM_C_FLAGS ${OPTIONAL_FLAG})
-		list(APPEND WAVM_CXX_FLAGS ${OPTIONAL_FLAG})
-		set(WAVM_C_FLAGS ${WAVM_C_FLAGS} PARENT_SCOPE)
-		set(WAVM_CXX_FLAGS ${WAVM_CXX_FLAGS} PARENT_SCOPE)
+		list(APPEND WAVM_C_CXX_FLAGS ${OPTIONAL_FLAG})
+		set(WAVM_C_CXX_FLAGS ${WAVM_C_CXX_FLAGS} PARENT_SCOPE)
 	endif()
 endfunction()
 
-function(check_linker_flag FLAG VARIABLE_NAME)
-	list_join(WAVM_LINKER_FLAGS " " WAVM_LINKER_FLAGS_SPACE_SEPARATED)
+function(wavm_check_linker_flag FLAG VARIABLE_NAME)
+	wavm_list_join("${WAVM_LINKER_FLAGS}" " " WAVM_LINKER_FLAGS_SPACE_SEPARATED)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${WAVM_LINKER_FLAGS_SPACE_SEPARATED} ${FLAG}")
-	check_cxx_compiler_flag("" ${VARIABLE_NAME})
+	wavm_check_cxx_compiler_flag("" ${VARIABLE_NAME})
 endfunction()
 
-function(add_linker_flag_if_supported OPTIONAL_FLAG)
-	get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
-	check_linker_flag(${OPTIONAL_FLAG} "LINKER_HAS_${FLAG_VAR}")
+function(wavm_add_linker_flag_if_supported OPTIONAL_FLAG)
+	wavm_get_config_var_name_for_flag(${OPTIONAL_FLAG} FLAG_VAR)
+	wavm_check_linker_flag(${OPTIONAL_FLAG} "LINKER_HAS_${FLAG_VAR}")
 	if(LINKER_HAS_${FLAG_VAR})
 		list(APPEND WAVM_LINKER_FLAGS ${OPTIONAL_FLAG})
 		set(WAVM_LINKER_FLAGS ${WAVM_LINKER_FLAGS} PARENT_SCOPE)
@@ -247,62 +251,125 @@ string(REPLACE "/Ob1" "/Ob2" CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL ${CMAKE_CXX_FL
 set(CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL} CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL} CACHE STRING "" FORCE)
 
-if(NOT MSVC)
-	# GCC's -Wnull-dereference triggers a bunch of warnings that seem harmless. It would be nice to
-	# fix them, but for now just disable the warning.
-	add_c_cxx_flag_if_supported("-Wnull-dereference")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")	
+	# Warn if a switch doesn't handle an enum case even if it has a default label.
+	wavm_add_c_cxx_flag_if_supported("-Wswitch-enum")
+	wavm_add_c_cxx_flag_if_supported("-Wswitch-default")
+	
+	wavm_add_c_cxx_flag_if_supported("-Wnull-dereference")
+	wavm_add_c_cxx_flag_if_supported("-Wduplicated-cond")
+	wavm_add_c_cxx_flag_if_supported("-Wduplicated-branches")
+	wavm_add_c_cxx_flag_if_supported("-Wlogical-op")
+	wavm_add_cxx_flag_if_supported("-Wnon-virtual-dtor")
+	wavm_add_c_cxx_flag_if_supported("-Wrestrict")
+	wavm_add_c_cxx_flag_if_supported("-Wdouble-promotion")
 
-	add_c_cxx_flag_if_supported("-Wduplicated-cond")
-	add_c_cxx_flag_if_supported("-Wduplicated-branches")
-	add_c_cxx_flag_if_supported("-Wlogical-op")
-	add_cxx_flag_if_supported("-Wnon-virtual-dtor")
-	add_c_cxx_flag_if_supported("-Wrestrict")
-	add_c_cxx_flag_if_supported("-Wdouble-promotion")
-	add_c_cxx_flag_if_supported("-Wno-missing-field-initializers")
+	# Exclude some warnings included in Wextra that we don't care about.
+	wavm_add_c_cxx_flag_if_supported("-Wno-missing-field-initializers")
+	wavm_add_c_cxx_flag_if_supported("-Wno-unused-parameter")
+endif()
 
-	# Use -fvisibility=hidden if available. The *_API definitions are also changed by the value of
-	# CXX_HAS_FVISIBILITY_HIDDEN.
-	#add_c_cxx_flag_if_supported("-fvisibility=hidden")
+# Use -fvisibility=hidden if available. The *_API definitions are also changed by the value of
+# CXX_HAS_FVISIBILITY_HIDDEN.
+#wavm_add_c_cxx_flag_if_supported("-fvisibility=hidden")
 
-	# Check if the -fuse-ld=x option is available.
-	check_c_compiler_flag("-fuse-ld=ld" C_HAS_FUSE_LD)
-	if(C_HAS_FUSE_LD)
-		set(WAVM_USE_LINKER "" CACHE STRING "If set, overrides the default linker (as the compiler option -fuse-ld=<WAVM_USE_LINKER>)")
-		if(WAVM_USE_LINKER)
-			list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
-		endif()
-	endif()
-
-	string(TOUPPER "${WAVM_ENABLE_LTO}" UPPERCASE_WAVM_ENABLE_LTO)
-	if(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "THIN")
-		list(APPEND WAVM_C_FLAGS "-flto=thin")
-		list(APPEND WAVM_CXX_FLAGS "-flto=thin")
-		list(APPEND WAVM_LINKER_FLAGS "-flto=thin")
-
-		# LLD ThinLTO cache options
-		check_linker_flag("-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_LLD_THINLTO_CMD_SYNTAX)
-		if(LINKER_HAS_LLD_THINLTO_CMD_SYNTAX)
-			list(APPEND WAVM_LINKER_FLAGS "-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/.thinltocache")
-			list(APPEND WAVM_LINKER_FLAGS "-Wl,--thinlto-cache-policy,cache_size_bytes=1g")
-		else()
-			# Gold ThinLTO cache options
-			check_linker_flag("-Wl,-plugin-opt,cache-dir=${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_GOLD_THINLTO_CMD_SYNTAX)
-			if(LINKER_HAS_GOLD_THINLTO_CMD_SYNTAX)
-				list(APPEND WAVM_LINKER_FLAGS "-Wl,-plugin-opt,cache-dir=${CMAKE_BINARY_DIR}/.thinltocache")
-				list(APPEND WAVM_LINKER_FLAGS "-Wl,-plugin-opt,cache-polixy=cache_size_bytes=1g")
-			else()
-				# ld64 ThinLTO cache options
-				add_linker_flag_if_supported("-Wl,-cache_path_lto,${CMAKE_BINARY_DIR}/.thinltocache")
-			endif()
-		endif()
-	elseif(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "ON")
-		list(APPEND WAVM_C_FLAGS "-flto")
-		list(APPEND WAVM_CXX_FLAGS "-flto")
-		list(APPEND WAVM_LINKER_FLAGS "-flto")
-	elseif(NOT UPPERCASE_WAVM_ENABLE_LTO STREQUAL "OFF")
-		message(FATAL_ERROR "WAVM_ENABLE_LTO must be 'OFF', 'ON', or 'THIN'")
+# Check if the -fuse-ld=x option is available.
+wavm_check_linker_flag("-fuse-ld=ld" LINKER_HAS_FUSE_LD)
+if(LINKER_HAS_FUSE_LD)
+	set(WAVM_USE_LINKER "" CACHE STRING "If set, overrides the default linker (as the compiler option -fuse-ld=<WAVM_USE_LINKER>)")
+	if(WAVM_USE_LINKER)
+		list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
 	endif()
 endif()
+
+string(TOUPPER "${WAVM_ENABLE_LTO}" UPPERCASE_WAVM_ENABLE_LTO)
+if(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "THIN")
+	wavm_check_cxx_compiler_flag("-flto=thin" CXX_HAS_FLTO_THIN)
+	if(CXX_HAS_FLTO_THIN)
+		list(APPEND WAVM_LTO_C_CXX_FLAGS "-flto=thin")
+	else()
+		message(FATAL_ERROR "Your compiler doesn't support ThinLTO.")
+	endif()
+
+	if(NOT MSVC)
+		wavm_add_linker_flag_if_supported("-flto=thin")
+		if(NOT LINKER_HAS_FLTO_THIN)
+			message(FATAL_ERROR "Your linker doesn't support ThinLTO.")
+		endif()
+	endif()
+
+	# Detect which command line options the linker supports to configure the ThinLTO cache.
+	wavm_check_linker_flag("-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_ELF_LLD_THINLTO_CMD_SYNTAX)
+	wavm_check_linker_flag("-Wl,-plugin-opt,cache-dir=${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_GOLD_THINLTO_CMD_SYNTAX)
+	wavm_check_linker_flag("-Wl,-cache_path_lto,${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_LD64_THINLTO_CMD_SYNTAX)
+	wavm_check_linker_flag("/lldltocache:${CMAKE_BINARY_DIR}/.thinltocache" LINKER_HAS_COFF_LLD_THINLTO_CMD_SYNTAX)
+
+	if(LINKER_HAS_COFF_LLD_THINLTO_CMD_SYNTAX)
+		# COFF LLD ThinLTO cache options
+		# Favor this path as hack, because lld-link.exe will accept and ignore the other syntaxes
+		# with a warning, but LLD, gold, and LD64 will reject this syntax as an error.
+		list(APPEND WAVM_LINKER_FLAGS "/lldltocache:${CMAKE_BINARY_DIR}/.thinltocache")
+		list(APPEND WAVM_LINKER_FLAGS "/lldltocachepolicy:cache_size_bytes=1g")
+	elseif(LINKER_HAS_ELF_LLD_THINLTO_CMD_SYNTAX)
+		# LLD ThinLTO cache options
+		list(APPEND WAVM_LINKER_FLAGS "-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/.thinltocache")
+		list(APPEND WAVM_LINKER_FLAGS "-Wl,--thinlto-cache-policy,cache_size_bytes=1g")
+	elseif(LINKER_HAS_GOLD_THINLTO_CMD_SYNTAX)
+		# Gold ThinLTO cache options
+		list(APPEND WAVM_LINKER_FLAGS "-Wl,-plugin-opt,cache-dir=${CMAKE_BINARY_DIR}/.thinltocache")
+		list(APPEND WAVM_LINKER_FLAGS "-Wl,-plugin-opt,cache-policy=cache_size_bytes=1g")
+	elseif(LINKER_HAS_LD64_THINLTO_CMD_SYNTAX)
+		# ld64 ThinLTO cache options
+		list(APPEND WAVM_LINKER_FLAGS "-Wl,-cache_path_lto,${CMAKE_BINARY_DIR}/.thinltocache")
+	endif()
+elseif(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "ON")
+	wavm_check_cxx_compiler_flag("-flto" CXX_HAS_FLTO)
+	wavm_check_cxx_compiler_flag("/GL" CXX_HAS_GL)
+	if(CXX_HAS_FLTO)
+		list(APPEND WAVM_LTO_C_CXX_FLAGS "-flto")
+		if(NOT MSVC)
+			wavm_add_linker_flag_if_supported("-flto")
+			if(NOT LINKER_HAS_FLTO)
+				message(FATAL_ERROR "Your linker doesn't support LTO.")
+			endif()
+		endif()
+	elseif(CXX_HAS_GL)
+		list(APPEND WAVM_LTO_C_CXX_FLAGS "/GL")
+		list(APPEND WAVM_LINKER_FLAGS "/LTCG")
+		list(APPEND WAVM_STATIC_LIBRARY_FLAGS "/LTCG")
+	else()
+		message(FATAL_ERROR "Your compiler does not seem to support LTO via either '-flto' or '/GL'.")
+	endif()
+elseif(NOT UPPERCASE_WAVM_ENABLE_LTO STREQUAL "OFF")
+	message(FATAL_ERROR "WAVM_ENABLE_LTO must be 'OFF', 'ON', or 'THIN'")
+endif()
+
+
+function(WAVM_SET_TARGET_LINKER_OPTIONS TARGET_NAME)
+	target_compile_options(${TARGET_NAME} PRIVATE ${WAVM_LTO_C_CXX_FLAGS})
+	if(MSVC)
+		if(WAVM_LINKER_FLAGS)
+			wavm_list_join("${WAVM_LINKER_FLAGS}" " " WAVM_LINKER_FLAGS_SPACE_SEPARATED)
+			set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "${WAVM_LINKER_FLAGS_SPACE_SEPARATED}")
+		endif()
+		if(WAVM_STATIC_LIBRARY_FLAGS)
+			wavm_list_join("${WAVM_STATIC_LIBRARY_FLAGS}" " " WAVM_STATIC_LIBRARY_FLAGS_SPACE_SEPARATED)
+			set_target_properties(${TARGET_NAME} PROPERTIES STATIC_LIBRARY_FLAGS "${WAVM_STATIC_LIBRARY_FLAGS_SPACE_SEPARATED}")
+		endif()
+	else()
+		target_link_libraries(${TARGET_NAME} PRIVATE ${WAVM_LINKER_FLAGS})
+	endif()
+	
+	if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
+		if(TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND WAVM_ENABLE_STATIC_LIBRARY_PIC)
+			# Ensure that even static libraries are relocatable so they can be linked into a .so
+			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
+		elseif(TARGET_TYPE STREQUAL "EXECUTABLE" AND WAVM_ENABLE_STATIC_LINKING)
+			#target_link_libraries(${TARGET_NAME} PRIVATE "-static")
+		endif()
+	endif()
+endfunction()
 
 # A function that sets sanitizer options on a target.
 function(WAVM_SET_TARGET_SANITIZER_OPTIONS TARGET_NAME)
@@ -363,18 +430,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 	# Set sanitizer options.
 	WAVM_SET_TARGET_SANITIZER_OPTIONS(${TARGET_NAME})
 	
-	# Add the optional warnings that the compiler was detected to support.
-	target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${WAVM_C_FLAGS}>")
-	target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${WAVM_CXX_FLAGS}>")
-
 	if(MSVC)
-		if(WAVM_ENABLE_LTO)
-			target_compile_options(${TARGET_NAME} PRIVATE "/GL")
-
-			set_target_properties(${TARGET_NAME} PROPERTIES STATIC_LIBRARY_FLAGS "/LTCG")
-			set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/LTCG")
-		endif()
-
 		# Compile files in parallel.
 		target_compile_options(${TARGET_NAME} PRIVATE "/MP")
 
@@ -394,6 +450,10 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4251") # struct '' needs to have dll-interface to be used by clients of struct ''
 
 		target_link_libraries(${TARGET_NAME} PRIVATE "-ignore:4199") # /DELAYLOAD:... ignored; no imports found from ...
+		
+		if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+			target_compile_options(${TARGET_NAME} PRIVATE "-Wno-deprecated-declarations")
+		endif()
 
 		# error C2338:  You've instantiated std::aligned_storage<Len, Align> with an extended alignment
 		# (in other words, Align > alignof(max_align_t)). Before VS 2017 15.8, the member "type" would
@@ -405,31 +465,15 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# (2) _DISABLE_EXTENDED_ALIGNED_STORAGE to silence this message and get the old non-conformant
 		#     behavior.
 		target_compile_definitions(${TARGET_NAME} PRIVATE "_ENABLE_EXTENDED_ALIGNED_STORAGE")
-
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-
+	
 		# Compile with all+extra warnings and fatal warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wextra")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
-		
-		# Exclude some warnings included in Wextra that we don't care about.
-		target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-parameter")
-		
-		# Warn if a switch doesn't handle an enum case even if it has a default label.
-		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-enum")
-		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-default")
-	
+
 		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
 		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-
-		get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
-		if(TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND WAVM_ENABLE_STATIC_LIBRARY_PIC)
-			# Ensure that even static libraries are relocatable so they can be linked into a .so
-			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
-		elseif(TARGET_TYPE STREQUAL "EXECUTABLE" AND WAVM_ENABLE_STATIC_LINKING)
-			#target_link_libraries(${TARGET_NAME} PRIVATE "-static")
-		endif()
 
 		# Don't eliminate frame pointers: this makes thread forking work robustly if one of the
 		# sanitizers requires a frame pointer, and makes ASAN's stack trace on malloc much better
@@ -442,8 +486,15 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "-pthread")
 		target_link_libraries(${TARGET_NAME} PRIVATE "-pthread")
 	endif()
+	
+	# Add the optional flags that the compiler was detected to support.
+	# This needs to happen *AFTER* the above -Wall -Wextra to ensure that those flags don't
+	# re-enable warnings that are being disabled by these flags.
+	target_compile_options(${TARGET_NAME} PRIVATE ${WAVM_C_CXX_FLAGS})
+	target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${WAVM_CXX_FLAGS}>)
 
-	target_link_libraries(${TARGET_NAME} PRIVATE ${WAVM_LINKER_FLAGS})
+	# Add the linker flags.
+	WAVM_SET_TARGET_LINKER_OPTIONS(${TARGET_NAME})
 endfunction()
 
 function(WAVM_INSTALL_TARGET TARGET_NAME)
