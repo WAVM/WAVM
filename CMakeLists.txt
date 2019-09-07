@@ -599,7 +599,10 @@ function(WAVM_ADD_THIRD_PARTY_LIBRARY LIB_NAME)
 	target_compile_features(${LIB_NAME} PRIVATE cxx_std_11)
 
 	# Set the configured sanitizer and linker options.
-	WAVM_SET_TARGET_SANITIZER_OPTIONS(${LIB_NAME})
+	if(NOT ${LIB_NAME} STREQUAL "WAVMUnwind")
+		# TODO: figure out why enabling the sanitizers on libunwind causes ASAN failures.
+		WAVM_SET_TARGET_SANITIZER_OPTIONS(${LIB_NAME})
+	endif()
 	WAVM_SET_TARGET_LINKER_OPTIONS(${LIB_NAME})
 
 	# Mark the non-compiled sources as header-only, which includes the files in IDE projects, but
