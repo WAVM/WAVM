@@ -988,7 +988,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_gmtime", emabi::Address, emscripten_gmtime
 		[&] { emscriptenTime = memoryRef<emabi::time_t>(instance->memory, timeAddress); });
 
 	time_t hostTime = (time_t)emscriptenTime;
-	struct tm* tmPtr = gmtime(&hostTime);
+	struct tm* tmPtr = WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(gmtime(&hostTime));
 	if(!tmPtr) { return 0; }
 	else
 	{

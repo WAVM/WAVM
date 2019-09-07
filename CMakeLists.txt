@@ -104,6 +104,16 @@ if(WAVM_ENABLE_RUNTIME)
 	# CMake lists (strings with semicolon-separated elements).
 	separate_arguments(LLVM_DEFINITIONS)
 	separate_arguments(LLVM_INCLUDE_DIRS)
+
+	# LLVM on Windows includes a bunch of definitions in LLVM_DEFINITIONS to disable secure CRT
+	# warnings, which prevents the warnings from triggering in WAVM code as well. Remove them, since
+	# they doesn't seem to be necessary just to include LLVM.
+	list(REMOVE_ITEM LLVM_DEFINITIONS "-D_CRT_SECURE_NO_WARNINGS")
+	list(REMOVE_ITEM LLVM_DEFINITIONS "-D_CRT_SECURE_NO_DEPRECATE")
+	list(REMOVE_ITEM LLVM_DEFINITIONS "-D_CRT_NONSTDC_NO_DEPRECATE")
+	list(REMOVE_ITEM LLVM_DEFINITIONS "-D_CRT_NONSTDC_NO_WARNINGS")
+	list(REMOVE_ITEM LLVM_DEFINITIONS "-D_SCL_SECURE_NO_DEPRECATE")
+	list(REMOVE_ITEM LLVM_DEFINITIONS "-D_SCL_SECURE_NO_WARNINGS")
 	
 	option(WAVM_ENABLE_UNWIND "enables printing stack traces" ON)
 else()
