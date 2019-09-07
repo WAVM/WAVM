@@ -130,6 +130,9 @@ void showVersionHelp(Log::Category outputCategory)
 	Log::printf(outputCategory, "Usage: wavm version\n");
 }
 
+#define LOG_BUILD_CONFIG_BOOL(variable)                                                            \
+	Log::printf(Log::output, "%-30s %s\n", #variable ":", variable ? "true" : "false");
+
 int execVersionCommand(int argc, char** argv)
 {
 	if(argc != 0)
@@ -138,6 +141,14 @@ int execVersionCommand(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 	Log::printf(Log::output, "WAVM version %s\n", WAVM_VERSION_STRING);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_RUNTIME);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_STATIC_LINKING);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_ASAN);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_UBSAN);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_TSAN);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_LIBFUZZER);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_RELEASE_ASSERTS);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_UNWIND);
 	return false;
 }
 
