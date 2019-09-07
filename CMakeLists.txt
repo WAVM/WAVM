@@ -599,6 +599,50 @@ function(WAVM_ADD_EXECUTABLE EXE_NAME)
 	endif()
 endfunction()
 
+function(WAVM_ADD_THIRD_PARTY_LIBRARY LIB_NAME)
+	cmake_parse_arguments(LIB
+		""
+		""
+		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_DEFINITIONS;PUBLIC_DEFINITIONS;PRIVATE_INCLUDE_DIRECTORIES;PUBLIC_INCLUDE_DIRECTORIES;PRIVATE_COMPILE_OPTIONS"
+		${ARGN})
+
+	# Create a static library.
+	add_library(${LIB_NAME} STATIC ${LIB_SOURCES} ${LIB_NONCOMPILED_SOURCES})
+	
+	# Target C++11.
+	target_compile_features(${LIB_NAME} PRIVATE cxx_std_11)
+
+	# Set the configured sanitizer and linker options.
+	WAVM_SET_TARGET_SANITIZER_OPTIONS(${LIB_NAME})
+	WAVM_SET_TARGET_LINKER_OPTIONS(${LIB_NAME})
+
+	# Mark the non-compiled sources as header-only, which includes the files in IDE projects, but
+	# doesn't compile them.
+	set_source_files_properties(${LIB_NONCOMPILED_SOURCES} PROPERTIES HEADER_FILE_ONLY TRUE)
+
+	# Add the library's definitions, include directories, and compile options.
+	target_compile_definitions(${LIB_NAME} PRIVATE ${LIB_PRIVATE_DEFINITIONS})
+	target_compile_definitions(${LIB_NAME} PUBLIC ${LIB_PRIVATE_DEFINITIONS})
+	target_include_directories(${LIB_NAME} PRIVATE ${LIB_PRIVATE_INCLUDE_DIRECTORIES})
+	target_include_directories(${LIB_NAME} PUBLIC ${LIB_PUBLIC_INCLUDE_DIRECTORIES})
+	target_compile_options(${LIB_NAME} PRIVATE ${LIB_PRIVATE_COMPILE_OPTIONS})
+
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		if(NOT WAVM_ENABLE_STATIC_LINKING OR WAVM_ENABLE_STATIC_LIBRARY_PIC)
+			# Ensure that even static libraries are relocatable so they can be linked into a .so
+			target_compile_options(${LIB_NAME} PRIVATE "-fPIC")
+		endif()
+	endif()
+
+	# When using static linking for the WAVM libraries, the gdtoa library needs to be
+	# installed. Otherwise, it will just be linked into the WAVM .so/.dylib files.
+	if(WAVM_ENABLE_STATIC_LINKING)
+		WAVM_INSTALL_TARGET(${LIB_NAME})
+	endif()
+
+	set_target_properties(${LIB_NAME} PROPERTIES FOLDER "Third party")
+endfunction()
+
 # Create a WAVM library that will include all WAVM library components.
 if(WAVM_ENABLE_STATIC_LINKING)
 	add_library(libWAVM STATIC)
