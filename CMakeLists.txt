@@ -35,7 +35,7 @@ set(CPACK_PACKAGE_VERSION_PATCH ${WAVM_VERSION_PATCH})
 set(CPACK_PACKAGE_VERSION ${WAVM_VERSION_STRING})
 set(CPACK_PACKAGE_DESCRIPTION "WebAssembly virtual machine")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://wavm.github.io")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "WAVM")
 set(CPACK_NSIS_MODIFY_PATH ON)
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libstdc++6 (>= 5.1)")
@@ -179,7 +179,7 @@ install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
 		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/WAVM/Inline)
 
 # Install LICENSE to <install root> on Windows and <install root>/share/wavm on other systems.
-install(FILES ${WAVM_SOURCE_DIR}/LICENSE
+install(FILES ${WAVM_SOURCE_DIR}/LICENSE.txt
 		COMPONENT wavm
 		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,${CMAKE_INSTALL_DATAROOTDIR}/wavm>)
 
@@ -728,7 +728,7 @@ install(
 # Create a dummy target to hold various files in the project root
 add_custom_target(RootFiles SOURCES
 	.clang-format
-	LICENSE
+	LICENSE.txt
 	README.md
 	VERSION
 	WebAssembly.tmLanguage)
