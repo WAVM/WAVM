@@ -608,7 +608,7 @@ function(WAVM_ADD_THIRD_PARTY_LIBRARY LIB_NAME)
 
 	# Add the library's definitions, include directories, and compile options.
 	target_compile_definitions(${LIB_NAME} PRIVATE ${LIB_PRIVATE_DEFINITIONS})
-	target_compile_definitions(${LIB_NAME} PUBLIC ${LIB_PRIVATE_DEFINITIONS})
+	target_compile_definitions(${LIB_NAME} PUBLIC ${LIB_PUBLIC_DEFINITIONS})
 	target_include_directories(${LIB_NAME} PRIVATE ${LIB_PRIVATE_INCLUDE_DIRECTORIES})
 	target_include_directories(${LIB_NAME} PUBLIC ${LIB_PUBLIC_INCLUDE_DIRECTORIES})
 	target_compile_options(${LIB_NAME} PRIVATE ${LIB_PRIVATE_COMPILE_OPTIONS})
