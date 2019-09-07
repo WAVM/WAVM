@@ -201,7 +201,7 @@ endfunction()
 
 function(wavm_check_cxx_compiler_flag FLAG VARIABLE_NAME)
 	wavm_list_join("${WAVM_C_CXX_FLAGS};${WAVM_CXX_FLAGS};${WAVM_LTO_C_CXX_FLAGS}" " " WAVM_CXX_FLAGS_SPACE_SEPARATED)
-	check_cxx_compiler_flag("${WAVM_CXX_FLAGS_SPACE_SEPARATED} ${OPTIONAL_FLAG}" ${VARIABLE_NAME})
+	check_cxx_compiler_flag("${WAVM_CXX_FLAGS_SPACE_SEPARATED} ${FLAG}" ${VARIABLE_NAME})
 endfunction()
 
 function(wavm_add_cxx_flag_if_supported OPTIONAL_FLAG)
