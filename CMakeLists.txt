@@ -269,6 +269,20 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
 		list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
 	endif()
 
+
+	# If the compiler supports it, use -gsplit-dwarf for the configurations that build debug info.
+	wavm_check_cxx_compiler_flag("-gsplit-dwarf" CXX_HAS_GSPLIT_DWARF)
+	if(CXX_HAS_GSPLIT_DWARF)
+		set(CMAKE_C_FLAGS_RELWITHDEBINFO   "${CMAKE_C_FLAGS_RELWITHDEBINFO}   -gsplit-dwarf")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -gsplit-dwarf")
+		set(CMAKE_C_FLAGS_DEBUG            "${CMAKE_C_FLAGS_DEBUG}            -gsplit-dwarf")
+		set(CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS_DEBUG}          -gsplit-dwarf")
+
+		# If the linker supports it, use --gdb-index to add an index of external debug data to the
+		# binaries. gold and lld support this, ld does not.
+		wavm_add_linker_flag_if_supported("-Wl,--gdb-index")
+	endif()
+
 	# Warn if a switch doesn't handle an enum case even if it has a default label.
 	wavm_add_c_cxx_flag_if_supported("-Wswitch-enum")
 	wavm_add_c_cxx_flag_if_supported("-Wswitch-default")
