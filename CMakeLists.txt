@@ -262,6 +262,13 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO_LOCAL} CACHE STR
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO_LOCAL} CACHE STRING "" FORCE)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")	
+
+	# Expose the -fuse-ld=<x> option on GCC/Clang through a WAVM_USE_LINKER config variable.
+	set(WAVM_USE_LINKER "" CACHE STRING "If set, overrides the default linker (as the compiler option -fuse-ld=<WAVM_USE_LINKER>)")
+	if(WAVM_USE_LINKER)
+		list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
+	endif()
+
 	# Warn if a switch doesn't handle an enum case even if it has a default label.
 	wavm_add_c_cxx_flag_if_supported("-Wswitch-enum")
 	wavm_add_c_cxx_flag_if_supported("-Wswitch-default")
@@ -282,15 +289,6 @@ endif()
 # Use -fvisibility=hidden if available. The *_API definitions are also changed by the value of
 # CXX_HAS_FVISIBILITY_HIDDEN.
 #wavm_add_c_cxx_flag_if_supported("-fvisibility=hidden")
-
-# Check if the -fuse-ld=x option is available.
-wavm_check_linker_flag("-fuse-ld=ld" LINKER_HAS_FUSE_LD)
-if(LINKER_HAS_FUSE_LD)
-	set(WAVM_USE_LINKER "" CACHE STRING "If set, overrides the default linker (as the compiler option -fuse-ld=<WAVM_USE_LINKER>)")
-	if(WAVM_USE_LINKER)
-		list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
-	endif()
-endif()
 
 string(TOUPPER "${WAVM_ENABLE_LTO}" UPPERCASE_WAVM_ENABLE_LTO)
 if(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "THIN")
