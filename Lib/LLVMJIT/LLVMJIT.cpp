@@ -30,17 +30,6 @@ using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 
 namespace LLVMRuntimeSymbols {
-	// When using static linking, these functions can't be found using dladdr/GetProcAddress.
-	// Declare static references to them so they may be found by the resolveJITImport.
-	extern "C" F32 ceilf(F32);
-	extern "C" F64 ceil(F64);
-	extern "C" F32 floorf(F32);
-	extern "C" F64 floor(F64);
-	extern "C" F32 truncf(F32);
-	extern "C" F64 trunc(F64);
-	extern "C" F32 rintf(F32);
-	extern "C" F64 rint(F64);
-
 #ifdef _WIN32
 	extern "C" void __chkstk();
 	extern "C" void __CxxFrameHandler3();
@@ -52,17 +41,6 @@ namespace LLVMRuntimeSymbols {
 #endif
 
 	static HashMap<std::string, void*> map = {
-		// LLVM usually won't use these, but may generate a call to them if the target doesn't have
-		// anything better.
-		{"ceilf", (void*)&ceilf},
-		{"ceil", (void*)&ceil},
-		{"floorf", (void*)&floorf},
-		{"floor", (void*)&floor},
-		{"truncf", (void*)&trunc},
-		{"trunc", (void*)&trunc},
-		{"rintf", (void*)&rintf},
-		{"rint", (void*)&rint},
-
 #ifdef _WIN32
 		// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 		{"__chkstk", (void*)&__chkstk},
