@@ -467,9 +467,8 @@ TextFileLocus WAST::calcLocusFromOffset(const char* string,
 	}
 
 	// Copy the full source line into the TextFileLocus for context.
-	const Uptr lineStartOffset = getLineOffset(lineInfo, result.newlines);
-	Uptr lineEndOffset = getLineOffset(lineInfo, result.newlines + 1) - 1;
-	result.sourceLine = std::string(string + lineStartOffset, lineEndOffset - lineStartOffset);
+	result.lineStartOffset = getLineOffset(lineInfo, result.newlines);
+	result.lineEndOffset = getLineOffset(lineInfo, result.newlines + 1) - 1;
 
 	return result;
 }

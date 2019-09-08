@@ -30,7 +30,7 @@ static bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
 	else
 	{
 		Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
-		reportParseErrors(filename, parseErrors);
+		reportParseErrors(filename, (const char*)wastBytes.data(), parseErrors);
 		return false;
 	}
 }

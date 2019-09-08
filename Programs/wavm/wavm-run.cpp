@@ -71,7 +71,7 @@ static bool loadTextOrBinaryModule(const char* filename,
 			   (const char*)fileBytes.data(), fileBytes.size(), irModule, parseErrors))
 		{
 			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
-			WAST::reportParseErrors(filename, parseErrors);
+			WAST::reportParseErrors(filename, (const char*)fileBytes.data(), parseErrors);
 			return false;
 		}
 

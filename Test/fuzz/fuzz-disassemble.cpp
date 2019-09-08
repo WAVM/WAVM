@@ -37,7 +37,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
 		{
-			WAST::reportParseErrors("disassembly", parseErrors);
+			WAST::reportParseErrors("disassembly", wastString.c_str(), parseErrors);
 			Errors::fatal("Disassembled module contained syntax errors");
 		}
 

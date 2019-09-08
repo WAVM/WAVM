@@ -883,7 +883,7 @@ static I64 threadMain(void* sharedStateVoid)
 		numErrors += testScriptState.errors.size();
 
 		// Print any errors.
-		reportParseErrors(filename, testScriptState.errors);
+		reportParseErrors(filename, (const char*)testScriptBytes.data(), testScriptState.errors);
 	}
 
 	return numErrors;
