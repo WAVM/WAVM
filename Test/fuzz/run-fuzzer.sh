@@ -28,4 +28,4 @@ bin/fuzz-${FUZZER} \
 	$EXTRA_ARGS
 
 # Copy the current corpus into the archive
-cp -rf corpora/${FUZZER} corpora/archive/${FUZZER}
+cp -rf corpora/${FUZZER} corpora/archive
