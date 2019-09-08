@@ -181,13 +181,13 @@ install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
 
 # Install LICENSE to <install root> on Windows and <install root>/share/wavm on other systems.
 install(FILES ${WAVM_SOURCE_DIR}/LICENSE.txt
-		COMPONENT wavm
+		COMPONENT runtime
 		DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,${CMAKE_INSTALL_DATAROOTDIR}/wavm>)
 
 # Install the Examples directory to <install root>/examples on Windows, and <install root>/share/wavm/examples on other systems.
 install(DIRECTORY ${WAVM_SOURCE_DIR}/Examples/
 		DESTINATION $<IF:$<PLATFORM_ID:Windows>,examples,${CMAKE_INSTALL_DATAROOTDIR}/wavm/examples>
-		COMPONENT wavm
+		COMPONENT runtime
 		PATTERN *.txt EXCLUDE)
 
 set(WAVM_C_CXX_FLAGS)
@@ -511,7 +511,7 @@ function(WAVM_INSTALL_TARGET TARGET_NAME)
 			EXPORT WAVMInstallTargets COMPONENT devel
 			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT devel
 			ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT devel
-			RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT wavm)
+			RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime)
 
 	# Install PDB files to the same directory as the binaries.
 	# Exclude static libraries as TARGET_PDB_FILE only works for linked targets.
