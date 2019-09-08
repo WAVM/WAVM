@@ -717,19 +717,23 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 				const Uptr numMemoryBytes = numMemoryPages * IR::numBytesPerPage;
 				U8* memoryBytes = memoryArrayPtr<U8>(memory, 0, numMemoryBytes);
 				U8* clonedMemoryBytes = memoryArrayPtr<U8>(clonedMemory, 0, numMemoryBytes);
-				for(Uptr byteIndex = 0; byteIndex < numMemoryBytes; ++byteIndex)
+				if(memcmp(memoryBytes, clonedMemoryBytes, numMemoryBytes))
 				{
-					const U8 value = memoryBytes[byteIndex];
-					const U8 clonedValue = clonedMemoryBytes[byteIndex];
-					if(value != clonedValue)
+					for(Uptr byteIndex = 0; byteIndex < numMemoryBytes; ++byteIndex)
 					{
-						testErrorf(state,
-								   command->locus,
-								   "Memory differs from cloned memory at address 0x08%" WAVM_PRIxPTR
-								   ": 0x%02x vs 0x%02x",
-								   byteIndex,
-								   value,
-								   clonedValue);
+						const U8 value = memoryBytes[byteIndex];
+						const U8 clonedValue = clonedMemoryBytes[byteIndex];
+						if(value != clonedValue)
+						{
+							testErrorf(
+								state,
+								command->locus,
+								"Memory differs from cloned memory at address 0x08%" WAVM_PRIxPTR
+								": 0x%02x vs 0x%02x",
+								byteIndex,
+								value,
+								clonedValue);
+						}
 					}
 				}
 			}
