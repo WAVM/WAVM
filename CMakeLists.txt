@@ -41,15 +41,25 @@ set(CPACK_PACKAGE_DESCRIPTION "WebAssembly virtual machine")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://wavm.github.io")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "WAVM")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
+
+set(CPACK_COMPONENT_RUNTIME_DISPLAY_NAME "WAVM Runtime")
+set(CPACK_COMPONENT_RUNTIME_DESCRIPTION "The WebAssembly Virtual Machine runtime")
+set(CPACK_COMPONENT_RUNTIME_REQUIRED YES)
+set(CPACK_COMPONENT_DEVEL_DISPLAY_NAME "WAVM Libraries and C/C++ Headers")
+set(CPACK_COMPONENT_DEVEL_DESCRIPTION "The libraries and C/C++ headers needed to use the WAVM runtime in your application")
+
+# Configure NSIS
 set(CPACK_NSIS_MODIFY_PATH ON)
+
+# Configure Debian package
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), libstdc++6 (>= 5.1)")
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, libgcc1 (>= 1:${GCC_MAJOR}.${GCC_MINOR})")
 endif()
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://wavm.github.io")
-set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
-include(CPack)
 
+include(CPack)
 
 # WAVM configuration options
 
