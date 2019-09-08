@@ -19,6 +19,7 @@ jobs:
       gccCmakeArgs:
         -DCMAKE_C_COMPILER=gcc
         -DCMAKE_CXX_COMPILER=g++
+        -DWAVM_USE_LINKER=gold
       clangCmakeArgs:
         -DCMAKE_C_COMPILER=/usr/local/bin/clang
         -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
