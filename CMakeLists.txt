@@ -19,6 +19,10 @@ project(
 	LANGUAGES C CXX ASM
 )
 
+if(MSVC)
+	enable_language(ASM_MASM)
+endif()
+
 # Include some modules we use. GNUInstallDirs must be included after the project is declared, since it
 # uses configuration variables initialized when the project is declared (CMAKE_SIZEOF_VOID_P).
 include(CheckCCompilerFlag)
@@ -46,9 +50,6 @@ set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://wavm.github.io")
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 include(CPack)
 
-if(MSVC)
-	enable_language(ASM_MASM)
-endif()
 
 # WAVM configuration options
 
