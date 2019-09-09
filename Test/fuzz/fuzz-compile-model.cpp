@@ -45,6 +45,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	RandomStream random(data, numBytes);
 
 	IR::Module module(FeatureSpec(true));
+	module.featureSpec.sharedTables = true;
 	generateValidModule(module, random);
 
 #if !WAVM_ENABLE_LIBFUZZER
