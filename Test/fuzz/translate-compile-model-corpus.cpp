@@ -43,17 +43,13 @@ I32 main(int argc, char** argv)
 	VFS::DirEnt dirEnt;
 	while(dirEntStream->getNext(dirEnt))
 	{
-		if(dirEnt.type != VFS::FileType::directory)
+		const std::string inputFilePath = inputDir + '/' + dirEnt.name;
+
+		// loadFile might fail if dirEnt was a symbolic link to a directory, so just continue to
+		// the next dirent if it fails.
+		std::vector<U8> inputBytes;
+		if(loadFile(inputFilePath.c_str(), inputBytes))
 		{
-			const std::string inputFilePath = inputDir + '/' + dirEnt.name;
-
-			std::vector<U8> inputBytes;
-			if(!loadFile(inputFilePath.c_str(), inputBytes))
-			{
-				exitCode = EXIT_FAILURE;
-				break;
-			}
-
 			RandomStream random(inputBytes.data(), inputBytes.size());
 
 			IR::Module module(IR::FeatureSpec(true));
