@@ -322,10 +322,13 @@ static llvm::Value* emitFloatMin(llvm::IRBuilder<>& irBuilder,
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
-		irBuilder.CreateOr(irBuilder.CreateBitCast(left, intType), canonicalNaNBit),
+		irBuilder.CreateBitCast(
+			irBuilder.CreateOr(irBuilder.CreateBitCast(left, intType), canonicalNaNBit), floatType),
 		irBuilder.CreateSelect(
 			isRightNaN,
-			irBuilder.CreateOr(irBuilder.CreateBitCast(right, intType), canonicalNaNBit),
+			irBuilder.CreateBitCast(
+				irBuilder.CreateOr(irBuilder.CreateBitCast(right, intType), canonicalNaNBit),
+				floatType),
 			irBuilder.CreateSelect(
 				isLeftLessThanRight,
 				left,
@@ -359,10 +362,13 @@ static llvm::Value* emitFloatMax(llvm::IRBuilder<>& irBuilder,
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
-		irBuilder.CreateOr(irBuilder.CreateBitCast(left, intType), canonicalNaNBit),
+		irBuilder.CreateBitCast(
+			irBuilder.CreateOr(irBuilder.CreateBitCast(left, intType), canonicalNaNBit), floatType),
 		irBuilder.CreateSelect(
 			isRightNaN,
-			irBuilder.CreateOr(irBuilder.CreateBitCast(right, intType), canonicalNaNBit),
+			irBuilder.CreateBitCast(
+				irBuilder.CreateOr(irBuilder.CreateBitCast(right, intType), canonicalNaNBit),
+				floatType),
 			irBuilder.CreateSelect(
 				isLeftLessThanRight,
 				right,
