@@ -27,6 +27,10 @@
 	VISIT_LITERAL_TOKEN(assert_return)                                                             \
 	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan)                                              \
 	VISIT_LITERAL_TOKEN(assert_return_canonical_nan)                                               \
+	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan_f32x4)                                        \
+	VISIT_LITERAL_TOKEN(assert_return_canonical_nan_f32x4)                                         \
+	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan_f64x2)                                        \
+	VISIT_LITERAL_TOKEN(assert_return_canonical_nan_f64x2)                                         \
 	VISIT_LITERAL_TOKEN(assert_return_func)                                                        \
 	VISIT_LITERAL_TOKEN(assert_trap)                                                               \
 	VISIT_LITERAL_TOKEN(assert_throws)                                                             \

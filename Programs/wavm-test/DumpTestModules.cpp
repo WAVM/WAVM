@@ -108,6 +108,10 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 	case Command::assert_return:
 	case Command::assert_return_arithmetic_nan:
 	case Command::assert_return_canonical_nan:
+	case Command::assert_return_arithmetic_nan_f32x4:
+	case Command::assert_return_canonical_nan_f32x4:
+	case Command::assert_return_arithmetic_nan_f64x2:
+	case Command::assert_return_canonical_nan_f64x2:
 	case Command::assert_return_func:
 	case Command::assert_trap:
 	case Command::assert_throws:

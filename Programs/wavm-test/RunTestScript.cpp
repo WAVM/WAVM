@@ -394,15 +394,22 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 	}
 }
 
-// Tests whether a float is a "canonical" NaN, which just means that it's a NaN only the MSB of its
-// significand set.
-template<typename Float> bool isCanonicalOrArithmeticNaN(Float value, bool requireCanonical)
+// Tests whether a float is an "arithmetic" NaN, which have the MSB of the significand set.
+template<typename Float> bool isArithmeticNaN(Float value)
 {
 	FloatComponents<Float> components;
 	components.value = value;
 	return components.bits.exponent == FloatComponents<Float>::maxExponentBits
-		   && (!requireCanonical
-			   || components.bits.significand == FloatComponents<Float>::canonicalSignificand);
+		   && components.bits.significand >= FloatComponents<Float>::canonicalSignificand;
+}
+
+// Tests whether a float is a "canonical" NaN, which *only* have the MSB of the significand set.
+template<typename Float> bool isCanonicalNaN(Float value)
+{
+	FloatComponents<Float> components;
+	components.value = value;
+	return components.bits.exponent == FloatComponents<Float>::maxExponentBits
+		   && components.bits.significand == FloatComponents<Float>::canonicalSignificand;
 }
 
 static void processCommand(TestScriptState& state, const Command* command)
@@ -439,7 +446,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 		break;
 	}
 	case Command::assert_return_canonical_nan:
-	case Command::assert_return_arithmetic_nan: {
+	case Command::assert_return_arithmetic_nan:
+	case Command::assert_return_canonical_nan_f32x4:
+	case Command::assert_return_arithmetic_nan_f32x4:
+	case Command::assert_return_canonical_nan_f64x2:
+	case Command::assert_return_arithmetic_nan_f64x2: {
 		auto assertCommand = (AssertReturnNaNCommand*)command;
 		// Execute the action and check that the result is a NaN of the expected type.
 		std::vector<Value> actionResults;
@@ -455,20 +466,62 @@ static void processCommand(TestScriptState& state, const Command* command)
 			else
 			{
 				Value actionResult = actionResults[0];
-				const bool requireCanonicalNaN
-					= assertCommand->type == Command::assert_return_canonical_nan;
-				const bool isError
-					= actionResult.type == ValueType::f32
-						  ? !isCanonicalOrArithmeticNaN(actionResult.f32, requireCanonicalNaN)
-						  : actionResult.type == ValueType::f64
-								? !isCanonicalOrArithmeticNaN(actionResult.f64, requireCanonicalNaN)
-								: true;
+				bool requireCanonicalNaN = false;
+				bool isError;
+				if(assertCommand->type == Command::assert_return_canonical_nan)
+				{
+					requireCanonicalNaN = true;
+					isError = actionResult.type == ValueType::f32
+								  ? !isCanonicalNaN(actionResult.f32)
+								  : actionResult.type == ValueType::f64
+										? !isCanonicalNaN(actionResult.f64)
+										: true;
+				}
+				else if(assertCommand->type == Command::assert_return_arithmetic_nan)
+				{
+					isError = actionResult.type == ValueType::f32
+								  ? !isArithmeticNaN(actionResult.f32)
+								  : actionResult.type == ValueType::f64
+										? !isArithmeticNaN(actionResult.f64)
+										: true;
+				}
+				else if(assertCommand->type == Command::assert_return_canonical_nan_f32x4)
+				{
+					requireCanonicalNaN = true;
+					isError = !isCanonicalNaN(actionResult.v128.f32[0])
+							  || !isCanonicalNaN(actionResult.v128.f32[1])
+							  || !isCanonicalNaN(actionResult.v128.f32[2])
+							  || !isCanonicalNaN(actionResult.v128.f32[3]);
+				}
+				else if(assertCommand->type == Command::assert_return_arithmetic_nan_f32x4)
+				{
+					isError = !isArithmeticNaN(actionResult.v128.f32[0])
+							  || !isArithmeticNaN(actionResult.v128.f32[1])
+							  || !isArithmeticNaN(actionResult.v128.f32[2])
+							  || !isArithmeticNaN(actionResult.v128.f32[3]);
+				}
+				else if(assertCommand->type == Command::assert_return_canonical_nan_f64x2)
+				{
+					requireCanonicalNaN = true;
+					isError = !isCanonicalNaN(actionResult.v128.f64[0])
+							  || !isCanonicalNaN(actionResult.v128.f64[1]);
+				}
+				else if(assertCommand->type == Command::assert_return_arithmetic_nan_f64x2)
+				{
+					isError = !isArithmeticNaN(actionResult.v128.f64[0])
+							  || !isArithmeticNaN(actionResult.v128.f64[1]);
+				}
+				else
+				{
+					WAVM_UNREACHABLE();
+				}
+
 				if(isError)
 				{
 					testErrorf(state,
 							   assertCommand->locus,
-							   requireCanonicalNaN ? "expected canonical float NaN but got %s"
-												   : "expected float NaN but got %s",
+							   requireCanonicalNaN ? "expected canonical NaN but got %s"
+												   : "expected arithmetic NaN but got %s",
 							   asString(actionResult).c_str());
 				}
 			}
