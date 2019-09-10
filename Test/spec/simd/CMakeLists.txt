@@ -10,4 +10,8 @@ ADD_WAST_TESTS(
             simd_i16x8_cmp.wast
             simd_i32x4_cmp.wast
             simd_f32x4_cmp.wast
+            simd_i8x16_arith.wast
+            simd_i16x8_arith.wast
+            simd_i32x4_arith.wast
+            simd_f32x4_arith.wast
             simd_boolean.wast)
