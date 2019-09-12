@@ -90,16 +90,16 @@ void runBenchmarkSingleAndMultiThreaded(Compartment* compartment,
 	runBenchmark(compartment, nopFunction, numHardwareThreads, description, threadFunc);
 }
 
-void showBenchHelp(WAVM::Log::Category outputCategory)
+void showInvokeBenchHelp(WAVM::Log::Category outputCategory)
 {
-	Log::printf(outputCategory, "Usage: wavm bench\n");
+	Log::printf(outputCategory, "Usage: wavm test invoke-bench\n");
 }
 
 int execInvokeBench(int argc, char** argv)
 {
 	if(argc != 0)
 	{
-		showBenchHelp(Log::Category::error);
+		showInvokeBenchHelp(Log::Category::error);
 		return EXIT_FAILURE;
 	}
 

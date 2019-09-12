@@ -1,5 +1,3 @@
-#include "WAVM/Inline/Config.h"
-#if WAVM_ENABLE_RUNTIME
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +14,7 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
@@ -824,4 +823,3 @@ int execRunCommand(int argc, char** argv)
 	State state;
 	return state.runAndCatchRuntimeExceptions(argv);
 }
-#endif

@@ -946,7 +946,7 @@ static void showHelp()
 {
 	Log::printf(
 		Log::error,
-		"Usage: wavm-test script [options] in.wast [options]\n"
+		"Usage: wavm test script [options] in.wast [options]\n"
 		"  -h|--help                  Display this message\n"
 		"  -l <N>|--loop <N>          Run tests N times in a loop until an error occurs\n"
 		"  --strict-assert-invalid    Strictly evaluate assert_invalid, failing if the\n"

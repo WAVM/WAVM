@@ -40,6 +40,11 @@ jobs:
         condition: always()
 
       - script: |
+          "${{parameters.executable}}" test invoke-bench
+        displayName: "wavm test invoke-bench"
+        condition: always()
+
+      - script: |
           "${{parameters.executable}}" run "${{parameters.examplesDir}}/helloworld.wast"
         displayName: "wavm run helloworld"
         condition: always()

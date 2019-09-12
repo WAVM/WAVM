@@ -16,7 +16,7 @@ function(ADD_WAST_TESTS)
 			get_filename_component(TEST_NAME ${TEST_SOURCE} NAME)
 			add_test(
 				NAME ${TEST_NAME}
-				COMMAND $<TARGET_FILE:wavm-test> script ${TEST_SOURCE_ABSOLUTE} "--test-cloning")
+				COMMAND $<TARGET_FILE:wavm> test script ${TEST_SOURCE_ABSOLUTE} "--test-cloning")
 		endif()
 	endforeach()
 endfunction()

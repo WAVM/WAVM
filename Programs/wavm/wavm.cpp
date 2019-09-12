@@ -16,6 +16,7 @@ enum class Command
 	assemble,
 	disassemble,
 	help,
+	test,
 	version,
 
 #if WAVM_ENABLE_RUNTIME
@@ -24,7 +25,7 @@ enum class Command
 #endif
 };
 
-Command parseCommand(const char* string)
+static Command parseCommand(const char* string)
 {
 	if(!strcmp(string, "assemble")) { return Command::assemble; }
 	else if(!strcmp(string, "disassemble"))
@@ -34,6 +35,10 @@ Command parseCommand(const char* string)
 	else if(!strcmp(string, "help"))
 	{
 		return Command::help;
+	}
+	else if(!strcmp(string, "test"))
+	{
+		return Command::test;
 	}
 	else if(!strcmp(string, "version"))
 	{
@@ -67,6 +72,7 @@ static const char* getCommandListHelpText()
 #if WAVM_ENABLE_RUNTIME
 		   "  run          Run a WebAssembly program\n"
 #endif
+		   "  test         Groups subcommands used to test WAVM\n"
 		   "  version      Display information about the WAVM version\n";
 }
 
@@ -101,6 +107,7 @@ static int execHelpCommand(int argc, char** argv)
 		case Command::assemble: showAssembleHelp(Log::output); return EXIT_SUCCESS;
 		case Command::disassemble: showDisassembleHelp(Log::output); return EXIT_SUCCESS;
 		case Command::help: showHelpHelp(Log::output); return EXIT_SUCCESS;
+		case Command::test: showTestHelp(Log::output); return EXIT_SUCCESS;
 		case Command::version: showVersionHelp(Log::output); return EXIT_SUCCESS;
 #if WAVM_ENABLE_RUNTIME
 		case Command::compile: showCompileHelp(Log::output); return EXIT_SUCCESS;
@@ -169,6 +176,7 @@ int main(int argc, char** argv)
 		case Command::assemble: return execAssembleCommand(argc - 2, argv + 2);
 		case Command::disassemble: return execDisassembleCommand(argc - 2, argv + 2);
 		case Command::help: return execHelpCommand(argc - 2, argv + 2);
+		case Command::test: return execTestCommand(argc - 2, argv + 2);
 		case Command::version: return execVersionCommand(argc - 2, argv + 2);
 #if WAVM_ENABLE_RUNTIME
 		case Command::compile: return execCompileCommand(argc - 2, argv + 2);

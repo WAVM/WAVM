@@ -38,16 +38,16 @@ static const char* getCommandListHelpText()
 		;
 }
 
-static void showTopLevelHelp(Log::Category outputCategory)
+void showTestHelp(Log::Category outputCategory)
 {
 	Log::printf(outputCategory,
-				"Usage: wavm-test <command> [command arguments]\n"
+				"Usage: wavm test <command> [command arguments]\n"
 				"\n"
 				"%s",
 				getCommandListHelpText());
 }
 
-Command parseCommand(const char* string)
+static Command parseCommand(const char* string)
 {
 	if(!strcmp(string, "dumpmodules")) { return Command::dumpModules; }
 	else if(!strcmp(string, "hashmap"))
@@ -82,28 +82,26 @@ Command parseCommand(const char* string)
 	}
 }
 
-int main(int argc, char** argv)
+int execTestCommand(int argc, char** argv)
 {
-	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
-
-	if(argc < 2)
+	if(argc < 1)
 	{
-		showTopLevelHelp(Log::Category::error);
+		showTestHelp(Log::Category::error);
 		return EXIT_FAILURE;
 	}
 	else
 	{
-		const Command command = parseCommand(argv[1]);
+		const Command command = parseCommand(argv[0]);
 		switch(command)
 		{
-		case Command::dumpModules: return execDumpTestModules(argc - 2, argv + 2);
-		case Command::hashMap: return execHashMapTest(argc - 2, argv + 2);
-		case Command::hashSet: return execHashSetTest(argc - 2, argv + 2);
-		case Command::i128: return execI128Test(argc - 2, argv + 2);
+		case Command::dumpModules: return execDumpTestModules(argc - 1, argv + 1);
+		case Command::hashMap: return execHashMapTest(argc - 1, argv + 1);
+		case Command::hashSet: return execHashSetTest(argc - 1, argv + 1);
+		case Command::i128: return execI128Test(argc - 1, argv + 1);
 #if WAVM_ENABLE_RUNTIME
-		case Command::cAPI: return execCAPITest(argc - 2, argv + 2);
-		case Command::invokeBench: return execInvokeBench(argc - 2, argv + 2);
-		case Command::script: return execRunTestScript(argc - 2, argv + 2);
+		case Command::cAPI: return execCAPITest(argc - 1, argv + 1);
+		case Command::invokeBench: return execInvokeBench(argc - 1, argv + 1);
+		case Command::script: return execRunTestScript(argc - 1, argv + 1);
 #endif
 
 		case Command::invalid:

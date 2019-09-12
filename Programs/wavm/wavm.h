@@ -9,10 +9,12 @@ namespace WAVM { namespace IR {
 
 int execAssembleCommand(int argc, char** argv);
 int execDisassembleCommand(int argc, char** argv);
+int execTestCommand(int argc, char** argv);
 int execVersionCommand(int argc, char** argv);
 
 void showAssembleHelp(WAVM::Log::Category outputCategory);
 void showDisassembleHelp(WAVM::Log::Category outputCategory);
+void showTestHelp(WAVM::Log::Category outputCategory);
 void showVersionHelp(WAVM::Log::Category outputCategory);
 
 #if WAVM_ENABLE_RUNTIME

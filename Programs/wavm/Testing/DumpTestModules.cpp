@@ -165,7 +165,7 @@ int execDumpTestModules(int argc, char** argv)
 	{
 		Log::printf(
 			Log::error,
-			"Usage: DumpTestModule [--output-dir <directory>] [--wast] [--wasm] <input .wast>\n");
+			"Usage: wavm test dumpmodule [--output-dir <directory>] [--wast] [--wasm] <input .wast>\n");
 		return EXIT_FAILURE;
 	}
 
