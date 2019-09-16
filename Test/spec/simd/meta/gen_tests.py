@@ -17,6 +17,7 @@ SUBMODULES = (
     'simd_i16x8_arith',
     'simd_i32x4_arith',
     'simd_f32x4_arith',
+    'simd_sat_arith',
     'simd_bitwise',
 )
 
