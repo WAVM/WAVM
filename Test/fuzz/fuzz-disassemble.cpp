@@ -23,6 +23,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
 	module.featureSpec.maxDataSegments = 65536;
+	module.featureSpec.sharedTables = true;
 	Serialization::MemoryInputStream inputStream(data, numBytes);
 	if(WASM::loadBinaryModule(inputStream, module))
 	{
@@ -37,7 +38,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
 		{
-			WAST::reportParseErrors("disassembly", parseErrors);
+			WAST::reportParseErrors("disassembly", wastString.c_str(), parseErrors);
 			Errors::fatal("Disassembled module contained syntax errors");
 		}
 

@@ -159,8 +159,8 @@ namespace WAVM { namespace IR {
 
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
-	IR_API std::string asString(F32 value);
-	IR_API std::string asString(F64 value);
+	WAVM_API std::string asString(F32 value);
+	WAVM_API std::string asString(F64 value);
 
 	inline std::string asString(const V128& v128)
 	{
@@ -232,10 +232,10 @@ namespace WAVM { namespace IR {
 	struct TypeTuple
 	{
 		TypeTuple() : impl(getUniqueImpl(0, nullptr)) {}
-		IR_API TypeTuple(ValueType inElem);
-		IR_API TypeTuple(const std::initializer_list<ValueType>& inElems);
-		IR_API TypeTuple(const std::vector<ValueType>& inElems);
-		IR_API TypeTuple(const ValueType* inElems, Uptr numElems);
+		WAVM_API TypeTuple(ValueType inElem);
+		WAVM_API TypeTuple(const std::initializer_list<ValueType>& inElems);
+		WAVM_API TypeTuple(const std::vector<ValueType>& inElems);
+		WAVM_API TypeTuple(const ValueType* inElems, Uptr numElems);
 
 		const ValueType* begin() const { return impl->elems; }
 		const ValueType* end() const { return impl->elems + impl->numElems; }
@@ -279,7 +279,7 @@ namespace WAVM { namespace IR {
 
 		TypeTuple(const Impl* inImpl) : impl(inImpl) {}
 
-		IR_API static const Impl* getUniqueImpl(Uptr numElems, const ValueType* inElems);
+		WAVM_API static const Impl* getUniqueImpl(Uptr numElems, const ValueType* inElems);
 	};
 
 	inline std::string asString(TypeTuple typeTuple)
@@ -401,7 +401,7 @@ namespace WAVM { namespace IR {
 
 		FunctionType(const Impl* inImpl) : impl(inImpl) {}
 
-		IR_API static const Impl* getUniqueImpl(TypeTuple results, TypeTuple params);
+		WAVM_API static const Impl* getUniqueImpl(TypeTuple results, TypeTuple params);
 	};
 
 	struct IndexedFunctionType

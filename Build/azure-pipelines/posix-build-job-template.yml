@@ -1,0 +1,159 @@
+parameters:
+  name: ''
+  vmImage: ''
+  container: ''
+  llvmBuildBaseName: ''
+  llvmVersion: ''
+  cpackGenerators: ''
+  compiler: ''
+  toolchainInstallSteps: []
+
+jobs:
+  - job: ${{parameters.name}}
+    pool:
+      vmImage: ${{parameters.vmImage}}
+    ${{ if ne(parameters.container, '') }}:
+      container: ${{parameters.container}}
+
+    variables:
+      gccCmakeArgs:
+        -DCMAKE_C_COMPILER=gcc
+        -DCMAKE_CXX_COMPILER=g++
+        -DWAVM_USE_LINKER=gold
+      clangCmakeArgs:
+        -DCMAKE_C_COMPILER=/usr/local/bin/clang
+        -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
+        -DCMAKE_AR=/usr/local/bin/llvm-ar
+        -DCMAKE_RANLIB=/usr/local/bin/llvm-ranlib
+        -DWAVM_USE_LINKER=lld
+      appleClangCmakeArgs:
+        -DCMAKE_C_COMPILER=clang
+        -DCMAKE_CXX_COMPILER=clang++
+        -DCMAKE_OSX_DEPLOYMENT_TARGET=10.11
+    strategy:
+      matrix:
+
+        # The LLVM LTO build uses ThinLTO, so don't use it with GCC.
+        ${{ if ne(parameters.compiler, 'gcc') }}:
+          LTO:
+            configName: LTO
+            buildConfig: Release
+            llvmConfig: LTO
+            cmakeArgs: -DWAVM_ENABLE_LTO=Thin
+          StaticLTO:
+            configName: StaticLTO
+            buildConfig: Release
+            llvmConfig: LTO
+            cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON -DWAVM_ENABLE_LTO=Thin -DWAVM_ENABLE_FUZZ_TARGETS=OFF'
+
+        # GCC 5.4 doesn't produce a usable binary when compiling with LTO for some reason.
+        #${{ if eq(parameters.compiler, 'gcc') }}:
+        #  LTO:
+        #    buildConfig: Release
+        #    llvmConfig: Release
+        #    cmakeArgs: -DWAVM_ENABLE_LTO=ON
+
+        Release:
+          configName: Release
+          buildConfig: Release
+          llvmConfig: Release
+          cmakeArgs: ''
+
+        Debug:
+          configName: Debug
+          buildConfig: Debug
+          llvmConfig: Checked
+          cmakeArgs: ''
+
+        Checked:
+          configName: Checked
+          buildConfig: RelWithDebInfo
+          llvmConfig: Checked
+          cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
+
+        Static:
+          configName: Static
+          buildConfig: Release
+          llvmConfig: Release
+          cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
+
+        # UBSAN produces an error in the libstdc++ 4.8.5 code in the CentOS 7.0 builder:
+        # UndefinedBehaviorSanitizer: undefined-behavior /usr/lib/gcc/x86_64-redhat-linux/4.8.5/../../../../include/c++/4.8.5/bits/stl_iterator.h:739:16 in
+        ${{ if ne(parameters.container, 'wavm/centos7.0-builder:latest') }}:
+          UBASAN:
+            configName: UBASAN
+            buildConfig: Release
+            # Old versions of GCC aren't compatible with the sanitized LLVM build created by clang 9,
+            # so fall back to the non-sanitized LLVM build for GCC.
+            ${{ if ne(parameters.compiler, 'gcc') }}:
+              llvmConfig: Sanitized
+            ${{ if eq(parameters.compiler, 'gcc') }}:
+              llvmConfig: Release
+            # Xcode doesn't ship the libfuzzer runtime library, so it can't link with WAVM_ENABLE_LIBFUZZER=ON.
+            ${{ if ne(parameters.compiler, 'appleClang') }}:
+              cmakeArgs: -DWAVM_ENABLE_ASAN=ON -DWAVM_ENABLE_UBSAN=ON -DWAVM_ENABLE_LIBFUZZER=ON
+            ${{ if eq(parameters.compiler, 'appleClang') }}:
+              cmakeArgs: -DWAVM_ENABLE_ASAN=ON -DWAVM_ENABLE_UBSAN=ON
+
+        # Old versions of GCC produce a TSAN warning about calling malloc inside a signal handler,
+        # with a nonsense callstack. It looks like it doesn't correctly handle how WAVM uses
+        # siglongjmp to exit the signal handler correctly.
+        ${{ if ne(parameters.compiler, 'gcc') }}:
+          TSAN:
+            configName: TSAN
+            buildConfig: Release
+            llvmConfig: Release
+            cmakeArgs: -DWAVM_ENABLE_TSAN=ON
+
+        NoRuntime:
+          configName: NoRuntime
+          buildConfig: Debug
+          llvmConfig: Release
+          cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
+
+        NoUnwind:
+          configName: NoUnwind
+          buildConfig: Debug
+          llvmConfig: Release
+          cmakeArgs: -DWAVM_ENABLE_UNWIND=NO
+
+    steps:
+    - checkout: self
+      submodules: recursive
+
+    - ${{parameters.toolchainInstallSteps}}
+
+    # Download and extract the LLVM build from the pipeline for https://github.com/WAVM/WAVM-LLVM/
+    - template: download-llvm-step-template.yml
+      parameters:
+        llvmBuildAssetName: ${{parameters.llvmBuildBaseName}}_$(llvmConfig)
+        llvmVersion: ${{parameters.llvmVersion}}
+
+    # Configure WAVM
+    - template: cmake-configure-step-template.yml
+      parameters:
+        cmakeArgs:
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=$(buildConfig)
+          -DCPACK_GENERATOR="${{parameters.cpackGenerators}}"
+          -DCPACK_PACKAGE_FILE_NAME=wavm-package
+          $(cmakeArgs)
+          $(${{parameters.compiler}}CmakeArgs)
+
+    # Build WAVM
+    - script: ninja -v -C $(Build.ArtifactStagingDirectory)
+      displayName: Build WAVM
+
+    # Run the WAVM test suite
+    - template: test-step-template.yml
+      parameters:
+        ctestArgs: '-C $(buildConfig)'
+
+    # Create the WAVM packages.
+    - script: ninja -v -C $(Build.ArtifactStagingDirectory) package
+      displayName: Package WAVM
+
+    # Publish the packages.
+    - template: publish-step-template.yml
+      parameters:
+        artifactName: ${{parameters.name}}_$(configName)

@@ -294,11 +294,36 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				break;
 			}
 			case t_assert_return_arithmetic_nan:
-			case t_assert_return_canonical_nan: {
-				const Command::Type commandType
-					= cursor->nextToken->type == t_assert_return_canonical_nan
-						  ? Command::assert_return_canonical_nan
-						  : Command::assert_return_arithmetic_nan;
+			case t_assert_return_canonical_nan:
+			case t_assert_return_arithmetic_nan_f32x4:
+			case t_assert_return_canonical_nan_f32x4:
+			case t_assert_return_arithmetic_nan_f64x2:
+			case t_assert_return_canonical_nan_f64x2: {
+				// Translate the token to a command type.
+				Command::Type commandType;
+				switch(cursor->nextToken->type)
+				{
+				case t_assert_return_arithmetic_nan:
+					commandType = Command::assert_return_arithmetic_nan;
+					break;
+				case t_assert_return_canonical_nan:
+					commandType = Command::assert_return_canonical_nan;
+					break;
+				case t_assert_return_arithmetic_nan_f32x4:
+					commandType = Command::assert_return_arithmetic_nan_f32x4;
+					break;
+				case t_assert_return_canonical_nan_f32x4:
+					commandType = Command::assert_return_canonical_nan_f32x4;
+					break;
+				case t_assert_return_arithmetic_nan_f64x2:
+					commandType = Command::assert_return_arithmetic_nan_f64x2;
+					break;
+				case t_assert_return_canonical_nan_f64x2:
+					commandType = Command::assert_return_canonical_nan_f64x2;
+					break;
+
+				default: WAVM_UNREACHABLE();
+				}
 				++cursor->nextToken;
 
 				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
@@ -526,7 +551,7 @@ void WAST::parseTestCommands(const char* string,
 {
 	// Lex the input string.
 	LineInfo* lineInfo = nullptr;
-	Token* tokens = lex(string, stringLength, lineInfo, featureSpec.allowLegacyOperatorNames);
+	Token* tokens = lex(string, stringLength, lineInfo, featureSpec.allowLegacyInstructionNames);
 	ParseState parseState(string, lineInfo);
 	CursorState cursor(tokens, &parseState);
 

@@ -8,6 +8,7 @@
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -494,6 +495,7 @@ struct POSIXFD : VFD
 								bool setLastWriteTime,
 								Time lastWriteTime) override
 	{
+#ifdef HAS_FUTIMENS
 		struct timespec timespecs[2];
 
 		if(!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
@@ -511,6 +513,34 @@ struct POSIXFD : VFD
 		}
 
 		return futimens(fd, timespecs) == 0 ? Result::success : asVFSResult(errno);
+#else
+		// MacOS pre-10.13 does not have futimens, so fall back to utimes, which only has
+		// microsecond precision, and no equivalent of UTIME_OMIT.
+		// If !setLastAccessTime or !setLastWriteTime, use fstat to read the current times.
+		// This isn't atomic, but seems like the best we can do without futimens.
+		if(!setLastAccessTime || !setLastWriteTime)
+		{
+			struct stat fdStatus;
+			if(fstat(fd, &fdStatus)) { return asVFSResult(errno); }
+
+			if(!setLastAccessTime) { lastAccessTime.ns = timeToNS(fdStatus.st_atime); }
+			if(!setLastWriteTime) { lastWriteTime.ns = timeToNS(fdStatus.st_mtime); }
+		}
+
+		struct timeval timevals[2];
+		timevals[0].tv_sec = U64(lastAccessTime.ns / 1000000000);
+		timevals[0].tv_usec = U64(lastAccessTime.ns / 1000 % 1000000);
+		timevals[1].tv_sec = U64(lastWriteTime.ns / 1000000000);
+		timevals[1].tv_usec = U64(lastWriteTime.ns / 1000 % 1000000);
+
+		// utimes takes a path instead of a fd, so use the BSD fcntl(F_GETPATH) to get the path to
+		// the fd's file.
+		char fdPath[PATH_MAX + 1];
+		if(fcntl(fd, F_GETPATH, fdPath)) { return asVFSResult(errno); }
+		fdPath[PATH_MAX] = 0;
+
+		return utimes(fdPath, timevals) == 0 ? Result::success : asVFSResult(errno);
+#endif
 	}
 
 	virtual Result getFileInfo(FileInfo& outInfo) override
@@ -596,7 +626,7 @@ protected:
 	POSIXFS() {}
 };
 
-PLATFORM_API HostFS& Platform::getHostFS() { return POSIXFS::get(); }
+HostFS& Platform::getHostFS() { return POSIXFS::get(); }
 
 Result POSIXFS::open(const std::string& path,
 					 FileAccessMode accessMode,
@@ -651,6 +681,7 @@ Result POSIXFS::setFileTimes(const std::string& path,
 							 bool setLastWriteTime,
 							 Time lastWriteTime)
 {
+#ifdef HAS_UTIMENSAT
 	struct timespec timespecs[2];
 
 	if(!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
@@ -669,6 +700,28 @@ Result POSIXFS::setFileTimes(const std::string& path,
 
 	return utimensat(AT_FDCWD, path.c_str(), timespecs, 0) == 0 ? Result::success
 																: asVFSResult(errno);
+#else
+	// MacOS pre-10.13 does not have utimensat, so fall back to utimes, which only has microsecond
+	// precision, and no equivalent of UTIME_OMIT.
+	// If !setLastAccessTime or !setLastWriteTime, use stat to read the current times.
+	// This isn't atomic, but seems like the best we can do without futimens.
+	if(!setLastAccessTime || !setLastWriteTime)
+	{
+		struct stat fileStatus;
+		if(stat(path.c_str(), &fileStatus)) { return asVFSResult(errno); }
+
+		if(!setLastAccessTime) { lastAccessTime.ns = timeToNS(fileStatus.st_atime); }
+		if(!setLastWriteTime) { lastWriteTime.ns = timeToNS(fileStatus.st_mtime); }
+	}
+
+	struct timeval timevals[2];
+	timevals[0].tv_sec = U64(lastAccessTime.ns / 1000000000);
+	timevals[0].tv_usec = U64(lastAccessTime.ns / 1000 % 1000000);
+	timevals[1].tv_sec = U64(lastWriteTime.ns / 1000000000);
+	timevals[1].tv_usec = U64(lastWriteTime.ns / 1000 % 1000000);
+
+	return utimes(path.c_str(), timevals) == 0 ? Result::success : asVFSResult(errno);
+#endif
 }
 
 Result POSIXFS::openDir(const std::string& path, DirEntStream*& outStream)

@@ -11,7 +11,7 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
 Runtime::StubResolver::StubResolver(Compartment* inCompartment,
-									FunctionBehavior inFunctionBehavior,
+									StubFunctionBehavior inFunctionBehavior,
 									bool inLogErrorOnStubGeneration,
 									ResourceQuotaRefParam inResourceQuota)
 : compartment(inCompartment)
@@ -35,13 +35,25 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 					asString(type).c_str());
 	}
 
+	return generateStub(
+		moduleName, exportName, type, outObject, compartment, functionBehavior, resourceQuota);
+}
+
+bool Runtime::generateStub(const std::string& moduleName,
+						   const std::string& exportName,
+						   IR::ExternType type,
+						   Runtime::Object*& outObject,
+						   Compartment* compartment,
+						   StubFunctionBehavior functionBehavior,
+						   ResourceQuotaRefParam resourceQuota)
+{
 	// If the import couldn't be resolved, stub it in.
 	switch(type.kind)
 	{
 	case IR::ExternKind::function: {
 		Serialization::ArrayOutputStream codeStream;
 		OperatorEncoderStream encoder(codeStream);
-		if(functionBehavior == FunctionBehavior::trap)
+		if(functionBehavior == StubFunctionBehavior::trap)
 		{
 			// Generate a function body that just uses the unreachable op to fault if called.
 			encoder.unreachable();
@@ -76,7 +88,8 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 		stubIRModule.types.push_back(asFunctionType(type));
 		stubIRModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
 		stubIRModule.exports.push_back({"importStub", IR::ExternKind::function, 0});
-		stubModuleNames.functions.push_back({"importStub: " + exportName});
+		stubModuleNames.functions.push_back(
+			{"importStub: " + exportName + " (" + asString(asFunctionType(type)) + ")"});
 		IR::setDisassemblyNames(stubIRModule, stubModuleNames);
 		try
 		{

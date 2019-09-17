@@ -232,9 +232,9 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 	return process;
 }
 
-Resolver* WASI::getProcessResolver(const std::shared_ptr<Process>& process)
+Resolver& WASI::getProcessResolver(const std::shared_ptr<Process>& process)
 {
-	return &process->resolver;
+	return process->resolver;
 }
 
 Memory* WASI::getProcessMemory(const std::shared_ptr<Process>& process) { return process->memory; }
@@ -242,4 +242,16 @@ Memory* WASI::getProcessMemory(const std::shared_ptr<Process>& process) { return
 void WASI::setProcessMemory(const std::shared_ptr<Process>& process, Memory* memory)
 {
 	process->memory = memory;
+}
+
+I32 WASI::catchExit(std::function<I32()>&& thunk)
+{
+	try
+	{
+		return std::move(thunk)();
+	}
+	catch(ExitException const& exitException)
+	{
+		return I32(exitException.exitCode);
+	}
 }

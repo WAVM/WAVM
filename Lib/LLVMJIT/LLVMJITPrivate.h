@@ -7,9 +7,14 @@
 #include "WAVM/IR/Operators.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Mutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && defined(__clang__)
+#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
+	_Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wswitch-enum\"")
+#define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS _Pragma("GCC diagnostic pop")
+#elif defined(_MSC_VER)
 // Disable all VC warnings in the LLVM headers
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(push, 0));
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
@@ -359,6 +364,7 @@ namespace WAVM { namespace LLVMJIT {
 		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
 
 #if LAZY_PARSE_DWARF_LINE_INFO
+		Platform::Mutex dwarfContextMutex;
 		std::unique_ptr<llvm::DWARFContext> dwarfContext;
 #endif
 

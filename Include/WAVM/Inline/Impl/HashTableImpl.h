@@ -406,9 +406,7 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(con
 		{
 			buckets[bucketIndex].hashAndOccupancy = copy.buckets[bucketIndex].hashAndOccupancy;
 			if(buckets[bucketIndex].hashAndOccupancy)
-			{
-				buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.get());
-			}
+			{ buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.get()); }
 		}
 	}
 }

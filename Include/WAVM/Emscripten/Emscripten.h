@@ -1,8 +1,9 @@
 #pragma once
 
+#include <functional>
+#include <memory>
 #include <vector>
 #include "WAVM/IR/Value.h"
-#include "WAVM/Runtime/Runtime.h"
 
 namespace WAVM { namespace IR {
 	struct Module;
@@ -12,36 +13,32 @@ namespace WAVM { namespace VFS {
 	struct VFD;
 }}
 
+namespace WAVM { namespace Runtime {
+	struct Compartment;
+	struct Context;
+	struct ModuleInstance;
+	struct Resolver;
+}}
+
 namespace WAVM { namespace Emscripten {
-	struct Instance
-	{
-		Runtime::GCPointer<Runtime::ModuleInstance> moduleInstance;
 
-		Runtime::GCPointer<Runtime::ModuleInstance> env;
-		Runtime::GCPointer<Runtime::ModuleInstance> asm2wasm;
-		Runtime::GCPointer<Runtime::ModuleInstance> global;
+	struct Instance;
 
-		Runtime::GCPointer<Runtime::Memory> memory;
+	WAVM_API std::shared_ptr<Instance> instantiate(Runtime::Compartment* compartment,
+												   const IR::Module& module,
+												   VFS::VFD* stdIn = nullptr,
+												   VFS::VFD* stdOut = nullptr,
+												   VFS::VFD* stdErr = nullptr);
+	WAVM_API void initializeGlobals(const std::shared_ptr<Instance>& instance,
+									Runtime::Context* context,
+									const IR::Module& module,
+									Runtime::ModuleInstance* moduleInstance);
+	WAVM_API std::vector<IR::Value> injectCommandArgs(const std::shared_ptr<Instance>& instance,
+													  const std::vector<std::string>& argStrings);
 
-		U32 errnoAddress{0};
+	WAVM_API Runtime::Resolver& getInstanceResolver(const std::shared_ptr<Instance>& instance);
 
-		WAVM::VFS::VFD* stdIn{nullptr};
-		WAVM::VFS::VFD* stdOut{nullptr};
-		WAVM::VFS::VFD* stdErr{nullptr};
-	};
+	WAVM_API void joinAllThreads(Instance* instance);
 
-	struct ExitException
-	{
-		U32 exitCode;
-	};
-
-	EMSCRIPTEN_API Instance* instantiate(Runtime::Compartment* compartment,
-										 const IR::Module& module);
-	EMSCRIPTEN_API void initializeGlobals(Emscripten::Instance* instance,
-										  Runtime::Context* context,
-										  const IR::Module& module,
-										  Runtime::ModuleInstance* moduleInstance);
-	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,
-										  const std::vector<std::string>& argStrings,
-										  std::vector<IR::Value>& outInvokeArgs);
+	WAVM_API I32 catchExit(std::function<I32()>&& thunk);
 }}

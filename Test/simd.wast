@@ -123,7 +123,7 @@
 (module
   (memory 1)
   (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
-  (func (export "v8x16.load_splat") (param $address i32) (result v128) (v8x16.load_splat offset=0 align=1 (get_local $address)))
+  (func (export "v8x16.load_splat") (param $address i32) (result v128) (v8x16.load_splat offset=0 align=1 (local.get $address)))
 )
 
 (assert_return (invoke "v8x16.load_splat" (i32.const 0)) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
@@ -134,7 +134,7 @@
 (module
   (memory 1)
   (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
-  (func (export "v16x8.load_splat") (param $address i32) (result v128) (v16x8.load_splat offset=0 align=1 (get_local $address)))
+  (func (export "v16x8.load_splat") (param $address i32) (result v128) (v16x8.load_splat offset=0 align=1 (local.get $address)))
 )
 
 (assert_return (invoke "v16x8.load_splat" (i32.const 0)) (v128.const i16x8 0x0100 0x0100 0x0100 0x0100 0x0100 0x0100 0x0100 0x0100))
@@ -145,7 +145,7 @@
 (module
   (memory 1)
   (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
-  (func (export "v32x4.load_splat") (param $address i32) (result v128) (v32x4.load_splat offset=0 align=1 (get_local $address)))
+  (func (export "v32x4.load_splat") (param $address i32) (result v128) (v32x4.load_splat offset=0 align=1 (local.get $address)))
 )
 
 (assert_return (invoke "v32x4.load_splat" (i32.const 0)) (v128.const i32x4 0x03020100 0x03020100 0x03020100 0x03020100))
@@ -156,7 +156,7 @@
 (module
   (memory 1)
   (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
-  (func (export "v64x2.load_splat") (param $address i32) (result v128) (v64x2.load_splat offset=0 align=1 (get_local $address)))
+  (func (export "v64x2.load_splat") (param $address i32) (result v128) (v64x2.load_splat offset=0 align=1 (local.get $address)))
 )
 
 (assert_return (invoke "v64x2.load_splat" (i32.const 0)) (v128.const i64x2 0x0706050403020100 0x0706050403020100))
@@ -285,7 +285,7 @@
 ;; v8x16.swizzle
 
 (module
-	(func (export "v8x16.swizzle") (param $elements v128) (param $indices v128) (result v128) (v8x16.swizzle (get_local $elements) (get_local $indices)))
+	(func (export "v8x16.swizzle") (param $elements v128) (param $indices v128) (result v128) (v8x16.swizzle (local.get $elements) (local.get $indices)))
 )
 
 (assert_return
@@ -803,3 +803,26 @@
   (module (func (result v128) (v128.const 0 1 2 3)))
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
+
+;; Test the assert_return_canonical_nan_fNxM and assert_return_arithmetic_nan_fNxM commands
+
+(module
+  (func (export "f32x4.splat") (param $x f32) (result v128) (f32x4.splat (local.get $x)))
+  (func (export "f64x2.splat") (param $x f64) (result v128) (f64x2.splat (local.get $x)))
+)
+
+(assert_return_canonical_nan_f32x4  (invoke "f32x4.splat" (f32.const +nan:0x400000)))
+(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const +nan:0x400000)))
+(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const +nan:0x400001)))
+
+(assert_return_canonical_nan_f32x4  (invoke "f32x4.splat" (f32.const -nan:0x400000)))
+(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const -nan:0x400000)))
+(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const -nan:0x400001)))
+
+(assert_return_canonical_nan_f64x2  (invoke "f64x2.splat" (f64.const +nan:0x8000000000000)))
+(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const +nan:0x8000000000000)))
+(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const +nan:0x8000000000001)))
+
+(assert_return_canonical_nan_f64x2  (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)))
+(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)))
+(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const -nan:0x8000000000001)))

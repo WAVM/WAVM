@@ -26,3 +26,6 @@ bin/fuzz-${FUZZER} \
 	-reduce_depth=1 \
 	-shrink=1 \
 	$EXTRA_ARGS
+
+# Copy the current corpus into the archive
+cp -rf corpora/${FUZZER} corpora/archive

@@ -16,6 +16,7 @@ enum class Command
 	assemble,
 	disassemble,
 	help,
+	test,
 	version,
 
 #if WAVM_ENABLE_RUNTIME
@@ -24,7 +25,7 @@ enum class Command
 #endif
 };
 
-Command parseCommand(const char* string)
+static Command parseCommand(const char* string)
 {
 	if(!strcmp(string, "assemble")) { return Command::assemble; }
 	else if(!strcmp(string, "disassemble"))
@@ -34,6 +35,10 @@ Command parseCommand(const char* string)
 	else if(!strcmp(string, "help"))
 	{
 		return Command::help;
+	}
+	else if(!strcmp(string, "test"))
+	{
+		return Command::test;
 	}
 	else if(!strcmp(string, "version"))
 	{
@@ -67,6 +72,7 @@ static const char* getCommandListHelpText()
 #if WAVM_ENABLE_RUNTIME
 		   "  run          Run a WebAssembly program\n"
 #endif
+		   "  test         Groups subcommands used to test WAVM\n"
 		   "  version      Display information about the WAVM version\n";
 }
 
@@ -101,6 +107,7 @@ static int execHelpCommand(int argc, char** argv)
 		case Command::assemble: showAssembleHelp(Log::output); return EXIT_SUCCESS;
 		case Command::disassemble: showDisassembleHelp(Log::output); return EXIT_SUCCESS;
 		case Command::help: showHelpHelp(Log::output); return EXIT_SUCCESS;
+		case Command::test: showTestHelp(Log::output); return EXIT_SUCCESS;
 		case Command::version: showVersionHelp(Log::output); return EXIT_SUCCESS;
 #if WAVM_ENABLE_RUNTIME
 		case Command::compile: showCompileHelp(Log::output); return EXIT_SUCCESS;
@@ -130,6 +137,9 @@ void showVersionHelp(Log::Category outputCategory)
 	Log::printf(outputCategory, "Usage: wavm version\n");
 }
 
+#define LOG_BUILD_CONFIG_BOOL(variable)                                                            \
+	Log::printf(Log::output, "%-30s %s\n", #variable ":", variable ? "true" : "false");
+
 int execVersionCommand(int argc, char** argv)
 {
 	if(argc != 0)
@@ -137,11 +147,15 @@ int execVersionCommand(int argc, char** argv)
 		showVersionHelp(Log::error);
 		return EXIT_FAILURE;
 	}
-	Log::printf(Log::output,
-				"WAVM version %u.%u.%u\n",
-				WAVM_VERSION_MAJOR,
-				WAVM_VERSION_MINOR,
-				WAVM_VERSION_PATCH);
+	Log::printf(Log::output, "WAVM version %s\n", WAVM_VERSION_STRING);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_RUNTIME);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_STATIC_LINKING);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_ASAN);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_UBSAN);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_TSAN);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_LIBFUZZER);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_RELEASE_ASSERTS);
+	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_UNWIND);
 	return false;
 }
 
@@ -162,6 +176,7 @@ int main(int argc, char** argv)
 		case Command::assemble: return execAssembleCommand(argc - 2, argv + 2);
 		case Command::disassemble: return execDisassembleCommand(argc - 2, argv + 2);
 		case Command::help: return execHelpCommand(argc - 2, argv + 2);
+		case Command::test: return execTestCommand(argc - 2, argv + 2);
 		case Command::version: return execVersionCommand(argc - 2, argv + 2);
 #if WAVM_ENABLE_RUNTIME
 		case Command::compile: return execCompileCommand(argc - 2, argv + 2);

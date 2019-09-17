@@ -238,7 +238,7 @@ namespace WAVM { namespace IR {
 		Serialization::OutputStream& byteStream;
 	};
 
-	IR_API const char* getOpcodeName(Opcode opcode);
+	WAVM_API const char* getOpcodeName(Opcode opcode);
 
 	struct NonParametricOpSignatures
 	{
@@ -246,5 +246,5 @@ namespace WAVM { namespace IR {
 		WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 	};
-	IR_API const NonParametricOpSignatures& getNonParametricOpSigs();
+	WAVM_API const NonParametricOpSignatures& getNonParametricOpSigs();
 }}

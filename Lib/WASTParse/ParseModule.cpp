@@ -1261,7 +1261,7 @@ bool WAST::parseModule(const char* string,
 	// Lex the string.
 	LineInfo* lineInfo = nullptr;
 	Token* tokens
-		= lex(string, stringLength, lineInfo, outModule.featureSpec.allowLegacyOperatorNames);
+		= lex(string, stringLength, lineInfo, outModule.featureSpec.allowLegacyInstructionNames);
 	ParseState parseState(string, lineInfo);
 	CursorState cursor(tokens, &parseState);
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -17,12 +18,7 @@ namespace WAVM { namespace WASI {
 
 	struct Process;
 
-	struct ExitException
-	{
-		U32 exitCode;
-	};
-
-	WASI_API std::shared_ptr<Process> createProcess(Runtime::Compartment* compartment,
+	WAVM_API std::shared_ptr<Process> createProcess(Runtime::Compartment* compartment,
 													std::vector<std::string>&& inArgs,
 													std::vector<std::string>&& inEnvs,
 													VFS::FileSystem* fileSystem,
@@ -30,10 +26,10 @@ namespace WAVM { namespace WASI {
 													VFS::VFD* stdOut,
 													VFS::VFD* stdErr);
 
-	WASI_API Runtime::Resolver* getProcessResolver(const std::shared_ptr<Process>& process);
+	WAVM_API Runtime::Resolver& getProcessResolver(const std::shared_ptr<Process>& process);
 
-	WASI_API Runtime::Memory* getProcessMemory(const std::shared_ptr<Process>& process);
-	WASI_API void setProcessMemory(const std::shared_ptr<Process>& process,
+	WAVM_API Runtime::Memory* getProcessMemory(const std::shared_ptr<Process>& process);
+	WAVM_API void setProcessMemory(const std::shared_ptr<Process>& process,
 								   Runtime::Memory* memory);
 
 	enum class SyscallTraceLevel
@@ -43,5 +39,7 @@ namespace WAVM { namespace WASI {
 		syscallsWithCallstacks
 	};
 
-	WASI_API void setSyscallTraceLevel(SyscallTraceLevel newLevel);
+	WAVM_API void setSyscallTraceLevel(SyscallTraceLevel newLevel);
+
+	WAVM_API I32 catchExit(std::function<I32()>&& thunk);
 }}

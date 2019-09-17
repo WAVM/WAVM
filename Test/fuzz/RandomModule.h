@@ -1030,6 +1030,14 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 
 void generateValidModule(IR::Module& module, RandomStream& random)
 {
+	WAVM_ASSERT(module.featureSpec.simd);
+	WAVM_ASSERT(module.featureSpec.atomics);
+	WAVM_ASSERT(module.featureSpec.exceptionHandling);
+	WAVM_ASSERT(module.featureSpec.multipleResultsAndBlockParams);
+	WAVM_ASSERT(module.featureSpec.bulkMemoryOperations);
+	WAVM_ASSERT(module.featureSpec.referenceTypes);
+	WAVM_ASSERT(module.featureSpec.sharedTables);
+
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
 	// Generate an optional memory.

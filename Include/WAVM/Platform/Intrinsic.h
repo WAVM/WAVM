@@ -7,6 +7,11 @@
 #include <intrin.h>
 #endif
 
+// __has_builtin is a Clang-specific way to test whether a builtin is supported
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
 namespace WAVM {
 	// The number of bytes in a cache line: assume 64 for now.
 	static constexpr Uptr numCacheLineBytes = 64;
@@ -89,7 +94,7 @@ namespace WAVM {
 		return U32(value + ((I32(maxValue - value) >> 31) & (maxValue - value)));
 	}
 
-#if defined(__GNUC__)
+#if __GNUC__ >= 5 || __has_builtin(__builtin_add_overflow)
 	inline bool addAndCheckOverflow(U64 a, U64 b, U64* out)
 	{
 		return __builtin_add_overflow(a, b, out);

@@ -113,6 +113,12 @@ const Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key) const
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
 	WAVM_ASSERT(bucket);
+	if(!bucket)
+	{
+		// In addition to the assert, use WAVM_UNREACHABLE to ensure that GCC's -Wnull-dereference
+		// warning isn't triggered because it thinks this function might return nullptr.
+		WAVM_UNREACHABLE();
+	}
 	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 	return bucket->storage.get().value;
 }
@@ -122,6 +128,12 @@ template<HASHMAP_PARAMETERS> Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	HashTableBucket<Pair>* bucket = table.getBucketForModify(hash, key);
 	WAVM_ASSERT(bucket);
+	if(!bucket)
+	{
+		// In addition to the assert, use WAVM_UNREACHABLE to ensure that GCC's -Wnull-dereference
+		// warning isn't triggered because it thinks this function might return nullptr.
+		WAVM_UNREACHABLE();
+	}
 	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 	return bucket->storage.get().value;
 }

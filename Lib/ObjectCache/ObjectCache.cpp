@@ -479,8 +479,6 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 
 		Timing::logTimer("Probed for cached object", readTimer);
 
-		if(Log::isCategoryEnabled(Log::debug)) { dump(); }
-
 		return hadCachedObject;
 	}
 
@@ -533,8 +531,6 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		};
 
 		Timing::logTimer("Add object to cache", writeTimer);
-
-		if(Log::isCategoryEnabled(Log::debug)) { dump(); }
 	}
 
 	void dump()

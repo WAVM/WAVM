@@ -1,11 +1,10 @@
-#include "WAVM/Inline/Config.h"
-#if WAVM_ENABLE_RUNTIME
 #include <string>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
@@ -49,7 +48,7 @@ bool loadTextOrBinaryModule(const char* filename, IR::Module& outModule)
 			   (const char*)fileBytes.data(), fileBytes.size(), outModule, parseErrors))
 		{
 			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
-			WAST::reportParseErrors(filename, parseErrors);
+			WAST::reportParseErrors(filename, (const char*)fileBytes.data(), parseErrors);
 			return false;
 		}
 
@@ -284,4 +283,3 @@ int execCompileCommand(int argc, char** argv)
 	default: WAVM_UNREACHABLE();
 	};
 }
-#endif

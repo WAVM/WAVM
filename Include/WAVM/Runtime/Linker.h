@@ -11,7 +11,7 @@
 
 namespace WAVM { namespace Runtime {
 	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
-	struct Resolver
+	struct WAVM_API Resolver
 	{
 		virtual ~Resolver() {}
 		virtual bool resolve(const std::string& moduleName,
@@ -19,47 +19,6 @@ namespace WAVM { namespace Runtime {
 							 IR::ExternType type,
 							 Object*& outObject)
 			= 0;
-	};
-
-	// A resolver that ignores the moduleName, and looks for the exportName in a single module.
-	struct ModuleExportResolver : Resolver
-	{
-		ModuleExportResolver(const IR::Module& inModule, ModuleInstance* inModuleInstance)
-		: module(inModule), moduleInstance(inModuleInstance)
-		{
-		}
-
-		bool resolve(const std::string& moduleName,
-					 const std::string& exportName,
-					 IR::ExternType type,
-					 Object*& outObject) override;
-
-	private:
-		const IR::Module& module;
-		ModuleInstance* moduleInstance;
-	};
-
-	// A resolver that lazily creates an inner resolver when it's first used, then forwards all
-	// queries to the inner resolver.
-	struct LazyResolver : Resolver
-	{
-		LazyResolver(std::function<Resolver*()>& inInnerResolverThunk)
-		: innerResolverThunk(std::move(inInnerResolverThunk)), innerResolver(nullptr)
-		{
-		}
-
-		bool resolve(const std::string& moduleName,
-					 const std::string& exportName,
-					 IR::ExternType type,
-					 Runtime::Object*& outObject) override
-		{
-			if(!innerResolver) { innerResolver = innerResolverThunk(); }
-			return innerResolver->resolve(moduleName, exportName, type, outObject);
-		}
-
-	private:
-		std::function<Resolver*()> innerResolverThunk;
-		Resolver* innerResolver;
 	};
 
 	// A resolver that always returns failure.
@@ -74,29 +33,39 @@ namespace WAVM { namespace Runtime {
 		}
 	};
 
-	// A resolver that generates stubs for objects that the inner resolver can't find.
-	struct StubResolver : Resolver
+	// Generates stub objects that conform to the given ExternType.
+	// Returns true if successful, false if stub creation failed due to resource exhaustion.
+	// Upon successful return, outObject will contain a pointer to the stub object.
+	enum class StubFunctionBehavior
 	{
-		enum class FunctionBehavior
-		{
-			zero,
-			trap,
-		};
+		zero,
+		trap,
+	};
+	WAVM_API bool generateStub(const std::string& moduleName,
+							   const std::string& exportName,
+							   IR::ExternType type,
+							   Runtime::Object*& outObject,
+							   Compartment* compartment,
+							   StubFunctionBehavior functionBehavior = StubFunctionBehavior::trap,
+							   ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
-		RUNTIME_API StubResolver(Compartment* inCompartment,
-								 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
-								 bool inLogErrorOnStubGeneration = true,
-								 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
+	// A resolver that generates stubs for objects that the inner resolver can't find.
+	struct WAVM_API StubResolver : Resolver
+	{
+		StubResolver(Compartment* inCompartment,
+					 StubFunctionBehavior inFunctionBehavior = StubFunctionBehavior::trap,
+					 bool inLogErrorOnStubGeneration = true,
+					 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
-		RUNTIME_API virtual bool resolve(const std::string& moduleName,
-										 const std::string& exportName,
-										 IR::ExternType type,
-										 Runtime::Object*& outObject) override;
+		virtual bool resolve(const std::string& moduleName,
+							 const std::string& exportName,
+							 IR::ExternType type,
+							 Runtime::Object*& outObject) override;
 
 	private:
 		GCPointer<Compartment> compartment;
 		ResourceQuotaRef resourceQuota;
-		FunctionBehavior functionBehavior;
+		StubFunctionBehavior functionBehavior;
 		bool logErrorOnStubGeneration;
 	};
 
@@ -116,5 +85,5 @@ namespace WAVM { namespace Runtime {
 		bool success{false};
 	};
 
-	RUNTIME_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);
+	WAVM_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);
 }}

@@ -40,10 +40,10 @@ namespace WAVM { namespace LLVMJIT {
 		wavmDoesNotSupportSIMDOnArch
 	};
 
-	LLVMJIT_API TargetSpec getHostTargetSpec();
+	WAVM_API TargetSpec getHostTargetSpec();
 
-	LLVMJIT_API TargetValidationResult validateTarget(const TargetSpec& targetSpec,
-													  const IR::FeatureSpec& featureSpec);
+	WAVM_API TargetValidationResult validateTarget(const TargetSpec& targetSpec,
+												   const IR::FeatureSpec& featureSpec);
 
 	struct Version
 	{
@@ -52,16 +52,16 @@ namespace WAVM { namespace LLVMJIT {
 		Uptr llvmPatch;
 	};
 
-	LLVMJIT_API Version getVersion();
+	WAVM_API Version getVersion();
 
 	// Compile a module to object code with the host target spec.
 	// Cannot fail if validateTarget(targetSpec, irModule.featureSpec) == valid.
-	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule,
-											  const TargetSpec& targetSpec);
+	WAVM_API std::vector<U8> compileModule(const IR::Module& irModule,
+										   const TargetSpec& targetSpec);
 
-	LLVMJIT_API std::string emitLLVMIR(const IR::Module& irModule,
-									   const TargetSpec& targetSpec,
-									   bool optimize);
+	WAVM_API std::string emitLLVMIR(const IR::Module& irModule,
+									const TargetSpec& targetSpec,
+									bool optimize);
 
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct Module;
@@ -107,7 +107,7 @@ namespace WAVM { namespace LLVMJIT {
 	};
 
 	// Loads a module from object code, and binds its undefined symbols to the provided bindings.
-	LLVMJIT_API std::shared_ptr<Module> loadModule(
+	WAVM_API std::shared_ptr<Module> loadModule(
 		const std::vector<U8>& objectFileBytes,
 		HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
 		std::vector<IR::FunctionType>&& types,
@@ -128,14 +128,14 @@ namespace WAVM { namespace LLVMJIT {
 
 	// Finds the JIT function and instruction index at the given address. If no JIT function
 	// contains the given address, returns an InstructionSourceInfo with function==nullptr.
-	LLVMJIT_API InstructionSource getInstructionSourceByAddress(Uptr address);
+	WAVM_API InstructionSource getInstructionSourceByAddress(Uptr address);
 
 	// Generates an invoke thunk for a specific function type.
-	LLVMJIT_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);
+	WAVM_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);
 
 	// Generates a thunk to call a native function from generated code.
-	LLVMJIT_API Runtime::Function* getIntrinsicThunk(void* nativeFunction,
-													 IR::FunctionType functionType,
-													 IR::CallingConvention callingConvention,
-													 const char* debugName);
+	WAVM_API Runtime::Function* getIntrinsicThunk(void* nativeFunction,
+												  IR::FunctionType functionType,
+												  IR::CallingConvention callingConvention,
+												  const char* debugName);
 }}

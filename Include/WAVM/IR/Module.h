@@ -367,8 +367,8 @@ namespace WAVM { namespace IR {
 
 	// Looks for a name section in a module. If it exists, deserialize it into outNames.
 	// If it doesn't exist, fill outNames with sensible defaults.
-	IR_API void getDisassemblyNames(const Module& module, DisassemblyNames& outNames);
+	WAVM_API void getDisassemblyNames(const Module& module, DisassemblyNames& outNames);
 
 	// Serializes a DisassemblyNames structure and adds it to the module as a name section.
-	IR_API void setDisassemblyNames(Module& module, const DisassemblyNames& names);
+	WAVM_API void setDisassemblyNames(Module& module, const DisassemblyNames& names);
 }}

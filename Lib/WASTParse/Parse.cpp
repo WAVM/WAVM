@@ -1,6 +1,7 @@
 #include "Parse.h"
 #include <assert.h>
 #include <stdint.h>
+#include <climits>
 #include <cstdarg>
 #include <cstdio>
 #include <memory>
@@ -630,17 +631,20 @@ std::string WAST::parseUTF8String(CursorState* cursor)
 	return result;
 }
 
-void WAST::reportParseErrors(const char* filename, const std::vector<WAST::Error>& parseErrors)
+void WAST::reportParseErrors(const char* filename,
+							 const char* source,
+							 const std::vector<WAST::Error>& parseErrors)
 {
 	// Print any parse errors.
 	for(auto& error : parseErrors)
 	{
 		Log::printf(Log::error,
-					"%s:%s: %s\n%s\n%*s\n",
+					"%s:%s: %s\n%.*s\n%*s\n",
 					filename,
 					error.locus.describe().c_str(),
 					error.message.c_str(),
-					error.locus.sourceLine.c_str(),
+					int(error.locus.lineEndOffset - error.locus.lineStartOffset),
+					source + error.locus.lineStartOffset,
 					error.locus.column(8),
 					"^");
 	}

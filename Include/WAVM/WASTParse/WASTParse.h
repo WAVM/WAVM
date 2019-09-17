@@ -12,7 +12,9 @@ namespace WAVM { namespace WAST {
 	// A location in a text file.
 	struct TextFileLocus
 	{
-		std::string sourceLine;
+		Uptr lineStartOffset;
+		Uptr lineEndOffset;
+
 		U32 newlines;
 		U32 tabs;
 		U32 characters;
@@ -29,8 +31,8 @@ namespace WAVM { namespace WAST {
 
 		friend bool operator==(const TextFileLocus& a, const TextFileLocus& b)
 		{
-			return a.sourceLine == b.sourceLine && a.newlines == b.newlines && a.tabs == b.tabs
-				   && a.characters == b.characters;
+			return a.lineStartOffset == b.lineStartOffset && a.lineEndOffset == b.lineEndOffset
+				   && a.newlines == b.newlines && a.tabs == b.tabs && a.characters == b.characters;
 		}
 
 		friend bool operator!=(const TextFileLocus& a, const TextFileLocus& b) { return !(a == b); }
@@ -52,11 +54,12 @@ namespace WAVM { namespace WAST {
 
 	// Parse a module from a string. Returns true if it succeeds, and writes the module to
 	// outModule. If it fails, returns false and appends a list of errors to outErrors.
-	WASTPARSE_API bool parseModule(const char* string,
-								   Uptr stringLength,
-								   IR::Module& outModule,
-								   std::vector<Error>& outErrors);
+	WAVM_API bool parseModule(const char* string,
+							  Uptr stringLength,
+							  IR::Module& outModule,
+							  std::vector<Error>& outErrors);
 
-	WASTPARSE_API void reportParseErrors(const char* filename,
-										 const std::vector<Error>& parseErrors);
+	WAVM_API void reportParseErrors(const char* filename,
+									const char* source,
+									const std::vector<Error>& parseErrors);
 }}

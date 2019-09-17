@@ -19,8 +19,8 @@ namespace WAVM { namespace ObjectCache {
 		tooManyReaders,
 	};
 
-	OBJECTCACHE_API OpenResult open(const char* path,
-									Uptr maxBytes,
-									U64 codeKey,
-									std::shared_ptr<Runtime::ObjectCacheInterface>& outObjectCache);
+	WAVM_API OpenResult open(const char* path,
+							 Uptr maxBytes,
+							 U64 codeKey,
+							 std::shared_ptr<Runtime::ObjectCacheInterface>& outObjectCache);
 }}

@@ -37,7 +37,9 @@ Context* Runtime::createContext(Compartment* compartment)
 		// Initialize the context's global data.
 		memcpy(context->runtimeData->mutableGlobals,
 			   compartment->initialContextMutableGlobals,
-			   maxGlobalBytes);
+			   maxMutableGlobals * sizeof(IR::UntaggedValue));
+
+		context->runtimeData->context = context;
 	}
 
 	return context;
@@ -57,6 +59,6 @@ Context* Runtime::cloneContext(const Context* context, Compartment* newCompartme
 	Context* clonedContext = createContext(newCompartment);
 	memcpy(clonedContext->runtimeData->mutableGlobals,
 		   context->runtimeData->mutableGlobals,
-		   maxGlobalBytes);
+		   maxMutableGlobals * sizeof(IR::UntaggedValue));
 	return clonedContext;
 }

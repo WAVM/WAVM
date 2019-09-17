@@ -112,6 +112,8 @@ namespace WAVM {
 			operator bool() const { return bool(mapIt); }
 			void operator++() { ++mapIt; }
 
+			Index getIndex() const { return mapIt->key; }
+
 			const Element& operator*() const { return mapIt->value; }
 			const Element* operator->() const { return &mapIt->value; }
 

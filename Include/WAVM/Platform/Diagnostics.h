@@ -27,13 +27,13 @@ namespace WAVM { namespace Platform {
 	};
 
 	// Captures the execution context of the caller.
-	PLATFORM_API CallStack captureCallStack(Uptr numOmittedFramesFromTop = 0);
+	WAVM_API CallStack captureCallStack(Uptr numOmittedFramesFromTop = 0);
 
 	// Describes an instruction pointer.
-	PLATFORM_API bool describeInstructionPointer(Uptr ip, std::string& outDescription);
+	WAVM_API bool describeInstructionPointer(Uptr ip, std::string& outDescription);
 
 #if WAVM_ENABLE_ASAN
-	PLATFORM_API void expectLeakedObject(void* object);
+	WAVM_API void expectLeakedObject(void* object);
 #else
 	inline void expectLeakedObject(void*) {}
 #endif

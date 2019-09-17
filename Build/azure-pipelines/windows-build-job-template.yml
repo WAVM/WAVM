@@ -1,0 +1,114 @@
+parameters:
+  vsVersion: ''
+  platform: ''
+  llvmBuildBaseName: ''
+  llvmVersion: ''
+
+jobs:
+  - job: ${{parameters.name}}
+
+    variables:
+      vs2017Generator: 'Visual Studio 15 2017'
+      vs2017Image: 'vs2017-win2016'
+      vs2019Generator: 'Visual Studio 16 2019'
+      vs2019Image: 'windows-2019'
+      x64Arch: 'x64'
+      x86Arch: 'Win32'
+
+    pool:
+      vmImage:
+        $(vs${{parameters.vsVersion}}Image)
+
+    strategy:
+      matrix:
+        NoRuntime:
+          configName: NoRuntime
+          buildConfig: Release
+          llvmConfig: Release
+          cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
+        # Disable all the configs but NoRuntimeRelease on non-x64 platforms (i.e. Win32).
+        ${{if eq(parameters.platform, 'x64')}}:
+          LTO:
+            configName: LTO
+            buildConfig: Release
+            llvmConfig: Release
+            cmakeArgs: -DWAVM_ENABLE_LTO=ON
+          Release:
+            configName: Release
+            buildConfig: Release
+            llvmConfig: Release
+            cmakeArgs: ''
+          Debug:
+            configName: Debug
+            buildConfig: Debug
+            llvmConfig: Debug
+            cmakeArgs: ''
+          Checked:
+            configName: Checked
+            buildConfig: RelWithDebInfo
+            llvmConfig: Release
+            cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
+          Static:
+            configName: Static
+            buildConfig: Release
+            llvmConfig: Release
+            cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
+
+    steps:
+    - checkout: self
+      submodules: recursive
+
+    # Patch NSIS to support >1024 character strings. Without this, the installer will be unable to
+    # add WAVM to the PATH environment variable on many systems.
+    - task: ExtractFiles@1
+      displayName: Extract NSIS patch
+      inputs:
+          archiveFilePatterns: $(Build.SourcesDirectory)/Build/nsis-3.04-strlen_8192.zip
+          destinationFolder: "C:\\Program Files (x86)\\NSIS-patch"
+    - task: CopyFiles@2
+      displayName: Apply NSIS patch
+      inputs:
+        sourceFolder: "C:\\Program Files (x86)\\NSIS-patch"
+        targetFolder: "C:\\Program Files (x86)\\NSIS"
+        overWrite: true
+
+
+    # Download and extract the LLVM build from the pipeline for https://github.com/WAVM/WAVM-LLVM/
+    - template: download-llvm-step-template.yml
+      parameters:
+        llvmBuildAssetName: ${{parameters.llvmBuildBaseName}}_$(llvmConfig)
+        llvmVersion: ${{parameters.llvmVersion}}
+
+    # Configure WAVM
+    - template: cmake-configure-step-template.yml
+      parameters:
+        cmakeArgs:
+          -G "$(vs${{parameters.vsVersion}}Generator)"
+          -A $(${{parameters.platform}}Arch)
+          -DCPACK_GENERATOR="ZIP;NSIS"
+          -DCPACK_PACKAGE_FILE_NAME=wavm-package
+          $(cmakeArgs)
+
+    # Build WAVM
+    - task: MSBuild@1
+      displayName: Build WAVM
+      inputs:
+        solution: $(Build.ArtifactStagingDirectory)/WAVM.sln
+        configuration: $(buildConfig)
+
+    # Run the WAVM test suite
+    - template: test-step-template.yml
+      parameters:
+        ctestArgs: '-C $(buildConfig)'
+
+    # Create the WAVM packages.
+    - task: MSBuild@1
+      displayName: Package WAVM
+      inputs:
+        solution: $(Build.ArtifactStagingDirectory)/PACKAGE.vcxproj
+        configuration: $(buildConfig)
+
+    # Publish the packages.
+    - template: publish-step-template.yml
+      parameters:
+        artifactName: ${{parameters.name}}_$(configName)

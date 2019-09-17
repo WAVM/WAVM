@@ -24,22 +24,22 @@ namespace WAVM { namespace NFA {
 
 	// Creates an abstract object that holds the state of an under-construction BFA.
 	struct Builder;
-	NFA_API Builder* createBuilder();
+	WAVM_API Builder* createBuilder();
 
 	// Functions to add states and edges to the under-construction DFA.
-	NFA_API StateIndex addState(Builder* builder);
-	NFA_API void addEdge(Builder* builder,
-						 StateIndex initialState,
-						 const CharSet& predicate,
-						 StateIndex nextState);
-	NFA_API void addEpsilonEdge(Builder* builder, StateIndex initialState, StateIndex nextState);
-	NFA_API StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c);
+	WAVM_API StateIndex addState(Builder* builder);
+	WAVM_API void addEdge(Builder* builder,
+						  StateIndex initialState,
+						  const CharSet& predicate,
+						  StateIndex nextState);
+	WAVM_API void addEpsilonEdge(Builder* builder, StateIndex initialState, StateIndex nextState);
+	WAVM_API StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c);
 
 	// Dumps the NFA's states and edges to the GraphViz .dot format.
-	NFA_API std::string dumpNFAGraphViz(const Builder* builder);
+	WAVM_API std::string dumpNFAGraphViz(const Builder* builder);
 
 	// Encapsulates a NFA that has been translated into a DFA that can be efficiently executed.
-	struct NFA_API Machine
+	struct WAVM_API Machine
 	{
 		Machine() : stateAndOffsetToNextStateMap(nullptr), numClasses(0), numStates(0) {}
 		~Machine();

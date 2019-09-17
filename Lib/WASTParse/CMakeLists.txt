@@ -14,4 +14,4 @@ set(PublicHeaders
 WAVM_ADD_LIB_COMPONENT(WASTParse
 	SOURCES ${Sources} ${PublicHeaders}
 	PRIVATE_LIB_COMPONENTS IR NFA Platform RegExp WASM Logging
-	PRIVATE_LIBS gdtoa)
+	PRIVATE_LIBS WAVMgdtoa)

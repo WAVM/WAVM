@@ -259,5 +259,5 @@ namespace WAVM { namespace VFS {
 		virtual Result createDir(const std::string& path) = 0;
 	};
 
-	VFS_API const char* describeResult(Result result);
+	WAVM_API const char* describeResult(Result result);
 }}

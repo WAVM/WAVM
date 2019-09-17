@@ -1,8 +1,7 @@
-#include "WAVM/Inline/Config.h"
-#if WAVM_ENABLE_RUNTIME
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,6 +14,7 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
@@ -37,41 +37,6 @@
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
-
-struct RootResolver : Resolver
-{
-	StubResolver stubResolver;
-	HashMap<std::string, ModuleInstance*> moduleNameToInstanceMap;
-
-	RootResolver(Compartment* compartment) : stubResolver(compartment) {}
-
-	bool resolve(const std::string& moduleName,
-				 const std::string& exportName,
-				 ExternType type,
-				 Object*& outObject) override
-	{
-		auto namedInstance = moduleNameToInstanceMap.get(moduleName);
-		if(namedInstance)
-		{
-			outObject = getInstanceExport(*namedInstance, exportName);
-			if(outObject)
-			{
-				if(isA(outObject, type)) { return true; }
-				else
-				{
-					Log::printf(Log::error,
-								"Resolved import %s.%s to a %s, but was expecting %s\n",
-								moduleName.c_str(),
-								exportName.c_str(),
-								asString(getExternType(outObject)).c_str(),
-								asString(type).c_str());
-				}
-			}
-		}
-
-		return stubResolver.resolve(moduleName, exportName, type, outObject);
-	}
-};
 
 static bool loadTextOrBinaryModule(const char* filename,
 								   std::vector<U8>&& fileBytes,
@@ -105,7 +70,7 @@ static bool loadTextOrBinaryModule(const char* filename,
 			   (const char*)fileBytes.data(), fileBytes.size(), irModule, parseErrors))
 		{
 			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
-			WAST::reportParseErrors(filename, parseErrors);
+			WAST::reportParseErrors(filename, (const char*)fileBytes.data(), parseErrors);
 			return false;
 		}
 
@@ -192,11 +157,11 @@ static bool isEmscriptenModule(const IR::Module& irModule)
 	return false;
 }
 
-static const char* getSystemListHelpText()
+static const char* getABIListHelpText()
 {
-	return "  bare        A minimal runtime system.\n"
-		   "  emscripten  A system that emulates the Emscripten runtime.\n"
-		   "  wasi        A system that implements the WASI ABI.\n";
+	return "  none        No ABI: bare virtual metal.\n"
+		   "  emscripten  Emscripten ABI, such as it is.\n"
+		   "  wasi        WebAssembly System Interface ABI.\n";
 }
 
 void showRunHelp(Log::Category outputCategory)
@@ -211,21 +176,21 @@ void showRunHelp(Log::Category outputCategory)
 				"  --precompiled         Use precompiled object code in program file\n"
 				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
 				"                        features below.\n"
-				"  --sys=<system>        Specifies the system to host the module. See the list\n"
-				"                        of supported sytems below. The default is to detect\n"
-				"                        the system based on the module imports/exports.\n"
-				"  --mount-root=<dir>    Mounts <dir> as the WASI root directory\n"
+				"  --abi=<abi>           Specifies the ABI used by the WASM module. See the list\n"
+				"                        of supported ABIs below. The default is to detect the\n"
+				"                        ABI based on the module imports/exports.\n"
+				"  --mount-root <dir>    Mounts <dir> as the WASI root directory\n"
 				"  --wasi-trace=<level>  Sets the level of WASI tracing:\n"
 				"                        - syscalls\n"
 				"                        - syscalls-with-callstacks\n"
 				"\n"
-				"Systems:\n"
+				"ABIs:\n"
 				"%s"
 				"\n"
 				"Features:\n"
 				"%s"
 				"\n",
-				getSystemListHelpText(),
+				getABIListHelpText(),
 				getFeatureListHelpText());
 }
 
@@ -235,7 +200,7 @@ static bool stringStartsWith(const char* string, const char (&prefix)[numPrefixC
 	return !strncmp(string, prefix, numPrefixChars - 1);
 }
 
-enum class System
+enum class ABI
 {
 	detect,
 	bare,
@@ -252,19 +217,19 @@ struct State
 	const char* functionName = nullptr;
 	const char* rootMountPath = nullptr;
 	std::vector<std::string> runArgs;
-	System system = System::detect;
+	ABI abi = ABI::detect;
 	bool precompiled = false;
 	WASI::SyscallTraceLevel wasiTraceLavel = WASI::SyscallTraceLevel::none;
 
 	// Objects that need to be cleaned up before exiting.
 	GCPointer<Compartment> compartment = createCompartment();
-	Emscripten::Instance* emscriptenInstance = nullptr;
+	std::shared_ptr<Emscripten::Instance> emscriptenInstance;
 	std::shared_ptr<WASI::Process> wasiProcess;
 	std::shared_ptr<VFS::FileSystem> sandboxFS;
 
 	~State()
 	{
-		if(emscriptenInstance) { delete emscriptenInstance; }
+		emscriptenInstance.reset();
 		wasiProcess.reset();
 
 		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
@@ -284,32 +249,32 @@ struct State
 				}
 				functionName = *nextArg;
 			}
-			else if(stringStartsWith(*nextArg, "--sys="))
+			else if(stringStartsWith(*nextArg, "--abi="))
 			{
-				if(system != System::detect)
+				if(abi != ABI::detect)
 				{
 					Log::printf(Log::error, "'--sys=' may only occur once on the command line.\n");
 					return false;
 				}
 
-				const char* systemString = *nextArg + strlen("--sys=");
-				if(!strcmp(systemString, "bare")) { system = System::bare; }
-				else if(!strcmp(systemString, "emscripten"))
+				const char* abiString = *nextArg + strlen("--abi=");
+				if(!strcmp(abiString, "bare")) { abi = ABI::bare; }
+				else if(!strcmp(abiString, "emscripten"))
 				{
-					system = System::emscripten;
+					abi = ABI::emscripten;
 				}
-				else if(!strcmp(systemString, "wasi"))
+				else if(!strcmp(abiString, "wasi"))
 				{
-					system = System::wasi;
+					abi = ABI::wasi;
 				}
 				else
 				{
 					Log::printf(Log::error,
-								"Unknown system '%s'. Supported systems:\n"
+								"Unknown ABI '%s'. Supported ABIs:\n"
 								"%s"
 								"\n",
-								systemString,
-								getSystemListHelpText());
+								abiString,
+								getABIListHelpText());
 					return false;
 				}
 			}
@@ -337,15 +302,23 @@ struct State
 			{
 				precompiled = true;
 			}
-			else if(stringStartsWith(*nextArg, "--mount-root="))
+			else if(!strcmp(*nextArg, "--mount-root"))
 			{
 				if(rootMountPath)
 				{
 					Log::printf(Log::error,
-								"--mount-root=' may only occur once on the command line.\n");
+								"'--mount-root' may only occur once on the command line.\n");
 					return false;
 				}
-				rootMountPath = *nextArg + strlen("--mount-root=");
+
+				++nextArg;
+				if(!*nextArg)
+				{
+					Log::printf(Log::error, "Expected path following '--mount-root'.\n");
+					return false;
+				}
+
+				rootMountPath = *nextArg;
 			}
 			else if(stringStartsWith(*nextArg, "--wasi-trace="))
 			{
@@ -370,11 +343,16 @@ struct State
 					return false;
 				}
 			}
-			else
+			else if((*nextArg)[0] != '-')
 			{
 				filename = *nextArg;
 				++nextArg;
 				break;
+			}
+			else
+			{
+				Log::printf(Log::error, "Unknown command-line argument: '%s'\n", *nextArg);
+				return false;
 			}
 
 			++nextArg;
@@ -483,25 +461,25 @@ struct State
 		return true;
 	}
 
-	bool initSystem(const IR::Module& irModule)
+	bool initABIEnvironment(const IR::Module& irModule)
 	{
-		// If the user didn't specify a system on the command-line, try to figure it out from the
+		// If the user didn't specify an ABI on the command-line, try to figure it out from the
 		// module's imports.
-		if(system == System::detect)
+		if(abi == ABI::detect)
 		{
 			if(isWASIModule(irModule))
 			{
 				Log::printf(Log::debug, "Module appears to be a WASI module.\n");
-				system = System::wasi;
+				abi = ABI::wasi;
 			}
 			else if(isEmscriptenModule(irModule))
 			{
 				Log::printf(Log::debug, "Module appears to be an Emscripten module.\n");
-				system = System::emscripten;
+				abi = ABI::emscripten;
 			}
 			else
 			{
-				system = System::bare;
+				abi = ABI::bare;
 			}
 		}
 
@@ -509,9 +487,9 @@ struct State
 		// SandboxFS for it.
 		if(rootMountPath)
 		{
-			if(system != System::wasi)
+			if(abi != ABI::wasi)
 			{
-				Log::printf(Log::error, "--mount-root may only be used with the WASI system.\n");
+				Log::printf(Log::error, "--mount-root may only be used with the WASI ABI.\n");
 				return false;
 			}
 
@@ -527,18 +505,17 @@ struct State
 			sandboxFS = VFS::makeSandboxFS(&Platform::getHostFS(), absoluteRootMountPath);
 		}
 
-		if(system == System::emscripten)
+		if(abi == ABI::emscripten)
 		{
 			// Instantiate the Emscripten environment.
-			emscriptenInstance = Emscripten::instantiate(compartment, irModule);
-			if(emscriptenInstance)
-			{
-				emscriptenInstance->stdIn = Platform::getStdFD(Platform::StdDevice::in);
-				emscriptenInstance->stdOut = Platform::getStdFD(Platform::StdDevice::out);
-				emscriptenInstance->stdErr = Platform::getStdFD(Platform::StdDevice::err);
-			}
+			emscriptenInstance
+				= Emscripten::instantiate(compartment,
+										  irModule,
+										  Platform::getStdFD(Platform::StdDevice::in),
+										  Platform::getStdFD(Platform::StdDevice::out),
+										  Platform::getStdFD(Platform::StdDevice::err));
 		}
-		else if(system == System::wasi)
+		else if(abi == ABI::wasi)
 		{
 			std::vector<std::string> args = runArgs;
 			args.insert(args.begin(), "/proc/1/exe");
@@ -555,9 +532,9 @@ struct State
 
 		if(wasiTraceLavel != WASI::SyscallTraceLevel::none)
 		{
-			if(system != System::wasi)
+			if(abi != ABI::wasi)
 			{
-				Log::printf(Log::error, "--wasi-trace may only be used with the WASI system.\n");
+				Log::printf(Log::error, "--wasi-trace may only be used with the WASI ABI.\n");
 				return false;
 			}
 
@@ -567,6 +544,69 @@ struct State
 		return true;
 	}
 
+	I32 execute(const IR::Module& irModule,
+				ModuleInstance* moduleInstance,
+				Function* function,
+				std::vector<IR::Value>&& invokeArgs)
+	{
+		// Create a WASM execution context.
+		Context* context = Runtime::createContext(compartment);
+
+		// Call the module start function, if it has one.
+		Function* startFunction = getStartFunction(moduleInstance);
+		if(startFunction) { invokeFunction(context, startFunction); }
+
+		if(emscriptenInstance)
+		{
+			// Call the Emscripten global initalizers.
+			Emscripten::initializeGlobals(emscriptenInstance, context, irModule, moduleInstance);
+		}
+
+		// Split the tagged argument values into their types and untagged values.
+		std::vector<ValueType> invokeArgTypes;
+		std::vector<UntaggedValue> untaggedInvokeArgs;
+		for(const Value& arg : invokeArgs)
+		{
+			invokeArgTypes.push_back(arg.type);
+			untaggedInvokeArgs.push_back(arg);
+		}
+
+		// Infer the expected type of the function from the number and type of the invoke's
+		// arguments and the function's actual result types.
+		const FunctionType invokeSig(getFunctionType(function).results(),
+									 TypeTuple(invokeArgTypes));
+
+		// Allocate an array to receive the invoke results.
+		std::vector<UntaggedValue> untaggedInvokeResults;
+		untaggedInvokeResults.resize(invokeSig.results().size());
+
+		// Invoke the function.
+		Timing::Timer executionTimer;
+		invokeFunction(
+			context, function, invokeSig, untaggedInvokeArgs.data(), untaggedInvokeResults.data());
+		Timing::logTimer("Invoked function", executionTimer);
+
+		if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
+		{ return untaggedInvokeResults[0].i32; }
+		else
+		{
+			// Convert the untagged result values to tagged values.
+			std::vector<Value> invokeResults;
+			invokeResults.resize(invokeSig.results().size());
+			for(Uptr resultIndex = 0; resultIndex < untaggedInvokeResults.size(); ++resultIndex)
+			{
+				const ValueType resultType = invokeSig.results()[resultIndex];
+				const UntaggedValue& untaggedResult = untaggedInvokeResults[resultIndex];
+				invokeResults[resultIndex] = Value(resultType, untaggedResult);
+			}
+
+			Log::printf(
+				Log::debug, "%s returned: %s\n", functionName, asString(invokeResults).c_str());
+
+			return EXIT_SUCCESS;
+		}
+	}
+
 	int run(char** argv)
 	{
 		// Parse the command line.
@@ -574,7 +614,7 @@ struct State
 
 		// Read the specified file into a byte array.
 		std::vector<U8> fileBytes;
-		if(!loadFile(filename, fileBytes)) { return false; }
+		if(!loadFile(filename, fileBytes)) { return EXIT_FAILURE; }
 
 		// Load the module from the byte array
 		Runtime::ModuleRef module = nullptr;
@@ -589,28 +629,23 @@ struct State
 		}
 		const IR::Module& irModule = Runtime::getModuleIR(module);
 
-		// Initialize the system environment.
-		if(!initSystem(irModule)) { return EXIT_FAILURE; }
+		// Initialize the ABI-specific environment.
+		if(!initABIEnvironment(irModule)) { return EXIT_FAILURE; }
 
 		// Link the module with the intrinsic modules.
 		LinkResult linkResult;
-		if(system == System::emscripten || system == System::bare)
+		if(abi == ABI::emscripten)
 		{
-			RootResolver rootResolver(compartment);
-
-			if(emscriptenInstance)
-			{
-				rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
-				rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
-				rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
-			}
-
-			linkResult = linkModule(irModule, rootResolver);
+			linkResult = linkModule(irModule, Emscripten::getInstanceResolver(emscriptenInstance));
 		}
-		else if(system == System::wasi)
+		else if(abi == ABI::wasi)
 		{
-			Resolver* resolver = WASI::getProcessResolver(wasiProcess);
-			linkResult = linkModule(irModule, *resolver);
+			linkResult = linkModule(irModule, WASI::getProcessResolver(wasiProcess));
+		}
+		else if(abi == ABI::bare)
+		{
+			NullResolver nullResolver;
+			linkResult = linkModule(irModule, nullResolver);
 		}
 		else
 		{
@@ -629,7 +664,7 @@ struct State
 		if(!moduleInstance) { return EXIT_FAILURE; }
 
 		// Take the module's memory as the WASI process memory.
-		if(system == System::wasi)
+		if(abi == ABI::wasi)
 		{
 			Memory* memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
 			if(!memory)
@@ -639,9 +674,6 @@ struct State
 			}
 			WASI::setProcessMemory(wasiProcess, memory);
 		}
-
-		// Create a WASM execution context.
-		Context* context = Runtime::createContext(compartment);
 
 		// Look up the function export to call, validate its type, and set up the invoke arguments.
 		Function* function = nullptr;
@@ -692,7 +724,7 @@ struct State
 				invokeArgs.push_back(value);
 			}
 		}
-		else if(system == System::wasi)
+		else if(abi == ABI::wasi)
 		{
 			// WASI just calls a _start function with the signature ()->().
 			function = asFunctionNullable(getInstanceExport(moduleInstance, "_start"));
@@ -738,7 +770,7 @@ struct State
 					args.insert(args.begin(), filename);
 
 					WAVM_ASSERT(emscriptenInstance);
-					Emscripten::injectCommandArgs(emscriptenInstance, args, invokeArgs);
+					invokeArgs = Emscripten::injectCommandArgs(emscriptenInstance, args);
 				}
 			}
 			else if(functionType.params().size() > 0)
@@ -751,78 +783,18 @@ struct State
 			}
 		}
 
-		int result = EXIT_SUCCESS;
-		try
+		// Execute the program.
+		auto executeThunk
+			= [&] { return execute(irModule, moduleInstance, function, std::move(invokeArgs)); };
+		int result;
+		if(emscriptenInstance) { result = Emscripten::catchExit(std::move(executeThunk)); }
+		else if(wasiProcess)
 		{
-			// Call the module start function, if it has one.
-			Function* startFunction = getStartFunction(moduleInstance);
-			if(startFunction) { invokeFunction(context, startFunction); }
-
-			if(emscriptenInstance)
-			{
-				// Call the Emscripten global initalizers.
-				Emscripten::initializeGlobals(
-					emscriptenInstance, context, irModule, moduleInstance);
-			}
-
-			// Split the tagged argument values into their types and untagged values.
-			std::vector<ValueType> invokeArgTypes;
-			std::vector<UntaggedValue> untaggedInvokeArgs;
-			for(const Value& arg : invokeArgs)
-			{
-				invokeArgTypes.push_back(arg.type);
-				untaggedInvokeArgs.push_back(arg);
-			}
-
-			// Infer the expected type of the function from the number and type of the invoke's
-			// arguments and the function's actual result types.
-			const FunctionType invokeSig(getFunctionType(function).results(),
-										 TypeTuple(invokeArgTypes));
-
-			// Allocate an array to receive the invoke results.
-			std::vector<UntaggedValue> untaggedInvokeResults;
-			untaggedInvokeResults.resize(invokeSig.results().size());
-
-			// Invoke the function.
-			Timing::Timer executionTimer;
-			invokeFunction(context,
-						   function,
-						   invokeSig,
-						   untaggedInvokeArgs.data(),
-						   untaggedInvokeResults.data());
-			Timing::logTimer("Invoked function", executionTimer);
-
-			if(functionName)
-			{
-				// Convert the untagged result values to tagged values.
-				std::vector<Value> invokeResults;
-				invokeResults.resize(invokeSig.results().size());
-				for(Uptr resultIndex = 0; resultIndex < untaggedInvokeResults.size(); ++resultIndex)
-				{
-					const ValueType resultType = invokeSig.results()[resultIndex];
-					const UntaggedValue& untaggedResult = untaggedInvokeResults[resultIndex];
-					invokeResults[resultIndex] = Value(resultType, untaggedResult);
-				}
-
-				Log::printf(
-					Log::debug, "%s returned: %s\n", functionName, asString(invokeResults).c_str());
-			}
-			else if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
-			{
-				result = untaggedInvokeResults[0].i32;
-			}
+			result = WASI::catchExit(std::move(executeThunk));
 		}
-		catch(const WASI::ExitException& exitException)
+		else
 		{
-			// If either the WASM or WASI start functions call the WASI exit API, they will throw a
-			// WASI::ExitException. Catch it here, and return the exit code.
-			result = int(exitException.exitCode);
-		}
-		catch(const Emscripten::ExitException& exitException)
-		{
-			// If either the WASM or WASI start functions call the Emscripten exit API, they will
-			// throw an Emscripten::ExitException. Catch it here, and return the exit code.
-			result = int(exitException.exitCode);
+			result = executeThunk();
 		}
 
 		// Log the peak memory usage.
@@ -851,4 +823,3 @@ int execRunCommand(int argc, char** argv)
 	State state;
 	return state.runAndCatchRuntimeExceptions(argv);
 }
-#endif

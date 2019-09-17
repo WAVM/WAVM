@@ -14,8 +14,8 @@ namespace WAVM { namespace Platform {
 		err,
 	};
 
-	PLATFORM_API VFS::VFD* getStdFD(StdDevice device);
-	PLATFORM_API std::string getCurrentWorkingDirectory();
+	WAVM_API VFS::VFD* getStdFD(StdDevice device);
+	WAVM_API std::string getCurrentWorkingDirectory();
 
 	struct HostFS : VFS::FileSystem
 	{
@@ -23,5 +23,5 @@ namespace WAVM { namespace Platform {
 	protected:
 		virtual ~HostFS() override {}
 	};
-	PLATFORM_API HostFS& getHostFS();
+	WAVM_API HostFS& getHostFS();
 }}

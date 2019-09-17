@@ -27,6 +27,10 @@
 	VISIT_LITERAL_TOKEN(assert_return)                                                             \
 	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan)                                              \
 	VISIT_LITERAL_TOKEN(assert_return_canonical_nan)                                               \
+	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan_f32x4)                                        \
+	VISIT_LITERAL_TOKEN(assert_return_canonical_nan_f32x4)                                         \
+	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan_f64x2)                                        \
+	VISIT_LITERAL_TOKEN(assert_return_canonical_nan_f64x2)                                         \
 	VISIT_LITERAL_TOKEN(assert_return_func)                                                        \
 	VISIT_LITERAL_TOKEN(assert_trap)                                                               \
 	VISIT_LITERAL_TOKEN(assert_throws)                                                             \
@@ -66,6 +70,7 @@
                                                                                                    \
 	VISIT_TOKEN(unterminatedComment, "unterminated comment", _)                                    \
 	VISIT_TOKEN(unrecognized, "unrecognized token", _)                                             \
+	VISIT_TOKEN(legacyInstructionName, "legacy operator name", _)                                  \
                                                                                                    \
 	VISIT_TOKEN(decimalFloat, "decimal float literal", _)                                          \
 	VISIT_TOKEN(decimalInt, "decimal int literal", _)                                              \
@@ -108,7 +113,7 @@ namespace WAVM { namespace WAST {
 	Token* lex(const char* string,
 			   Uptr stringLength,
 			   LineInfo*& outLineInfo,
-			   bool allowLegacyOperatorNames);
+			   bool allowLegacyInstructionNames);
 
 	void freeTokens(Token* tokens);
 	void freeLineInfo(LineInfo* lineInfo);

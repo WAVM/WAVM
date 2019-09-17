@@ -1,0 +1,102 @@
+jobs:
+  - job: UploadGitHubRelease
+    pool:
+      vmImage: ubuntu-16.04
+
+    # Only upload a "nightly" build if this is the scheduled build of the master branch.
+    # Even if not uploading a release, do the rest of the release job to ensure that breakage will
+    # be noticed faster.
+    variables:
+      uploadRelease: $[or(
+          and(
+            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            eq(variables['Build.Reason'], 'Schedule')
+          ),
+          eq(variables['WAVM.ForceNightlyRelease'], 'true')
+        )]
+
+    steps:
+    - checkout: self
+      persistCredentials: true
+
+    # Download all the artifacts uploaded by the jobs in the Build stage.
+    - task: DownloadPipelineArtifact@2
+      displayName: Download artifacts
+      inputs:
+        buildType: current
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+    # Get the today's date for CI builds, or yesterday's date for the 1AM scheduled nightly build.
+    # All dates are New York time (the scheduled build is also at 1AM New York time)
+    - ${{if not(eq(variables['Build.Reason'], 'Schedule'))}}:
+        - bash: echo "##vso[task.setvariable variable=buildDate]$(TZ=America/New_York date +%Y-%m-%d)"
+          displayName: Read today's date
+    - ${{if eq(variables['Build.Reason'], 'Schedule')}}:
+        - bash: echo "##vso[task.setvariable variable=buildDate]$(TZ=America/New_York date --date=yesterday +%Y-%m-%d)"
+          displayName: Read yesterday's date
+
+    # Read the version into an job variable.
+    - bash: echo "##vso[task.setvariable variable=VERSION]`cat VERSION`"
+      displayName: Read WAVM version
+      workingDirectory: $(Build.SourcesDirectory)
+
+    # Rename and move the packages we want to add to the release into a separate folder.
+    - bash: |
+        mkdir -p release
+        mv Win64_VS2019_LTO/wavm-package.exe            release/wavm-$(VERSION)-windows.exe
+        mv Win64_VS2019_LTO/wavm-package.zip            release/wavm-$(VERSION)-windows.zip
+        mv MacOS_StaticLTO/wavm-package.tar.gz          release/wavm-$(VERSION)-macos.tar.gz
+        mv Ubuntu1604_Clang_LTO/wavm-package.deb        release/wavm-$(VERSION)-linux.deb
+        mv CentOS70_Clang_LTO/wavm-package.rpm          release/wavm-$(VERSION)-linux.rpm
+        mv CentOS70_Clang_StaticLTO/wavm-package.tar.gz release/wavm-$(VERSION)-linux.tar.gz
+      displayName: Stage release artifacts
+      workingDirectory: $(Build.ArtifactStagingDirectory)
+
+    # Check whether this nightly release already exists.
+    - bash: |
+        # Just fetch the release URL instead of querying the API, since API requests from the
+        # Azure Pipelines agents are often rate limited by GitHub.
+        #if [[ $(curl --write-out %{http_code} --silent --output /dev/null https://api.github.com/repos/WAVM/WAVM/releases/tags/nightly/$(buildDate)) = 200 ]]
+        if [[ $(curl --write-out %{http_code} --silent --output /dev/null https://github.com/WAVM/WAVM/releases/tag/nightly%2F$(buildDate)) = 200 ]]
+        then
+          echo "##vso[task.setvariable variable=oldReleaseExists]true"
+          echo "Found old release with the build's date"
+        else
+          echo "##vso[task.setvariable variable=oldReleaseExists]false"
+          echo "Did not find old release with the build's date"
+        fi
+      displayName: Check for existing release
+
+    # If there's an old version of this release, delete the old GitHub release.
+    - task: GitHubRelease@0
+      condition: and(succeeded(), eq(variables.uploadRelease, 'true'), eq(variables.oldReleaseExists, 'true'))
+      displayName: Delete old GitHub release
+      inputs:
+        gitHubConnection: GitHub-WAVM-AzurePipelines
+        action: 'delete'
+        tag: nightly/$(buildDate)
+
+    # Delete the old tag on GitHub.
+    - script: |
+        git -c http.extraheader="AUTHORIZATION: basic ***" push origin :nightly/$(buildDate)
+      displayName: Delete old GitHub release tag
+      condition: and(succeeded(), eq(variables.uploadRelease, 'true'), eq(variables.oldReleaseExists, 'true'))
+
+    # Create a GitHub release containing the artifacts.
+    - task: GitHubRelease@0
+      displayName: Create GitHub release
+      condition: and(succeeded(), eq(variables.uploadRelease, 'true'))
+      inputs:
+        gitHubConnection: GitHub-WAVM-AzurePipelines
+        action: create
+        target: $(Build.SourceVersion)
+        tagSource: manual
+        tag: nightly/$(buildDate)
+        title: nightly/$(buildDate)
+        assets: $(Build.ArtifactStagingDirectory)/release/*
+        releaseNotesSource: input
+        releaseNotes: 
+        addChangeLog: true
+        changeLogCompareToRelease: lastNonDraftReleaseByTag
+        changeLogCompareToReleaseTag: nightly[\-/][\d\-]+
+        isPreRelease: true

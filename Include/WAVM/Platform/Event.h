@@ -8,8 +8,8 @@ namespace WAVM { namespace Platform {
 	// Platform-independent events.
 	struct Event
 	{
-		PLATFORM_API Event();
-		PLATFORM_API ~Event();
+		WAVM_API Event();
+		WAVM_API ~Event();
 
 		// Don't allow copying or moving an Event.
 		Event(const Event&) = delete;
@@ -19,8 +19,8 @@ namespace WAVM { namespace Platform {
 
 		// Wait for the event to be signaled. Cancels the wait after waitDuration has elapsed.
 		// Returns true if the event was signaled, false if the wait was cancelled.
-		PLATFORM_API bool wait(Time waitDuration);
-		PLATFORM_API void signal();
+		WAVM_API bool wait(Time waitDuration);
+		WAVM_API void signal();
 
 	private:
 #ifdef WIN32

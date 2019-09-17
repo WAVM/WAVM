@@ -18,6 +18,10 @@ namespace WAVM { namespace WAST {
 			assert_return,
 			assert_return_arithmetic_nan,
 			assert_return_canonical_nan,
+			assert_return_arithmetic_nan_f32x4,
+			assert_return_canonical_nan_f32x4,
+			assert_return_arithmetic_nan_f64x2,
+			assert_return_canonical_nan_f64x2,
 			assert_return_func,
 			assert_trap,
 			assert_throws,
@@ -35,11 +39,11 @@ namespace WAVM { namespace WAST {
 
 	// Parse a test script from a string. Returns true if it succeeds, and writes the test commands
 	// to outTestCommands.
-	WASTPARSE_API void parseTestCommands(const char* string,
-										 Uptr stringLength,
-										 const IR::FeatureSpec& featureSpec,
-										 std::vector<std::unique_ptr<Command>>& outTestCommands,
-										 std::vector<Error>& outErrors);
+	WAVM_API void parseTestCommands(const char* string,
+									Uptr stringLength,
+									const IR::FeatureSpec& featureSpec,
+									std::vector<std::unique_ptr<Command>>& outTestCommands,
+									std::vector<Error>& outErrors);
 
 	// Actions
 

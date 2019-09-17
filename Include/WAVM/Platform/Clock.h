@@ -18,6 +18,6 @@ namespace WAVM { namespace Platform {
 		processCPUTime
 	};
 
-	PLATFORM_API Time getClockTime(Clock clock);
-	PLATFORM_API Time getClockResolution(Clock clock);
+	WAVM_API Time getClockTime(Clock clock);
+	WAVM_API Time getClockResolution(Clock clock);
 }}

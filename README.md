@@ -1,4 +1,4 @@
-[![BSD license](https://img.shields.io/badge/license-BSD-green)](LICENSE)
+[![BSD license](https://img.shields.io/badge/license-BSD-green)](LICENSE.txt)
 [![GitHub repo](https://img.shields.io/badge/repo-github-green.svg)](https://github.com/WAVM/WAVM)
 [![Discord](https://img.shields.io/discord/484466837988573194)](https://discordapp.com/invite/fchkxFM)
 [![Travis Build Status](https://travis-ci.com/WAVM/WAVM.svg?branch=master)](https://travis-ci.com/WAVM/WAVM)

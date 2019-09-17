@@ -2,217 +2,234 @@ stages:
   - stage:
     displayName: Build
     jobs:
+      # clang-format checker
+      - job: CheckClangFormat
+        displayName: Check clang-format
+        pool: {vmImage: 'ubuntu-16.04'}
+        container: 'wavm/clang-format-check:latest'
+        steps:
+          - script: |
+              find \
+                . \( -iname "*.h" -o -iname "*.cpp" \) \
+                -not -path "./ThirdParty/*" \
+                -not -path "./Include/WAVM/Inline/xxhash/*" \
+                | xargs clang-format-9 -i \
+
+              git diff --exit-code
+
       # Win64 VS2017
-      - template: Build/azure-build-job-template.yml
+      - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
-          name: Win64_VS2017_RelWithDebInfo
-          vmImage: 'VS2017-Win2016'
-          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
-          cmakeBuildArgs: '--config RelWithDebInfo'
-          ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_Release.zip
-          packageSuffix: '-windows-x64-vs2017'
-          cpackGenerators: 'ZIP;NSIS64'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: Win64_VS2017_RelWithDebInfo_Static
-          vmImage: 'VS2017-Win2016'
-          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64" -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: '--config RelWithDebInfo'
-          ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_Release.zip
-          packageSuffix: '-windows-x64-vs2017-static'
-          cpackGenerators: 'ZIP'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: Win64_VS2017_Debug
-          vmImage: 'VS2017-Win2016'
-          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64"'
-          cmakeBuildArgs: '--config Debug'
-          ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_Debug.zip
-          packageSuffix: '-windows-x64-vs2017-debug'
-          cpackGenerators: 'ZIP'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: Win64_VS2017_Debug_Static
-          vmImage: 'VS2017-Win2016'
-          cmakeConfigArgs: '-G "Visual Studio 15 2017 Win64" -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: '--config Debug'
-          ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_Debug.zip
-          packageSuffix: '-windows-x64-vs2017-debug-static'
-          cpackGenerators: 'ZIP'
+          name: Win64_VS2017
+          vsVersion: '2017'
+          platform: 'x64'
+          llvmBuildBaseName: 'Win64'
+          llvmVersion: '9.x'
 
       # Win64 VS2019
-      - template: Build/azure-build-job-template.yml
+      - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
-          name: Win64_VS2019_RelWithDebInfo
-          buildConfiguration: RelWithDebInfo
-          vmImage: 'windows-2019'
-          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
-          cmakeBuildArgs: '--config RelWithDebInfo'
-          ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_Release.zip
-          packageSuffix: '-windows-x64'
-          cpackGenerators: 'ZIP;NSIS64'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: Win64_VS2019_RelWithDebInfo_Static
-          buildConfiguration: RelWithDebInfo
-          vmImage: 'windows-2019'
-          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64 -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: '--config RelWithDebInfo'
-          ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win64_Release.zip
-          packageSuffix: '-windows-x64-static'
-          cpackGenerators: 'ZIP'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: Win64_VS2019_Debug
-          buildConfiguration: Debug
-          vmImage: 'windows-2019'
-          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64'
-          cmakeBuildArgs: '--config Debug'
-          ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_Debug.zip
-          packageSuffix: '-windows-x64-debug'
-          cpackGenerators: 'ZIP'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: Win64_VS2019_Debug_Static
-          buildConfiguration: Debug
-          vmImage: 'windows-2019'
-          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A x64 -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: '--config Debug'
-          ctestArgs: '-C Debug'
-          llvmBuildAssetName: Win64_Debug.zip
-          packageSuffix: '-windows-x64-debug-static'
-          cpackGenerators: 'ZIP'
+          name: Win64_VS2019
+          vsVersion: '2019'
+          platform: 'x64'
+          llvmBuildBaseName: 'Win64'
+          llvmVersion: '9.x'
 
-      # Ubuntu 16.04
-      - template: Build/azure-build-job-template.yml
+      # Win32 VS2019
+      - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
-          name: Ubuntu1604_RelWithDebInfo
-          vmImage: 'ubuntu-16.04'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: Ubuntu1604_Release.zip
-          packageSuffix: '-linux-x64'
-          cpackGenerators: 'DEB;TGZ'
-      - template: Build/azure-build-job-template.yml
+          name: Win32_VS2019
+          vsVersion: '2019'
+          platform: 'x86'
+          llvmBuildBaseName: 'Win32'
+          llvmVersion: '9.x'
+
+      # Ubuntu 16.04 GCC
+      - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
-          name: Ubuntu1604_RelWithDebInfo_Static
+          name: Ubuntu1604_GCC
           vmImage: 'ubuntu-16.04'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: Ubuntu1604_Release.zip
-          packageSuffix: '-linux-x64-static'
-          cpackGenerators: 'TGZ'
-      - template: Build/azure-build-job-template.yml
+          container: 'wavm/ubuntu16.04-builder:latest'
+          llvmBuildBaseName: 'Ubuntu1604'
+          llvmVersion: '9.x'
+          cpackGenerators: 'TGZ;DEB'
+          compiler: 'gcc'
+
+      # Ubuntu 16.04 Clang
+      - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
-          name: Ubuntu1604_Debug
+          name: Ubuntu1604_Clang
           vmImage: 'ubuntu-16.04'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: Ubuntu1604_Checked.zip
-          packageSuffix: '-linux-x64-debug'
-          cpackGenerators: 'TGZ'
-      - template: Build/azure-build-job-template.yml
+          container: 'wavm/ubuntu16.04-builder:latest'
+          llvmBuildBaseName: 'Ubuntu1604'
+          llvmVersion: '9.x'
+          cpackGenerators: 'TGZ;DEB'
+          compiler: 'clang'
+
+      # CentOS 7.0 Clang
+      - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
-          name: Ubuntu1604_Debug_Static
+          name: CentOS70_Clang
           vmImage: 'ubuntu-16.04'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: Ubuntu1604_Checked.zip
-          packageSuffix: '-linux-x64-debug-static'
-          cpackGenerators: 'TGZ'
+          container: 'wavm/centos7.0-builder:latest'
+          llvmBuildBaseName: 'Centos70'
+          llvmVersion: '9.x'
+          cpackGenerators: 'TGZ;RPM'
+          compiler: 'clang'
 
       # MacOS 10.14
-      - template: Build/azure-build-job-template.yml
+      - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
-          name: MacOSX14_RelWithDebInfo
+          name: MacOS
           vmImage: 'macOS-10.14'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOS_Release.zip
-          packageSuffix: '-macos10.14-x64'
+          llvmBuildBaseName: 'MacOS'
+          llvmVersion: '9.x'
           cpackGenerators: 'TGZ'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: MacOSX14_RelWithDebInfo_Static
-          vmImage: 'macOS-10.14'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOS_Release.zip
-          packageSuffix: '-macos10.14-x64-static'
-          cpackGenerators: 'TGZ'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: MacOSX14_Debug
-          vmImage: 'macOS-10.14'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOS_Checked.zip
-          packageSuffix: '-macos10.14-x64-debug'
-          cpackGenerators: 'TGZ'
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: MacOSX14_Debug_Static
-          vmImage: 'macOS-10.14'
-          cmakeConfigArgs: '-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DWAVM_ENABLE_STATIC_LINKING=1'
-          cmakeBuildArgs: ''
-          llvmBuildAssetName: MacOS_Checked.zip
-          packageSuffix: '-macos10.14-x64-debug-static'
-          cpackGenerators: 'TGZ'
+          compiler: 'appleClang'
+          toolchainInstallSteps:
+            - script: brew install ninja
+              displayName: Install Ninja
 
-      # Win32
-      - template: Build/azure-build-job-template.yml
-        parameters:
-          name: Win32_VS2019_RelWithDebInfo
-          buildConfiguration: RelWithDebInfo
-          vmImage: 'windows-2019'
-          cmakeConfigArgs: '-G "Visual Studio 16 2019" -A Win32 -DWAVM_ENABLE_RUNTIME=OFF'
-          cmakeBuildArgs: '--config RelWithDebInfo'
-          ctestArgs: '-C RelWithDebInfo'
-          llvmBuildAssetName: Win32_Release.zip
-          packageSuffix: '-windows-x86'
-          cpackGenerators: 'ZIP'
-
-
+  # Do some basic testing that the packaged builds install and work as expected.
   - stage:
-    # If this build was the scheduled nightly build, upload its artifacts as a GitHub release
-    condition: and(succeeded(), eq(variables['Build.Reason'], 'Schedule'))
+    displayName: Test packages
+    jobs:
+
+      # Windows installer
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'WindowsInstaller'
+          matrix:
+            Windows2019: {vmImage: 'windows-2019',     container: ''}
+            Windows2017: {vmImage: 'vs2017-win2016',   container: ''}
+            Windows2015: {vmImage: 'vs2015-win2012r2', container: ''}
+          examplesDir: 'C:\Program Files\WAVM\examples'
+          executable: 'C:\Program Files\WAVM\bin\wavm.exe'
+          artifactName: 'Win64_VS2019_LTO'
+          installSteps:
+            # Run the installer in silent mode. Since it's not a command-line app, we need to use
+            # "start /wait" to wait for it to complete.
+            - script: |
+                dir /s $(Build.ArtifactStagingDirectory) || exit 1
+                echo "PATH=%PATH%"
+                start /wait $(Build.ArtifactStagingDirectory)\wavm-package.exe /S || exit 1
+                dir /s "C:\Program Files\WAVM"
+                echo "PATH=%PATH%" || exit 1
+              displayName: Run installer
+
+      # DEB package
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'LinuxDEB'
+          matrix:
+            Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
+            Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
+            Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
+            Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
+            Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
+          useContainer: true
+          examplesDir: '/usr/share/wavm/examples'
+          artifactName: 'Ubuntu1604_Clang_LTO'
+          installSteps:
+            - script: |
+                sudo apt-get install -y $(Build.ArtifactStagingDirectory)/wavm-package.deb || exit 1
+                echo "which wavm: `which wavm`" || exit 1
+                echo "ldd wavm:" || exit 1
+                ldd -v `which wavm` || exit 1
+              displayName: apt-get install
+
+      # RPM package
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'LinuxRPM'
+          matrix:
+            CentOS7x:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
+            CentOS70:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+            Fedora29:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora29'}
+            Fedora30:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora30'}
+            Fedora31:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora31'}
+            OpenSUSELeap150: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.0'}
+            OpenSUSELeap151: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.1'}
+          useContainer: true
+          examplesDir: '/usr/share/wavm/examples'
+          artifactName: 'CentOS70_Clang_LTO'
+          installSteps:
+            - script: |
+                sudo rpm -i $(Build.ArtifactStagingDirectory)/wavm-package.rpm || exit 1
+                echo "which wavm: `which wavm`" || exit 1
+                echo "ldd wavm:" || exit 1
+                ldd -v `which wavm` || exit 1
+              displayName: rpm install
+
+      # Linux archive
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'LinuxTGZ'
+          matrix:
+            CentOS7x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
+            CentOS70:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+            Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
+            Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
+            Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
+            Debian8:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian8'}
+            Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
+            Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
+            ArchLinux:  {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-pacman:archlinux'}
+          useContainer: true
+          examplesDir: '/opt/wavm/share/wavm/examples'
+          executable: '/opt/wavm/bin/wavm'
+          artifactName: 'CentOS70_Clang_StaticLTO'
+          installSteps:
+            - script: |
+                sudo mkdir -p /opt/wavm || exit 1
+                sudo tar -xz -C /opt/wavm -f $(Build.ArtifactStagingDirectory)/wavm-package.tar.gz || exit 1
+                ldd -v /opt/wavm/bin/wavm || exit 1
+              displayName: Extract archive
+
+      # MacOS TGZ
+      - template: Build/azure-pipelines/test-package-job-template.yml
+        parameters:
+          name: 'MacOSTGZ'
+          matrix:
+            MacOS1013: {vmImage: 'macOS-10.13', container: ''}
+            MacOS1014: {vmImage: 'macOS-10.14', container: ''}
+          examplesDir: '/usr/local/share/wavm/examples'
+          artifactName: 'MacOS_StaticLTO'
+          installSteps:
+            - script: |
+                sudo tar -xz -C /usr/local -f $(Build.ArtifactStagingDirectory)/wavm-package.tar.gz
+                echo "which wavm: `which wavm`"
+              displayName: Extract archive
+
+
+  # Nightly build job
+  - stage:
     displayName: Create nightly GitHub release
     jobs:
-      - job: UploadGitHubRelease
-        pool:
-          vmImage: windows-2019
+      - template: Build/azure-pipelines/release-job-template.yml
+
+  # Notify Discord of success or failure.
+  # AFAICT the Azure Pipelines succeeded() and failed() predicates aren't able to observe the
+  # result of other stages unless they are in the stage condition.
+  - stage:
+    displayName: Notify Discord (succeeded)
+    condition: succeeded()
+    jobs:
+      - job: NotifyDiscordSuccess
+        displayName: Notify Discord (succeeded)
+        pool: { vmImage: macOS-10.14 }
         steps:
-        # Download all the artifacts uploaded by the jobs in the Build stage.
-        - task: DownloadPipelineArtifact@2
-          inputs:
-            buildType: current
-            targetPath: $(Build.ArtifactStagingDirectory)
-        # Get the current date
-        - bash: echo "##vso[task.setvariable variable=today]$(date -u +%Y-%m-%d)"
-        # Create a GitHub release containing the artifacts.
-        - task: GitHubRelease@0
-          inputs:
-            gitHubConnection: GitHubPAT
-            action: create
-            target: $(Build.SourceVersion)
-            tagSource: manual
-            tag: nightly-$(today)
-            title: nightly-$(today)
-            assets: |
-              $(Build.ArtifactStagingDirectory)/**/*.exe
-              $(Build.ArtifactStagingDirectory)/**/*.zip
-              $(Build.ArtifactStagingDirectory)/**/*.deb
-              $(Build.ArtifactStagingDirectory)/**/*-static.tar.gz
-            releaseNotesSource: input
-            releaseNotes: 
-            addChangeLog: true
-            changeLogCompareToRelease: lastNonDraftReleaseByTag
-            changeLogCompareToReleaseTag: nightly-[\d\-]+
-            isPreRelease: true
+        - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh success $DISCORD_WEBHOOK_URL
+          displayName: Notify Discord
+          env: { DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL) }
+  - stage:
+    displayName: Notify Discord (failed)
+    condition: failed()
+    jobs:
+      - job: NotifyDiscordFailure
+        displayName: Notify Discord (failed)
+        pool: { vmImage: macOS-10.14 }
+        steps:
+        - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh failure $DISCORD_WEBHOOK_URL
+          displayName: Notify Discord
+          env: { DISCORD_WEBHOOK_URL: $(DISCORD_WEBHOOK_URL) }

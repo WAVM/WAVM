@@ -18,12 +18,12 @@ namespace WAVM { namespace IR {
 
 	struct CodeValidationStream
 	{
-		IR_API CodeValidationStream(const Module& module, const FunctionDef& function);
-		IR_API ~CodeValidationStream();
+		WAVM_API CodeValidationStream(const Module& module, const FunctionDef& function);
+		WAVM_API ~CodeValidationStream();
 
-		IR_API void finish();
+		WAVM_API void finish();
 
-#define VISIT_OPCODE(_, name, nameString, Imm, ...) IR_API void name(Imm imm = {});
+#define VISIT_OPCODE(_, name, nameString, Imm, ...) WAVM_API void name(Imm imm = {});
 		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
@@ -56,17 +56,17 @@ namespace WAVM { namespace IR {
 		InnerStream& innerStream;
 	};
 
-	IR_API void validateTypes(const IR::Module& module);
-	IR_API void validateImports(const IR::Module& module);
-	IR_API void validateFunctionDeclarations(const IR::Module& module);
-	IR_API void validateTableDefs(const IR::Module& module);
-	IR_API void validateMemoryDefs(const IR::Module& module);
-	IR_API void validateGlobalDefs(const IR::Module& module);
-	IR_API void validateExceptionTypeDefs(const IR::Module& module);
-	IR_API void validateExports(const IR::Module& module);
-	IR_API void validateStartFunction(const IR::Module& module);
-	IR_API void validateElemSegments(const IR::Module& module);
-	IR_API void validateDataSegments(const IR::Module& module);
+	WAVM_API void validateTypes(const IR::Module& module);
+	WAVM_API void validateImports(const IR::Module& module);
+	WAVM_API void validateFunctionDeclarations(const IR::Module& module);
+	WAVM_API void validateTableDefs(const IR::Module& module);
+	WAVM_API void validateMemoryDefs(const IR::Module& module);
+	WAVM_API void validateGlobalDefs(const IR::Module& module);
+	WAVM_API void validateExceptionTypeDefs(const IR::Module& module);
+	WAVM_API void validateExports(const IR::Module& module);
+	WAVM_API void validateStartFunction(const IR::Module& module);
+	WAVM_API void validateElemSegments(const IR::Module& module);
+	WAVM_API void validateDataSegments(const IR::Module& module);
 
 	inline void validatePreCodeSections(const IR::Module& module)
 	{

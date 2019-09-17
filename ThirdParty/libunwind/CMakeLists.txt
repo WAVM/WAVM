@@ -39,27 +39,14 @@ else()
 		set(Sources ${Sources} ${AppleSources})
 	endif()
 	
-	add_library(WAVMUnwind STATIC ${Sources} ${PublicHeaders})
-	target_include_directories(WAVMUnwind PRIVATE include)
-
-	# When using static linking for the WAVM libraries, the WAVMUnwind library needs to be
-	# installed. Otherwise, it will just be linked into the WAVM .so/.dylib files.
-	if(WAVM_ENABLE_STATIC_LINKING)
-		WAVM_INSTALL_TARGET(WAVMUnwind)
+	set(UNWIND_COMPILER_OPTIONS)
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		list(APPEND UNWIND_COMPILER_OPTIONS "-Wno-maybe-uninitialized" "-Wno-unused-but-set-variable")
 	endif()
 
-	# Target C++11.
-	target_compile_features(WAVMUnwind PRIVATE cxx_std_11)
-
-	# Compile as a static library, but use -fPIC to make sure it can be linked into a shared object.
-	target_compile_options(WAVMUnwind PRIVATE "-fPIC")
+	WAVM_ADD_THIRD_PARTY_LIBRARY(WAVMUnwind
+		SOURCES ${Sources} ${PublicHeaders}
+		PRIVATE_INCLUDE_DIRECTORIES include
+		PRIVATE_COMPILE_OPTIONS ${UNWIND_COMPILER_OPTIONS}
+	)
 endif()
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	# disable warning: 'variable' may be used uninitialized in this function
-	target_compile_options(WAVMUnwind PRIVATE "-Wno-maybe-uninitialized")
-	# disable warning: 'variable' set but not used
-	target_compile_options(WAVMUnwind PRIVATE "-Wno-unused-but-set-variable")
-endif()
-
-set_target_properties(WAVMUnwind PROPERTIES FOLDER "Third party")

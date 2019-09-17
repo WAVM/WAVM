@@ -1,4 +1,7 @@
-set(Sources Emscripten.cpp)
+set(Sources Emscripten.cpp
+			EmscriptenABI.h
+			EmscriptenPrivate.h
+			EmscriptenThreads.cpp)
 set(PublicHeaders ${WAVM_INCLUDE_DIR}/Emscripten/Emscripten.h)
 
 WAVM_ADD_LIB_COMPONENT(Emscripten

@@ -6,5 +6,5 @@ namespace WAVM { namespace Runtime {
 }}
 
 namespace WAVM { namespace ThreadTest {
-	THREADTEST_API Runtime::ModuleInstance* instantiate(Runtime::Compartment* compartment);
+	WAVM_API Runtime::ModuleInstance* instantiate(Runtime::Compartment* compartment);
 }}

@@ -8,6 +8,7 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/FloatComponents.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/ADT/APInt.h>
@@ -303,11 +304,23 @@ EMIT_FP_COMPARE(le, llvm::CmpInst::FCMP_OLE)
 EMIT_FP_COMPARE(gt, llvm::CmpInst::FCMP_OGT)
 EMIT_FP_COMPARE(ge, llvm::CmpInst::FCMP_OGE)
 
-static llvm::Value* emitFloatMin(llvm::IRBuilder<>& irBuilder,
+static llvm::Value* quietNaN(EmitFunctionContext& context, llvm::Value* nan)
+{
+	// Converts a signalling NaN to a quiet NaN by adding zero to it.
+	return context.callLLVMIntrinsic({nan->getType()},
+									 llvm::Intrinsic::experimental_constrained_fadd,
+									 {nan,
+									  llvm::Constant::getNullValue(nan->getType()),
+									  context.moduleContext.fpRoundingModeMetadata,
+									  context.moduleContext.fpExceptionMetadata});
+}
+
+static llvm::Value* emitFloatMin(EmitFunctionContext& context,
 								 llvm::Value* left,
 								 llvm::Value* right,
 								 llvm::Type* intType)
 {
+	llvm::IRBuilder<>& irBuilder = context.irBuilder;
 	llvm::Type* floatType = left->getType();
 	llvm::Value* isLeftNaN
 		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, left, left);
@@ -320,10 +333,10 @@ static llvm::Value* emitFloatMin(llvm::IRBuilder<>& irBuilder,
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
-		left,
+		quietNaN(context, left),
 		irBuilder.CreateSelect(
 			isRightNaN,
-			right,
+			quietNaN(context, right),
 			irBuilder.CreateSelect(
 				isLeftLessThanRight,
 				left,
@@ -331,16 +344,20 @@ static llvm::Value* emitFloatMin(llvm::IRBuilder<>& irBuilder,
 					isLeftGreaterThanRight,
 					right,
 					irBuilder.CreateBitCast(
+						// If the numbers compare as equal, they may be zero with different signs.
+						// Do a bitwise or of the pair to ensure that if either is negative, the
+						// result will be negative.
 						irBuilder.CreateOr(irBuilder.CreateBitCast(left, intType),
 										   irBuilder.CreateBitCast(right, intType)),
 						floatType)))));
 }
 
-static llvm::Value* emitFloatMax(llvm::IRBuilder<>& irBuilder,
+static llvm::Value* emitFloatMax(EmitFunctionContext& context,
 								 llvm::Value* left,
 								 llvm::Value* right,
 								 llvm::Type* intType)
 {
+	llvm::IRBuilder<>& irBuilder = context.irBuilder;
 	llvm::Type* floatType = left->getType();
 	llvm::Value* isLeftNaN
 		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, left, left);
@@ -353,10 +370,10 @@ static llvm::Value* emitFloatMax(llvm::IRBuilder<>& irBuilder,
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
-		left,
+		quietNaN(context, left),
 		irBuilder.CreateSelect(
 			isRightNaN,
-			right,
+			quietNaN(context, right),
 			irBuilder.CreateSelect(
 				isLeftLessThanRight,
 				right,
@@ -364,19 +381,21 @@ static llvm::Value* emitFloatMax(llvm::IRBuilder<>& irBuilder,
 					isLeftGreaterThanRight,
 					left,
 					irBuilder.CreateBitCast(
+						// If the numbers compare as equal, they may be zero with different signs.
+						// Do a bitwise and of the pair to ensure that if either is positive, the
+						// result will be positive.
 						irBuilder.CreateAnd(irBuilder.CreateBitCast(left, intType),
 											irBuilder.CreateBitCast(right, intType)),
 						floatType)))));
 }
 
-// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 EMIT_FP_BINARY_OP(min,
-				  emitFloatMin(irBuilder,
+				  emitFloatMin(*this,
 							   left,
 							   right,
 							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
 EMIT_FP_BINARY_OP(max,
-				  emitFloatMax(irBuilder,
+				  emitFloatMax(*this,
 							   left,
 							   right,
 							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
@@ -559,16 +578,16 @@ EMIT_SIMD_FP_BINARY_OP(div, irBuilder.CreateFDiv(left, right))
 
 EMIT_SIMD_BINARY_OP(f32x4_min,
 					llvmContext.f32x4Type,
-					emitFloatMin(irBuilder, left, right, llvmContext.i32x4Type))
+					emitFloatMin(*this, left, right, llvmContext.i32x4Type))
 EMIT_SIMD_BINARY_OP(f64x2_min,
 					llvmContext.f64x2Type,
-					emitFloatMin(irBuilder, left, right, llvmContext.i64x2Type))
+					emitFloatMin(*this, left, right, llvmContext.i64x2Type))
 EMIT_SIMD_BINARY_OP(f32x4_max,
 					llvmContext.f32x4Type,
-					emitFloatMax(irBuilder, left, right, llvmContext.i32x4Type))
+					emitFloatMax(*this, left, right, llvmContext.i32x4Type))
 EMIT_SIMD_BINARY_OP(f64x2_max,
 					llvmContext.f64x2Type,
-					emitFloatMax(irBuilder, left, right, llvmContext.i64x2Type))
+					emitFloatMax(*this, left, right, llvmContext.i64x2Type))
 
 EMIT_SIMD_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
 EMIT_SIMD_FP_UNARY_OP(abs,

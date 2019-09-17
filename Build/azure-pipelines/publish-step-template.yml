@@ -1,0 +1,16 @@
+parameters:
+  artifactName: ''
+
+steps:
+  # The publish task does not accept wildcards, so we must first copy the packages to a new
+  # directory and then publish that directory.
+  - task: CopyFiles@2
+    displayName: Isolate WAVM packages
+    inputs:
+      sourceFolder: $(Build.ArtifactStagingDirectory)
+      contents: wavm-package.*
+      targetFolder: $(Build.ArtifactStagingDirectory)/packages
+
+  - publish: $(Build.ArtifactStagingDirectory)/packages
+    displayName: Publish WAVM packages
+    artifact: ${{parameters.artifactName}}

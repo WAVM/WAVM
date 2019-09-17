@@ -1,0 +1,13 @@
+parameters:
+  cmakeArgs: ''
+
+steps:
+  # Configure LLVM
+  - task: CMake@1
+    displayName: Configure WAVM
+    inputs:
+      workingDirectory: $(Build.ArtifactStagingDirectory)
+      cmakeArgs:
+          $(Build.SourcesDirectory)
+          -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm/lib/cmake/llvm
+          ${{parameters.cmakeArgs}}
