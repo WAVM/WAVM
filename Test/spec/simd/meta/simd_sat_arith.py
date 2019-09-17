@@ -51,6 +51,118 @@ class SimdSaturateArithmeticCases(SimdArithmeticCase):
                      }
         return self.gen_test_template().format(**case_data)
 
+    @property
+    def combine_ternary_arith_test_data(self):
+        return {
+            'sat-add_s-sub_s': [
+                [str(self.lane.quarter)] * self.LANE_LEN,
+                [str(self.lane.max)] * self.LANE_LEN,
+                [str(self.lane.min)] * self.LANE_LEN,
+                [str(self.lane.min)] * self.LANE_LEN
+            ],
+            'sat-add_s-sub_u': [
+                [str(self.lane.mask)] * self.LANE_LEN,
+                [str(self.lane.min)] * self.LANE_LEN,
+                [str(self.lane.min)] * self.LANE_LEN,
+                ['-1'] * self.LANE_LEN
+            ],
+            'sat-add_u-sub_s': [
+                [str(self.lane.max)] * self.LANE_LEN,
+                ['-1'] * self.LANE_LEN,
+                [str(self.lane.max)] * self.LANE_LEN,
+                [str(self.lane.mask - 1)] * self.LANE_LEN
+            ],
+            'sat-add_u-sub_u': [
+                [str(self.lane.mask)] * self.LANE_LEN,
+                ['0'] * self.LANE_LEN,
+                ['1'] * self.LANE_LEN,
+                [str(self.lane.mask)] * self.LANE_LEN
+            ]
+        }
+
+    @property
+    def combine_binary_arith_test_data(self):
+        return {
+            'sat-add_s-neg': [
+                [str(self.lane.min)] * self.LANE_LEN,
+                [str(self.lane.max)] * self.LANE_LEN,
+                ['-1'] * self.LANE_LEN
+            ],
+            'sat-add_u-neg': [
+                [str(self.lane.max)] * self.LANE_LEN,
+                [str(self.lane.min)] * self.LANE_LEN,
+                [str(self.lane.mask)] * self.LANE_LEN
+            ],
+            'sat-sub_s-neg': [
+                [str(self.lane.min)] * self.LANE_LEN,
+                [str(self.lane.max)] * self.LANE_LEN,
+                [str(self.lane.min)] * self.LANE_LEN
+            ],
+            'sat-sub_u-neg': [
+                [str(self.lane.max)] * self.LANE_LEN,
+                [str(self.lane.min)] * self.LANE_LEN,
+                ['1'] * self.LANE_LEN
+            ]
+        }
+
+    def get_combine_cases(self):
+        combine_cases = [';; combination\n(module']
+        ternary_fn_template = '  (func (export "{fn}") (param v128 v128 v128) (result v128)\n' \
+                              '    ({lane}.{op1} ({lane}.{op2} (local.get 0) (local.get 1))'\
+                              '(local.get 2)))'
+        for fn_name in sorted(self.combine_ternary_arith_test_data):
+            fn_parts = fn_name.split('-')
+            operator1 = fn_parts[1].replace('_', '_saturate_')
+            operator2 = fn_parts[2].replace('_', '_saturate_')
+            combine_cases.append(ternary_fn_template.format(fn=fn_name,
+                                                            lane=self.LANE_TYPE,
+                                                            op1=operator1,
+                                                            op2=operator2))
+        binary_fn_template = '  (func (export "{fn}") (param v128 v128) (result v128)\n'\
+                             '    ({lane}.{op1} ({lane}.{op2} (local.get 0)) (local.get 1)))'
+        for fn_name in sorted(self.combine_binary_arith_test_data):
+            fn_parts = fn_name.split('-')
+            operator1 = fn_parts[1].replace('_', '_saturate_')
+            combine_cases.append(binary_fn_template.format(fn=fn_name,
+                                                           lane=self.LANE_TYPE,
+                                                           op1=operator1,
+                                                           op2=fn_parts[2]))
+        combine_cases.append(')\n')
+        ternary_case_template = ('(assert_return (invoke "{}" ',
+                                 '(v128.const {} {})',
+                                 '(v128.const {} {})',
+                                 '(v128.const {} {}))',
+                                 '(v128.const {} {}))')
+        for fn_name, test in sorted(self.combine_ternary_arith_test_data.items()):
+            line_head = ternary_case_template[0].format(fn_name)
+            line_head_len = len(line_head)
+            blank_head = ' ' * line_head_len
+            combine_cases.append('\n'.join([
+                line_head + ternary_case_template[1].format(
+                    self.LANE_TYPE, ' '.join(test[0])),
+                blank_head + ternary_case_template[2].format(
+                    self.LANE_TYPE, ' '.join(test[1])),
+                blank_head + ternary_case_template[3].format(
+                    self.LANE_TYPE, ' '.join(test[2])),
+                blank_head + ternary_case_template[4].format(
+                    self.LANE_TYPE, ' '.join(test[3]))]))
+        binary_case_template = ('(assert_return (invoke "{}" ',
+                                '(v128.const {} {})',
+                                '(v128.const {} {}))',
+                                '(v128.const {} {}))')
+        for fn_name, test in sorted(self.combine_binary_arith_test_data.items()):
+            line_head = binary_case_template[0].format(fn_name)
+            line_head_len = len(line_head)
+            blank_head = ' ' * line_head_len
+            combine_cases.append('\n'.join([
+                line_head + binary_case_template[1].format(
+                    self.LANE_TYPE, ' '.join(test[0])),
+                blank_head + binary_case_template[2].format(
+                    self.LANE_TYPE, ' '.join(test[1])),
+                blank_head + binary_case_template[3].format(
+                    self.LANE_TYPE, ' '.join(test[2]))]))
+        return '\n'.join(combine_cases)
+
 
 class SimdI8x16SaturateArithmeticCases(SimdSaturateArithmeticCases):
     LANE_LEN = 16
