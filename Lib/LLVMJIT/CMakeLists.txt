@@ -21,9 +21,8 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/LLVMJIT/LLVMJIT.h)
 
-if(${WAVM_PERF_EVENTS})
+if(${WAVM_PERF_LIBS})
 message(STATUS "Adding WAVM perf events")
-add_definitions(-DWAVM_PERF_EVENTS=1)
 
 # Find the LLVM libraries to link with.
 # This is a bit lazy, should find only what's needed
