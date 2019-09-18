@@ -106,7 +106,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 		outSource.module
 			= trimModuleName(getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase))));
 		outSource.function = std::string(symbolInfo->Name, symbolInfo->NameLen);
-		outSource.instructionOffset = displacement;
+		outSource.instructionOffset = Uptr(displacement);
 		return true;
 	}
 }
