@@ -1232,12 +1232,13 @@ std::shared_ptr<Emscripten::Instance> Emscripten::instantiate(Compartment* compa
 		}
 		else
 		{
-			Log::printf(Log::error, "module's memory is too small for Emscripten emulation");
+			Log::printf(Log::error, "module's memory is too small for Emscripten emulation\n");
 			return nullptr;
 		}
 	}
 	else
 	{
+		Log::printf(Log::error, "module does not import Emscripten's env.memory\n");
 		return nullptr;
 	}
 

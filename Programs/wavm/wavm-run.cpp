@@ -540,6 +540,7 @@ struct State
 										  Platform::getStdFD(Platform::StdDevice::in),
 										  Platform::getStdFD(Platform::StdDevice::out),
 										  Platform::getStdFD(Platform::StdDevice::err));
+			if(!emscriptenInstance) { return false; }
 		}
 		else if(abi == ABI::wasi)
 		{
