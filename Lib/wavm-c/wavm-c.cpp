@@ -646,13 +646,12 @@ void wasm_val_copy(wasm_valkind_t kind, wasm_val_t* out, const wasm_val_t* val)
 // wasm_module_t
 void wasm_module_delete(wasm_module_t* module) { delete module; }
 wasm_module_t* wasm_module_copy(wasm_module_t* module) { return new wasm_module_t{module->module}; }
-wasm_module_t* wasm_module_new(wasm_engine_t*, const char* binary, uintptr_t numBinaryBytes)
+wasm_module_t* wasm_module_new(wasm_engine_t*, const char* wasmBytes, uintptr_t numWASMBytes)
 {
-	IR::Module irModule;
-	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
 	WASM::LoadError loadError;
-	if(WASM::loadBinaryModule(inputStream, irModule, &loadError))
-	{ return new wasm_module_t{compileModule(irModule)}; }
+	ModuleRef module;
+	if(loadBinaryModule((const U8*)wasmBytes, numWASMBytes, module, IR::FeatureSpec(), &loadError))
+	{ return new wasm_module_t{module}; }
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());

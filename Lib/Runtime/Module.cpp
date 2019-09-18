@@ -89,22 +89,24 @@ ModuleRef Runtime::compileModule(const IR::Module& irModule)
 		std::vector<U8> wasmBytes = stream.getBytes();
 
 		// Check for cached object code for the module before compiling it.
-		objectCode = objectCache->getCachedObject(wasmBytes, [&irModule]() {
-			return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
-		});
+		objectCode
+			= objectCache->getCachedObject(wasmBytes.data(), wasmBytes.size(), [&irModule]() {
+				  return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
+			  });
 	}
 
 	return std::make_shared<Runtime::Module>(IR::Module(irModule), std::move(objectCode));
 }
 
-bool Runtime::loadBinaryModule(const std::vector<U8>& wasmBytes,
+bool Runtime::loadBinaryModule(const U8* wasmBytes,
+							   Uptr numWASMBytes,
 							   ModuleRef& outModule,
 							   const IR::FeatureSpec& featureSpec,
 							   WASM::LoadError* outError)
 {
 	// Load the module IR.
 	IR::Module irModule(std::move(featureSpec));
-	Serialization::MemoryInputStream stream(wasmBytes.data(), wasmBytes.size());
+	Serialization::MemoryInputStream stream(wasmBytes, numWASMBytes);
 	if(!WASM::loadBinaryModule(stream, irModule, outError)) { return false; }
 
 	// Get a pointer to the global object cache, if there is one.
@@ -119,7 +121,7 @@ bool Runtime::loadBinaryModule(const std::vector<U8>& wasmBytes,
 	else
 	{
 		// Check for cached object code for the module before compiling it.
-		objectCode = objectCache->getCachedObject(wasmBytes, [&irModule]() {
+		objectCode = objectCache->getCachedObject(wasmBytes, numWASMBytes, [&irModule]() {
 			return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
 		});
 	}

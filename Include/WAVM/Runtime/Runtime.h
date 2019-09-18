@@ -394,7 +394,8 @@ namespace WAVM { namespace Runtime {
 	// If true is returned, the load succeeded, and outModule contains the loaded module.
 	// If false is returned, the load failed. If outError != nullptr, *outError will contain the
 	// error that caused the load to fail.
-	WAVM_API bool loadBinaryModule(const std::vector<U8>& wasmBytes,
+	WAVM_API bool loadBinaryModule(const U8* wasmBytes,
+								   Uptr numWASMBytes,
 								   ModuleRef& outModule,
 								   const IR::FeatureSpec& featureSpec = IR::FeatureSpec(),
 								   WASM::LoadError* outError = nullptr);
@@ -494,7 +495,8 @@ namespace WAVM { namespace Runtime {
 	{
 		virtual ~ObjectCacheInterface() {}
 
-		virtual std::vector<U8> getCachedObject(const std::vector<U8>& moduleBytes,
+		virtual std::vector<U8> getCachedObject(const U8* wasmBytes,
+												Uptr numWASMBytes,
 												std::function<std::vector<U8>()>&& compileThunk)
 			= 0;
 	};

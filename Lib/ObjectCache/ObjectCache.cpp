@@ -442,7 +442,8 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 	}
 
 	bool tryGetCachedObject(U64 moduleHash,
-							const std::vector<U8>& moduleBytes,
+							const U8* wasmBytes,
+							Uptr numWASMBytes,
 							std::vector<U8>& outObjectCode)
 	{
 		Timing::Timer readTimer;
@@ -456,8 +457,8 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		if(Database::tryGetKeyValue(txn, moduleTable, moduleKey, cachedModuleBytes))
 		{
 			// Check that the cached module is the same as the one being queried.
-			if(cachedModuleBytes.mv_size == moduleBytes.size()
-			   && !memcmp(cachedModuleBytes.mv_data, moduleBytes.data(), moduleBytes.size()))
+			if(cachedModuleBytes.mv_size == numWASMBytes
+			   && !memcmp(cachedModuleBytes.mv_data, wasmBytes, numWASMBytes))
 			{
 				// If so, get the cached object code for the cached module.
 				Database::getKeyValue(txn, objectTable, moduleKey, outObjectCode);
@@ -483,7 +484,8 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 	}
 
 	void addCachedObject(U64 moduleHash,
-						 const std::vector<U8>& moduleBytes,
+						 const U8* wasmBytes,
+						 Uptr numWASMBytes,
 						 const std::vector<U8>& objectBytes)
 	{
 		Timing::Timer writeTimer;
@@ -520,9 +522,12 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			metadata.lastAccessTimeKey = now;
 
 			// Add the module to the module, object, metadata, and LRU tables.
+			MDB_val wasmBytesVal;
+			wasmBytesVal.mv_data = const_cast<U8*>(wasmBytes);
+			wasmBytesVal.mv_size = numWASMBytes;
 			if(Database::tryPutKeyValue(txn, metaTable, moduleKey, metadata)
 			   && Database::tryPutKeyValue(txn, lruTable, metadata.lastAccessTimeKey, moduleKey)
-			   && Database::tryPutKeyValue(txn, moduleTable, moduleKey, moduleBytes)
+			   && Database::tryPutKeyValue(txn, moduleTable, moduleKey, wasmBytesVal)
 			   && Database::tryPutKeyValue(txn, objectTable, moduleKey, objectBytes))
 			{
 				txn.commit();
@@ -642,20 +647,22 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 	}
 
 	virtual std::vector<U8> getCachedObject(
-		const std::vector<U8>& moduleBytes,
+		const U8* wasmBytes,
+		Uptr numWASMBytes,
 		std::function<std::vector<U8>()>&& compileThunk) override
 	{
 		// Compute a hash of the serialized WASM module.
 		Timing::Timer hashTimer;
-		const U64 moduleHash = XXH64(moduleBytes.data(), moduleBytes.size(), 0);
+		const U64 moduleHash = XXH64(wasmBytes, numWASMBytes, 0);
 		Timing::logRatePerSecond(
-			"Hashed module key", hashTimer, moduleBytes.size() / 1024.0 / 1024.0, "MiB");
+			"Hashed module key", hashTimer, numWASMBytes / 1024.0 / 1024.0, "MiB");
 
 		// Try to find the module's object code in the cache.
 		std::vector<U8> objectCode;
 		try
 		{
-			if(tryGetCachedObject(moduleHash, moduleBytes, objectCode)) { return objectCode; }
+			if(tryGetCachedObject(moduleHash, wasmBytes, numWASMBytes, objectCode))
+			{ return objectCode; }
 		}
 		catch(Database::Exception const& exception)
 		{
@@ -670,7 +677,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		// Add the cached module+object code to the database.
 		try
 		{
-			addCachedObject(moduleHash, moduleBytes, objectCode);
+			addCachedObject(moduleHash, wasmBytes, numWASMBytes, objectCode);
 		}
 		catch(Database::Exception const& exception)
 		{

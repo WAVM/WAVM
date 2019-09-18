@@ -74,7 +74,8 @@ static bool loadTextOrBinaryModule(const char* filename,
 	   && !memcmp(fileBytes.data(), WASM::magicNumber, sizeof(WASM::magicNumber)))
 	{
 		WASM::LoadError loadError;
-		if(Runtime::loadBinaryModule(fileBytes, outModule, featureSpec, &loadError))
+		if(Runtime::loadBinaryModule(
+			   fileBytes.data(), fileBytes.size(), outModule, featureSpec, &loadError))
 		{ return true; }
 		else
 		{
