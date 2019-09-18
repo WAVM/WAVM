@@ -13,7 +13,7 @@ steps:
     workingDirectory: $(Pipeline.Workspace)
     condition: eq(variables['Agent.OS'], 'Windows_NT')
 
-  - script: wget --retry-on-http-error=500 https://github.com/WAVM/WAVM-LLVM/releases/download/${{parameters.llvmVersion}}/${{parameters.llvmBuildAssetName}}.zip
+  - script: wget https://github.com/WAVM/WAVM-LLVM/releases/download/${{parameters.llvmVersion}}/${{parameters.llvmBuildAssetName}}.zip
     displayName: Download LLVM build (non-Windows)
     workingDirectory: $(Pipeline.Workspace)
     condition: ne(variables['Agent.OS'], 'Windows_NT')
