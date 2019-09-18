@@ -268,8 +268,12 @@ private:
 		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
 		{ Errors::fatal("didn't reserve enough space in section"); }
 
-		// Drop the '.' prefix on section names.
+		// Drop the '.' or '__' prefix on section names.
 		if(sectionName.size() && sectionName[0] == '.') { sectionName = sectionName.drop_front(1); }
+		else if(sectionName.size() > 2 && sectionName[0] == '_' && sectionName[1] == '_')
+		{
+			sectionName = sectionName.drop_front(2);
+		}
 
 		// Record the address the section was allocated at.
 		sectionNameToContentsMap.insert(std::make_pair(
