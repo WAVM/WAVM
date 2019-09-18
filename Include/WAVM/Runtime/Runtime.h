@@ -255,8 +255,35 @@ namespace WAVM { namespace Runtime {
 	// runtime exceptions.
 	WAVM_API void unwindSignalsAsExceptions(const std::function<void()>& thunk);
 
-	// Describes an instruction pointer.
-	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
+	// Describes the source of an instruction; may be either WASM or native code.
+	struct InstructionSource
+	{
+		enum class Type
+		{
+			unknown,
+			native,
+			wasm,
+		};
+		Type type;
+
+		// Only one of native or wasm will be initialized based on type.
+		// This could be stored in a union, but Platform::InstructionSource's default constructor
+		// and destructor are non-trivial, and so would require manual construction/destruction when
+		// InstructionSource::type changes.
+		Platform::InstructionSource native;
+		struct
+		{
+			Runtime::Function* function;
+			Uptr instructionIndex;
+		} wasm;
+
+		InstructionSource() : type(Type::unknown) {}
+	};
+
+	WAVM_API std::string asString(const InstructionSource& source);
+
+	// Looks up the source of an instruction from either a native or WASM module.
+	bool getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource);
 
 	// Describes a call stack.
 	WAVM_API std::vector<std::string> describeCallStack(const Platform::CallStack& callStack);

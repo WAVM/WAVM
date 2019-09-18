@@ -23,8 +23,13 @@ void Platform::dumpErrorCallStack(Uptr numOmittedFramesFromTop)
 	for(Uptr frameIndex = 0; frameIndex < callStack.frames.size(); ++frameIndex)
 	{
 		std::string frameDescription;
-		if(!Platform::describeInstructionPointer(callStack.frames[frameIndex].ip, frameDescription))
+		Platform::InstructionSource source;
+		if(!Platform::getInstructionSourceByAddress(callStack.frames[frameIndex].ip, source))
 		{ frameDescription = "<unknown function>"; }
+		else
+		{
+			frameDescription = asString(source);
+		}
 		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
 	}
 	std::fflush(stderr);

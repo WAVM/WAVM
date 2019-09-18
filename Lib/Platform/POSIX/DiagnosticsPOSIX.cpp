@@ -46,7 +46,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 	return result;
 }
 
-bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
+bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
 {
 #if defined(__linux__) || defined(__APPLE__)
 	// Look up static symbol information for the address.
@@ -54,12 +54,11 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 	if(dladdr((void*)ip, &symbolInfo))
 	{
 		WAVM_ASSERT(symbolInfo.dli_fname);
-		outDescription = "host!";
-		outDescription += symbolInfo.dli_fname;
+		outSource.module = symbolInfo.dli_fname;
 		if(!symbolInfo.dli_sname)
 		{
-			outDescription
-				+= '+' + std::to_string(ip - reinterpret_cast<Uptr>(symbolInfo.dli_fbase));
+			outSource.function = std::string();
+			outSource.instructionOffset = ip - reinterpret_cast<Uptr>(symbolInfo.dli_fbase);
 		}
 		else
 		{
@@ -75,10 +74,8 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 									   &demangleStatus))
 				{ demangledSymbolName = demangledBuffer; }
 			}
-			outDescription += '!';
-			outDescription += demangledSymbolName;
-			outDescription += '+';
-			outDescription += std::to_string(ip - reinterpret_cast<Uptr>(symbolInfo.dli_saddr));
+			outSource.function = demangledSymbolName;
+			outSource.instructionOffset = ip - reinterpret_cast<Uptr>(symbolInfo.dli_saddr);
 		}
 		return true;
 	}

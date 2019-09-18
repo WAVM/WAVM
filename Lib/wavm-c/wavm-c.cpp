@@ -1,3 +1,4 @@
+#include <string.h>
 #include <string>
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
@@ -593,36 +594,43 @@ wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,
 {
 	return createException(ExceptionTypes::calledAbort, nullptr, 0, Platform::captureCallStack(1));
 }
-void wasm_trap_message(const wasm_trap_t* trap,
-					   const char** out_message,
-					   size_t* out_num_message_bytes)
+bool wasm_trap_message(const wasm_trap_t* trap, char* out_message, size_t* inout_num_message_bytes)
 {
-	*out_message = "";
-	*out_num_message_bytes = 0;
-}
-void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
-{
-	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	WAVM_ASSERT(callStack.frames.size() >= 1);
-	out_frame->instance = nullptr;
-	out_frame->module_offset = 0;
-	out_frame->func_index = 0;
-	out_frame->func_offset = 0;
+	const std::string description = describeExceptionType(getExceptionType(trap));
+	if(*inout_num_message_bytes < description.size() + 1)
+	{
+		*inout_num_message_bytes = description.size() + 1;
+		return false;
+	}
+	else
+	{
+		WAVM_ASSERT(out_message);
+		memcpy(out_message, description.c_str(), description.size() + 1);
+		*inout_num_message_bytes = description.size() + 1;
+		return true;
+	}
 }
 size_t wasm_trap_stack_num_frames(const wasm_trap_t* trap)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	WAVM_ASSERT(callStack.frames.size() >= 1);
-	return callStack.frames.size() - 1;
+	return callStack.frames.size();
 }
 void wasm_trap_stack_frame(const wasm_trap_t* trap, size_t index, wasm_frame_t* out_frame)
 {
-	// const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	// const Platform::CallStack::Frame& frame = callStack.frames[index + 1];
-	out_frame->instance = nullptr;
-	out_frame->module_offset = 0;
-	out_frame->func_index = 0;
-	out_frame->func_offset = 0;
+	const Platform::CallStack& callStack = getExceptionCallStack(trap);
+	const Platform::CallStack::Frame& frame = callStack.frames[index];
+	InstructionSource source;
+	if(getInstructionSourceByAddress(frame.ip, source)
+	   && source.type == InstructionSource::Type::wasm)
+	{
+		out_frame->function = source.wasm.function;
+		out_frame->instr_index = source.wasm.instructionIndex;
+	}
+	else
+	{
+		out_frame->function = nullptr;
+		out_frame->instr_index = 0;
+	}
 }
 
 // wasm_foreign_t

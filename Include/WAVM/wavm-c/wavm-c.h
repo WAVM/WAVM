@@ -342,10 +342,8 @@ WASM_DECLARE_REF_BASE(ref)
 
 typedef struct wasm_frame_t
 {
-	wasm_instance_t* instance;
-	uint32_t func_index;
-	size_t func_offset;
-	size_t module_offset;
+	wasm_func_t* function;
+	size_t instr_index;
 } wasm_frame_t;
 
 // Traps
@@ -356,10 +354,9 @@ WASM_C_API own wasm_trap_t* wasm_trap_new(wasm_compartment_t*,
 										  const char* message,
 										  size_t num_message_bytes);
 
-WASM_C_API void wasm_trap_message(const wasm_trap_t*,
-								  const char** out_message,
-								  size_t* out_num_message_bytes);
-WASM_C_API void wasm_trap_origin(const wasm_trap_t*, wasm_frame_t* out_frame);
+WASM_C_API bool wasm_trap_message(const wasm_trap_t*,
+								  char* out_message,
+								  size_t* inout_num_message_bytes);
 WASM_C_API size_t wasm_trap_stack_num_frames(const wasm_trap_t*);
 WASM_C_API void wasm_trap_stack_frame(const wasm_trap_t*,
 									  size_t index,

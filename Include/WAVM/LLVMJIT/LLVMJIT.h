@@ -128,7 +128,7 @@ namespace WAVM { namespace LLVMJIT {
 
 	// Finds the JIT function and instruction index at the given address. If no JIT function
 	// contains the given address, returns an InstructionSourceInfo with function==nullptr.
-	WAVM_API InstructionSource getInstructionSourceByAddress(Uptr address);
+	WAVM_API bool getInstructionSourceByAddress(Uptr address, InstructionSource& outSource);
 
 	// Generates an invoke thunk for a specific function type.
 	WAVM_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);

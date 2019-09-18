@@ -660,13 +660,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	else
 	{
 		IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedTypeEncoding}};
-		std::string ipDescription = "<unknown>";
-		describeInstructionPointer(reinterpret_cast<Uptr>(function->code), ipDescription);
 		Log::printf(Log::debug,
 					"call_indirect: index %u has signature %s (%s), but was expecting %s\n",
 					index,
 					asString(IR::FunctionType{function->encodedType}).c_str(),
-					ipDescription.c_str(),
+					function->mutableData->debugName.c_str(),
 					asString(expectedSignature).c_str());
 		throwException(ExceptionTypes::indirectCallSignatureMismatch);
 	}

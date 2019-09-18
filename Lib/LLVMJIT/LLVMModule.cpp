@@ -758,23 +758,23 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true);
 }
 
-InstructionSource LLVMJIT::getInstructionSourceByAddress(Uptr address)
+bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& outSource)
 {
 	Module* jitModule;
 	{
 		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
 		auto moduleIt = addressToModuleMap.upper_bound(address);
-		if(moduleIt == addressToModuleMap.end()) { return InstructionSource{nullptr, UINTPTR_MAX}; }
+		if(moduleIt == addressToModuleMap.end()) { return false; }
 		jitModule = moduleIt->second;
 	}
 
 	auto functionIt = jitModule->addressToFunctionMap.upper_bound(address);
-	if(functionIt == jitModule->addressToFunctionMap.end())
-	{ return InstructionSource{nullptr, UINTPTR_MAX}; }
-	Runtime::Function* function = functionIt->second;
-	const Uptr codeAddress = reinterpret_cast<Uptr>(function->code);
-	if(address < codeAddress || address >= codeAddress + function->mutableData->numCodeBytes)
-	{ return InstructionSource{nullptr, UINTPTR_MAX}; }
+	if(functionIt == jitModule->addressToFunctionMap.end()) { return false; }
+	outSource.function = functionIt->second;
+	const Uptr codeAddress = reinterpret_cast<Uptr>(outSource.function->code);
+	if(address < codeAddress
+	   || address >= codeAddress + outSource.function->mutableData->numCodeBytes)
+	{ return false; }
 
 #if LAZY_PARSE_DWARF_LINE_INFO
 	Lock<Platform::Mutex> dwarfContextLock(jitModule->dwarfContextMutex);
@@ -783,12 +783,13 @@ InstructionSource LLVMJIT::getInstructionSourceByAddress(Uptr address)
 		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
 								  llvm::DINameKind::None));
 
-	return InstructionSource{function, Uptr(lineInfo.Line)};
+	outSource.instructionIndex = Uptr(lineInfo.Line);
+	return true;
 #else
 	// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
 	U32 ipOffset = (U32)(address - codeAddress);
 	Iptr opIndex = -1;
-	for(auto offsetMapIt : function->mutableData->offsetToOpIndexMap)
+	for(auto offsetMapIt : outSource.function->mutableData->offsetToOpIndexMap)
 	{
 		if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
 		else
@@ -797,6 +798,7 @@ InstructionSource LLVMJIT::getInstructionSourceByAddress(Uptr address)
 		}
 	}
 
-	return InstructionSource{function, opIndex > 0 ? Uptr(opIndex) : 0};
+	outSource.instructionIndex = opIndex > 0 ? Uptr(opIndex) : 0;
+	return true;
 #endif
 }

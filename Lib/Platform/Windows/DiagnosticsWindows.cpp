@@ -83,7 +83,7 @@ static std::string trimModuleName(std::string moduleName)
 	}
 }
 
-bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
+bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
 {
 	// Initialize DbgHelp.
 	DbgHelp* dbgHelp = DbgHelp::get();
@@ -103,12 +103,10 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 	if(!dbgHelp->symFromAddr(GetCurrentProcess(), ip, &displacement, symbolInfo)) { return false; }
 	else
 	{
-		outDescription = "host!";
-		outDescription
-			+= trimModuleName(getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase))));
-		outDescription += '!';
-		outDescription += std::string(symbolInfo->Name, symbolInfo->NameLen);
-		outDescription += '+' + std::to_string(displacement);
+		outSource.module
+			= trimModuleName(getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase))));
+		outSource.function = std::string(symbolInfo->Name, symbolInfo->NameLen);
+		outSource.instructionOffset = displacement;
 		return true;
 	}
 }

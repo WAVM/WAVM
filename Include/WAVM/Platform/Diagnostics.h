@@ -26,11 +26,32 @@ namespace WAVM { namespace Platform {
 		~CallStack() {}
 	};
 
+	// Describes the source of an instruction in a native module.
+	struct InstructionSource
+	{
+		std::string module;
+		std::string function;
+		Uptr instructionOffset;
+
+		friend std::string asString(const InstructionSource& source)
+		{
+			std::string result = source.module;
+			if(source.function.size())
+			{
+				result += '!';
+				result += source.function;
+			}
+			result += '+';
+			result += std::to_string(source.instructionOffset);
+			return result;
+		}
+	};
+
 	// Captures the execution context of the caller.
 	WAVM_API CallStack captureCallStack(Uptr numOmittedFramesFromTop = 0);
 
-	// Describes an instruction pointer.
-	WAVM_API bool describeInstructionPointer(Uptr ip, std::string& outDescription);
+	// Looks up the source of an instruction from a native module.
+	WAVM_API bool getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource);
 
 #if WAVM_ENABLE_ASAN
 	WAVM_API void expectLeakedObject(void* object);

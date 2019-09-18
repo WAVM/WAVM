@@ -44,16 +44,32 @@ void Runtime::setUserData(Exception* exception, void* userData, void (*finalizer
 }
 void* Runtime::getUserData(const Exception* exception) { return exception->userData; }
 
-bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
+std::string Runtime::asString(const InstructionSource& source)
 {
-	LLVMJIT::InstructionSource instructionSource = LLVMJIT::getInstructionSourceByAddress(ip);
-	if(!instructionSource.function)
-	{ return Platform::describeInstructionPointer(ip, outDescription); }
+	switch(source.type)
+	{
+	case InstructionSource::Type::unknown: return "<unknown>";
+	case InstructionSource::Type::native: return "host!" + asString(source.native);
+	case InstructionSource::Type::wasm:
+		return source.wasm.function->mutableData->debugName + '+'
+			   + std::to_string(source.wasm.instructionIndex);
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+bool Runtime::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
+{
+	LLVMJIT::InstructionSource llvmjitSource;
+	if(!LLVMJIT::getInstructionSourceByAddress(ip, llvmjitSource))
+	{
+		outSource.type = InstructionSource::Type::native;
+		return Platform::getInstructionSourceByAddress(ip, outSource.native);
+	}
 	else
 	{
-		outDescription = instructionSource.function->mutableData->debugName;
-		outDescription += '+';
-		outDescription += std::to_string(instructionSource.instructionIndex);
+		outSource.type = InstructionSource::Type::wasm;
+		outSource.wasm.function = llvmjitSource.function;
+		outSource.wasm.instructionIndex = llvmjitSource.instructionIndex;
 		return true;
 	}
 }
@@ -87,8 +103,13 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 			const Uptr frameIP = callStack.frames[frameIndex].ip;
 
 			std::string frameDescription;
-			if(!describeInstructionPointer(frameIP, frameDescription))
+			InstructionSource source;
+			if(!getInstructionSourceByAddress(frameIP, source))
 			{ frameDescription = "<unknown function>"; }
+			else
+			{
+				frameDescription = asString(source);
+			}
 
 			describedIPs.add(frameIP);
 			frameDescriptions.push_back(frameDescription);
