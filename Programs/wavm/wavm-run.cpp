@@ -42,9 +42,9 @@ using namespace WAVM::Runtime;
 struct StubFallbackResolver : Resolver
 {
 	StubFallbackResolver(Resolver& inInnerResolver, Compartment* inCompartment)
-	: innerResolver(inInnerResolver)
-	, compartment(inCompartment)
-	{}
+	: innerResolver(inInnerResolver), compartment(inCompartment)
+	{
+	}
 
 	virtual bool resolve(const std::string& moduleName,
 						 const std::string& exportName,
