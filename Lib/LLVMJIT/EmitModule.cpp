@@ -47,6 +47,7 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
 
 	diModuleScope = diBuilder.createFile("unknown", "unknown");
+#if LLVM_VERSION_MAJOR >= 9
 	diCompileUnit
 		= diBuilder.createCompileUnit(0xffff,
 									  diModuleScope,
@@ -61,6 +62,9 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 									  false,
 									  llvm::DICompileUnit::DebugNameTableKind::None,
 									  false);
+#else
+	diCompileUnit = diBuilder.createCompileUnit(0xffff, diModuleScope, "WAVM", true, "", 0);
+#endif
 
 	diValueTypes[(Uptr)ValueType::any] = nullptr;
 	diValueTypes[(Uptr)ValueType::i32]
