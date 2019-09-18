@@ -38,6 +38,32 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
+// A resolver that generates a stub if an inner resolver does not resolve a name.
+struct StubFallbackResolver : Resolver
+{
+	StubFallbackResolver(Resolver& inInnerResolver, Compartment* inCompartment)
+	: innerResolver(inInnerResolver)
+	, compartment(inCompartment)
+	{}
+
+	virtual bool resolve(const std::string& moduleName,
+						 const std::string& exportName,
+						 IR::ExternType type,
+						 Object*& outObject) override
+	{
+		if(innerResolver.resolve(moduleName, exportName, type, outObject)) { return true; }
+		else
+		{
+			return generateStub(
+				moduleName, exportName, type, outObject, compartment, StubFunctionBehavior::trap);
+		}
+	}
+
+private:
+	Resolver& innerResolver;
+	GCPointer<Compartment> compartment;
+};
+
 static bool loadTextOrBinaryModule(const char* filename,
 								   std::vector<U8>&& fileBytes,
 								   const IR::FeatureSpec& featureSpec,
@@ -636,7 +662,9 @@ struct State
 		LinkResult linkResult;
 		if(abi == ABI::emscripten)
 		{
-			linkResult = linkModule(irModule, Emscripten::getInstanceResolver(emscriptenInstance));
+			StubFallbackResolver stubFallbackResolver(
+				Emscripten::getInstanceResolver(emscriptenInstance), compartment);
+			linkResult = linkModule(irModule, stubFallbackResolver);
 		}
 		else if(abi == ABI::wasi)
 		{
