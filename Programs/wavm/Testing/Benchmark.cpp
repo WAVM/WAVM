@@ -90,19 +90,13 @@ void runBenchmarkSingleAndMultiThreaded(Compartment* compartment,
 	runBenchmark(compartment, nopFunction, numHardwareThreads, description, threadFunc);
 }
 
-void showInvokeBenchHelp(WAVM::Log::Category outputCategory)
+void showBenchmarkHelp(WAVM::Log::Category outputCategory)
 {
-	Log::printf(outputCategory, "Usage: wavm test invoke-bench\n");
+	Log::printf(outputCategory, "Usage: wavm test bench\n");
 }
 
-int execInvokeBench(int argc, char** argv)
+void runInvokeBench()
 {
-	if(argc != 0)
-	{
-		showInvokeBenchHelp(Log::Category::error);
-		return EXIT_FAILURE;
-	}
-
 	// Generate a nop function.
 	Serialization::ArrayOutputStream codeStream;
 	OperatorEncoderStream encoder(codeStream);
@@ -177,6 +171,16 @@ int execInvokeBench(int argc, char** argv)
 
 	// Free the compartment.
 	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
+
+int execBenchmark(int argc, char** argv)
+{
+	if(argc != 0)
+	{
+		showBenchmarkHelp(Log::Category::error);
+		return EXIT_FAILURE;
+	}
+
+	runInvokeBench();
 
 	return 0;
 }

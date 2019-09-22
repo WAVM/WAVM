@@ -16,7 +16,7 @@ enum class Command
 
 #if WAVM_ENABLE_RUNTIME
 	cAPI,
-	invokeBench,
+	benchmark,
 	script,
 #endif
 };
@@ -32,7 +32,7 @@ static const char* getCommandListHelpText()
 		   "  hashset       Test HashSet\n"
 		   "  i128          Test I128\n"
 #if WAVM_ENABLE_RUNTIME
-		   "  invoke-bench  Benchmark invoke performance\n"
+		   "  benchmark     Benchmark WAVM\n"
 		   "  script        Run WAST test scripts\n"
 #endif
 		;
@@ -67,9 +67,9 @@ static Command parseCommand(const char* string)
 	{
 		return Command::cAPI;
 	}
-	else if(!strcmp(string, "invoke-bench"))
+	else if(!strcmp(string, "benchmark"))
 	{
-		return Command::invokeBench;
+		return Command::benchmark;
 	}
 	else if(!strcmp(string, "script"))
 	{
@@ -100,7 +100,7 @@ int execTestCommand(int argc, char** argv)
 		case Command::i128: return execI128Test(argc - 1, argv + 1);
 #if WAVM_ENABLE_RUNTIME
 		case Command::cAPI: return execCAPITest(argc - 1, argv + 1);
-		case Command::invokeBench: return execInvokeBench(argc - 1, argv + 1);
+		case Command::benchmark: return execBenchmark(argc - 1, argv + 1);
 		case Command::script: return execRunTestScript(argc - 1, argv + 1);
 #endif
 

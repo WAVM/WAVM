@@ -12,7 +12,7 @@ set(NonRuntimeSources Testing/DumpTestModules.cpp
 					  wavm-disassemble.cpp)
 
 set(RuntimeOnlySources
-			Testing/InvokeBench.cpp
+			Testing/Benchmark.cpp
 			Testing/RunTestScript.cpp
 			Testing/TestCAPI.c
 			wavm-compile.cpp

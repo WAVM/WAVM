@@ -8,7 +8,7 @@ int execHashSetTest(int argc, char** argv);
 int execI128Test(int argc, char** argv);
 
 #if WAVM_ENABLE_RUNTIME
-int execInvokeBench(int argc, char** argv);
+int execBenchmark(int argc, char** argv);
 int execRunTestScript(int argc, char** argv);
 
 #ifdef __cplusplus
