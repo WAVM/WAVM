@@ -109,7 +109,7 @@ int execTestCommand(int argc, char** argv)
 						"Invalid command: %s\n"
 						"\n"
 						"%s",
-						argv[1],
+						argv[0],
 						getCommandListHelpText());
 			return EXIT_FAILURE;
 
