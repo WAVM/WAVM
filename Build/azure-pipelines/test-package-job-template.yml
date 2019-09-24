@@ -40,7 +40,7 @@ jobs:
         condition: always()
 
       - script: |
-          "${{parameters.executable}}" test invoke-bench
+          "${{parameters.executable}}" test benchmark
         displayName: "wavm test invoke-bench"
         condition: always()
 
