@@ -117,10 +117,9 @@
     (v8x16.swizzle (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
 
   ;; Integer arithmetic
-  (func (export "as-i8x16_add_sub_mul-operands") (param i32 i32 i32 i32) (result v128)
+  (func (export "as-i8x16_add_sub-operands") (param i32 i32 i32) (result v128)
     (i8x16.add (i8x16.splat (local.get 0))
-      (i8x16.sub (i8x16.splat (local.get 1))
-        (i8x16.mul (i8x16.splat (local.get 2)) (i8x16.splat (local.get 3))))))
+      (i8x16.sub (i8x16.splat (local.get 1)) (i8x16.splat (local.get 2)))))
   (func (export "as-i16x8_add_sub_mul-operands") (param i32 i32 i32 i32) (result v128)
     (i16x8.add (i16x8.splat (local.get 0))
       (i16x8.sub (i16x8.splat (local.get 1))
@@ -203,7 +202,7 @@
 (assert_return (invoke "as-f32x4_extract_lane_s-operand-last" (f32.const -0.25)) (f32.const -0.25))
 (assert_return (invoke "as-v8x16_swizzle-operands" (i32.const 1) (i32.const -1)) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
 
-(assert_return (invoke "as-i8x16_add_sub_mul-operands" (i32.const 3) (i32.const 2) (i32.const 1) (i32.const 3)) (v128.const i8x16 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2))
+(assert_return (invoke "as-i8x16_add_sub-operands" (i32.const 3) (i32.const 2) (i32.const 1)) (v128.const i8x16 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4))
 (assert_return (invoke "as-i16x8_add_sub_mul-operands" (i32.const 257) (i32.const 128) (i32.const 16) (i32.const 16)) (v128.const i16x8 129 129 129 129 129 129 129 129))
 (assert_return (invoke "as-i32x4_add_sub_mul-operands" (i32.const 65535) (i32.const 65537) (i32.const 256) (i32.const 256)) (v128.const i32x4 0x10000 0x10000 0x10000 0x10000))
 (assert_return (invoke "as-i8x16_add_saturate_s-operands" (i32.const 0x7f) (i32.const 1)) (v128.const i8x16 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f))
