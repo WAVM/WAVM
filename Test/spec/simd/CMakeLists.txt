@@ -20,4 +20,5 @@ ADD_WAST_TESTS(
             simd_i8x16_sat_arith.wast
             simd_i16x8_sat_arith.wast
             simd_f32x4.wast
-            simd_conversions.wast)
+            simd_conversions.wast
+            simd_load_splat.wast)
