@@ -5,6 +5,8 @@ Generate f32x4 [abs, min, max] cases.
 """
 
 from simd_f32x4_arith import Simdf32x4ArithmeticCase
+from simd import SIMD
+from test_assert import AssertReturn
 
 
 def binary_op(op: str, p1: str, p2: str) -> str:
@@ -77,7 +79,74 @@ class Simdf32x4Case(Simdf32x4ArithmeticCase):
 
     @staticmethod
     def v128_const(lane, val):
-        return '(v128.const {} {})'.format(lane, ' '.join([str(val)] * 4))
+
+        return SIMD().v128_const(val, lane)
+
+    def gen_test_fn_template(self):
+
+        # Get function code
+        template = Simdf32x4ArithmeticCase.gen_test_fn_template(self)
+
+        # Function template
+        tpl_func = '  (func (export "{}") (result v128) ({} {}{}))'
+
+        # Const data for min and max
+        lst_instr_with_const = [
+            [
+                [['0', '1', '2', '-3'], ['0', '2', '1', '3']],
+                [['0', '1', '1', '-3'], ['0', '2', '2', '3']]
+            ],
+            [
+                [['0', '1', '2', '3'], ['0', '1', '2', '3']],
+                [['0', '1', '2', '3'], ['0', '1', '2', '3']]
+            ],
+            [
+                [['0x00', '0x01', '0x02', '0x80000000'], ['0x00', '0x02', '0x01', '2147483648']],
+                [['0x00', '0x01', '0x01', '0x80000000'], ['0x00', '0x02', '0x02', '2147483648']]
+            ],
+            [
+                [['0x00', '0x01', '0x02', '0x80000000'], ['0x00', '0x01', '0x02', '0x80000000']],
+                [['0x00', '0x01', '0x02', '0x80000000'], ['0x00', '0x01', '0x02', '0x80000000']]
+            ]
+        ]
+
+        # Assert data
+        lst_assert = {}
+
+        # Generate func and assert
+        for op in self.BINARY_OPS:
+
+            op_name = self.full_op_name(op)
+
+            for case_data in lst_instr_with_const:
+
+                func_name = "{}_with_const_{}".format(op_name, len(template)-6)
+                template.insert(len(template)-1,
+                                tpl_func.format(func_name, op_name,
+                                                self.v128_const('f32x4', case_data[0][0]),
+                                                ' ' + self.v128_const('f32x4', case_data[0][1])))
+
+                ret_idx = 0 if op == 'min' else 1
+
+                if op not in lst_assert:
+                    lst_assert[op] = []
+
+                lst_assert[op].append([func_name, case_data[1][ret_idx]])
+
+        # Generate func for abs
+        op_name = self.full_op_name('abs')
+        func_name = "{}_with_const_{}".format(op_name, len(template)-6)
+        template.insert(len(template)-1,
+                        tpl_func.format(func_name, op_name,
+                                        self.v128_const('f32x4', ['-0', '-1', '-2', '-3']), ''))
+
+        for key in lst_assert:
+            for case_data in lst_assert[key]:
+                template.append(str(AssertReturn(case_data[0], [], self.v128_const('f32x4', case_data[1]))))
+
+        template.append(str(AssertReturn(func_name, [], self.v128_const('f32x4', ['0', '1', '2', '3']))))
+
+        return template
 
     @property
     def combine_ternary_arith_test_data(self):
@@ -147,6 +216,73 @@ class Simdf32x4Case(Simdf32x4ArithmeticCase):
 
         for case in binary_test_data:
             cases.append(self.single_binary_test(case))
+
+        # Test different lanes go through different if-then clauses and opposite signs of zero
+        lst_specific_test_data = [
+            '\n;; Test different lanes go through different if-then clauses',
+            [
+                'f32x4.min',
+                [['nan', '0', '0', '1'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '0', '0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.min',
+                [['nan', '0', '0', '0'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '0', '0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.max',
+                [['nan', '0', '0', '1'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '1', '1']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.max',
+                [['nan', '0', '0', '0'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '1', '0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            '\n;; Test opposite signs of zero',
+            [
+                'f32x4.min',
+                [['0', '0', '-0', '+0'], ['+0', '-0', '+0', '-0']],
+                [['0', '-0', '-0', '-0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.min',
+                [['-0', '-0', '-0', '-0'], ['+0', '+0', '+0', '+0']],
+                [['-0', '-0', '-0', '-0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.max',
+                [['0', '0', '-0', '+0'], ['+0', '-0', '+0', '-0']],
+                [['0', '0', '0', '0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.max',
+                [['-0', '-0', '-0', '-0'], ['+0', '+0', '+0', '+0']],
+                [['+0', '+0', '+0', '+0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            '\n'
+        ]
+
+        # Generate test case for if-then-else branch and opposite signs of zero
+        for case_data in lst_specific_test_data:
+
+            if isinstance(case_data, str):
+                cases.append(case_data)
+                continue
+
+            cases.append(str(AssertReturn(case_data[0],
+                                          [self.v128_const(case_data[3][0], case_data[1][0]),
+                                           self.v128_const(case_data[3][1], case_data[1][1])],
+                                          self.v128_const(case_data[3][2], case_data[2][0]))))
 
         for p in self.FLOAT_NUMBERS:
             op_name = self.full_op_name('abs')
