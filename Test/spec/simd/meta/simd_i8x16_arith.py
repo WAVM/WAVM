@@ -138,19 +138,6 @@ class SimdI8x16ArithmeticCase(SimdArithmeticCase):
             self.range_test_data
         ]
 
-    def get_invalid_cases(self):
-        invalid_tests = super().get_invalid_cases()
-        return self.get_malformed_cases() + invalid_tests
-
-    def get_malformed_cases(self):
-        malformed_cases = [';; i8x16.mul was removed from SIMD spec',
-                           '(assert_malformed (module quote\n'
-                           '  "(func (result v128) '
-                           '(i8x16.mul (v128.const i8x16 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1) '
-                           '(v128.const i8x16 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2)))")\n'
-                           '  "unknown operator")\n\n']
-        return '\n'.join(malformed_cases)
-
 
 def gen_test_cases():
     simd_i8x16_arith = SimdI8x16ArithmeticCase()
