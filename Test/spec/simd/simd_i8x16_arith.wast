@@ -350,11 +350,6 @@
 (assert_return (invoke "i8x16.neg" (v128.const i8x16 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff))
                                    (v128.const i8x16 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1))
 
-;; i8x16.mul was removed from SIMD spec
-(assert_malformed (module quote
-  "(func (result v128) (i8x16.mul (v128.const i8x16 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1) (v128.const i8x16 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2)))")
-  "unknown operator")
-
 ;; type check
 (assert_invalid (module (func (result v128) (i8x16.neg (i32.const 0)))) "type mismatch")
 (assert_invalid (module (func (result v128) (i8x16.add (i32.const 0) (f32.const 0.0)))) "type mismatch")
