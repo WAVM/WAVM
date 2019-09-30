@@ -97,6 +97,12 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 	fpm.add(llvm::createCFGSimplificationPass());
 	fpm.add(llvm::createJumpThreadingPass());
 	fpm.add(llvm::createConstantPropagationPass());
+
+	// This DCE pass is necessary to work around a bug in LLVM's CodeGenPrepare that's triggered
+	// if there's a dead div/rem with limited-range divisor:
+	// https://bugs.llvm.org/show_bug.cgi?id=43514
+	fpm.add(llvm::createDeadCodeEliminationPass());
+
 	fpm.doInitialization();
 	for(auto functionIt = llvmModule.begin(); functionIt != llvmModule.end(); ++functionIt)
 	{ fpm.run(*functionIt); }
