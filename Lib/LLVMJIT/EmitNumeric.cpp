@@ -304,21 +304,34 @@ EMIT_FP_COMPARE(le, llvm::CmpInst::FCMP_OLE)
 EMIT_FP_COMPARE(gt, llvm::CmpInst::FCMP_OGT)
 EMIT_FP_COMPARE(ge, llvm::CmpInst::FCMP_OGE)
 
-static llvm::Value* quietNaN(EmitFunctionContext& context, llvm::Value* nan)
+static llvm::Value* quietNaN(EmitFunctionContext& context,
+							 llvm::Value* nan,
+							 llvm::Value* quietNaNMask)
 {
-	// Converts a signalling NaN to a quiet NaN by adding zero to it.
+#if 0
+	// Converts a signaling NaN to a quiet NaN by adding zero to it.
 	return context.callLLVMIntrinsic({nan->getType()},
 									 llvm::Intrinsic::experimental_constrained_fadd,
 									 {nan,
 									  llvm::Constant::getNullValue(nan->getType()),
 									  context.moduleContext.fpRoundingModeMetadata,
 									  context.moduleContext.fpExceptionMetadata});
+#else
+	// Converts a signaling NaN to a quiet NaN by setting its top bit. This works around a LLVM bug
+	// that is triggered by the above constrained fadd technique:
+	// https://bugs.llvm.org/show_bug.cgi?id=43510
+	return context.irBuilder.CreateBitCast(
+		context.irBuilder.CreateOr(context.irBuilder.CreateBitCast(nan, quietNaNMask->getType()),
+								   quietNaNMask),
+		nan->getType());
+#endif
 }
 
 static llvm::Value* emitFloatMin(EmitFunctionContext& context,
 								 llvm::Value* left,
 								 llvm::Value* right,
-								 llvm::Type* intType)
+								 llvm::Type* intType,
+								 llvm::Value* quietNaNMask)
 {
 	llvm::IRBuilder<>& irBuilder = context.irBuilder;
 	llvm::Type* floatType = left->getType();
@@ -333,10 +346,10 @@ static llvm::Value* emitFloatMin(EmitFunctionContext& context,
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
-		quietNaN(context, left),
+		quietNaN(context, left, quietNaNMask),
 		irBuilder.CreateSelect(
 			isRightNaN,
-			quietNaN(context, right),
+			quietNaN(context, right, quietNaNMask),
 			irBuilder.CreateSelect(
 				isLeftLessThanRight,
 				left,
@@ -355,7 +368,8 @@ static llvm::Value* emitFloatMin(EmitFunctionContext& context,
 static llvm::Value* emitFloatMax(EmitFunctionContext& context,
 								 llvm::Value* left,
 								 llvm::Value* right,
-								 llvm::Type* intType)
+								 llvm::Type* intType,
+								 llvm::Value* quietNaNMask)
 {
 	llvm::IRBuilder<>& irBuilder = context.irBuilder;
 	llvm::Type* floatType = left->getType();
@@ -370,10 +384,10 @@ static llvm::Value* emitFloatMax(EmitFunctionContext& context,
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
-		quietNaN(context, left),
+		quietNaN(context, left, quietNaNMask),
 		irBuilder.CreateSelect(
 			isRightNaN,
-			quietNaN(context, right),
+			quietNaN(context, right, quietNaNMask),
 			irBuilder.CreateSelect(
 				isLeftLessThanRight,
 				right,
@@ -389,16 +403,24 @@ static llvm::Value* emitFloatMax(EmitFunctionContext& context,
 						floatType)))));
 }
 
-EMIT_FP_BINARY_OP(min,
-				  emitFloatMin(*this,
-							   left,
-							   right,
-							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
-EMIT_FP_BINARY_OP(max,
-				  emitFloatMax(*this,
-							   left,
-							   right,
-							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
+EMIT_FP_BINARY_OP(
+	min,
+	emitFloatMin(*this,
+				 left,
+				 right,
+				 type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type,
+				 type == ValueType::f32
+					 ? emitLiteral(llvmContext, FloatComponents<F32>::canonicalSignificand)
+					 : emitLiteral(llvmContext, FloatComponents<F64>::canonicalSignificand)))
+EMIT_FP_BINARY_OP(
+	max,
+	emitFloatMax(*this,
+				 left,
+				 right,
+				 type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type,
+				 type == ValueType::f32
+					 ? emitLiteral(llvmContext, FloatComponents<F32>::canonicalSignificand)
+					 : emitLiteral(llvmContext, FloatComponents<F64>::canonicalSignificand)))
 EMIT_FP_UNARY_OP(ceil, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ceil, {operand}))
 EMIT_FP_UNARY_OP(floor, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::floor, {operand}))
 EMIT_FP_UNARY_OP(trunc, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::trunc, {operand}))
@@ -578,16 +600,44 @@ EMIT_SIMD_FP_BINARY_OP(div, irBuilder.CreateFDiv(left, right))
 
 EMIT_SIMD_BINARY_OP(f32x4_min,
 					llvmContext.f32x4Type,
-					emitFloatMin(*this, left, right, llvmContext.i32x4Type))
+					emitFloatMin(*this,
+								 left,
+								 right,
+								 llvmContext.i32x4Type,
+								 irBuilder.CreateVectorSplat(
+									 4,
+									 emitLiteral(llvmContext,
+												 FloatComponents<F32>::canonicalSignificand))))
 EMIT_SIMD_BINARY_OP(f64x2_min,
 					llvmContext.f64x2Type,
-					emitFloatMin(*this, left, right, llvmContext.i64x2Type))
+					emitFloatMin(*this,
+								 left,
+								 right,
+								 llvmContext.i64x2Type,
+								 irBuilder.CreateVectorSplat(
+									 2,
+									 emitLiteral(llvmContext,
+												 FloatComponents<F64>::canonicalSignificand))))
 EMIT_SIMD_BINARY_OP(f32x4_max,
 					llvmContext.f32x4Type,
-					emitFloatMax(*this, left, right, llvmContext.i32x4Type))
+					emitFloatMax(*this,
+								 left,
+								 right,
+								 llvmContext.i32x4Type,
+								 irBuilder.CreateVectorSplat(
+									 4,
+									 emitLiteral(llvmContext,
+												 FloatComponents<F32>::canonicalSignificand))))
 EMIT_SIMD_BINARY_OP(f64x2_max,
 					llvmContext.f64x2Type,
-					emitFloatMax(*this, left, right, llvmContext.i64x2Type))
+					emitFloatMax(*this,
+								 left,
+								 right,
+								 llvmContext.i64x2Type,
+								 irBuilder.CreateVectorSplat(
+									 2,
+									 emitLiteral(llvmContext,
+												 FloatComponents<F64>::canonicalSignificand))))
 
 EMIT_SIMD_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
 EMIT_SIMD_FP_UNARY_OP(abs,
