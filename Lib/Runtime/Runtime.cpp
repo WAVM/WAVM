@@ -89,12 +89,6 @@ Runtime::GCObject::~GCObject()
 	if(finalizeUserData) { (*finalizeUserData)(userData); }
 }
 
-Runtime::FunctionMutableData::~FunctionMutableData()
-{
-	WAVM_ASSERT(numRootReferences.load(std::memory_order_acquire) == 0);
-	if(finalizeUserData) { (*finalizeUserData)(userData); }
-}
-
 bool Runtime::isA(const Object* object, const ExternType& type)
 {
 	if(ObjectKind(type.kind) != object->kind) { return false; }

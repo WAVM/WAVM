@@ -156,7 +156,11 @@ namespace WAVM { namespace Runtime {
 		{
 		}
 
-		~FunctionMutableData();
+		~FunctionMutableData()
+		{
+			WAVM_ASSERT(numRootReferences.load(std::memory_order_acquire) == 0);
+			if(finalizeUserData) { (*finalizeUserData)(userData); }
+		}
 	};
 
 	struct Function
