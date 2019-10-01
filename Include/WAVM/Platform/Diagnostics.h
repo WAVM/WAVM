@@ -52,10 +52,4 @@ namespace WAVM { namespace Platform {
 
 	// Looks up the source of an instruction from a native module.
 	WAVM_API bool getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource);
-
-#if WAVM_ENABLE_ASAN
-	WAVM_API void expectLeakedObject(void* object);
-#else
-	inline void expectLeakedObject(void*) {}
-#endif
 }}

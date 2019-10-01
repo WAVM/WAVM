@@ -25,24 +25,46 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::WAST;
 
+struct HostRef
+{
+	Runtime::Function* function;
+	HostRef() : function(nullptr) {}
+	~HostRef()
+	{
+		if(function)
+		{
+			delete function->mutableData;
+			delete function;
+		}
+	}
+
+	HostRef(HostRef&& movee)
+	{
+		function = movee.function;
+		movee.function = nullptr;
+	}
+	void operator=(HostRef&& movee)
+	{
+		function = movee.function;
+		movee.function = nullptr;
+	}
+};
+
 static Runtime::Function* makeHostRef(Uptr index)
 {
 	static Platform::Mutex indexToHostRefMapMutex;
-	static HashMap<Uptr, Runtime::Function*> indexToHostRefMap;
+	static HashMap<Uptr, HostRef> indexToHostRefMap;
 	Lock<Platform::Mutex> lock(indexToHostRefMapMutex);
-	Runtime::Function*& function = indexToHostRefMap.getOrAdd(index, nullptr);
-	if(!function)
+	HostRef& hostRef = indexToHostRefMap.getOrAdd(index, HostRef());
+	if(!hostRef.function)
 	{
 		Runtime::FunctionMutableData* functionMutableData
 			= new Runtime::FunctionMutableData("test!ref.host!" + std::to_string(index));
-		function
+		hostRef.function
 			= new Runtime::Function(functionMutableData, UINTPTR_MAX, FunctionType::Encoding{0});
-		functionMutableData->function = function;
-
-		Platform::expectLeakedObject(functionMutableData);
-		Platform::expectLeakedObject(function);
+		functionMutableData->function = hostRef.function;
 	}
-	return function;
+	return hostRef.function;
 }
 
 static IR::Value parseConstExpression(CursorState* cursor)

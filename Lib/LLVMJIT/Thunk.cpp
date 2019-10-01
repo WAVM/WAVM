@@ -71,10 +71,12 @@ namespace WAVM {
 // A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
 static Platform::Mutex invokeThunkMutex;
 static HashMap<FunctionType, Runtime::Function*> invokeThunkTypeToFunctionMap;
+static std::vector<std::unique_ptr<LLVMJIT::Module>> invokeThunkModules;
 
 // A map from function types to JIT symbols for cached native thunks (WASM -> C++)
 static Platform::Mutex intrinsicThunkMutex;
 static HashMap<IntrinsicThunkKey, Runtime::Function*> intrinsicFunctionToThunkFunctionMap;
+static std::vector<std::unique_ptr<LLVMJIT::Module>> intrinsicThunkModules;
 
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 {
@@ -166,7 +168,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
-	Platform::expectLeakedObject(jitModule);
+	invokeThunkModules.push_back(std::unique_ptr<LLVMJIT::Module>(jitModule));
 
 	invokeThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
@@ -234,7 +236,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
-	Platform::expectLeakedObject(jitModule);
+	intrinsicThunkModules.push_back(std::unique_ptr<LLVMJIT::Module>(jitModule));
 
 	intrinsicThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return intrinsicThunkFunction;

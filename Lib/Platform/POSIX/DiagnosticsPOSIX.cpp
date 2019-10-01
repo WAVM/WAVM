@@ -82,8 +82,3 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 #endif
 	return false;
 }
-
-#if WAVM_ENABLE_ASAN
-#include <sanitizer/lsan_interface.h>
-void Platform::expectLeakedObject(void* object) { __lsan_ignore_object(object); }
-#endif
