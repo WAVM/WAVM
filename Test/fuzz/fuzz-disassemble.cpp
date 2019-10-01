@@ -34,6 +34,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 #endif
 
 		Module wastModule(FeatureSpec(true));
+		wastModule.featureSpec.sharedTables = true;
 		std::vector<WAST::Error> parseErrors;
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))

@@ -34,6 +34,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 		}
 
 		Module wasmModule(FeatureSpec(true));
+		wasmModule.featureSpec.sharedTables = true;
 		{
 			Serialization::MemoryInputStream inputStream(wasmBytes.data(), wasmBytes.size());
 			WASM::LoadError loadError;
