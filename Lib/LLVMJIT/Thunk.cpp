@@ -68,23 +68,48 @@ namespace WAVM {
 	};
 }
 
-// A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
-static Platform::Mutex invokeThunkMutex;
-static HashMap<FunctionType, Runtime::Function*> invokeThunkTypeToFunctionMap;
-static std::vector<std::unique_ptr<LLVMJIT::Module>> invokeThunkModules;
+// A global invoke thunk cache
+struct InvokeThunkCache
+{
+	Platform::Mutex mutex;
+	HashMap<FunctionType, Runtime::Function*> typeToFunctionMap;
+	std::vector<std::unique_ptr<LLVMJIT::Module>> modules;
 
-// A map from function types to JIT symbols for cached native thunks (WASM -> C++)
-static Platform::Mutex intrinsicThunkMutex;
-static HashMap<IntrinsicThunkKey, Runtime::Function*> intrinsicFunctionToThunkFunctionMap;
-static std::vector<std::unique_ptr<LLVMJIT::Module>> intrinsicThunkModules;
+	static InvokeThunkCache& get()
+	{
+		static InvokeThunkCache singleton;
+		return singleton;
+	}
+
+private:
+	InvokeThunkCache() {}
+};
+
+// A global intrinsic thunk cache.
+struct IntrinsicThunkCache
+{
+	Platform::Mutex mutex;
+	HashMap<IntrinsicThunkKey, Runtime::Function*> functionToThunkMap;
+	std::vector<std::unique_ptr<LLVMJIT::Module>> modules;
+
+	static IntrinsicThunkCache& get()
+	{
+		static IntrinsicThunkCache singleton;
+		return singleton;
+	}
+
+private:
+	IntrinsicThunkCache() {}
+};
 
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 {
-	Lock<Platform::Mutex> invokeThunkLock(invokeThunkMutex);
+	InvokeThunkCache& invokeThunkCache = InvokeThunkCache::get();
+	Lock<Platform::Mutex> invokeThunkLock(invokeThunkCache.mutex);
 
 	// Reuse cached invoke thunks for the same function type.
 	Runtime::Function*& invokeThunkFunction
-		= invokeThunkTypeToFunctionMap.getOrAdd(functionType, nullptr);
+		= invokeThunkCache.typeToFunctionMap.getOrAdd(functionType, nullptr);
 	if(invokeThunkFunction)
 	{ return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code)); }
 
@@ -168,7 +193,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
-	invokeThunkModules.push_back(std::unique_ptr<LLVMJIT::Module>(jitModule));
+	invokeThunkCache.modules.push_back(std::unique_ptr<LLVMJIT::Module>(jitModule));
 
 	invokeThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
@@ -179,7 +204,8 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 											  CallingConvention callingConvention,
 											  const char* debugName)
 {
-	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkMutex);
+	IntrinsicThunkCache& intrinsicThunkCache = IntrinsicThunkCache::get();
+	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkCache.mutex);
 
 	WAVM_ASSERT(callingConvention == CallingConvention::intrinsic
 				|| callingConvention == CallingConvention::intrinsicWithContextSwitch
@@ -189,7 +215,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 
 	// Reuse cached intrinsic thunks for the same function+type.
 	Runtime::Function*& intrinsicThunkFunction
-		= intrinsicFunctionToThunkFunctionMap.getOrAdd({nativeFunction, functionType}, nullptr);
+		= intrinsicThunkCache.functionToThunkMap.getOrAdd({nativeFunction, functionType}, nullptr);
 	if(intrinsicThunkFunction) { return intrinsicThunkFunction; }
 
 	// Create a FunctionMutableData object for the thunk.
@@ -236,7 +262,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
-	intrinsicThunkModules.push_back(std::unique_ptr<LLVMJIT::Module>(jitModule));
+	intrinsicThunkCache.modules.push_back(std::unique_ptr<LLVMJIT::Module>(jitModule));
 
 	intrinsicThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return intrinsicThunkFunction;

@@ -61,12 +61,29 @@ namespace WAVM { namespace Runtime {
 using namespace WAVM;
 using namespace WAVM::LLVMJIT;
 
-static Platform::Mutex gdbRegistrationListenerMutex;
-static llvm::JITEventListener* gdbRegistrationListener = nullptr;
+struct LLVMJIT::GlobalModuleState
+{
+	Platform::Mutex gdbRegistrationListenerMutex;
+	llvm::JITEventListener* gdbRegistrationListener = nullptr;
 
-// A map from address to loaded JIT symbols.
-static Platform::Mutex addressToModuleMapMutex;
-static std::map<Uptr, LLVMJIT::Module*> addressToModuleMap;
+	// A map from address to loaded JIT symbols.
+	Platform::Mutex addressToModuleMapMutex;
+	std::map<Uptr, LLVMJIT::Module*> addressToModuleMap;
+
+	static const std::shared_ptr<GlobalModuleState>& get()
+	{
+		static std::shared_ptr<GlobalModuleState> singleton = std::make_shared<GlobalModuleState>();
+		return singleton;
+	}
+
+	// These constructor and destructor should not be called directly, but must be public in order
+	// to be accessible by std::make_shared.
+	GlobalModuleState()
+	{
+		gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
+	}
+	~GlobalModuleState() { delete gdbRegistrationListener; }
+};
 
 // Allocates memory for the LLVM object loader.
 struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
@@ -331,6 +348,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
 			   bool shouldLogMetrics)
 : memoryManager(new ModuleMemoryManager())
+, globalModuleState(GlobalModuleState::get())
 #if LLVM_VERSION_MAJOR < 8
 , objectBytes(objectBytes)
 #endif
@@ -512,14 +530,12 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Notify GDB of the new object.
 	{
-		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
-		if(!gdbRegistrationListener)
-		{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
+		Lock<Platform::Mutex> lock(globalModuleState->gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
-		gdbRegistrationListener->notifyObjectLoaded(
+		globalModuleState->gdbRegistrationListener->notifyObjectLoaded(
 			reinterpret_cast<Uptr>(this), *object, *loadedObject);
 #else
-		gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
+		globalModuleState->gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
 #endif
 	}
 
@@ -598,8 +614,8 @@ Module::Module(const std::vector<U8>& objectBytes,
 	const Uptr moduleEndAddress = reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
 														 + memoryManager->getNumImageBytes());
 	{
-		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
-		addressToModuleMap.emplace(moduleEndAddress, this);
+		Lock<Platform::Mutex> addressToModuleMapLock(globalModuleState->addressToModuleMapMutex);
+		globalModuleState->addressToModuleMap.emplace(moduleEndAddress, this);
 	}
 
 	if(shouldLogMetrics)
@@ -613,18 +629,22 @@ Module::~Module()
 {
 	// Notify GDB that the object is being unloaded.
 	{
-		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
+		Lock<Platform::Mutex> lock(globalModuleState->gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
-		gdbRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
+		globalModuleState->gdbRegistrationListener->notifyFreeingObject(
+			reinterpret_cast<Uptr>(this));
 #else
-		gdbRegistrationListener->NotifyFreeingObject(*object);
+		globalModuleState->gdbRegistrationListener->NotifyFreeingObject(*object);
 #endif
 	}
 
 	// Remove the module from the global address to module map.
-	Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
-	addressToModuleMap.erase(addressToModuleMap.find(reinterpret_cast<Uptr>(
-		memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
+	{
+		Lock<Platform::Mutex> addressToModuleMapLock(globalModuleState->addressToModuleMapMutex);
+		globalModuleState->addressToModuleMap.erase(
+			globalModuleState->addressToModuleMap.find(reinterpret_cast<Uptr>(
+				memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
+	}
 
 	// Free the FunctionMutableData objects.
 	for(const auto& pair : addressToFunctionMap) { delete pair.second->mutableData; }
@@ -762,9 +782,10 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 {
 	Module* jitModule;
 	{
-		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
-		auto moduleIt = addressToModuleMap.upper_bound(address);
-		if(moduleIt == addressToModuleMap.end()) { return false; }
+		auto globalModuleState = GlobalModuleState::get();
+		Lock<Platform::Mutex> addressToModuleMapLock(globalModuleState->addressToModuleMapMutex);
+		auto moduleIt = globalModuleState->addressToModuleMap.upper_bound(address);
+		if(moduleIt == globalModuleState->addressToModuleMap.end()) { return false; }
 		jitModule = moduleIt->second;
 	}
 

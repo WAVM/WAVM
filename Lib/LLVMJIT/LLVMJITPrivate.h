@@ -356,6 +356,7 @@ namespace WAVM { namespace LLVMJIT {
 	llvm::JITEvaluatedSymbol resolveJITImport(llvm::StringRef name);
 
 	struct ModuleMemoryManager;
+	struct GlobalModuleState;
 
 	// Encapsulates a loaded module.
 	struct Module
@@ -375,6 +376,10 @@ namespace WAVM { namespace LLVMJIT {
 
 	private:
 		ModuleMemoryManager* memoryManager;
+
+		// Module holds a shared pointer to GlobalModuleState to ensure that on exit it is not
+		// destructed until after all Modules have been destructed.
+		std::shared_ptr<GlobalModuleState> globalModuleState;
 
 		// Have to keep copies of these around because until LLVM 8, GDB registration listener uses
 		// their pointers as keys for deregistration.
