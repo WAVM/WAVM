@@ -88,7 +88,7 @@ class Simdf32x4Case(Simdf32x4ArithmeticCase):
         template = Simdf32x4ArithmeticCase.gen_test_fn_template(self)
 
         # Function template
-        tpl_func = '  (func (export "{}") (result v128) ({} {}{}))'
+        tpl_func = '  (func (export "{}"){} (result v128) ({} {}{}))'
 
         # Const data for min and max
         lst_instr_with_const = [
@@ -111,40 +111,222 @@ class Simdf32x4Case(Simdf32x4ArithmeticCase):
         ]
 
         # Assert data
-        lst_assert = {}
+        lst_oprt_with_const_assert = {}
 
         # Generate func and assert
         for op in self.BINARY_OPS:
 
             op_name = self.full_op_name(op)
 
+            # Add comment for the case script "  ;; [f32x4.min, f32x4.max] const vs const"
+            template.insert(len(template)-1, '  ;; {} const vs const'.format(op_name))
+
+            # Add const vs const cases
             for case_data in lst_instr_with_const:
 
-                func_name = "{}_with_const_{}".format(op_name, len(template)-6)
+                func_name = "{}_with_const_{}".format(op_name, len(template)-7)
                 template.insert(len(template)-1,
-                                tpl_func.format(func_name, op_name,
+                                tpl_func.format(func_name, '', op_name,
                                                 self.v128_const('f32x4', case_data[0][0]),
                                                 ' ' + self.v128_const('f32x4', case_data[0][1])))
 
                 ret_idx = 0 if op == 'min' else 1
 
-                if op not in lst_assert:
-                    lst_assert[op] = []
+                if op not in lst_oprt_with_const_assert:
+                    lst_oprt_with_const_assert[op] = []
 
-                lst_assert[op].append([func_name, case_data[1][ret_idx]])
+                lst_oprt_with_const_assert[op].append([func_name, case_data[1][ret_idx]])
+
+            # Add comment for the case script "  ;; [f32x4.min, f32x4.max] param vs const"
+            template.insert(len(template)-1, '  ;; {} param vs const'.format(op_name))
+
+            case_cnt = 0
+
+            # Add param vs const cases
+            for case_data in lst_instr_with_const:
+
+                func_name = "{}_with_const_{}".format(op_name, len(template)-7)
+
+                # Cross parameters and constants
+                if case_cnt in (0, 3):
+                    func_param_0 = '(local.get 0)'
+                    func_param_1 = self.v128_const('f32x4', case_data[0][0])
+                else:
+                    func_param_0 = self.v128_const('f32x4', case_data[0][0])
+                    func_param_1 = '(local.get 0)'
+
+                template.insert(len(template)-1,
+                                tpl_func.format(func_name, '(param v128)', op_name, func_param_0, ' ' + func_param_1))
+
+                ret_idx = 0 if op == 'min' else 1
+
+                if op not in lst_oprt_with_const_assert:
+                    lst_oprt_with_const_assert[op] = []
+
+                lst_oprt_with_const_assert[op].append([func_name, case_data[0][1], case_data[1][ret_idx]])
+
+                case_cnt += 1
 
         # Generate func for abs
         op_name = self.full_op_name('abs')
-        func_name = "{}_with_const_{}".format(op_name, len(template)-6)
+        func_name = "{}_with_const".format(op_name)
+        template.insert(len(template)-1, '')
         template.insert(len(template)-1,
-                        tpl_func.format(func_name, op_name,
+                        tpl_func.format(func_name, '', op_name,
                                         self.v128_const('f32x4', ['-0', '-1', '-2', '-3']), ''))
 
-        for key in lst_assert:
-            for case_data in lst_assert[key]:
-                template.append(str(AssertReturn(case_data[0], [], self.v128_const('f32x4', case_data[1]))))
+        # Test different lanes go through different if-then clauses
+        lst_diff_lane_vs_clause = [
+            [
+                'f32x4.min',
+                [['nan', '0', '0', '1'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '0', '0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.min',
+                [['nan', '0', '0', '0'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '0', '0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.max',
+                [['nan', '0', '0', '1'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '1', '1']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ],
+            [
+                'f32x4.max',
+                [['nan', '0', '0', '0'], ['0', '-nan', '1', '0']],
+                [['nan', '-nan', '1', '0']],
+                ['f32x4', 'f32x4', 'f32x4']
+            ]
+        ]
 
+        # Case number
+        case_cnt = 0
+
+        # Template for func name to extract a lane
+        tpl_func_name_by_lane = 'call_indirect_vv_v_f32x4_extract_lane_{}'
+
+        # Template for assert
+        tpl_assert = '({}\n' \
+                     '  (invoke "{}"\n' \
+                     '    {}\n' \
+                     '    {}\n' \
+                     '    {}\n' \
+                     '  )\n' \
+                     '{}' \
+                     ')'
+
+        lst_diff_lane_vs_clause_assert = []
+
+        # Add comment in wast script
+        lst_diff_lane_vs_clause_assert.append('')
+        lst_diff_lane_vs_clause_assert.append(';; Test different lanes go through different if-then clauses')
+
+        template.insert(len(template)-1, '')
+        template.insert(len(template)-1, '  ;;  Test different lanes go through different if-then clauses')
+
+        # Add test case for test different lanes go through different if-then clauses
+        template.insert(len(template)-1, '  (type $vv_v (func (param v128 v128) (result v128)))\n'
+                                         '  (table funcref (elem $f32x4_min $f32x4_max))\n'
+                                         '\n'
+                                         '  (func $f32x4_min (type $vv_v)\n'
+                                         '    (f32x4.min (local.get 0) (local.get 1))\n'
+                                         '  )\n'
+                                         '\n'
+                                         '  (func $f32x4_max (type $vv_v)\n'
+                                         '    (f32x4.max (local.get 0) (local.get 1))\n'
+                                         '  )\n'
+                                         '\n'
+                                         '  (func (export "call_indirect_vv_v_f32x4_extract_lane_0")\n'
+                                         '    (param v128 v128 i32) (result f32)\n'
+                                         '    (f32x4.extract_lane 0\n'
+                                         '      (call_indirect (type $vv_v) (local.get 0) (local.get 1) (local.get 2))\n'
+                                         '    )\n'
+                                         '  )\n'
+                                         '  (func (export "call_indirect_vv_v_f32x4_extract_lane_1")\n'
+                                         '    (param v128 v128 i32) (result f32)\n'
+                                         '    (f32x4.extract_lane 1\n'
+                                         '      (call_indirect (type $vv_v) (local.get 0) (local.get 1) (local.get 2))\n'
+                                         '    )\n'
+                                         '  )\n'
+                                         '  (func (export "call_indirect_vv_v_f32x4_extract_lane_2")\n'
+                                         '    (param v128 v128 i32) (result f32)\n'
+                                         '    (f32x4.extract_lane 2\n'
+                                         '      (call_indirect (type $vv_v) (local.get 0) (local.get 1) (local.get 2))\n'
+                                         '    )\n'
+                                         '  )\n'
+                                         '  (func (export "call_indirect_vv_v_f32x4_extract_lane_3")\n'
+                                         '    (param v128 v128 i32) (result f32)\n'
+                                         '    (f32x4.extract_lane 3\n'
+                                         '      (call_indirect (type $vv_v) (local.get 0) (local.get 1) (local.get 2))\n'
+                                         '    )\n'
+                                         '  )')
+
+        for case_data in lst_diff_lane_vs_clause:
+
+            lst_diff_lane_vs_clause_assert.append(';; {} {}'.format(case_data[0], case_cnt))
+
+            # generate assert for every data lane
+            for lane_idx in range(0, len(case_data[2][0])):
+
+                # get the result by lane
+                ret = case_data[2][0][lane_idx]
+
+                idx_func = '0' if 'min' in case_data[0] else '1'
+
+                # append assert
+                if 'nan' in ret:
+
+                    lst_diff_lane_vs_clause_assert.append(tpl_assert.format('assert_return_canonical_nan',
+                                                                            tpl_func_name_by_lane.format(lane_idx),
+                                                                            self.v128_const('f32x4', case_data[1][0]),
+                                                                            self.v128_const('f32x4', case_data[1][1]),
+                                                                            self.v128_const('i32', idx_func),
+                                                                            ''))
+                else:
+
+                    lst_diff_lane_vs_clause_assert.append(tpl_assert.format('assert_return',
+                                                                            tpl_func_name_by_lane.format(lane_idx),
+                                                                            self.v128_const('f32x4', case_data[1][0]),
+                                                                            self.v128_const('f32x4', case_data[1][1]),
+                                                                            self.v128_const('i32', idx_func),
+                                                                            '  '+self.v128_const('f32', ret)+'\n'))
+
+            case_cnt += 1
+            if case_cnt == 2:
+                case_cnt = 0
+
+        lst_diff_lane_vs_clause_assert.append('')
+
+        # Add test for operations with constant operands
+        for key in lst_oprt_with_const_assert:
+
+            case_cnt = 0
+            for case_data in lst_oprt_with_const_assert[key]:
+
+                # Add comment for the param combination
+                if case_cnt == 0:
+                    template.append(';; {} const vs const'.format(op_name))
+                if case_cnt == 4:
+                    template.append(';; {} param vs const'.format(op_name))
+
+                # Cross parameters and constants
+                if case_cnt < 4:
+                    template.append(str(AssertReturn(case_data[0], [], self.v128_const('f32x4', case_data[1]))))
+                else:
+                    template.append(str(AssertReturn(case_data[0], [self.v128_const('f32x4', case_data[1])], self.v128_const('f32x4', case_data[2]))))
+                case_cnt += 1
+
+        # Generate and append f32x4.abs assert
+        op_name = self.full_op_name('abs')
+        func_name = "{}_with_const".format(op_name)
+        template.append('')
         template.append(str(AssertReturn(func_name, [], self.v128_const('f32x4', ['0', '1', '2', '3']))))
+
+        template.extend(lst_diff_lane_vs_clause_assert)
 
         return template
 
@@ -217,33 +399,8 @@ class Simdf32x4Case(Simdf32x4ArithmeticCase):
         for case in binary_test_data:
             cases.append(self.single_binary_test(case))
 
-        # Test different lanes go through different if-then clauses and opposite signs of zero
-        lst_specific_test_data = [
-            '\n;; Test different lanes go through different if-then clauses',
-            [
-                'f32x4.min',
-                [['nan', '0', '0', '1'], ['0', '-nan', '1', '0']],
-                [['nan', '-nan', '0', '0']],
-                ['f32x4', 'f32x4', 'f32x4']
-            ],
-            [
-                'f32x4.min',
-                [['nan', '0', '0', '0'], ['0', '-nan', '1', '0']],
-                [['nan', '-nan', '0', '0']],
-                ['f32x4', 'f32x4', 'f32x4']
-            ],
-            [
-                'f32x4.max',
-                [['nan', '0', '0', '1'], ['0', '-nan', '1', '0']],
-                [['nan', '-nan', '1', '1']],
-                ['f32x4', 'f32x4', 'f32x4']
-            ],
-            [
-                'f32x4.max',
-                [['nan', '0', '0', '0'], ['0', '-nan', '1', '0']],
-                [['nan', '-nan', '1', '0']],
-                ['f32x4', 'f32x4', 'f32x4']
-            ],
+        # Test opposite signs of zero
+        lst_oppo_signs_0 = [
             '\n;; Test opposite signs of zero',
             [
                 'f32x4.min',
@@ -272,8 +429,8 @@ class Simdf32x4Case(Simdf32x4ArithmeticCase):
             '\n'
         ]
 
-        # Generate test case for if-then-else branch and opposite signs of zero
-        for case_data in lst_specific_test_data:
+        # Generate test case for opposite signs of zero
+        for case_data in lst_oppo_signs_0:
 
             if isinstance(case_data, str):
                 cases.append(case_data)
