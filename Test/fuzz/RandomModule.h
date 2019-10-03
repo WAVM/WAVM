@@ -185,6 +185,7 @@ static void generateImm(RandomStream& random,
 {
 	outImm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
 	outImm.offset = random.get(UINT32_MAX);
+	outImm.memoryIndex = random.get(module.memories.size() - 1);
 }
 
 template<Uptr naturalAlignmentLog2>
@@ -200,6 +201,7 @@ static void generateImm(RandomStream& random,
 {
 	outImm.alignmentLog2 = naturalAlignmentLog2;
 	outImm.offset = random.get(UINT32_MAX);
+	outImm.memoryIndex = random.get(module.memories.size() - 1);
 }
 
 static void generateImm(RandomStream& random, IR::Module& module, AtomicFenceImm& outImm)
@@ -1040,8 +1042,9 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
-	// Generate an optional memory.
-	if(random.get(1))
+	// Generate some memories.
+	const Uptr numMemories = random.get(3);
+	for(Uptr memoryIndex = 0; memoryIndex < numMemories; ++memoryIndex)
 	{
 		MemoryType type;
 		type.isShared = !!random.get(1);

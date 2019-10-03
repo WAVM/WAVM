@@ -25,6 +25,7 @@ namespace WAVM { namespace IR {
 		bool quotedNamesInTextFormat = true; // Enabled by default for everything but wavm-disas,
 											 // where a command-line flag is required to enable it
 											 // to ensure the default output uses standard syntax.
+		bool multipleMemories = true;
 
 		// WAVM-specific extensions
 		bool sharedTables = false;
@@ -49,6 +50,7 @@ namespace WAVM { namespace IR {
 			exceptionHandling = enablePreStandardizationFeatures;
 			multipleResultsAndBlockParams = enablePreStandardizationFeatures;
 			referenceTypes = enablePreStandardizationFeatures;
+			multipleMemories = enablePreStandardizationFeatures;
 		}
 	};
 }}

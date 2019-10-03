@@ -87,6 +87,7 @@ namespace WAVM { namespace IR {
 	{
 		U8 alignmentLog2;
 		U32 offset;
+		Uptr memoryIndex;
 	};
 
 	template<Uptr numLanes> struct LaneIndexImm
@@ -103,6 +104,7 @@ namespace WAVM { namespace IR {
 	{
 		U8 alignmentLog2;
 		U32 offset;
+		Uptr memoryIndex;
 	};
 
 	enum class MemoryOrder

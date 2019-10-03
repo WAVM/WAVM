@@ -35,6 +35,7 @@ ADD_WAST_TESTS(
 			bulk_memory_ops.wast
 			exceptions.wast
 			misc.wast
+			multi_memory.wast
 			reference_types.wast
 			simd.wast
 			syntax_recursion.wast

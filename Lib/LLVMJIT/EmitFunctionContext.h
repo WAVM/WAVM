@@ -67,7 +67,7 @@ namespace WAVM { namespace LLVMJIT {
 							const IR::Module& inIRModule,
 							const IR::FunctionDef& inFunctionDef,
 							llvm::Function* inLLVMFunction)
-		: EmitContext(inLLVMContext, inModuleContext.defaultMemoryOffset)
+		: EmitContext(inLLVMContext, inModuleContext.memoryOffsets)
 		, moduleContext(inModuleContext)
 		, irModule(inIRModule)
 		, functionDef(inFunctionDef)
@@ -134,7 +134,9 @@ namespace WAVM { namespace LLVMJIT {
 		}
 
 		// Converts a bounded memory address to a LLVM pointer.
-		llvm::Value* coerceAddressToPointer(llvm::Value* boundedAddress, llvm::Type* memoryType);
+		llvm::Value* coerceAddressToPointer(llvm::Value* boundedAddress,
+											llvm::Type* memoryType,
+											Uptr memoryIndex);
 
 		// Traps a divide-by-zero
 		void trapDivideByZero(llvm::Value* divisor);

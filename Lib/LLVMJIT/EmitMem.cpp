@@ -52,9 +52,10 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitContext& emitContext,
 }
 
 llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAddress,
-														 llvm::Type* memoryType)
+														 llvm::Type* memoryType,
+														 Uptr memoryIndex)
 {
-	llvm::Value* memoryBasePointer = irBuilder.CreateLoad(memoryBasePointerVariable);
+	llvm::Value* memoryBasePointer = irBuilder.CreateLoad(memoryBasePointerVariables[memoryIndex]);
 	llvm::Value* bytePointer = irBuilder.CreateInBoundsGEP(memoryBasePointer, boundedAddress);
 
 	// Cast the pointer to the appropriate type.
@@ -69,7 +70,6 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 
 void EmitFunctionContext::memory_grow(MemoryImm imm)
 {
-	WAVM_ERROR_UNLESS(imm.memoryIndex == 0);
 	llvm::Value* deltaNumPages = pop();
 	ValueVector previousNumPages = emitRuntimeIntrinsic(
 		"memory.grow",
@@ -82,7 +82,6 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 }
 void EmitFunctionContext::memory_size(MemoryImm imm)
 {
-	WAVM_ERROR_UNLESS(imm.memoryIndex == 0);
 	ValueVector currentNumPages = emitRuntimeIntrinsic(
 		"memory.size",
 		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
@@ -172,7 +171,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 	{                                                                                              \
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType);                     \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
 		auto load = irBuilder.CreateLoad(pointer);                                                 \
 		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
 		 * trap if it's wrong. */                                                                  \
@@ -186,7 +185,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		auto value = pop();                                                                        \
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType);                     \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
 		auto memoryValue = conversionOp(value, llvmMemoryType);                                    \
 		auto store = irBuilder.CreateStore(memoryValue, pointer);                                  \
 		store->setVolatile(true);                                                                  \
@@ -256,7 +255,7 @@ void EmitFunctionContext::atomic_notify(AtomicLoadOrStoreImm<2> imm)
 					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64}),
 		{address,
 		 numWaiters,
-		 getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)})[0]);
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
 void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
 {
@@ -273,7 +272,7 @@ void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
 		{address,
 		 expectedValue,
 		 timeout,
-		 getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)})[0]);
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
 void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 {
@@ -290,7 +289,7 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		{address,
 		 expectedValue,
 		 timeout,
-		 getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)})[0]);
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
 
 void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
@@ -310,7 +309,7 @@ void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
 		trapIfMisalignedAtomic(boundedAddress, naturalAlignmentLog2);                              \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType);                     \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
 		auto load = irBuilder.CreateLoad(pointer);                                                 \
 		load->setAlignment(1 << imm.alignmentLog2);                                                \
 		load->setVolatile(true);                                                                   \
@@ -324,7 +323,7 @@ void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
 		trapIfMisalignedAtomic(boundedAddress, naturalAlignmentLog2);                              \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType);                     \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
 		auto memoryValue = valueToMem(value, llvmMemoryType);                                      \
 		auto store = irBuilder.CreateStore(memoryValue, pointer);                                  \
 		store->setVolatile(true);                                                                  \
@@ -358,7 +357,7 @@ EMIT_ATOMIC_STORE_OP(i64, atomic_store32, llvmContext.i32Type, 2, trunc)
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
 		trapIfMisalignedAtomic(boundedAddress, alignmentLog2);                                     \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType);                     \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
 		auto atomicCmpXchg                                                                         \
 			= irBuilder.CreateAtomicCmpXchg(pointer,                                               \
 											expectedValue,                                         \
@@ -387,7 +386,7 @@ EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw_cmpxchg, llvmContext.i64Type, 3, identity, i
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
 		trapIfMisalignedAtomic(boundedAddress, alignmentLog2);                                     \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType);                     \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
 		auto atomicRMW = irBuilder.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::rmwOpId,            \
 												   pointer,                                        \
 												   value,                                          \

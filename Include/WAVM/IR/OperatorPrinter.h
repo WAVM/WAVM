@@ -73,7 +73,7 @@ namespace WAVM { namespace IR {
 		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
-			return " offset=" + std::to_string(imm.offset)
+			return " " + std::to_string(imm.memoryIndex) + " offset=" + std::to_string(imm.offset)
 				   + " align=" + std::to_string(1 << imm.alignmentLog2);
 		}
 		std::string describeImm(MemoryImm imm) { return " " + std::to_string(imm.memoryIndex); }
@@ -113,7 +113,7 @@ namespace WAVM { namespace IR {
 		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
-			return " offset=" + std::to_string(imm.offset)
+			return " " + std::to_string(imm.memoryIndex) + " offset=" + std::to_string(imm.offset)
 				   + " align=" + std::to_string(1 << imm.alignmentLog2);
 		}
 		std::string describeImm(AtomicFenceImm imm)

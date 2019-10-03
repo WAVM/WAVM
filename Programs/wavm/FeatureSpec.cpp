@@ -11,6 +11,7 @@ const char* getFeatureListHelpText()
 		   "  prestd-atomics         WebAssembly atomics extension.\n"
 		   "  prestd-eh              WebAssembly exception handling extension.\n"
 		   "  prestd-multivalue      WebAssembly multi-value extension.\n"
+		   "  prestd-multimemory     WebAssembly multi-memory extension.\n"
 		   "  prestd-reftypes        WebAssembly reference types extension.\n"
 		   "\n"
 		   "  legacy-instr-names     Allow legacy instruction names.\n"
@@ -42,6 +43,11 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	else if(!strcmp(featureName, "prestd-multivalue"))
 	{
 		featureSpec.multipleResultsAndBlockParams = enable;
+		return true;
+	}
+	else if(!strcmp(featureName, "prestd-multimemory"))
+	{
+		featureSpec.multipleMemories = enable;
 		return true;
 	}
 	else if(!strcmp(featureName, "prestd-reftypes"))

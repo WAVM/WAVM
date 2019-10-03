@@ -40,7 +40,6 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 , llvmContext(inLLVMContext)
 , llvmModule(inLLVMModule)
 , targetMachine(inTargetMachine)
-, defaultMemoryOffset(nullptr)
 , defaultTableOffset(nullptr)
 , diBuilder(*inLLVMModule)
 {
@@ -155,8 +154,6 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 			createImportedConstant(outLLVMModule, getExternalName("memoryOffset", memoryIndex)),
 			llvmContext.iptrType));
 	}
-	if(moduleContext.memoryOffsets.size())
-	{ moduleContext.defaultMemoryOffset = moduleContext.memoryOffsets[0]; }
 
 	// Create LLVM external globals for the module's globals.
 	for(Uptr globalIndex = 0; globalIndex < irModule.globals.size(); ++globalIndex)

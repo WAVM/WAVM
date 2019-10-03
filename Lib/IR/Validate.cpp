@@ -602,8 +602,7 @@ struct FunctionValidationContext
 	{
 		VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",
 						imm.alignmentLog2 > naturalAlignmentLog2);
-		VALIDATE_UNLESS("load or store in module without default memory: ",
-						module.memories.size() == 0);
+		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
 	}
 
 	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
@@ -643,15 +642,15 @@ struct FunctionValidationContext
 	template<Uptr naturalAlignmentLog2>
 	void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 	{
-		VALIDATE_UNLESS("atomic memory operator in module without default memory: ",
-						module.memories.size() == 0);
+		VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",
+						imm.alignmentLog2 != naturalAlignmentLog2);
+
+		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
 		if(module.featureSpec.requireSharedFlagForAtomicOperators)
 		{
 			VALIDATE_UNLESS("atomic memory operators require a memory with the shared flag: ",
 							!module.memories.getType(0).isShared);
 		}
-		VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",
-						imm.alignmentLog2 != naturalAlignmentLog2);
 	}
 
 	void validateImm(AtomicFenceImm imm)
@@ -908,7 +907,8 @@ void IR::validateImports(const Module& module)
 
 	VALIDATE_UNLESS("too many tables: ",
 					!module.featureSpec.referenceTypes && module.tables.size() > 1);
-	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
+	VALIDATE_UNLESS("too many memories: ",
+					!module.featureSpec.multipleMemories && module.memories.size() > 1);
 }
 
 void IR::validateFunctionDeclarations(const Module& module)
@@ -949,7 +949,8 @@ void IR::validateTableDefs(const Module& module)
 void IR::validateMemoryDefs(const Module& module)
 {
 	for(auto& memoryDef : module.memories.defs) { validate(module, memoryDef.type); }
-	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
+	VALIDATE_UNLESS("too many memories: ",
+					!module.featureSpec.multipleMemories && module.memories.size() > 1);
 }
 
 void IR::validateExports(const Module& module)

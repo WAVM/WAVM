@@ -610,19 +610,40 @@ void serialize(Stream& stream,
 }
 
 template<typename Stream, Uptr naturalAlignmentLog2>
+void serializeMemArg(Stream& stream, U8& alignmentLog2, U32& offset, Uptr& memoryIndex)
+{
+	// Use the lower 6 bits of a varuint32 to encode alignment, and the 7th bit as a flag for
+	// whether a memory index is present.
+	U32 alignmentLog2AndFlags = alignmentLog2;
+	if(memoryIndex != 0) { alignmentLog2AndFlags |= 0x40; }
+	serializeVarUInt32(stream, alignmentLog2AndFlags);
+
+	alignmentLog2 = alignmentLog2AndFlags & 0x3f;
+	if(alignmentLog2 >= 16) { throw FatalSerializationException("Invalid alignment"); }
+	alignmentLog2 = (U8)(alignmentLog2AndFlags & 0x3f);
+
+	serializeVarUInt32(stream, offset);
+
+	if(alignmentLog2AndFlags & 0x40) { serializeVarUInt32(stream, memoryIndex); }
+	else
+	{
+		memoryIndex = 0;
+	}
+}
+
+template<typename Stream, Uptr naturalAlignmentLog2>
 void serialize(Stream& stream,
 			   LoadOrStoreImm<naturalAlignmentLog2>& imm,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
 {
-	serializeVarUInt7(stream, imm.alignmentLog2);
-	serializeVarUInt32(stream, imm.offset);
+	serializeMemArg<Stream, naturalAlignmentLog2>(
+		stream, imm.alignmentLog2, imm.offset, imm.memoryIndex);
 }
 template<typename Stream>
 void serialize(Stream& stream, MemoryImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
-	serializeConstant(stream, "memory.(grow|size|fill) immediate memory field must be 0", U8(0));
-	if(Stream::isInput) { imm.memoryIndex = 0; }
+	serializeVarUInt32(stream, imm.memoryIndex);
 }
 template<typename Stream>
 void serialize(Stream& stream,
@@ -630,10 +651,8 @@ void serialize(Stream& stream,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
 {
-	serializeConstant(stream, "memory.copy immediate source field must be 0", U8(0));
-	if(Stream::isInput) { imm.sourceMemoryIndex = 0; }
-	serializeConstant(stream, "memory.copy immediate dest field must be 0", U8(0));
-	if(Stream::isInput) { imm.destMemoryIndex = 0; }
+	serializeVarUInt32(stream, imm.sourceMemoryIndex);
+	serializeVarUInt32(stream, imm.destMemoryIndex);
 }
 template<typename Stream>
 void serialize(Stream& stream, TableImm& imm, const FunctionDef&, const ModuleSerializationState&)
@@ -680,8 +699,8 @@ void serialize(Stream& stream,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
 {
-	serializeVarUInt7(stream, imm.alignmentLog2);
-	serializeVarUInt32(stream, imm.offset);
+	serializeMemArg<Stream, naturalAlignmentLog2>(
+		stream, imm.alignmentLog2, imm.offset, imm.memoryIndex);
 }
 
 template<typename Stream>

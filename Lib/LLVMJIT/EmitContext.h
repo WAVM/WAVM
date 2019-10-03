@@ -21,14 +21,13 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::IRBuilder<> irBuilder;
 
 		llvm::Value* contextPointerVariable;
-		llvm::Value* memoryBasePointerVariable;
+		std::vector<llvm::Value*> memoryBasePointerVariables;
 
-		EmitContext(LLVMContext& inLLVMContext, llvm::Constant* inDefaultMemoryOffset)
+		EmitContext(LLVMContext& inLLVMContext, const std::vector<llvm::Constant*>& inMemoryOffsets)
 		: llvmContext(inLLVMContext)
 		, irBuilder(inLLVMContext)
 		, contextPointerVariable(nullptr)
-		, memoryBasePointerVariable(nullptr)
-		, defaultMemoryOffset(inDefaultMemoryOffset)
+		, memoryOffsets(inMemoryOffsets)
 		{
 		}
 
@@ -61,18 +60,18 @@ namespace WAVM { namespace LLVMJIT {
 				llvmContext.i8PtrType);
 		}
 
-		void reloadMemoryBase()
+		void reloadMemoryBases()
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
 
-			// Load the defaultMemoryBase and defaultTableBase values from the runtime data for this
-			// module instance.
-
-			if(defaultMemoryOffset)
+			// Load the memory base pointer values from the CompartmentRuntimeData.
+			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
+				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
+				llvm::Value* memoryBasePointerVariable = memoryBasePointerVariables[memoryIndex];
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(compartmentAddress, {defaultMemoryOffset}),
+						irBuilder.CreateInBoundsGEP(compartmentAddress, {memoryOffset}),
 						llvmContext.i8PtrType,
 						sizeof(U8*)),
 					memoryBasePointerVariable);
@@ -81,12 +80,16 @@ namespace WAVM { namespace LLVMJIT {
 
 		void initContextVariables(llvm::Value* initialContextPointer)
 		{
-			memoryBasePointerVariable
-				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "memoryBase");
+			memoryBasePointerVariables.resize(memoryOffsets.size());
+			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
+			{
+				memoryBasePointerVariables[memoryIndex] = irBuilder.CreateAlloca(
+					llvmContext.i8PtrType, nullptr, "memoryBase" + llvm::Twine(memoryIndex));
+			}
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");
 			irBuilder.CreateStore(initialContextPointer, contextPointerVariable);
-			reloadMemoryBase();
+			reloadMemoryBases();
 		}
 
 		// Creates either a call or an invoke if the call occurs inside a try.
@@ -163,7 +166,7 @@ namespace WAVM { namespace LLVMJIT {
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
 
 				// Reload the memory/table base pointers.
-				reloadMemoryBase();
+				reloadMemoryBases();
 
 				if(areResultsReturnedDirectly(calleeType.results()))
 				{
@@ -205,7 +208,7 @@ namespace WAVM { namespace LLVMJIT {
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
 
 				// Reload the memory/table base pointers.
-				reloadMemoryBase();
+				reloadMemoryBases();
 
 				// Load the call result from the returned context.
 				WAVM_ASSERT(calleeType.results().size() <= 1);
@@ -305,6 +308,6 @@ namespace WAVM { namespace LLVMJIT {
 		}
 
 	private:
-		llvm::Constant* defaultMemoryOffset;
+		std::vector<llvm::Constant*> memoryOffsets;
 	};
 }}

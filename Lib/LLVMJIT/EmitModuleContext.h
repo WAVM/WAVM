@@ -23,7 +23,6 @@ namespace WAVM { namespace LLVMJIT {
 		std::vector<llvm::Constant*> globals;
 		std::vector<llvm::Constant*> exceptionTypeIds;
 
-		llvm::Constant* defaultMemoryOffset;
 		llvm::Constant* defaultTableOffset;
 
 		llvm::Constant* moduleInstanceId;

@@ -170,7 +170,9 @@ namespace WAVM {
 		void verifyMatches(LoadOrStoreImm<naturalAlignmentLog2> a,
 						   LoadOrStoreImm<naturalAlignmentLog2> b)
 		{
-			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset) { failVerification(); }
+			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset
+			   || a.memoryIndex != b.memoryIndex)
+			{ failVerification(); }
 		}
 
 		template<Uptr numLanes>
@@ -191,7 +193,9 @@ namespace WAVM {
 		void verifyMatches(AtomicLoadOrStoreImm<naturalAlignmentLog2> a,
 						   AtomicLoadOrStoreImm<naturalAlignmentLog2> b)
 		{
-			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset) { failVerification(); }
+			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset
+			   || a.memoryIndex != b.memoryIndex)
+			{ failVerification(); }
 		}
 
 		void verifyMatches(AtomicFenceImm a, AtomicFenceImm b)

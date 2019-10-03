@@ -543,11 +543,26 @@ struct FunctionPrintContext
 	}
 
 	void printImm(NoImm) {}
-	void printImm(MemoryImm imm) { WAVM_ERROR_UNLESS(imm.memoryIndex == 0); }
+	void printImm(MemoryImm imm)
+	{
+		if(imm.memoryIndex != 0)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.memoryIndex];
+		}
+	}
 	void printImm(MemoryCopyImm imm)
 	{
-		WAVM_ERROR_UNLESS(imm.sourceMemoryIndex == 0);
-		WAVM_ERROR_UNLESS(imm.destMemoryIndex == 0);
+		if(imm.sourceMemoryIndex != 0 || imm.destMemoryIndex != imm.sourceMemoryIndex)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.sourceMemoryIndex];
+		}
+		if(imm.destMemoryIndex != imm.sourceMemoryIndex)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.destMemoryIndex];
+		}
 	}
 	void printImm(TableImm imm)
 	{
@@ -556,10 +571,16 @@ struct FunctionPrintContext
 	}
 	void printImm(TableCopyImm imm)
 	{
-		string += ' ';
-		string += moduleContext.names.tables[imm.sourceTableIndex];
-		string += ' ';
-		string += moduleContext.names.tables[imm.destTableIndex];
+		if(imm.sourceTableIndex != 0 || imm.destTableIndex != imm.sourceTableIndex)
+		{
+			string += ' ';
+			string += moduleContext.names.tables[imm.sourceTableIndex];
+		}
+		if(imm.destTableIndex != imm.sourceTableIndex)
+		{
+			string += ' ';
+			string += moduleContext.names.tables[imm.destTableIndex];
+		}
 	}
 	void printImm(FunctionImm imm)
 	{
@@ -600,6 +621,11 @@ struct FunctionPrintContext
 			string += " align=";
 			string += std::to_string(1 << imm.alignmentLog2);
 		}
+		if(imm.memoryIndex != 0)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.memoryIndex];
+		}
 	}
 
 	void printImm(LiteralImm<V128> imm)
@@ -632,6 +658,11 @@ struct FunctionPrintContext
 			string += std::to_string(imm.offset);
 		}
 		WAVM_ASSERT(imm.alignmentLog2 == naturalAlignmentLog2);
+		if(imm.memoryIndex != 0)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.memoryIndex];
+		}
 	}
 
 	void printImm(AtomicFenceImm imm)
@@ -646,7 +677,7 @@ struct FunctionPrintContext
 	void printImm(DataSegmentAndMemImm imm)
 	{
 		string += " " + moduleContext.names.dataSegments[imm.dataSegmentIndex];
-		string += " " + moduleContext.names.memories[imm.memoryIndex];
+		if(imm.memoryIndex != 0) { string += " " + moduleContext.names.memories[imm.memoryIndex]; }
 	}
 	void printImm(DataSegmentImm imm)
 	{

@@ -142,7 +142,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	llvm::Value* argsArray = &*(function->args().begin() + 2);
 	llvm::Value* resultsArray = &*(function->args().begin() + 3);
 
-	EmitContext emitContext(llvmContext, nullptr);
+	EmitContext emitContext(llvmContext, {});
 	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
 
 	emitContext.initContextVariables(contextPointer);
@@ -238,7 +238,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 							 emitLiteral(llvmContext, functionType.getEncoding().impl));
 	setFunctionAttributes(targetMachine.get(), function);
 
-	EmitContext emitContext(llvmContext, nullptr);
+	EmitContext emitContext(llvmContext, {});
 	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
 
 	emitContext.initContextVariables(&*function->args().begin());
