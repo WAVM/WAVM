@@ -13,22 +13,6 @@
 using namespace WAVM;
 using namespace WAVM::WAST;
 
-// Mutexes used by gdtoa.
-static Platform::Mutex gdtoaMutexes[2];
-extern "C" void ACQUIRE_DTOA_LOCK(unsigned int index) { gdtoaMutexes[index].lock(); }
-extern "C" void FREE_DTOA_LOCK(unsigned int index) { gdtoaMutexes[index].unlock(); }
-extern "C" unsigned int dtoa_get_threadno()
-{
-	// Returning 1 works because we never set the number of threads, so gdtoa just falls back to
-	// using a global freelist protected by ACQUIRE_DTOA_LOCK/FREE_DTOA_LOCK.
-	// Using 1 instead of 0 avoids an innocuous date race when get_TI() sets TI0_used=1.
-	return 1;
-}
-
-// Defined in the WAVM/ThirdParty/gdtoa library.
-extern "C" float gdtoa_strtof(const char* s, char** p);
-extern "C" double gdtoa_strtod(const char* s, char** p);
-
 // Parses an optional + or - sign and returns true if a - sign was parsed.
 // If either a + or - sign is parsed, nextChar is advanced past it.
 static bool parseSign(const char*& nextChar)
@@ -164,19 +148,13 @@ template<typename Float> Float parseInfinity(const char* nextChar)
 	return resultComponents.value;
 }
 
-template<typename Float> Float parseNonSpecialFloat(const char* firstChar, char** endChar);
-template<> F32 parseNonSpecialFloat(const char* firstChar, char** endChar)
-{
-	return gdtoa_strtof(firstChar, endChar);
-}
-template<> F64 parseNonSpecialFloat(const char* firstChar, char** endChar)
-{
-	return gdtoa_strtod(firstChar, endChar);
-}
+template<typename Float> Float strtox(const char* firstChar, char** endChar);
+template<> F32 strtox(const char* firstChar, char** endChar) { return strtof(firstChar, endChar); }
+template<> F64 strtox(const char* firstChar, char** endChar) { return strtod(firstChar, endChar); }
 
 // Parses a floating point literal, advancing nextChar past the parsed characters. Assumes it will
 // only be called for input that's already been accepted by the lexer as a float literal.
-template<typename Float> Float parseFloat(const char*& nextChar, ParseState* parseState)
+template<typename Float> Float parseDecimalFloat(const char*& nextChar, ParseState* parseState)
 {
 	// Scan the token's characters for underscores, and make a copy of it without the underscores
 	// for strtof/strtod.
@@ -214,15 +192,183 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 	const char* noUnderscoreFirstChar = firstChar;
 	if(hasUnderscores) { noUnderscoreFirstChar = noUnderscoreString.c_str(); }
 
-	// Use David Gay's strtof/strtod to parse a floating point number.
+	// Use libc strtof/strtod to parse decimal floats.
 	char* endChar = nullptr;
-	Float result = parseNonSpecialFloat<Float>(noUnderscoreFirstChar, &endChar);
+	Float result = strtox<Float>(noUnderscoreFirstChar, &endChar);
 	if(endChar == noUnderscoreFirstChar)
 	{ Errors::fatalf("strtof/strtod failed to parse number accepted by lexer"); }
 
 	if(std::isinf(result)) { parseErrorf(parseState, firstChar, "float literal is too large"); }
 
 	return result;
+}
+
+static bool roundSignificand(U64& significand64, bool hasNonZeroTailBits, U64 numSignificandBits)
+{
+	// Round to the nearest even significand.
+	const bool lsb = significand64 & (U64(1) << (64 - numSignificandBits));
+	const bool halfLSB = significand64 & (U64(1) << (64 - numSignificandBits - 1));
+	hasNonZeroTailBits |= !!(significand64 & ((U64(1) << (64 - numSignificandBits - 1)) - 1));
+	if(halfLSB && (lsb || hasNonZeroTailBits))
+	{
+		U64 addend = U64(1) << (64 - numSignificandBits);
+		const bool overflowed = significand64 + addend < significand64;
+		significand64 += addend;
+		return overflowed;
+	}
+	return false;
+}
+
+// Parses a hexadecimal floating point literal, advancing nextChar past the parsed characters.
+// Assumes it will only be called for input that's already been accepted by the lexer as a
+// hexadecimal float literal.
+template<typename Float> Float parseHexFloat(const char*& nextChar, ParseState* parseState)
+{
+	const char* firstChar = nextChar;
+
+	typedef FloatComponents<Float> FloatComponents;
+	typedef typename FloatComponents::Bits FloatBits;
+	FloatComponents resultComponents;
+
+	resultComponents.bits.sign = parseSign(nextChar) ? 1 : 0;
+
+	WAVM_ASSERT(nextChar[0] == '0' && (nextChar[1] == 'x' || nextChar[1] == 'X'));
+	nextChar += 2;
+
+	// Parse hexits into a 64-bit fixed point number, keeping track of where the point is in
+	// exponent.
+	U64 significand64 = 0;
+	bool hasSeenPoint = false;
+	bool hasNonZeroTailBits = false;
+	I64 exponent = 0;
+	while(true)
+	{
+		U8 hexit = 0;
+		if(tryParseHexit(nextChar, hexit))
+		{
+			// Once there are too many hexits to accumulate in the 64-bit fixed point number, ignore
+			// the hexits, but continue to update exponent so we get an accurate but imprecise
+			// number.
+			if(significand64 <= UINT64_MAX / 16)
+			{
+				WAVM_ASSERT(significand64 * 16 + hexit >= significand64);
+				significand64 = significand64 * 16 + hexit;
+				exponent -= hasSeenPoint ? 4 : 0;
+			}
+			else
+			{
+				hasNonZeroTailBits |= hexit != 0;
+				exponent += hasSeenPoint ? 0 : 4;
+			}
+		}
+		else if(*nextChar == '_')
+		{
+			++nextChar;
+		}
+		else if(*nextChar == '.')
+		{
+			WAVM_ASSERT(!hasSeenPoint);
+			hasSeenPoint = true;
+			++nextChar;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	// Parse an optional exponent.
+	if(*nextChar == 'p' || *nextChar == 'P')
+	{
+		++nextChar;
+		const bool isExponentNegative = parseSign(nextChar);
+		const U64 userExponent = parseDecimalUnsignedInt(
+			nextChar, parseState, U64(-I64(INT32_MIN)), "float literal exponent");
+		exponent = isExponentNegative ? exponent - userExponent : exponent + userExponent;
+	}
+
+	if(!significand64)
+	{
+		// If both the integer and fractional part are zero, just return +/- zero.
+		resultComponents.bits.exponent = 0;
+		resultComponents.bits.significand = 0;
+		return resultComponents.value;
+	}
+	else
+	{
+		// Normalize the significand so the most significand set bit is in the MSB.
+		const Uptr leadingZeroes = countLeadingZeroes(significand64);
+		significand64 <<= leadingZeroes;
+		exponent += 64;
+		exponent -= leadingZeroes;
+
+		if(exponent - 1 < FloatComponents::minNormalExponent)
+		{
+			// Renormalize the significand for an exponent of FloatComponents::minNormalExponent.
+			const Uptr subnormalShift = FloatComponents::minNormalExponent - exponent;
+			if(subnormalShift >= 64) { significand64 = 0; }
+			else
+			{
+				hasNonZeroTailBits = significand64 & ((U64(1) << subnormalShift) - 1);
+				significand64 >>= subnormalShift;
+			}
+			exponent += subnormalShift;
+
+			// Round the significand as if it's subnormal.
+			const bool overflowed = roundSignificand(
+				significand64, hasNonZeroTailBits, FloatComponents::numSignificandBits);
+			if(overflowed)
+			{
+				// If rounding the subnormal significand overflowed, then it rounded up to the
+				// smallest normal number.
+				resultComponents.bits.exponent = 1;
+				resultComponents.bits.significand = 0;
+			}
+			else
+			{
+				// Subnormal significands are encoded as if their exponent is minNormalExponent, but
+				// without the implicit leading 1.
+				resultComponents.bits.exponent = 0;
+				resultComponents.bits.significand
+					= FloatBits(significand64 >> (64 - FloatComponents::numSignificandBits));
+			}
+		}
+		else
+		{
+			// Round the significand.
+			if(roundSignificand(
+				   significand64, hasNonZeroTailBits, FloatComponents::numSignificandBits + 1))
+			{
+				significand64 = U64(1) << 63;
+				++exponent;
+			}
+
+			// Drop the implicit leading 1 for normal encodings.
+			WAVM_ASSERT(significand64 & (U64(1) << 63));
+			significand64 <<= 1;
+			--exponent;
+
+			if(exponent > FloatComponents::maxNormalExponent)
+			{
+				// If the number is out of range, produce an error and return infinity.
+				resultComponents.bits.exponent = FloatComponents::maxExponentBits;
+				resultComponents.bits.significand = FloatComponents::maxSignificand;
+				parseErrorf(parseState, firstChar, "hexadecimal float literal is out of range");
+			}
+			else
+			{
+				// Encode a normal floating point value.
+				WAVM_ASSERT(exponent >= FloatComponents::minNormalExponent);
+				WAVM_ASSERT(exponent <= FloatComponents::maxNormalExponent);
+				resultComponents.bits.exponent
+					= FloatBits(exponent + FloatComponents::exponentBias);
+				resultComponents.bits.significand
+					= FloatBits(significand64 >> (64 - FloatComponents::numSignificandBits));
+			}
+		}
+	}
+
+	return resultComponents.value;
 }
 
 // Tries to parse an numeric literal token as an integer, advancing cursor->nextToken.
@@ -279,9 +425,9 @@ template<typename Float> bool tryParseFloat(CursorState* cursor, Float& outFloat
 	switch(cursor->nextToken->type)
 	{
 	case t_decimalInt:
-	case t_decimalFloat: outFloat = parseFloat<Float>(nextChar, cursor->parseState); break;
+	case t_decimalFloat: outFloat = parseDecimalFloat<Float>(nextChar, cursor->parseState); break;
 	case t_hexInt:
-	case t_hexFloat: outFloat = parseFloat<Float>(nextChar, cursor->parseState); break;
+	case t_hexFloat: outFloat = parseHexFloat<Float>(nextChar, cursor->parseState); break;
 	case t_floatNaN: outFloat = parseNaN<Float>(nextChar, cursor->parseState); break;
 	case t_floatInf: outFloat = parseInfinity<Float>(nextChar); break;
 	default:
