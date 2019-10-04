@@ -456,7 +456,6 @@ EMIT_SIMD_SHIFT(shl, irBuilder.CreateShl)
 EMIT_SIMD_SHIFT(shr_s, irBuilder.CreateAShr)
 EMIT_SIMD_SHIFT(shr_u, irBuilder.CreateLShr)
 
-EMIT_SIMD_BINARY_OP(i8x16_mul, llvmContext.i8x16Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i16x8_mul, llvmContext.i16x8Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i32x4_mul, llvmContext.i32x4Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i64x2_mul, llvmContext.i64x2Type, irBuilder.CreateMul(left, right))

@@ -112,7 +112,6 @@
  (func (export "i8x16.sub") (param $0 v128) (param $1 v128) (result v128) (i8x16.sub (local.get $0) (local.get $1)))
  (func (export "i8x16.sub_saturate_s") (param $0 v128) (param $1 v128) (result v128) (i8x16.sub_saturate_s (local.get $0) (local.get $1)))
  (func (export "i8x16.sub_saturate_u") (param $0 v128) (param $1 v128) (result v128) (i8x16.sub_saturate_u (local.get $0) (local.get $1)))
- (func (export "i8x16.mul") (param $0 v128) (param $1 v128) (result v128) (i8x16.mul (local.get $0) (local.get $1)))
  (func (export "i16x8.neg") (param $0 v128) (result v128) (i16x8.neg (local.get $0)))
  (func (export "i16x8.any_true") (param $0 v128) (result i32) (i16x8.any_true (local.get $0)))
  (func (export "i16x8.all_true") (param $0 v128) (result i32) (i16x8.all_true (local.get $0)))
@@ -505,13 +504,6 @@
     (v128.const i8x16 3 231   1 128 129 6   103 17  42  29  73  42  0 255 127 142)
   )
   (v128.const i8x16 0 0 254 0 0 123 0 12 61 167 158 100 17 0 0 0)
-)
-(assert_return
-  (invoke "i8x16.mul"
-    (v128.const i8x16 0  42 255 128 127 129   6 29 103 196 231 142 17 250   1  73)
-    (v128.const i8x16 3 231   1 128 129 6   103 17  42  29  73  42  0 255 127 142)
-  )
-  (v128.const i8x16 0 230 255 0 255 6 106 237 230 52 223 76 0 6 127 126)
 )
 
 ;; i16x8 arithmetic

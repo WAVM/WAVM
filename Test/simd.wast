@@ -430,7 +430,6 @@
 ;; i*.mul
 
 (module
-  (func (export "i8x16.mul") (param $a v128) (param $b v128) (result v128) (i8x16.mul (local.get $a) (local.get $b)))
   (func (export "i16x8.mul") (param $a v128) (param $b v128) (result v128) (i16x8.mul (local.get $a) (local.get $b)))
   (func (export "i32x4.mul") (param $a v128) (param $b v128) (result v128) (i32x4.mul (local.get $a) (local.get $b)))
   (func (export "i64x2.mul") (param $a v128) (param $b v128) (result v128) (i64x2.mul (local.get $a) (local.get $b)))
