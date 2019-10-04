@@ -24,6 +24,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	module.featureSpec.maxLocals = 1024;
 	module.featureSpec.maxDataSegments = 65536;
 	module.featureSpec.sharedTables = true;
+	module.featureSpec.quotedNamesInTextFormat = true;
+	module.featureSpec.extendedNamesSection = true;
 	Serialization::MemoryInputStream inputStream(data, numBytes);
 	if(WASM::loadBinaryModule(inputStream, module))
 	{
@@ -35,6 +37,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 		Module wastModule(FeatureSpec(true));
 		wastModule.featureSpec.sharedTables = true;
+		wastModule.featureSpec.quotedNamesInTextFormat = true;
+		wastModule.featureSpec.extendedNamesSection = true;
 		std::vector<WAST::Error> parseErrors;
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
