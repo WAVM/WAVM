@@ -397,7 +397,7 @@
 	visitOp(0xfd8d, i64x2_sub                 , "i64x2.sub"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 /*	visitOp(0xfd8e, i64x2_sub_saturate_s      , "i64x2.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd8f, i64x2_sub_saturate_u      , "i64x2.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
-/*	visitOp(0xfd90, i64x2_mul                 , "i64x2.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
+	visitOp(0xfd90, i64x2_mul                 , "i64x2.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   ) \
 /*	visitOp(0xfd91,                           ,                             ,                           ,                           , simd                   )*/ \
 /*	visitOp(0xfd92,                           ,                             ,                           ,                           , simd                   )*/ \
 /*	visitOp(0xfd93,                           ,                             ,                           ,                           , simd                   )*/ \
