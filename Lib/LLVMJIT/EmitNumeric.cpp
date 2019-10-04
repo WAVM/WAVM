@@ -738,6 +738,12 @@ void EmitFunctionContext::v128_not(IR::NoImm)
 	auto operand = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
 	push(irBuilder.CreateNot(operand));
 }
+void EmitFunctionContext::v128_andnot(IR::NoImm)
+{
+	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	push(irBuilder.CreateAnd(left, irBuilder.CreateNot(right)));
+}
 
 //
 // SIMD extract_lane

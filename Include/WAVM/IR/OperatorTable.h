@@ -462,6 +462,8 @@
 	visitOp(0xfdd5, i32x4_load16x4_u          , "i32x4.load16x4_u"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 	visitOp(0xfdd6, i64x2_load32x2_s          , "i64x2.load32x2_s"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 	visitOp(0xfdd7, i64x2_load32x2_u          , "i64x2.load32x2_u"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
+/* v128 miscellaneous instructions                                                                                                                            */ \
+	visitOp(0xfdd8, v128_andnot               , "v128.andnot"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 /* Atomic wait/wake                                                                                                                                           */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \

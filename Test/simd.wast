@@ -845,3 +845,11 @@
 (assert_return (invoke "i32x4.load16x4_u") (v128.const i32x4 0x0000feff 0x0000fcfd 0x0000fafb 0x0000f8f9))
 (assert_return (invoke "i64x2.load32x2_s") (v128.const i64x2 0xfffffffffcfdfeff 0xfffffffff8f9fafb))
 (assert_return (invoke "i64x2.load32x2_u") (v128.const i64x2 0x00000000fcfdfeff 0x00000000f8f9fafb))
+
+;; v128.andnot
+
+(module
+  (func (export "v128.andnot") (param v128 v128) (result v128) (v128.andnot (local.get 0) (local.get 1)))
+)
+
+(assert_return (invoke "v128.andnot" (v128.const i32x4 1 2 3 4) (v128.const i32x4 1 1 1 1)) (v128.const i32x4 0 2 2 4))
