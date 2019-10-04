@@ -26,12 +26,11 @@ namespace WAVM { namespace WASI {
 													VFS::VFD* stdOut,
 													VFS::VFD* stdErr);
 
-	WAVM_API Runtime::Resolver& getProcessResolver(const std::shared_ptr<Process>& process);
+	WAVM_API Runtime::Resolver& getProcessResolver(Process& process);
 
 	WAVM_API Process* getProcessFromContextRuntimeData(Runtime::ContextRuntimeData*);
-	WAVM_API Runtime::Memory* getProcessMemory(const std::shared_ptr<Process>& process);
-	WAVM_API void setProcessMemory(const std::shared_ptr<Process>& process,
-								   Runtime::Memory* memory);
+	WAVM_API Runtime::Memory* getProcessMemory(const Process& process);
+	WAVM_API void setProcessMemory(Process& process, Runtime::Memory* memory);
 
 	enum class SyscallTraceLevel
 	{

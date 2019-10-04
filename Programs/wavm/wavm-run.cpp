@@ -670,7 +670,7 @@ struct State
 		}
 		else if(abi == ABI::wasi)
 		{
-			linkResult = linkModule(irModule, WASI::getProcessResolver(wasiProcess));
+			linkResult = linkModule(irModule, WASI::getProcessResolver(*wasiProcess));
 		}
 		else if(abi == ABI::bare)
 		{
@@ -702,7 +702,7 @@ struct State
 				Log::printf(Log::error, "WASM module doesn't export WASI memory.\n");
 				return EXIT_FAILURE;
 			}
-			WASI::setProcessMemory(wasiProcess, memory);
+			WASI::setProcessMemory(*wasiProcess, memory);
 		}
 
 		// Look up the function export to call, validate its type, and set up the invoke arguments.
