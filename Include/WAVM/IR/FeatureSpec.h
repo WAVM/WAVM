@@ -13,13 +13,13 @@ namespace WAVM { namespace IR {
 		bool importExportMutableGlobals = true;
 		bool nonTrappingFloatToInt = true;
 		bool extendedSignExtension = true;
+		bool bulkMemoryOperations = true;
 
 		// Proposed standard extensions
 		bool simd = true;
 		bool atomics = true;
 		bool exceptionHandling = true;
 		bool multipleResultsAndBlockParams = true;
-		bool bulkMemoryOperations = true;
 		bool referenceTypes = true;
 		bool extendedNamesSection = true;
 		bool quotedNamesInTextFormat = true; // Enabled by default for everything but wavm-disas,
