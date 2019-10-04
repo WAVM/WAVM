@@ -166,7 +166,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 // Load/store operators
 //
 
-#define EMIT_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp)        \
+#define EMIT_LOAD_OP(destType, name, llvmMemoryType, naturalAlignmentLog2, conversionOp)           \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
 		auto address = pop();                                                                      \
@@ -177,7 +177,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		 * trap if it's wrong. */                                                                  \
 		load->setAlignment(1);                                                                     \
 		load->setVolatile(true);                                                                   \
-		push(conversionOp(load, asLLVMType(llvmContext, ValueType::valueTypeId)));                 \
+		push(conversionOp(load, destType));                                                        \
 	}
 #define EMIT_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp)       \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
@@ -194,21 +194,21 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		store->setAlignment(1);                                                                    \
 	}
 
-EMIT_LOAD_OP(i32, i32_load8_s, llvmContext.i8Type, 0, sext)
-EMIT_LOAD_OP(i32, i32_load8_u, llvmContext.i8Type, 0, zext)
-EMIT_LOAD_OP(i32, i32_load16_s, llvmContext.i16Type, 1, sext)
-EMIT_LOAD_OP(i32, i32_load16_u, llvmContext.i16Type, 1, zext)
-EMIT_LOAD_OP(i64, i64_load8_s, llvmContext.i8Type, 0, sext)
-EMIT_LOAD_OP(i64, i64_load8_u, llvmContext.i8Type, 0, zext)
-EMIT_LOAD_OP(i64, i64_load16_s, llvmContext.i16Type, 1, sext)
-EMIT_LOAD_OP(i64, i64_load16_u, llvmContext.i16Type, 1, zext)
-EMIT_LOAD_OP(i64, i64_load32_s, llvmContext.i32Type, 2, sext)
-EMIT_LOAD_OP(i64, i64_load32_u, llvmContext.i32Type, 2, zext)
+EMIT_LOAD_OP(llvmContext.i32Type, i32_load8_s, llvmContext.i8Type, 0, sext)
+EMIT_LOAD_OP(llvmContext.i32Type, i32_load8_u, llvmContext.i8Type, 0, zext)
+EMIT_LOAD_OP(llvmContext.i32Type, i32_load16_s, llvmContext.i16Type, 1, sext)
+EMIT_LOAD_OP(llvmContext.i32Type, i32_load16_u, llvmContext.i16Type, 1, zext)
+EMIT_LOAD_OP(llvmContext.i64Type, i64_load8_s, llvmContext.i8Type, 0, sext)
+EMIT_LOAD_OP(llvmContext.i64Type, i64_load8_u, llvmContext.i8Type, 0, zext)
+EMIT_LOAD_OP(llvmContext.i64Type, i64_load16_s, llvmContext.i16Type, 1, sext)
+EMIT_LOAD_OP(llvmContext.i64Type, i64_load16_u, llvmContext.i16Type, 1, zext)
+EMIT_LOAD_OP(llvmContext.i64Type, i64_load32_s, llvmContext.i32Type, 2, sext)
+EMIT_LOAD_OP(llvmContext.i64Type, i64_load32_u, llvmContext.i32Type, 2, zext)
 
-EMIT_LOAD_OP(i32, i32_load, llvmContext.i32Type, 2, identity)
-EMIT_LOAD_OP(i64, i64_load, llvmContext.i64Type, 3, identity)
-EMIT_LOAD_OP(f32, f32_load, llvmContext.f32Type, 2, identity)
-EMIT_LOAD_OP(f64, f64_load, llvmContext.f64Type, 3, identity)
+EMIT_LOAD_OP(llvmContext.i32Type, i32_load, llvmContext.i32Type, 2, identity)
+EMIT_LOAD_OP(llvmContext.i64Type, i64_load, llvmContext.i64Type, 3, identity)
+EMIT_LOAD_OP(llvmContext.f32Type, f32_load, llvmContext.f32Type, 2, identity)
+EMIT_LOAD_OP(llvmContext.f64Type, f64_load, llvmContext.f64Type, 3, identity)
 
 EMIT_STORE_OP(i32, i32_store8, llvmContext.i8Type, 0, trunc)
 EMIT_STORE_OP(i64, i64_store8, llvmContext.i8Type, 0, trunc)
@@ -221,12 +221,19 @@ EMIT_STORE_OP(f32, f32_store, llvmContext.f32Type, 2, identity)
 EMIT_STORE_OP(f64, f64_store, llvmContext.f64Type, 3, identity)
 
 EMIT_STORE_OP(v128, v128_store, value->getType(), 4, identity)
-EMIT_LOAD_OP(v128, v128_load, llvmContext.i64x2Type, 4, identity)
+EMIT_LOAD_OP(llvmContext.i64x2Type, v128_load, llvmContext.i64x2Type, 4, identity)
 
-EMIT_LOAD_OP(v128, v8x16_load_splat, llvmContext.i8Type, 0, splat<16>)
-EMIT_LOAD_OP(v128, v16x8_load_splat, llvmContext.i16Type, 1, splat<8>)
-EMIT_LOAD_OP(v128, v32x4_load_splat, llvmContext.i32Type, 2, splat<4>)
-EMIT_LOAD_OP(v128, v64x2_load_splat, llvmContext.i64Type, 3, splat<2>)
+EMIT_LOAD_OP(llvmContext.i8x16Type, v8x16_load_splat, llvmContext.i8Type, 0, splat<16>)
+EMIT_LOAD_OP(llvmContext.i16x8Type, v16x8_load_splat, llvmContext.i16Type, 1, splat<8>)
+EMIT_LOAD_OP(llvmContext.i32x4Type, v32x4_load_splat, llvmContext.i32Type, 2, splat<4>)
+EMIT_LOAD_OP(llvmContext.i64x2Type, v64x2_load_splat, llvmContext.i64Type, 3, splat<2>)
+
+EMIT_LOAD_OP(llvmContext.i16x8Type, i16x8_load8x8_s, llvmContext.i8x8Type, 3, sext)
+EMIT_LOAD_OP(llvmContext.i16x8Type, i16x8_load8x8_u, llvmContext.i8x8Type, 3, zext)
+EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_s, llvmContext.i16x4Type, 3, sext)
+EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_u, llvmContext.i16x4Type, 3, zext)
+EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_s, llvmContext.i32x2Type, 3, sext)
+EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, zext)
 
 void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {

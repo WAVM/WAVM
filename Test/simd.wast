@@ -826,3 +826,22 @@
 (assert_return_canonical_nan_f64x2  (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)))
 (assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)))
 (assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const -nan:0x8000000000001)))
+
+;; Load and extend instructions
+
+(module
+  (memory (data "\ff\fe\fd\fc\fb\fa\f9\f8"))
+  (func (export "i16x8.load8x8_s")  (result v128) (i16x8.load8x8_s  (i32.const 0)))
+  (func (export "i16x8.load8x8_u")  (result v128) (i16x8.load8x8_u  (i32.const 0)))
+  (func (export "i32x4.load16x4_s") (result v128) (i32x4.load16x4_s (i32.const 0)))
+  (func (export "i32x4.load16x4_u") (result v128) (i32x4.load16x4_u (i32.const 0)))
+  (func (export "i64x2.load32x2_s") (result v128) (i64x2.load32x2_s (i32.const 0)))
+  (func (export "i64x2.load32x2_u") (result v128) (i64x2.load32x2_u (i32.const 0)))
+)
+
+(assert_return (invoke "i16x8.load8x8_s") (v128.const i16x8 0xffff 0xfffe 0xfffd 0xfffc 0xfffb 0xfffa 0xfff9 0xfff8))
+(assert_return (invoke "i16x8.load8x8_u") (v128.const i16x8 0x00ff 0x00fe 0x00fd 0x00fc 0x00fb 0x00fa 0x00f9 0x00f8))
+(assert_return (invoke "i32x4.load16x4_s") (v128.const i32x4 0xfffffeff 0xfffffcfd 0xfffffafb 0xfffff8f9))
+(assert_return (invoke "i32x4.load16x4_u") (v128.const i32x4 0x0000feff 0x0000fcfd 0x0000fafb 0x0000f8f9))
+(assert_return (invoke "i64x2.load32x2_s") (v128.const i64x2 0xfffffffffcfdfeff 0xfffffffff8f9fafb))
+(assert_return (invoke "i64x2.load32x2_u") (v128.const i64x2 0x00000000fcfdfeff 0x00000000f8f9fafb))

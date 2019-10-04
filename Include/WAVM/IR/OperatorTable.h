@@ -455,6 +455,13 @@
 	visitOp(0xfdcf, i32x4_widen_high_i16x8_s  , "i32x4.widen_high_i16x8_s"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdd0, i32x4_widen_low_i16x8_u   , "i32x4.widen_low_i16x8_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdd1, i32x4_widen_high_i16x8_u  , "i32x4.widen_high_i16x8_u"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+/* v128 load-and-extend instructions                                                                                                                          */ \
+	visitOp(0xfdd2, i16x8_load8x8_s           , "i16x8.load8x8_s"           , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdd3, i16x8_load8x8_u           , "i16x8.load8x8_u"           , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdd4, i32x4_load16x4_s          , "i32x4.load16x4_s"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdd5, i32x4_load16x4_u          , "i32x4.load16x4_u"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdd6, i64x2_load32x2_s          , "i64x2.load32x2_s"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdd7, i64x2_load32x2_u          , "i64x2.load32x2_u"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 /* Atomic wait/wake                                                                                                                                           */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
