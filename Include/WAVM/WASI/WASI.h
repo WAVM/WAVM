@@ -28,6 +28,7 @@ namespace WAVM { namespace WASI {
 
 	WAVM_API Runtime::Resolver& getProcessResolver(const std::shared_ptr<Process>& process);
 
+	WAVM_API Process* getProcessFromContextRuntimeData(Runtime::ContextRuntimeData*);
 	WAVM_API Runtime::Memory* getProcessMemory(const std::shared_ptr<Process>& process);
 	WAVM_API void setProcessMemory(const std::shared_ptr<Process>& process,
 								   Runtime::Memory* memory);

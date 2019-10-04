@@ -122,13 +122,6 @@ namespace WAVM { namespace WASI {
 	// return an I32 from the intrinsic functions.
 	typedef uint32_t __wasi_errno_return_t;
 
-	inline Process* getProcessFromContextRuntimeData(
-		Runtime::ContextRuntimeData* contextRuntimeData)
-	{
-		return (Process*)Runtime::getUserData(
-			Runtime::getCompartmentFromContextRuntimeData(contextRuntimeData));
-	}
-
 	WAVM_VALIDATE_AS_PRINTF(2, 3)
 	void traceSyscallf(const char* syscallName, const char* argFormat, ...);
 

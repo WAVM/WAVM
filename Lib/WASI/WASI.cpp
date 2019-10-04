@@ -16,6 +16,7 @@
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
+#include "WAVM/WASI/WASI.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -235,6 +236,12 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 Resolver& WASI::getProcessResolver(const std::shared_ptr<Process>& process)
 {
 	return process->resolver;
+}
+
+Process* WASI::getProcessFromContextRuntimeData(Runtime::ContextRuntimeData* contextRuntimeData)
+{
+	return (Process*)Runtime::getUserData(
+		Runtime::getCompartmentFromContextRuntimeData(contextRuntimeData));
 }
 
 Memory* WASI::getProcessMemory(const std::shared_ptr<Process>& process) { return process->memory; }

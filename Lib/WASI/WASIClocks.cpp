@@ -5,6 +5,7 @@
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/WASI/WASI.h"
 
 using namespace WAVM;
 using namespace WAVM::WASI;
