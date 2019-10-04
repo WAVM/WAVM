@@ -100,10 +100,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
-	Platform::getCryptographicRNG(buffer, numBufferBytes);
+	__wasi_errno_t result = __WASI_ESUCCESS;
+	Runtime::catchRuntimeExceptions(
+		[&] {
+			U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
+			Platform::getCryptographicRNG(buffer, numBufferBytes);
+		},
+		[&](Runtime::Exception* exception) {
+			WAVM_ASSERT(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			result = __WASI_EFAULT;
+		});
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
+	return TRACE_SYSCALL_RETURN(result);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
