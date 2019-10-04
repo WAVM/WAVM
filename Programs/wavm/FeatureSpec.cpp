@@ -15,7 +15,7 @@ const char* getFeatureListHelpText()
 		   "  prestd-reftypes        WebAssembly reference types extension.\n"
 		   "\n"
 		   "  legacy-instr-names     Allow legacy instruction names.\n"
-		   "  wavm-shared-tables     WAVM shared tables extension.\n";
+		   "  shared-tables          Shared tables extension.\n";
 }
 
 bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
@@ -60,7 +60,7 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 		featureSpec.allowLegacyInstructionNames = enable;
 		return true;
 	}
-	else if(!strcmp(featureName, "wavm-shared-tables"))
+	else if(!strcmp(featureName, "shared-tables"))
 	{
 		featureSpec.sharedTables = enable;
 		return true;
