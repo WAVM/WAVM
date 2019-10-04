@@ -16,6 +16,7 @@ const char* getFeatureListHelpText()
 		   "  prestd-reftypes        WebAssembly reference types extension.\n"
 		   "\n"
 		   "  legacy-instr-names     Allow legacy instruction names.\n"
+		   "  quoted-names           Quoted WAT names extension.\n"
 		   "  shared-tables          Shared tables extension.\n";
 }
 
@@ -69,6 +70,11 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	else if(!strcmp(featureName, "shared-tables"))
 	{
 		featureSpec.sharedTables = enable;
+		return true;
+	}
+	else if(!strcmp(featureName, "quoted-names"))
+	{
+		featureSpec.quotedNamesInTextFormat = enable;
 		return true;
 	}
 	else

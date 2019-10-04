@@ -22,9 +22,6 @@ namespace WAVM { namespace IR {
 		bool multipleResultsAndBlockParams = true;
 		bool referenceTypes = true;
 		bool extendedNamesSection = true;
-		bool quotedNamesInTextFormat = true; // Enabled by default for everything but wavm-disas,
-											 // where a command-line flag is required to enable it
-											 // to ensure the default output uses standard syntax.
 		bool multipleMemories = true;
 
 		// WAVM-specific extensions
@@ -32,6 +29,7 @@ namespace WAVM { namespace IR {
 		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
 		bool allowLegacyInstructionNames = false;
 		bool allowAnyExternKindElemSegments = false;
+		bool quotedNamesInTextFormat = false;
 
 		Uptr maxLocals = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
