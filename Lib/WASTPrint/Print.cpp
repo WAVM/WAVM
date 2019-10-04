@@ -611,6 +611,11 @@ struct FunctionPrintContext
 
 	template<Uptr naturalAlignmentLog2> void printImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 	{
+		if(imm.memoryIndex != 0)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.memoryIndex];
+		}
 		if(imm.offset != 0)
 		{
 			string += " offset=";
@@ -620,11 +625,6 @@ struct FunctionPrintContext
 		{
 			string += " align=";
 			string += std::to_string(1 << imm.alignmentLog2);
-		}
-		if(imm.memoryIndex != 0)
-		{
-			string += ' ';
-			string += moduleContext.names.memories[imm.memoryIndex];
 		}
 	}
 
@@ -652,17 +652,17 @@ struct FunctionPrintContext
 	template<Uptr naturalAlignmentLog2>
 	void printImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 	{
+		if(imm.memoryIndex != 0)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.memoryIndex];
+		}
 		if(imm.offset != 0)
 		{
 			string += " offset=";
 			string += std::to_string(imm.offset);
 		}
 		WAVM_ASSERT(imm.alignmentLog2 == naturalAlignmentLog2);
-		if(imm.memoryIndex != 0)
-		{
-			string += ' ';
-			string += moduleContext.names.memories[imm.memoryIndex];
-		}
 	}
 
 	void printImm(AtomicFenceImm imm)
