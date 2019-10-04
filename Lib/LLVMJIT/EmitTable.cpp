@@ -114,8 +114,8 @@ void EmitFunctionContext::table_copy(TableCopyImm imm)
 		{destOffset,
 		 sourceOffset,
 		 numElements,
-		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.sourceTableIndex]),
-		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.destTableIndex])});
+		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.destTableIndex]),
+		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.sourceTableIndex])});
 }
 
 void EmitFunctionContext::table_fill(TableImm imm)

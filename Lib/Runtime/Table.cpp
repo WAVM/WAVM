@@ -584,12 +584,12 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   U32 destOffset,
 							   U32 sourceOffset,
 							   U32 numElements,
-							   Uptr sourceTableId,
-							   Uptr destTableId)
+							   Uptr destTableId,
+							   Uptr sourceTableId)
 {
 	Runtime::unwindSignalsAsExceptions([=] {
-		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
 		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
+		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
 
 		if(sourceOffset < destOffset)
 		{

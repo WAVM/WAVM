@@ -141,8 +141,8 @@ void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 		{destAddress,
 		 sourceAddress,
 		 numBytes,
-		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.sourceMemoryIndex]),
-		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.destMemoryIndex])});
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.destMemoryIndex]),
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.sourceMemoryIndex])});
 }
 
 void EmitFunctionContext::memory_fill(MemoryImm imm)

@@ -232,15 +232,15 @@ static void parseImm(CursorState* cursor, MemoryCopyImm& outImm)
 										 cursor->moduleState->memoryNameToIndexMap,
 										 cursor->moduleState->module.memories.size(),
 										 "memory",
-										 outImm.sourceMemoryIndex))
-	{ outImm.sourceMemoryIndex = 0; }
+										 outImm.destMemoryIndex))
+	{ outImm.destMemoryIndex = 0; }
 
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
 										 cursor->moduleState->memoryNameToIndexMap,
 										 cursor->moduleState->module.memories.size(),
 										 "memory",
-										 outImm.destMemoryIndex))
-	{ outImm.destMemoryIndex = outImm.sourceMemoryIndex; }
+										 outImm.sourceMemoryIndex))
+	{ outImm.sourceMemoryIndex = outImm.destMemoryIndex; }
 }
 static void parseImm(CursorState* cursor, TableImm& outImm)
 {
@@ -257,15 +257,15 @@ static void parseImm(CursorState* cursor, TableCopyImm& outImm)
 										 cursor->moduleState->tableNameToIndexMap,
 										 cursor->moduleState->module.tables.size(),
 										 "table",
-										 outImm.sourceTableIndex))
-	{ outImm.sourceTableIndex = 0; }
+										 outImm.destTableIndex))
+	{ outImm.destTableIndex = 0; }
 
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
 										 cursor->moduleState->tableNameToIndexMap,
 										 cursor->moduleState->module.tables.size(),
 										 "table",
-										 outImm.destTableIndex))
-	{ outImm.destTableIndex = outImm.sourceTableIndex; }
+										 outImm.sourceTableIndex))
+	{ outImm.sourceTableIndex = outImm.destTableIndex; }
 }
 
 static void parseImm(CursorState* cursor, SelectImm& outImm)

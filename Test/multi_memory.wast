@@ -366,8 +366,8 @@
       (local.get 1)
       (local.get 2)))
 
-  (func (export "ab.copy") (param i32 i32 i32)
-    (memory.copy $a $b
+  (func (export "ba.copy") (param i32 i32 i32)
+    (memory.copy $b $a
       (local.get 0)
       (local.get 1)
       (local.get 2)))
@@ -406,7 +406,7 @@
 (assert_return (invoke "b.load8_u" (i32.const 14)) (i32.const 0))
 
 ;; Copy between memories
-(invoke "ab.copy" (i32.const 20) (i32.const 0) (i32.const 4))
+(invoke "ba.copy" (i32.const 20) (i32.const 0) (i32.const 4))
 
 (assert_return (invoke "b.load8_u" (i32.const 19)) (i32.const 0))
 (assert_return (invoke "b.load8_u" (i32.const 20)) (i32.const 0xaa))

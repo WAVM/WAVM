@@ -403,11 +403,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 							   U32 destAddress,
 							   U32 sourceAddress,
 							   U32 numBytes,
-							   Uptr sourceMemoryId,
-							   Uptr destMemoryId)
+							   Uptr destMemoryId,
+							   Uptr sourceMemoryId)
 {
-	Memory* sourceMemory = getMemoryFromRuntimeData(contextRuntimeData, sourceMemoryId);
 	Memory* destMemory = getMemoryFromRuntimeData(contextRuntimeData, destMemoryId);
+	Memory* sourceMemory = getMemoryFromRuntimeData(contextRuntimeData, sourceMemoryId);
 
 	U8* destPointer = getReservedMemoryOffsetRange(destMemory, destAddress, numBytes);
 	U8* sourcePointer = getReservedMemoryOffsetRange(sourceMemory, sourceAddress, numBytes);

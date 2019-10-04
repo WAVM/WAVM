@@ -651,8 +651,8 @@ void serialize(Stream& stream,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
 {
-	serializeVarUInt32(stream, imm.sourceMemoryIndex);
 	serializeVarUInt32(stream, imm.destMemoryIndex);
+	serializeVarUInt32(stream, imm.sourceMemoryIndex);
 }
 template<typename Stream>
 void serialize(Stream& stream, TableImm& imm, const FunctionDef&, const ModuleSerializationState&)
@@ -665,8 +665,8 @@ void serialize(Stream& stream,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
 {
-	serializeVarUInt32(stream, imm.sourceTableIndex);
 	serializeVarUInt32(stream, imm.destTableIndex);
+	serializeVarUInt32(stream, imm.sourceTableIndex);
 }
 
 template<typename Stream> void serialize(Stream& stream, V128& v128)
