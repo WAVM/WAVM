@@ -297,7 +297,7 @@ template<typename Float> Float parseHexFloat(const char*& nextChar, ParseState* 
 	else
 	{
 		// Normalize the significand so the most significand set bit is in the MSB.
-		const Uptr leadingZeroes = countLeadingZeroes(significand64);
+		const U64 leadingZeroes = countLeadingZeroes(significand64);
 		significand64 <<= leadingZeroes;
 		exponent += 64;
 		exponent -= leadingZeroes;
@@ -305,7 +305,7 @@ template<typename Float> Float parseHexFloat(const char*& nextChar, ParseState* 
 		if(exponent - 1 < FloatComponents::minNormalExponent)
 		{
 			// Renormalize the significand for an exponent of FloatComponents::minNormalExponent.
-			const Uptr subnormalShift = FloatComponents::minNormalExponent - exponent;
+			const U64 subnormalShift = U64(I64(FloatComponents::minNormalExponent) - exponent);
 			if(subnormalShift >= 64) { significand64 = 0; }
 			else
 			{
