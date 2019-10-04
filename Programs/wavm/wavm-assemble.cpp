@@ -38,10 +38,15 @@ static bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
 void showAssembleHelp(Log::Category outputCategory)
 {
 	Log::printf(outputCategory,
-				"Usage: wavm assemble in.wast out.wasm [switches]\n"
-				"  -n|--omit-names           Omits WAST names from the output\n"
-				"     --omit-extended-names  Omits only the non-standard WAVM extended\n"
-				"                              names from the output\n");
+				"Usage: wavm assemble [options] in.wast out.wasm\n"
+				"  -n|--omit-names       Omits WAST names from the output\n"
+				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
+				"                        features below.\n"
+				"\n"
+				"Features:\n"
+				"%s"
+				"\n",
+				getFeatureListHelpText());
 }
 
 int execAssembleCommand(int argc, char** argv)
@@ -54,16 +59,32 @@ int execAssembleCommand(int argc, char** argv)
 	const char* inputFilename = argv[0];
 	const char* outputFilename = argv[1];
 	bool omitNames = false;
-	bool omitExtendedNames = false;
+	IR::FeatureSpec featureSpec;
 	if(argc > 2)
 	{
 		for(Iptr argumentIndex = 2; argumentIndex < argc; ++argumentIndex)
 		{
 			if(!strcmp(argv[argumentIndex], "-n") || !strcmp(argv[argumentIndex], "--omit-names"))
 			{ omitNames = true; }
-			else if(!strcmp(argv[argumentIndex], "--omit-extended-names"))
+			else if(!strcmp(argv[argumentIndex], "--enable"))
 			{
-				omitExtendedNames = true;
+				++argumentIndex;
+				if(!argv[argumentIndex])
+				{
+					Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+					return false;
+				}
+
+				if(!parseAndSetFeature(argv[argumentIndex], featureSpec, true))
+				{
+					Log::printf(Log::error,
+								"Unknown feature '%s'. Supported features:\n"
+								"%s"
+								"\n",
+								argv[argumentIndex],
+								getFeatureListHelpText());
+					return false;
+				}
 			}
 			else
 			{
@@ -75,7 +96,6 @@ int execAssembleCommand(int argc, char** argv)
 
 	// Load the WAST module.
 	IR::Module module(IR::FeatureSpec(true));
-	module.featureSpec.extendedNamesSection = !omitExtendedNames;
 	if(!loadTextModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// If the command-line switch to omit names was specified, strip the name section.

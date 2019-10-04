@@ -31,7 +31,15 @@ static bool loadBinaryModuleFromFile(const char* filename,
 
 void showDisassembleHelp(Log::Category outputCategory)
 {
-	Log::printf(Log::error, "Usage: wavm disassemble in.wasm [out.wast] [--enable-quoted-names]\n");
+	Log::printf(Log::error,
+				"Usage: wavm disassemble [options] in.wasm [out.wast]\n"
+				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
+				"                        features below.\n"
+				"\n"
+				"Features:\n"
+				"%s"
+				"\n",
+				getFeatureListHelpText());
 }
 
 int execDisassembleCommand(int argc, char** argv)
@@ -40,16 +48,32 @@ int execDisassembleCommand(int argc, char** argv)
 	const char* outputFilename = nullptr;
 
 	bool showHelp = false;
-	bool enableQuotedNames = false;
+	IR::FeatureSpec featureSpec;
 	if(argc < 1) { showHelp = true; }
 	else
 	{
 		for(int argIndex = 0; argIndex < argc; ++argIndex)
 		{
 			if(!strcmp(argv[argIndex], "--help")) { showHelp = true; }
-			else if(!strcmp(argv[argIndex], "--enable-quoted-names"))
+			else if(!strcmp(argv[argIndex], "--enable"))
 			{
-				enableQuotedNames = true;
+				++argIndex;
+				if(!argv[argIndex])
+				{
+					Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+					return false;
+				}
+
+				if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
+				{
+					Log::printf(Log::error,
+								"Unknown feature '%s'. Supported features:\n"
+								"%s"
+								"\n",
+								argv[argIndex],
+								getFeatureListHelpText());
+					return false;
+				}
 			}
 			else if(!inputFilename)
 			{
@@ -74,8 +98,7 @@ int execDisassembleCommand(int argc, char** argv)
 	}
 
 	// Load the WASM file.
-	IR::Module module(IR::FeatureSpec(true));
-	module.featureSpec.quotedNamesInTextFormat = enableQuotedNames;
+	IR::Module module(featureSpec);
 	if(!loadBinaryModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// Print the module to WAST.
