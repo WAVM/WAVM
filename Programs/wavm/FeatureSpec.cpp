@@ -10,6 +10,7 @@ const char* getFeatureListHelpText()
 		   "  prestd-simd            WebAssembly SIMD extension.\n"
 		   "  prestd-atomics         WebAssembly atomics extension.\n"
 		   "  prestd-eh              WebAssembly exception handling extension.\n"
+		   "  prestd-extended-names  WebAssembly extended name section extension.\n"
 		   "  prestd-multivalue      WebAssembly multi-value extension.\n"
 		   "  prestd-multimemory     WebAssembly multi-memory extension.\n"
 		   "  prestd-reftypes        WebAssembly reference types extension.\n"
@@ -38,6 +39,11 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	else if(!strcmp(featureName, "prestd-eh"))
 	{
 		featureSpec.exceptionHandling = enable;
+		return true;
+	}
+	else if(!strcmp(featureName, "prestd-extended-names"))
+	{
+		featureSpec.extendedNamesSection = enable;
 		return true;
 	}
 	else if(!strcmp(featureName, "prestd-multivalue"))
