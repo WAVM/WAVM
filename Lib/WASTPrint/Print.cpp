@@ -553,15 +553,15 @@ struct FunctionPrintContext
 	}
 	void printImm(MemoryCopyImm imm)
 	{
-		if(imm.sourceMemoryIndex != 0 || imm.destMemoryIndex != imm.sourceMemoryIndex)
-		{
-			string += ' ';
-			string += moduleContext.names.memories[imm.sourceMemoryIndex];
-		}
-		if(imm.destMemoryIndex != imm.sourceMemoryIndex)
+		if(imm.destMemoryIndex != 0 || imm.sourceMemoryIndex != imm.destMemoryIndex)
 		{
 			string += ' ';
 			string += moduleContext.names.memories[imm.destMemoryIndex];
+		}
+		if(imm.sourceMemoryIndex != imm.destMemoryIndex)
+		{
+			string += ' ';
+			string += moduleContext.names.memories[imm.sourceMemoryIndex];
 		}
 	}
 	void printImm(TableImm imm)
@@ -571,15 +571,15 @@ struct FunctionPrintContext
 	}
 	void printImm(TableCopyImm imm)
 	{
-		if(imm.sourceTableIndex != 0 || imm.destTableIndex != imm.sourceTableIndex)
-		{
-			string += ' ';
-			string += moduleContext.names.tables[imm.sourceTableIndex];
-		}
-		if(imm.destTableIndex != imm.sourceTableIndex)
+		if(imm.destTableIndex != 0 || imm.sourceTableIndex != imm.destTableIndex)
 		{
 			string += ' ';
 			string += moduleContext.names.tables[imm.destTableIndex];
+		}
+		if(imm.sourceTableIndex != imm.destTableIndex)
+		{
+			string += ' ';
+			string += moduleContext.names.tables[imm.sourceTableIndex];
 		}
 	}
 	void printImm(FunctionImm imm)
