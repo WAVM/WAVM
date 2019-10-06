@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "Inline/I128.h"
+// IWYU pragma: private, include "WAVM/Inline/I128.h"
 // You should only include this file indirectly by including I128.h.
 #pragma once
 

@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "IR/Operators.h"
+// IWYU pragma: private, include "WAVM/IR/Operators.h"
 // Don't include this file directly; include Operators.h instead
 
 // clang-format off
