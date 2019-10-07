@@ -49,7 +49,7 @@ namespace WAVM { namespace Platform {
 		struct LockData
 		{
 #if defined(WIN32)
-			U64 data;
+			Uptr data;
 #elif defined(__linux__) && defined(__x86_64__)
 			U64 data[5];
 #elif defined(__linux__) && defined(__aarch64__)
