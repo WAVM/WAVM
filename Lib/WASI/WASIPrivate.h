@@ -79,7 +79,9 @@ namespace WAVM { namespace WASI {
 		{
 		}
 
-		VFS::Result close() const;
+		~FDE();
+
+		VFS::Result close();
 	};
 
 	struct ProcessResolver : Runtime::Resolver

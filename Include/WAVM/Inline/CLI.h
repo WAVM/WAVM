@@ -47,11 +47,8 @@ namespace WAVM {
 			if(result != VFS::Result::success) { goto printAndReturnError; }
 
 			result = vfd->close();
-			if(result != VFS::Result::success)
-			{
-				vfd = nullptr;
-				goto printAndReturnError;
-			}
+			vfd = nullptr;
+			if(result != VFS::Result::success) { goto printAndReturnError; }
 
 			return true;
 		}

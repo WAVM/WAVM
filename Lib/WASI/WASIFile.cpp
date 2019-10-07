@@ -221,10 +221,25 @@ static VFDFlags translateWASIVFDFlags(__wasi_fdflags_t fdFlags, __wasi_rights_t&
 	return result;
 }
 
-Result WASI::FDE::close() const
+WASI::FDE::~FDE()
 {
+	// The FDE should have been closed before it is destroyed.
+	WAVM_ERROR_UNLESS(!vfd);
+}
+
+Result WASI::FDE::close()
+{
+	WAVM_ASSERT(vfd);
+
 	Result result = vfd->close();
-	if(result == VFS::Result::success && dirEntStream) { dirEntStream->close(); }
+	vfd = nullptr;
+
+	if(dirEntStream)
+	{
+		dirEntStream->close();
+		dirEntStream = nullptr;
+	}
+
 	return result;
 }
 

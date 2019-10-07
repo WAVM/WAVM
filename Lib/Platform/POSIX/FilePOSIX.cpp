@@ -251,16 +251,18 @@ struct POSIXFD : VFD
 	virtual Result close() override
 	{
 		WAVM_ASSERT(fd >= 0);
+		VFS::Result result = VFS::Result::success;
 		if(::close(fd))
 		{
-			// POSIX close says that the fd is in an undefined state after close returns EINTR.
-			// This risks leaking the fd, but assume that the close completed despite the EINTR
-			// error and return success.
-			// https://www.daemonology.net/blog/2011-12-17-POSIX-close-is-broken.html
-			if(errno != EINTR) { return asVFSResult(errno); }
+			// close is specified by POSIX to leave the file descriptor in an unspecified state when
+			// an error occurs: https://pubs.opengroup.org/onlinepubs/009695399/functions/close.html
+			// The Linux man page for close also says that close should not be retried after an
+			// error: http://man7.org/linux/man-pages/man2/close.2.html#NOTES
+			// Assume that even though an error was returned, that the file descriptor was closed.
+			// Report the error to caller, but delete the VFD.
 		}
 		delete this;
-		return Result::success;
+		return result;
 	}
 
 	virtual Result seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr) override

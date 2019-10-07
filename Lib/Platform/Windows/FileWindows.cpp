@@ -273,10 +273,10 @@ struct WindowsFD : VFD
 
 	virtual Result close() override
 	{
-		if(!CloseHandle(handle)) { return asVFSResult(GetLastError()); }
-
+		Result result = Result::success;
+		if(!CloseHandle(handle)) { result = asVFSResult(GetLastError()); }
 		delete this;
-		return Result::success;
+		return result;
 	}
 
 	virtual Result seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr) override
