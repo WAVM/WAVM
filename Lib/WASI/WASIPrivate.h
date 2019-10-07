@@ -1,9 +1,12 @@
+#include <memory.h>
 #include "./WASITypes.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Inline/Time.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -53,6 +56,8 @@ namespace WAVM { namespace VFS {
 namespace WAVM { namespace WASI {
 	struct FDE
 	{
+		mutable Platform::RWMutex mutex;
+
 		VFS::VFD* vfd;
 		__wasi_rights_t rights;
 		__wasi_rights_t inheritingRights;
@@ -101,7 +106,9 @@ namespace WAVM { namespace WASI {
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
 
-		IndexMap<__wasi_fd_t, WASI::FDE> fds{0, INT32_MAX};
+		Platform::RWMutex fdMapMutex;
+		IndexMap<__wasi_fd_t, std::shared_ptr<WASI::FDE>> fdMap{0, INT32_MAX};
+
 		VFS::FileSystem* fileSystem = nullptr;
 
 		ProcessResolver resolver;

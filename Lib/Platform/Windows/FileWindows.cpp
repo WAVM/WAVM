@@ -8,7 +8,7 @@
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 #include "WAVM/Platform/File.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/VFS/VFS.h"
 #include "WindowsPrivate.h"
 
@@ -207,6 +207,7 @@ struct WindowsDirEntStream : DirEntStream
 
 	virtual bool getNext(DirEnt& outEntry) override
 	{
+		RWMutex::ExclusiveLock lock(mutex);
 		while(nextReadIndex >= dirEnts.size())
 		{
 			if(!readDirEnts(handle, nextReadIndex == 0, dirEnts))
@@ -227,6 +228,7 @@ struct WindowsDirEntStream : DirEntStream
 
 	virtual void restart() override
 	{
+		RWMutex::ExclusiveLock lock(mutex);
 		dirEnts.clear();
 		nextReadIndex = 0;
 	}
@@ -239,6 +241,8 @@ struct WindowsDirEntStream : DirEntStream
 
 	virtual bool seek(U64 offset) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		// Don't allow seeking forward past the last buffered dirent.
 		if(offset > UINTPTR_MAX || offset > dirEnts.size()) { return false; }
 
@@ -248,8 +252,10 @@ struct WindowsDirEntStream : DirEntStream
 
 private:
 	HANDLE handle;
+
+	Platform::RWMutex mutex;
 	std::vector<DirEnt> dirEnts;
-	Uptr nextReadIndex{0};
+	std::atomic<Uptr> nextReadIndex{0};
 };
 
 struct WindowsFD : VFD
@@ -280,6 +286,8 @@ struct WindowsFD : VFD
 
 	virtual Result seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		DWORD windowsOrigin;
 		switch(origin)
 		{
@@ -309,6 +317,8 @@ struct WindowsFD : VFD
 						 Uptr* outNumBytesRead,
 						 const U64* offset) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		if(outNumBytesRead) { *outNumBytesRead = 0; }
 		if(numBuffers == 0) { return Result::success; }
 
@@ -377,6 +387,8 @@ struct WindowsFD : VFD
 						  Uptr* outNumBytesWritten,
 						  const U64* offset) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
 		if(numBuffers == 0) { return Result::success; }
 
@@ -433,11 +445,15 @@ struct WindowsFD : VFD
 
 	virtual Result sync(SyncType syncType) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		return FlushFileBuffers(handle) ? Result::success : asVFSResult(GetLastError());
 	}
 
 	virtual Result getVFDInfo(VFDInfo& outInfo) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		const Result getTypeResult = getFileType(handle, outInfo.type);
 		if(getTypeResult != Result::success) { return getTypeResult; }
 
@@ -448,11 +464,15 @@ struct WindowsFD : VFD
 	}
 	virtual Result getFileInfo(FileInfo& outInfo) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		return getFileInfoByHandle(handle, outInfo);
 	}
 
 	virtual Result setVFDFlags(const VFDFlags& flags) override
 	{
+		RWMutex::ExclusiveLock lock(mutex);
+
 		const DWORD originalDesiredAccess = desiredAccess;
 		if(originalDesiredAccess & (GENERIC_WRITE | FILE_APPEND_DATA))
 		{
@@ -484,6 +504,8 @@ struct WindowsFD : VFD
 	}
 	virtual Result setFileSize(U64 numBytes) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		FILE_END_OF_FILE_INFO endOfFileInfo;
 		endOfFileInfo.EndOfFile = makeLargeInt(numBytes);
 		return SetFileInformationByHandle(
@@ -496,6 +518,8 @@ struct WindowsFD : VFD
 								bool setLastWriteTime,
 								Time lastWriteTime) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		// Translate the times to Windows file times.
 		FILETIME lastAccessFileTime;
 		if(setLastAccessTime) { lastAccessFileTime = wavmRealTimeToFileTime(lastAccessTime); }
@@ -512,6 +536,8 @@ struct WindowsFD : VFD
 
 	virtual Result openDir(DirEntStream*& outStream) override
 	{
+		RWMutex::ShareableLock lock(mutex);
+
 		// Make a copy of the handle, so the FD and the DirEntStream can be closed independently.
 		HANDLE duplicatedHandle = INVALID_HANDLE_VALUE;
 		WAVM_ERROR_UNLESS(DuplicateHandle(GetCurrentProcess(),
@@ -545,10 +571,11 @@ struct WindowsFD : VFD
 	}
 
 private:
+	Platform::RWMutex mutex;
 	HANDLE handle;
 	DWORD desiredAccess;
-	DWORD shareMode;
-	DWORD flagsAndAttributes;
+	const DWORD shareMode;
+	const DWORD flagsAndAttributes;
 	bool nonBlocking;
 	VFDSync syncLevel;
 

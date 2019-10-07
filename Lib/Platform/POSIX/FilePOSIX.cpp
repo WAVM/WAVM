@@ -18,6 +18,7 @@
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/File.h"
+#include "WAVM/Platform/Mutex.h"
 #include "WAVM/VFS/VFS.h"
 
 #define FILE_OFFSET_IS_64BIT (sizeof(off_t) == 8)
@@ -182,6 +183,7 @@ struct POSIXDirEntStream : DirEntStream
 
 	virtual bool getNext(DirEnt& outEntry) override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		errno = 0;
 		struct dirent* dirent = readdir(dir);
 		if(dirent)
@@ -213,12 +215,14 @@ struct POSIXDirEntStream : DirEntStream
 
 	virtual void restart() override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		rewinddir(dir);
 		maxValidOffset = 0;
 	}
 
 	virtual U64 tell() override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		const long offset = telldir(dir);
 		WAVM_ERROR_UNLESS(offset >= 0
 						  && (LONG_MAX <= UINT64_MAX || (unsigned long)offset <= UINT64_MAX));
@@ -228,6 +232,7 @@ struct POSIXDirEntStream : DirEntStream
 
 	virtual bool seek(U64 offset) override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		// Don't allow seeking to higher offsets than have been returned by tell since the last
 		// rewind.
 		if(offset > maxValidOffset) { return false; };
@@ -238,6 +243,7 @@ struct POSIXDirEntStream : DirEntStream
 	}
 
 private:
+	Platform::Mutex mutex;
 	DIR* dir;
 	U64 maxValidOffset{0};
 };

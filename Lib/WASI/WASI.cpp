@@ -174,11 +174,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_return_t, wasi_
 
 WASI::Process::~Process()
 {
-	for(const WASI::FDE& fd : fds)
+	for(const std::shared_ptr<WASI::FDE>& fde : fdMap)
 	{
-		if(fd.close() != VFS::Result::success)
+		VFS::Result result = fde->close();
+		if(result != VFS::Result::success)
 		{
-			Log::printf(Log::Category::debug, "Error while closing file because of process exit\n");
+			Log::printf(Log::Category::debug,
+						"Error while closing file because of process exit: %s\n",
+						VFS::describeResult(result));
 		}
 	}
 }
@@ -212,9 +215,9 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 								  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
 								  | __WASI_RIGHT_POLL_FD_READWRITE;
 
-	process->fds.insertOrFail(0, FDE(stdIn, stdioRights, 0, "/dev/stdin"));
-	process->fds.insertOrFail(1, FDE(stdOut, stdioRights, 0, "/dev/stdout"));
-	process->fds.insertOrFail(2, FDE(stdErr, stdioRights, 0, "/dev/stderr"));
+	process->fdMap.insertOrFail(0, std::make_shared<FDE>(stdIn, stdioRights, 0, "/dev/stdin"));
+	process->fdMap.insertOrFail(1, std::make_shared<FDE>(stdOut, stdioRights, 0, "/dev/stdout"));
+	process->fdMap.insertOrFail(2, std::make_shared<FDE>(stdErr, stdioRights, 0, "/dev/stderr"));
 
 	if(fileSystem)
 	{
@@ -227,13 +230,14 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 						   VFS::describeResult(openResult));
 		}
 
-		process->fds.insertOrFail(3,
-								  FDE(rootFD,
-									  DIRECTORY_RIGHTS,
-									  INHERITING_DIRECTORY_RIGHTS,
-									  "/",
-									  true,
-									  __WASI_PREOPENTYPE_DIR));
+		process->fdMap.insertOrFail(
+			3,
+			std::make_shared<FDE>(rootFD,
+								  DIRECTORY_RIGHTS,
+								  INHERITING_DIRECTORY_RIGHTS,
+								  "/",
+								  true,
+								  __wasi_preopentype_t(__WASI_PREOPENTYPE_DIR)));
 	}
 
 	process->processClockOrigin = Platform::getClockTime(Platform::Clock::processCPUTime);
