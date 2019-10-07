@@ -17,7 +17,7 @@ Platform::Mutex::Mutex()
 	pthread_mutexattr_t pthreadMutexAttr;
 	WAVM_ERROR_UNLESS(!pthread_mutexattr_init(&pthreadMutexAttr));
 	WAVM_ERROR_UNLESS(!pthread_mutexattr_settype(&pthreadMutexAttr, PTHREAD_MUTEX_RECURSIVE));
-	WAVM_ERROR_UNLESS(!pthread_mutex_init((pthread_mutex_t*)data, &pthreadMutexAttr));
+	WAVM_ERROR_UNLESS(!pthread_mutex_init((pthread_mutex_t*)&lockData, &pthreadMutexAttr));
 	WAVM_ERROR_UNLESS(!pthread_mutexattr_destroy(&pthreadMutexAttr));
 	isLocked = false;
 #else
