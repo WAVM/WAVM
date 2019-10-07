@@ -960,8 +960,9 @@ void ModulePrintContext::printModule()
 			{
 				string += " (table ";
 				string += names.tables[elemSegment.tableIndex];
-				string += ") ";
+				string += ")";
 			}
+			string += ' ';
 			printInitializerExpression(elemSegment.baseOffset);
 		}
 
