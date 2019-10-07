@@ -503,70 +503,35 @@ static void parseData(CursorState* cursor)
 	Name segmentName;
 	Reference memoryRef;
 	UnresolvedInitializerExpression baseAddress;
-	bool isActive = true;
+	bool isActive = false;
 
-	// The segment can have a name, and for active segments, a reference to a memory. If there are
-	// two names, the first is the segment name, and the second is the reference to a memory. If
-	// there is one name on a passive segment, it is the segment name. If there is one name on an
-	// active segment, it is a reference to a memory.
-	switch(cursor->nextToken[0].type)
+	tryParseName(cursor, segmentName);
+
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_memory)
 	{
-	case t_anyref:
-	case t_funcref:
-	case t_string:
-	case t_rightParenthesis:
-		// ...
-		isActive = false;
-		break;
-	case t_quotedName:
-	case t_name:
-		switch(cursor->nextToken[1].type)
+		parseParenthesized(cursor, [&]() {
+			require(cursor, t_memory);
+			memoryRef = parseNameOrIndexRef(cursor, "data memory");
+		});
+		isActive = true;
+	}
+
+	if(isActive || cursor->nextToken[0].type == t_leftParenthesis)
+	{
+		if(!isActive)
 		{
-		case t_anyref:
-		case t_funcref:
-		case t_string:
-		case t_rightParenthesis:
-			// <s:name> ...
-			segmentName = parseName(cursor, "data");
-			isActive = false;
-			break;
-		case t_quotedName:
-		case t_name:
-		case t_hexInt:
-		case t_decimalInt:
-			// <s:name> <m:ref> ...
-			segmentName = parseName(cursor, "data");
-			memoryRef = parseNameOrIndexRef(cursor, "memory");
-			break;
-		default:
-			// <m:name> ...
-			memoryRef = parseNameOrIndexRef(cursor, "memory");
+			memoryRef = Reference(0);
+			isActive = true;
 		}
-		break;
-	case t_hexInt:
-	case t_decimalInt:
-		// <m:ref> ...
-		memoryRef = parseNameOrIndexRef(cursor, "memory");
-		break;
-	default:
-		// ...
-		break;
-	};
 
-	if(isActive)
-	{
-		// Parse an initializer expression for the base index of the segment.
-		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
+		{ baseAddress = parseInitializerExpression(cursor); }
+		else
 		{
-			// The initializer expression can optionally be wrapped in (offset ...)
-			parseParenthesized(cursor, [&] {
+			parseParenthesized(cursor, [&]() {
 				require(cursor, t_offset);
 				baseAddress = parseInitializerExpression(cursor);
 			});
-		}
-		else
-		{
-			baseAddress = parseInitializerExpression(cursor);
 		}
 	}
 

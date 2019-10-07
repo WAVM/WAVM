@@ -149,7 +149,7 @@
 (module
   (memory 1)
   (data $p "")
-  (data $a 0 (i32.const 0) "")
+  (data $a (memory 0) (i32.const 0) "x")
 
   (func (export "drop_passive") (data.drop $p))
   (func (export "init_passive")

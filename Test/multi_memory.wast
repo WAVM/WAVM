@@ -110,8 +110,8 @@
 (module
   (memory $a 1)
   (memory $b 1)
-  (data $a (i32.const 0) "ABC\a7D") (data $a (i32.const 20) "WASM")
-  (data $b (i32.const 0) "WASM") (data $b (i32.const 20) "ABC\a7D")
+  (data (memory $a) (i32.const 0) "ABC\a7D") (data (memory $a) (i32.const 20) "WASM")
+  (data (memory $b) (i32.const 0) "WASM") (data (memory $b) (i32.const 20) "ABC\a7D")
 
   (func (export "a.load8_u") (param $address i32) (result i32)
     (i32.load8_u $a (local.get $address))
