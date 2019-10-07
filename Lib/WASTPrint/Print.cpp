@@ -956,9 +956,12 @@ void ModulePrintContext::printModule()
 
 		if(elemSegment.type == ElemSegment::Type::active)
 		{
-			string += " (table ";
-			string += names.tables[elemSegment.tableIndex];
-			string += ") ";
+			if(elemSegment.tableIndex != 0)
+			{
+				string += " (table ";
+				string += names.tables[elemSegment.tableIndex];
+				string += ") ";
+			}
 			printInitializerExpression(elemSegment.baseOffset);
 		}
 
