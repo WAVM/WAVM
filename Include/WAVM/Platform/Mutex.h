@@ -64,7 +64,7 @@ namespace WAVM { namespace Platform {
 
 #if WAVM_ENABLE_ASSERTS
 #if defined(_WIN32)
-		std::atomic<U32> lockingThreadId {0};
+		std::atomic<U32> lockingThreadId{0};
 #else
 		bool isLocked;
 #endif

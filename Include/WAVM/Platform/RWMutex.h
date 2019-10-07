@@ -31,7 +31,7 @@ namespace WAVM { namespace Platform {
 #if WAVM_ENABLE_ASSERTS
 		WAVM_API bool isExclusivelyLockedByCurrentThread();
 #endif
-		
+
 		// Scoped lock: automatically unlocks when destructed.
 		struct Lock
 		{
