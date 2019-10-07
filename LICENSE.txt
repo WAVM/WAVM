@@ -28,6 +28,6 @@ The liblmdb library (https://github.com/WAVM/WAVM/tree/ThirdParty/liblmdb) is co
 
 The xxhash library (https://github.com/WAVM/WAVM/tree/Include/WAVM/Inline/xxhash) is covered by the license in https://github.com/WAVM/WAVM/blob/Include/WAVM/Inline/xxhash/LICENSE.
 
-The WASI type header (https://github.com/WAVM/WAVM/blob/Lib/WASI/WASITypes.h) is covered by the license in https://github.com/WAVM/WAVM/blob/Lib/WASI/WASITypes.LICENSE.
+The WASI ABI header (https://github.com/WAVM/WAVM/blob/Include/WASI/WASIABI.h) is covered by the license in https://github.com/WAVM/WAVM/blob/Include/WASI/WASIABI.LICENSE.
 
 The WAVM C API (https://github.com/WAVM/WAVM/blob/Include/WAVM/wavm-c/wavm-c.h) is based on wasm-c-api (https://github.com/WebAssembly/wasm-c-api), which is covered by the license in https://github.com/WAVM/WAVM/blob/Include/WAVM/wavm-c/wasm-c-api.LICENSE.

@@ -1,5 +1,4 @@
 #include "./WASIPrivate.h"
-#include "./WASITypes.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"
@@ -7,6 +6,7 @@
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
+#include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
 using namespace WAVM::WASI;

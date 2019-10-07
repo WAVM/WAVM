@@ -1,5 +1,4 @@
 #include <memory.h>
-#include "./WASITypes.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
@@ -11,6 +10,7 @@
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/WASI/WASI.h"
+#include "WAVM/WASI/WASIABI.h"
 
 // Macros for tracing syscalls
 #define TRACE_SYSCALL(syscallName, argFormat, ...)                                                 \

@@ -1,8 +1,8 @@
 #include "./WASIPrivate.h"
-#include "./WASITypes.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
 using namespace WAVM::WASI;

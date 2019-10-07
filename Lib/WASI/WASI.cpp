@@ -1,6 +1,5 @@
 #include "WAVM/WASI/WASI.h"
 #include "./WASIPrivate.h"
-#include "./WASITypes.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/IndexMap.h"
@@ -17,6 +16,7 @@
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
 #include "WAVM/WASI/WASI.h"
+#include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
