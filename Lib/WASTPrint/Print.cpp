@@ -1039,8 +1039,12 @@ void ModulePrintContext::printModule()
 		string += ' ';
 		if(dataSegment.isActive)
 		{
-			string += names.memories[dataSegment.memoryIndex];
-			string += ' ';
+			if(dataSegment.memoryIndex != 0)
+			{
+				string += "(memory ";
+				string += names.memories[dataSegment.memoryIndex];
+				string += ") ";
+			}
 			printInitializerExpression(dataSegment.baseOffset);
 		}
 
