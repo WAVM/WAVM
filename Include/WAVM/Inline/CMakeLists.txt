@@ -3,7 +3,6 @@ set(PublicHeaders
 	BasicTypes.h
 	Config.h.in
 	CLI.h
-	ConcurrentHashMap.h
 	DenseStaticIntSet.h
 	Errors.h
 	FloatComponents.h
