@@ -5,12 +5,11 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -22,7 +21,7 @@ namespace WAVM { namespace Runtime {
 }}
 
 // Global lists of tables; used to query whether an address is reserved by one of them.
-static Platform::Mutex tablesMutex;
+static Platform::RWMutex tablesMutex;
 static std::vector<Table*> tables;
 
 static constexpr Uptr numGuardPages = 1;
@@ -89,7 +88,7 @@ static Table* createTableImpl(Compartment* compartment,
 
 	// Add the table to the global array.
 	{
-		Lock<Platform::Mutex> tablesLock(tablesMutex);
+		Platform::RWMutex::ExclusiveLock tablesLock(tablesMutex);
 		tables.push_back(table);
 	}
 	return table;
@@ -109,7 +108,7 @@ static bool growTableImpl(Table* table,
 		if(table->resourceQuota && !table->resourceQuota->tableElems.allocate(numElementsToGrow))
 		{ return false; }
 
-		Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+		Platform::RWMutex::ExclusiveLock resizingLock(table->resizingMutex);
 
 		oldNumElements = table->numElements.load(std::memory_order_acquire);
 
@@ -183,7 +182,7 @@ Table* Runtime::createTable(Compartment* compartment,
 
 	// Add the table to the compartment's tables IndexMap.
 	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 
 		table->id = compartment->tables.add(UINTPTR_MAX, table);
 		if(table->id == UINTPTR_MAX)
@@ -199,7 +198,7 @@ Table* Runtime::createTable(Compartment* compartment,
 
 Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 {
-	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+	Platform::RWMutex::ExclusiveLock resizingLock(table->resizingMutex);
 
 	// Create the new table.
 	const Uptr numElements = table->numElements.load(std::memory_order_acquire);
@@ -229,7 +228,7 @@ Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 	// Insert the table in the new compartment's tables array with the same index as it had in the
 	// original compartment's tables IndexMap.
 	{
-		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
 
 		newTable->id = table->id;
 		newCompartment->tables.insertOrFail(newTable->id, newTable);
@@ -243,7 +242,7 @@ Table::~Table()
 {
 	if(id != UINTPTR_MAX)
 	{
-		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 
 		WAVM_ASSERT(compartment->tables[id] == this);
 		compartment->tables.removeOrFail(id);
@@ -254,7 +253,7 @@ Table::~Table()
 
 	// Remove the table from the global array.
 	{
-		Lock<Platform::Mutex> tablesLock(tablesMutex);
+		Platform::RWMutex::ExclusiveLock tablesLock(tablesMutex);
 		for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
 		{
 			if(tables[tableIndex] == this)
@@ -281,7 +280,7 @@ bool Runtime::isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTabl
 {
 	// Iterate over all tables and check if the address is within the reserved address space for
 	// each.
-	Lock<Platform::Mutex> tablesLock(tablesMutex);
+	Platform::RWMutex::ShareableLock tablesLock(tablesMutex);
 	for(auto table : tables)
 	{
 		U8* startAddress = (U8*)table->elements;
@@ -538,7 +537,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
-	Lock<Platform::Mutex> elemSegmentsLock(moduleInstance->elemSegmentsMutex);
+	Platform::RWMutex::ShareableLock elemSegmentsLock(moduleInstance->elemSegmentsMutex);
 	if(!moduleInstance->elemSegments[elemSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
@@ -567,7 +566,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Lock<Platform::Mutex> elemSegmentsLock(moduleInstance->elemSegmentsMutex);
+	Platform::RWMutex::ExclusiveLock elemSegmentsLock(moduleInstance->elemSegmentsMutex);
 
 	if(!moduleInstance->elemSegments[elemSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }

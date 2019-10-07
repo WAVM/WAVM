@@ -10,10 +10,9 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/HashSet.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Platform/Signal.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -126,7 +125,7 @@ ExceptionType* Runtime::createExceptionType(Compartment* compartment,
 {
 	auto exceptionType = new ExceptionType(compartment, sig, std::move(debugName));
 
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 	exceptionType->id = compartment->exceptionTypes.add(UINTPTR_MAX, exceptionType);
 	if(exceptionType->id == UINTPTR_MAX)
 	{
@@ -144,7 +143,7 @@ ExceptionType* Runtime::cloneExceptionType(ExceptionType* exceptionType,
 		newCompartment, exceptionType->sig, std::string(exceptionType->debugName));
 	newExceptionType->id = exceptionType->id;
 
-	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
 	newCompartment->exceptionTypes.insertOrFail(exceptionType->id, newExceptionType);
 	return newExceptionType;
 }
@@ -153,7 +152,7 @@ Runtime::ExceptionType::~ExceptionType()
 {
 	if(id != UINTPTR_MAX)
 	{
-		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->exceptionTypes.removeOrFail(id);
 	}
 }
@@ -270,7 +269,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 	ExceptionType* exceptionType;
 	{
 		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 		exceptionType = compartment->exceptionTypes[exceptionTypeId];
 	}
 	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));

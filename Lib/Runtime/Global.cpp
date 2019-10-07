@@ -7,8 +7,7 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Lock.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -36,7 +35,7 @@ Global* Runtime::createGlobal(Compartment* compartment,
 	// Create the global and add it to the compartment's list of globals.
 	Global* global = new Global(compartment, type, mutableGlobalIndex);
 	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 		global->id = compartment->globals.add(UINTPTR_MAX, global);
 		if(global->id == UINTPTR_MAX)
 		{
@@ -86,7 +85,7 @@ Global* Runtime::cloneGlobal(Global* global, Compartment* newCompartment)
 		= new Global(newCompartment, global->type, global->mutableGlobalIndex, initialValue);
 	newGlobal->id = global->id;
 
-	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
 	newCompartment->globals.insertOrFail(global->id, newGlobal);
 	return newGlobal;
 }
@@ -95,7 +94,7 @@ Runtime::Global::~Global()
 {
 	if(id != UINTPTR_MAX)
 	{
-		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->globals.removeOrFail(id);
 	}
 

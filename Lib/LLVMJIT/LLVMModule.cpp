@@ -15,12 +15,12 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Platform/Signal.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -67,7 +67,7 @@ struct LLVMJIT::GlobalModuleState
 	llvm::JITEventListener* gdbRegistrationListener = nullptr;
 
 	// A map from address to loaded JIT symbols.
-	Platform::Mutex addressToModuleMapMutex;
+	Platform::RWMutex addressToModuleMapMutex;
 	std::map<Uptr, LLVMJIT::Module*> addressToModuleMap;
 
 	static const std::shared_ptr<GlobalModuleState>& get()
@@ -530,7 +530,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Notify GDB of the new object.
 	{
-		Lock<Platform::Mutex> lock(globalModuleState->gdbRegistrationListenerMutex);
+		Platform::Mutex::Lock lock(globalModuleState->gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
 		globalModuleState->gdbRegistrationListener->notifyObjectLoaded(
 			reinterpret_cast<Uptr>(this), *object, *loadedObject);
@@ -541,7 +541,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Create a DWARF context to interpret the debug information in this compilation unit.
 #if LAZY_PARSE_DWARF_LINE_INFO
-	Lock<Platform::Mutex> dwarfContextLock(dwarfContextMutex);
+	Platform::Mutex::Lock dwarfContextLock(dwarfContextMutex);
 	dwarfContext
 		= llvm::DWARFContext::create(memoryManager->getSectionNameToContentsMap(), sizeof(Uptr));
 #else
@@ -614,7 +614,8 @@ Module::Module(const std::vector<U8>& objectBytes,
 	const Uptr moduleEndAddress = reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
 														 + memoryManager->getNumImageBytes());
 	{
-		Lock<Platform::Mutex> addressToModuleMapLock(globalModuleState->addressToModuleMapMutex);
+		Platform::RWMutex::ExclusiveLock addressToModuleMapLock(
+			globalModuleState->addressToModuleMapMutex);
 		globalModuleState->addressToModuleMap.emplace(moduleEndAddress, this);
 	}
 
@@ -629,7 +630,7 @@ Module::~Module()
 {
 	// Notify GDB that the object is being unloaded.
 	{
-		Lock<Platform::Mutex> lock(globalModuleState->gdbRegistrationListenerMutex);
+		Platform::Mutex::Lock lock(globalModuleState->gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
 		globalModuleState->gdbRegistrationListener->notifyFreeingObject(
 			reinterpret_cast<Uptr>(this));
@@ -640,7 +641,8 @@ Module::~Module()
 
 	// Remove the module from the global address to module map.
 	{
-		Lock<Platform::Mutex> addressToModuleMapLock(globalModuleState->addressToModuleMapMutex);
+		Platform::RWMutex::ExclusiveLock addressToModuleMapLock(
+			globalModuleState->addressToModuleMapMutex);
 		globalModuleState->addressToModuleMap.erase(
 			globalModuleState->addressToModuleMap.find(reinterpret_cast<Uptr>(
 				memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
@@ -783,7 +785,8 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	Module* jitModule;
 	{
 		auto globalModuleState = GlobalModuleState::get();
-		Lock<Platform::Mutex> addressToModuleMapLock(globalModuleState->addressToModuleMapMutex);
+		Platform::RWMutex::ShareableLock addressToModuleMapLock(
+			globalModuleState->addressToModuleMapMutex);
 		auto moduleIt = globalModuleState->addressToModuleMap.upper_bound(address);
 		if(moduleIt == globalModuleState->addressToModuleMap.end()) { return false; }
 		jitModule = moduleIt->second;
@@ -798,7 +801,7 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	{ return false; }
 
 #if LAZY_PARSE_DWARF_LINE_INFO
-	Lock<Platform::Mutex> dwarfContextLock(jitModule->dwarfContextMutex);
+	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
 		llvm::object::SectionedAddress(address, llvm::object::SectionedAddress::UndefSection),
 		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,

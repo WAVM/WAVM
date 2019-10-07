@@ -7,10 +7,9 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 
 using namespace WAVM;
@@ -121,7 +120,7 @@ struct GCState
 		case ObjectKind::table: {
 			Table* table = asTable(object);
 
-			Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+			Platform::RWMutex::ShareableLock resizingLock(table->resizingMutex);
 			const Uptr numElements = getTableNumElements(table);
 			for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
 			{ visitReference(getTableElement(table, elementIndex)); }
@@ -175,7 +174,7 @@ struct GCState
 
 static bool collectGarbageImpl(Compartment* compartment)
 {
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 	Timing::Timer timer;
 
 	GCState state(compartment);

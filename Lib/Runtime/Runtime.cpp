@@ -3,7 +3,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
@@ -150,7 +150,7 @@ ModuleInstance* Runtime::getModuleInstanceFromRuntimeData(ContextRuntimeData* co
 														  Uptr moduleInstanceId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
 	WAVM_ASSERT(compartment->moduleInstances.contains(moduleInstanceId));
 	return compartment->moduleInstances[moduleInstanceId];
 }
@@ -158,7 +158,7 @@ ModuleInstance* Runtime::getModuleInstanceFromRuntimeData(ContextRuntimeData* co
 Table* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
 	WAVM_ASSERT(compartment->tables.contains(tableId));
 	return compartment->tables[tableId];
 }
@@ -166,7 +166,7 @@ Table* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, 
 Memory* Runtime::getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
 	return compartment->memories[memoryId];
 }
 

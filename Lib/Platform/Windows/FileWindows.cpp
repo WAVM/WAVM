@@ -3,7 +3,6 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Inline/Unicode.h"
 #include "WAVM/Platform/Clock.h"

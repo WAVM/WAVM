@@ -12,7 +12,6 @@
 #include "WAVM/IR/Validate.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
@@ -54,7 +53,7 @@ static Runtime::Function* makeHostRef(Uptr index)
 {
 	static Platform::Mutex indexToHostRefMapMutex;
 	static HashMap<Uptr, HostRef> indexToHostRefMap;
-	Lock<Platform::Mutex> lock(indexToHostRefMapMutex);
+	Platform::Mutex::Lock lock(indexToHostRefMapMutex);
 	HostRef& hostRef = indexToHostRefMap.getOrAdd(index, HostRef());
 	if(!hostRef.function)
 	{

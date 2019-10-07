@@ -1,7 +1,6 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WindowsPrivate.h"
@@ -27,7 +26,7 @@ struct DbgHelp
 		static DbgHelp* dbgHelp = nullptr;
 		if(!dbgHelp)
 		{
-			Lock<Platform::Mutex> dbgHelpLock(dbgHelpMutex);
+			Platform::Mutex::Lock dbgHelpLock(dbgHelpMutex);
 			if(!dbgHelp) { dbgHelp = new DbgHelp(); }
 		}
 		return dbgHelp;

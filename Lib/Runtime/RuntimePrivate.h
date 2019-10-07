@@ -9,10 +9,9 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IndexMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
@@ -51,7 +50,7 @@ namespace WAVM { namespace Runtime {
 		Uptr numReservedBytes = 0;
 		Uptr numReservedElements = 0;
 
-		mutable Platform::Mutex resizingMutex;
+		mutable Platform::RWMutex resizingMutex;
 		std::atomic<Uptr> numElements{0};
 
 		ResourceQuotaRef resourceQuota;
@@ -84,7 +83,7 @@ namespace WAVM { namespace Runtime {
 		U8* baseAddress = nullptr;
 		Uptr numReservedBytes = 0;
 
-		mutable Platform::Mutex resizingMutex;
+		mutable Platform::RWMutex resizingMutex;
 		std::atomic<Uptr> numPages{0};
 
 		ResourceQuotaRef resourceQuota;
@@ -178,10 +177,10 @@ namespace WAVM { namespace Runtime {
 
 		Function* const startFunction;
 
-		mutable Platform::Mutex dataSegmentsMutex;
+		mutable Platform::RWMutex dataSegmentsMutex;
 		DataSegmentVector dataSegments;
 
-		mutable Platform::Mutex elemSegmentsMutex;
+		mutable Platform::RWMutex elemSegmentsMutex;
 		ElemSegmentVector elemSegments;
 
 		const std::shared_ptr<LLVMJIT::Module> jitModule;
@@ -235,7 +234,7 @@ namespace WAVM { namespace Runtime {
 
 	struct Compartment : GCObject
 	{
-		mutable Platform::Mutex mutex;
+		mutable Platform::RWMutex mutex;
 
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;
@@ -267,7 +266,7 @@ namespace WAVM { namespace Runtime {
 
 			bool allocate(Value delta)
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ExclusiveLock lock(mutex);
 
 				// Make sure the delta doesn't make current overflow.
 				if(current + delta < current) { return false; }
@@ -280,29 +279,29 @@ namespace WAVM { namespace Runtime {
 
 			void free(Value delta)
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ExclusiveLock lock(mutex);
 				WAVM_ASSERT(current - delta <= current);
 				current -= delta;
 			}
 
 			Value getCurrent() const
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ShareableLock lock(mutex);
 				return current;
 			}
 			Value getMax() const
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ShareableLock lock(mutex);
 				return max;
 			}
 			void setMax(Value newMax)
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ExclusiveLock lock(mutex);
 				max = newMax;
 			}
 
 		private:
-			mutable Platform::Mutex mutex;
+			mutable Platform::RWMutex mutex;
 			Value current;
 			Value max;
 		};

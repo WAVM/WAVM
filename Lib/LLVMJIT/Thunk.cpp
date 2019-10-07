@@ -11,11 +11,10 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
@@ -71,7 +70,8 @@ namespace WAVM {
 // A global invoke thunk cache
 struct InvokeThunkCache
 {
-	Platform::Mutex mutex;
+	Platform::RWMutex mutex;
+
 	HashMap<FunctionType, Runtime::Function*> typeToFunctionMap;
 	std::vector<std::unique_ptr<LLVMJIT::Module>> modules;
 
@@ -88,7 +88,7 @@ private:
 // A global intrinsic thunk cache.
 struct IntrinsicThunkCache
 {
-	Platform::Mutex mutex;
+	Platform::RWMutex mutex;
 	HashMap<IntrinsicThunkKey, Runtime::Function*> functionToThunkMap;
 	std::vector<std::unique_ptr<LLVMJIT::Module>> modules;
 
@@ -105,9 +105,24 @@ private:
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 {
 	InvokeThunkCache& invokeThunkCache = InvokeThunkCache::get();
-	Lock<Platform::Mutex> invokeThunkLock(invokeThunkCache.mutex);
 
-	// Reuse cached invoke thunks for the same function type.
+	// First, take a shareable lock on the cache mutex, and check if the thunk is cached.
+	{
+		Platform::RWMutex::ShareableLock shareableLock(invokeThunkCache.mutex);
+		Runtime::Function** invokeThunkFunction
+			= invokeThunkCache.typeToFunctionMap.get(functionType);
+		if(invokeThunkFunction)
+		{
+			return reinterpret_cast<InvokeThunkPointer>(
+				const_cast<U8*>((*invokeThunkFunction)->code));
+		}
+	}
+
+	// If the thunk is not cached, take an exclusive lock on the cache mutex.
+	Platform::RWMutex::ExclusiveLock invokeThunkLock(invokeThunkCache.mutex);
+
+	// Since the cache is unlocked briefly while switching from the shareable to the exclusive lock,
+	// check again if the thunk is cached.
 	Runtime::Function*& invokeThunkFunction
 		= invokeThunkCache.typeToFunctionMap.getOrAdd(functionType, nullptr);
 	if(invokeThunkFunction)
@@ -205,7 +220,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 											  const char* debugName)
 {
 	IntrinsicThunkCache& intrinsicThunkCache = IntrinsicThunkCache::get();
-	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkCache.mutex);
+	Platform::RWMutex::ExclusiveLock intrinsicThunkLock(intrinsicThunkCache.mutex);
 
 	WAVM_ASSERT(callingConvention == CallingConvention::intrinsic
 				|| callingConvention == CallingConvention::intrinsicWithContextSwitch

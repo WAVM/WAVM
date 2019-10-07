@@ -16,7 +16,6 @@
 #include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Memory.h"
@@ -875,7 +874,7 @@ static I64 threadMain(void* sharedStateVoid)
 	{
 		const char* filename;
 		{
-			Lock<Platform::Mutex> sharedStateLock(sharedState->mutex);
+			Platform::Mutex::Lock sharedStateLock(sharedState->mutex);
 			if(!sharedState->pendingFilenames.size()) { break; }
 			filename = sharedState->pendingFilenames.back();
 			sharedState->pendingFilenames.pop_back();

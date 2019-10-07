@@ -11,12 +11,11 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Intrinsic.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/WASM/WASM.h"
 
@@ -24,7 +23,7 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-Platform::Mutex globalObjectCacheMutex;
+Platform::RWMutex globalObjectCacheMutex;
 std::shared_ptr<ObjectCacheInterface> globalObjectCache;
 
 static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
@@ -58,13 +57,13 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 
 void Runtime::setGlobalObjectCache(std::shared_ptr<ObjectCacheInterface>&& objectCache)
 {
-	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
+	Platform::RWMutex::ExclusiveLock globalObjectCacheLock(globalObjectCacheMutex);
 	globalObjectCache = std::move(objectCache);
 }
 
 static std::shared_ptr<ObjectCacheInterface> getGlobalObjectCache()
 {
-	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
+	Platform::RWMutex::ShareableLock globalObjectCacheLock(globalObjectCacheMutex);
 	return globalObjectCache;
 }
 
@@ -143,7 +142,7 @@ ModuleInstance::~ModuleInstance()
 {
 	if(id != UINTPTR_MAX)
 	{
-		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->moduleInstances.removeOrFail(id);
 	}
 }
@@ -156,7 +155,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 {
 	Uptr id = UINTPTR_MAX;
 	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 		id = compartment->moduleInstances.add(UINTPTR_MAX, nullptr);
 	}
 	if(id == UINTPTR_MAX) { return nullptr; }
@@ -241,7 +240,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 								 resourceQuota);
 		if(!table)
 		{
-			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+			Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 			compartment->moduleInstances.removeOrFail(id);
 			throwException(ExceptionTypes::outOfMemory);
 		}
@@ -257,7 +256,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 								   resourceQuota);
 		if(!memory)
 		{
-			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+			Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 			compartment->moduleInstances.removeOrFail(id);
 			throwException(ExceptionTypes::outOfMemory);
 		}
@@ -433,7 +432,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 														std::move(moduleDebugName),
 														resourceQuota);
 	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 		compartment->moduleInstances[id] = moduleInstance;
 	}
 
@@ -546,13 +545,13 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 
 	DataSegmentVector newDataSegments;
 	{
-		Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->dataSegmentsMutex);
+		Platform::RWMutex::ExclusiveLock passiveDataSegmentsLock(moduleInstance->dataSegmentsMutex);
 		newDataSegments = moduleInstance->dataSegments;
 	}
 
 	ElemSegmentVector newElemSegments;
 	{
-		Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->elemSegmentsMutex);
+		Platform::RWMutex::ExclusiveLock passiveElemSegmentsLock(moduleInstance->elemSegmentsMutex);
 		newElemSegments = moduleInstance->elemSegments;
 	}
 
@@ -574,7 +573,7 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 														   std::string(moduleInstance->debugName),
 														   moduleInstance->resourceQuota);
 	{
-		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
 		newCompartment->moduleInstances.insertOrFail(moduleInstance->id, newModuleInstance);
 	}
 

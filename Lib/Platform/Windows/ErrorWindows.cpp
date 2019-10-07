@@ -1,7 +1,6 @@
 #include <cstdarg>
 #include <cstdio>
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Error.h"
 #include "WAVM/Platform/Mutex.h"
@@ -39,7 +38,7 @@ static void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
 
 void Platform::handleFatalError(const char* messageFormat, bool printCallStack, va_list varArgs)
 {
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
+	Platform::Mutex::Lock lock(getErrorReportingMutex());
 	std::vfprintf(stderr, messageFormat, varArgs);
 	std::fprintf(stderr, "\n");
 	if(printCallStack) { dumpErrorCallStack(2); }
@@ -53,7 +52,7 @@ void Platform::handleFatalError(const char* messageFormat, bool printCallStack, 
 
 void Platform::handleAssertionFailure(const AssertMetadata& metadata)
 {
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
+	Platform::Mutex::Lock lock(getErrorReportingMutex());
 	std::fprintf(stderr,
 				 "Assertion failed at %s(%u): %s\n",
 				 metadata.file,

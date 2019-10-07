@@ -10,6 +10,7 @@ set(POSIXSources
 	POSIX/MemoryPOSIX.cpp
 	POSIX/MutexPOSIX.cpp
 	POSIX/RandomPOSIX.cpp
+	POSIX/RWMutexPOSIX.cpp
 	POSIX/ThreadPOSIX.cpp
 	POSIX/POSIXPrivate.h)
 
@@ -26,6 +27,7 @@ set(WindowsSources
 	Windows/MemoryWindows.cpp
 	Windows/MutexWindows.cpp
 	Windows/RandomWindows.cpp
+	Windows/RWMutexWindows.cpp
 	Windows/ThreadWindows.cpp
 	Windows/WindowsPrivate.h)
 
@@ -43,6 +45,7 @@ set(Headers
 	${WAVM_INCLUDE_DIR}/Platform/Intrinsic.h
 	${WAVM_INCLUDE_DIR}/Platform/Memory.h
 	${WAVM_INCLUDE_DIR}/Platform/Mutex.h
+	${WAVM_INCLUDE_DIR}/Platform/RWMutex.h
 	${WAVM_INCLUDE_DIR}/Platform/Thread.h)
 
 if(MSVC)

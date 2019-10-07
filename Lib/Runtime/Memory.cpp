@@ -10,9 +10,8 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Intrinsic.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -24,7 +23,7 @@ namespace WAVM { namespace Runtime {
 }}
 
 // Global lists of memories; used to query whether an address is reserved by one of them.
-static Platform::Mutex memoriesMutex;
+static Platform::RWMutex memoriesMutex;
 static std::vector<Memory*> memories;
 
 static constexpr Uptr numGuardPages = 1;
@@ -67,7 +66,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 
 	// Add the memory to the global array.
 	{
-		Lock<Platform::Mutex> memoriesLock(memoriesMutex);
+		Platform::RWMutex::ExclusiveLock memoriesLock(memoriesMutex);
 		memories.push_back(memory);
 	}
 
@@ -86,7 +85,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 
 	// Add the memory to the compartment's memories IndexMap.
 	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 
 		memory->id = compartment->memories.add(UINTPTR_MAX, memory);
 		if(memory->id == UINTPTR_MAX)
@@ -102,7 +101,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 
 Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 {
-	Lock<Platform::Mutex> resizingLock(memory->resizingMutex);
+	Platform::RWMutex::ExclusiveLock resizingLock(memory->resizingMutex);
 	const Uptr numPages = memory->numPages.load(std::memory_order_acquire);
 	std::string debugName = memory->debugName;
 	Memory* newMemory = createMemoryImpl(
@@ -117,7 +116,7 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 	// Insert the memory in the new compartment's memories array with the same index as it had in
 	// the original compartment's memories IndexMap.
 	{
-		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
 
 		newMemory->id = memory->id;
 		newCompartment->memories.insertOrFail(newMemory->id, newMemory);
@@ -131,7 +130,7 @@ Runtime::Memory::~Memory()
 {
 	if(id != UINTPTR_MAX)
 	{
-		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 
 		WAVM_ASSERT(compartment->memories[id] == this);
 		compartment->memories.removeOrFail(id);
@@ -142,7 +141,7 @@ Runtime::Memory::~Memory()
 
 	// Remove the memory from the global array.
 	{
-		Lock<Platform::Mutex> memoriesLock(memoriesMutex);
+		Platform::RWMutex::ExclusiveLock memoriesLock(memoriesMutex);
 		for(Uptr memoryIndex = 0; memoryIndex < memories.size(); ++memoryIndex)
 		{
 			if(memories[memoryIndex] == this)
@@ -169,7 +168,7 @@ bool Runtime::isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outM
 {
 	// Iterate over all memories and check if the address is within the reserved address space for
 	// each.
-	Lock<Platform::Mutex> memoriesLock(memoriesMutex);
+	Platform::RWMutex::ShareableLock memoriesLock(memoriesMutex);
 	for(auto memory : memories)
 	{
 		U8* startAddress = memory->baseAddress;
@@ -200,7 +199,7 @@ bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPag
 		if(memory->resourceQuota && !memory->resourceQuota->memoryPages.allocate(numPagesToGrow))
 		{ return false; }
 
-		Lock<Platform::Mutex> resizingLock(memory->resizingMutex);
+		Platform::RWMutex::ExclusiveLock resizingLock(memory->resizingMutex);
 		oldNumPages = memory->numPages.load(std::memory_order_acquire);
 
 		// If the number of pages to grow would cause the memory's size to exceed its maximum,
@@ -357,7 +356,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	Lock<Platform::Mutex> dataSegmentsLock(moduleInstance->dataSegmentsMutex);
+	Platform::RWMutex::ShareableLock dataSegmentsLock(moduleInstance->dataSegmentsMutex);
 	if(!moduleInstance->dataSegments[dataSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
@@ -386,7 +385,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Lock<Platform::Mutex> dataSegmentsLock(moduleInstance->dataSegmentsMutex);
+	Platform::RWMutex::ExclusiveLock dataSegmentsLock(moduleInstance->dataSegmentsMutex);
 
 	if(!moduleInstance->dataSegments[dataSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }

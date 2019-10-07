@@ -7,9 +7,8 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 
 namespace WAVM { namespace Intrinsics {
@@ -187,7 +186,7 @@ ModuleInstance* Intrinsics::instantiateModule(
 		}
 	}
 
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 	const Uptr id = compartment->moduleInstances.add(UINTPTR_MAX, nullptr);
 	if(id == UINTPTR_MAX) { throwException(ExceptionTypes::outOfMemory, {}); }
 	auto moduleInstance = new ModuleInstance(compartment,

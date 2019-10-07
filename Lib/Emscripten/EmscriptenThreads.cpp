@@ -2,7 +2,6 @@
 #include "EmscriptenPrivate.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/IntrusiveSharedPtr.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
@@ -20,7 +19,7 @@ namespace WAVM { namespace Emscripten {
 // array.
 static U32 allocateThreadId(Emscripten::Instance* instance, Thread* thread)
 {
-	Lock<Platform::Mutex> threadsLock(instance->threadsMutex);
+	Platform::Mutex::Lock threadsLock(instance->threadsMutex);
 	thread->id = instance->threads.add(0, thread);
 	WAVM_ERROR_UNLESS(thread->id != 0);
 	return thread->id;
@@ -40,7 +39,7 @@ void Emscripten::joinAllThreads(Instance* instance)
 {
 	while(true)
 	{
-		Lock<Platform::Mutex> threadsLock(instance->threadsMutex);
+		Platform::Mutex::Lock threadsLock(instance->threadsMutex);
 
 		if(!instance->threads.size()) { break; }
 		auto it = instance->threads.begin();
@@ -313,7 +312,7 @@ static bool removeThreadById(Emscripten::Instance* instance,
 							 emabi::pthread_t threadId,
 							 IntrusiveSharedPtr<Thread>& outThread)
 {
-	Lock<Platform::Mutex> threadsLock(instance->threadsMutex);
+	Platform::Mutex::Lock threadsLock(instance->threadsMutex);
 	if(!validateThreadId(instance, threadId)) { return false; }
 	outThread = std::move(instance->threads[threadId]);
 	instance->threads.removeOrFail(threadId);

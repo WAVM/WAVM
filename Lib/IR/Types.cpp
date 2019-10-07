@@ -5,7 +5,6 @@
 #include <utility>
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 
@@ -71,7 +70,7 @@ struct GlobalUniqueTypeTuples
 
 	~GlobalUniqueTypeTuples()
 	{
-		Lock<Platform::Mutex> lock(mutex);
+		Platform::Mutex::Lock lock(mutex);
 		for(void* impl : impls) { free(impl); }
 	}
 
@@ -98,7 +97,7 @@ const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueTy
 		Impl* localImpl = new(alloca(numImplBytes)) Impl(numElems, inElems);
 
 		GlobalUniqueTypeTuples& globalUniqueTypeTuples = GlobalUniqueTypeTuples::get();
-		Lock<Platform::Mutex> lock(globalUniqueTypeTuples.mutex);
+		Platform::Mutex::Lock lock(globalUniqueTypeTuples.mutex);
 
 		const TypeTuple* typeTuple = globalUniqueTypeTuples.set.get(TypeTuple(localImpl));
 		if(typeTuple) { return typeTuple->impl; }
@@ -120,7 +119,7 @@ struct GlobalUniqueFunctionTypes
 
 	~GlobalUniqueFunctionTypes()
 	{
-		Lock<Platform::Mutex> lock(mutex);
+		Platform::Mutex::Lock lock(mutex);
 		for(void* impl : impls) { free(impl); }
 	}
 
@@ -152,7 +151,7 @@ const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results, Typ
 		Impl localImpl(results, params);
 
 		GlobalUniqueFunctionTypes& globalUniqueFunctionTypes = GlobalUniqueFunctionTypes::get();
-		Lock<Platform::Mutex> lock(globalUniqueFunctionTypes.mutex);
+		Platform::Mutex::Lock lock(globalUniqueFunctionTypes.mutex);
 
 		const FunctionType* functionType
 			= globalUniqueFunctionTypes.set.get(FunctionType(&localImpl));
