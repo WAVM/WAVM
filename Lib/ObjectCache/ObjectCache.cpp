@@ -420,8 +420,6 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			// Commit the initialization transaction.
 			txn.commit();
 
-			if(Log::isCategoryEnabled(Log::debug)) { dump(); }
-
 			return OpenResult::success;
 		}
 		catch(Database::Exception const& exception)
@@ -722,8 +720,6 @@ private:
 		Log::printf(Log::debug,
 					"Evicted %16" PRIx64 " from the object cache.\n",
 					moduleKey.getModuleHash());
-
-		if(Log::isCategoryEnabled(Log::debug)) { dump(); }
 
 		return true;
 	}
