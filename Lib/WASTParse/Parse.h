@@ -148,6 +148,7 @@ namespace WAVM { namespace WAST {
 
 		IR::DisassemblyNames disassemblyNames;
 
+		const Token* startFieldToken {nullptr};
 		const Token* lastCustomSectionToken {nullptr};
 
 		// Thunks that are called after parsing all types.

@@ -1082,6 +1082,17 @@ static void parseExceptionType(CursorState* cursor)
 
 static void parseStart(CursorState* cursor)
 {
+	if(cursor->moduleState->startFieldToken)
+	{
+		parseErrorf(cursor->parseState,
+					cursor->nextToken,
+					"module may not have more than one 'start' field.");
+		parseErrorf(cursor->parseState,
+					cursor->moduleState->startFieldToken,
+					"first 'start' field occurred here");
+	}
+	cursor->moduleState->startFieldToken = cursor->nextToken;
+
 	require(cursor, t_start);
 
 	Reference functionRef;
