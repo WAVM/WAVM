@@ -56,46 +56,54 @@ int execAssembleCommand(int argc, char** argv)
 		showAssembleHelp(Log::error);
 		return EXIT_FAILURE;
 	}
-	const char* inputFilename = argv[0];
-	const char* outputFilename = argv[1];
+	const char* inputFilename = nullptr;
+	const char* outputFilename = nullptr;
 	bool omitNames = false;
 	IR::FeatureSpec featureSpec;
 	if(argc > 2)
 	{
-		for(Iptr argumentIndex = 2; argumentIndex < argc; ++argumentIndex)
+		for(Iptr argIndex = 0; argIndex < argc; ++argIndex)
 		{
-			if(!strcmp(argv[argumentIndex], "-n") || !strcmp(argv[argumentIndex], "--omit-names"))
+			if(!strcmp(argv[argIndex], "-n") || !strcmp(argv[argIndex], "--omit-names"))
 			{ omitNames = true; }
-			else if(!strcmp(argv[argumentIndex], "--enable"))
+			else if(!strcmp(argv[argIndex], "--enable"))
 			{
-				++argumentIndex;
-				if(!argv[argumentIndex])
+				++argIndex;
+				if(!argv[argIndex])
 				{
 					Log::printf(Log::error, "Expected feature name following '--enable'.\n");
 					return false;
 				}
 
-				if(!parseAndSetFeature(argv[argumentIndex], featureSpec, true))
+				if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
 				{
 					Log::printf(Log::error,
 								"Unknown feature '%s'. Supported features:\n"
 								"%s"
 								"\n",
-								argv[argumentIndex],
+								argv[argIndex],
 								getFeatureListHelpText());
 					return false;
 				}
 			}
+			else if(!inputFilename)
+			{
+				inputFilename = argv[argIndex];
+			}
+			else if(!outputFilename)
+			{
+				outputFilename = argv[argIndex];
+			}
 			else
 			{
-				Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
+				Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
 				return EXIT_FAILURE;
 			}
 		}
 	}
 
 	// Load the WAST module.
-	IR::Module module(IR::FeatureSpec(true));
+	IR::Module module(featureSpec);
 	if(!loadTextModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// If the command-line switch to omit names was specified, strip the name section.
