@@ -601,6 +601,75 @@ Object* Runtime::getInstanceExport(const ModuleInstance* moduleInstance, const s
 	return exportedObjectPtr ? *exportedObjectPtr : nullptr;
 }
 
+Object* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+										const std::string& name,
+										const IR::ExternType& type)
+{
+	WAVM_ASSERT(moduleInstance);
+	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	return exportedObjectPtr && isA(*exportedObjectPtr, type) ? *exportedObjectPtr : nullptr;
+}
+
+Function* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+										  const std::string& name,
+										  const IR::FunctionType& type)
+{
+	WAVM_ASSERT(moduleInstance);
+	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::function
+				   && FunctionType(asFunction(*exportedObjectPtr)->encodedType) == type
+			   ? asFunction(*exportedObjectPtr)
+			   : nullptr;
+}
+
+Table* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+									   const std::string& name,
+									   const IR::TableType& type)
+{
+	WAVM_ASSERT(moduleInstance);
+	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::table
+				   && isSubtype(asTable(*exportedObjectPtr)->type, type)
+			   ? asTable(*exportedObjectPtr)
+			   : nullptr;
+}
+
+Memory* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+										const std::string& name,
+										const IR::MemoryType& type)
+{
+	WAVM_ASSERT(moduleInstance);
+	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::memory
+				   && isSubtype(asMemory(*exportedObjectPtr)->type, type)
+			   ? asMemory(*exportedObjectPtr)
+			   : nullptr;
+}
+
+Global* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+										const std::string& name,
+										const IR::GlobalType& type)
+{
+	WAVM_ASSERT(moduleInstance);
+	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::global
+				   && isSubtype(asGlobal(*exportedObjectPtr)->type, type)
+			   ? asGlobal(*exportedObjectPtr)
+			   : nullptr;
+}
+
+Runtime::ExceptionType* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+														const std::string& name,
+														const IR::ExceptionType& type)
+{
+	WAVM_ASSERT(moduleInstance);
+	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::function
+				   && isSubtype(asExceptionType(*exportedObjectPtr)->sig.params, type.params)
+			   ? asExceptionType(*exportedObjectPtr)
+			   : nullptr;
+}
+
 const std::vector<Object*>& Runtime::getInstanceExports(const ModuleInstance* moduleInstance)
 {
 	return moduleInstance->exports;

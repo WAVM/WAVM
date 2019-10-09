@@ -465,6 +465,27 @@ namespace WAVM { namespace Runtime {
 	WAVM_API Object* getInstanceExport(const ModuleInstance* moduleInstance,
 									   const std::string& name);
 
+	// Gets an object exported by a ModuleInstance by name and type. If the module exports an object
+	// with the given name, but the type doesn't match, returns nullptr.
+	WAVM_API Object* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+											const std::string& name,
+											const IR::ExternType& type);
+	WAVM_API Function* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+											  const std::string& name,
+											  const IR::FunctionType& type);
+	WAVM_API Table* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+										   const std::string& name,
+										   const IR::TableType& type);
+	WAVM_API Memory* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+											const std::string& name,
+											const IR::MemoryType& type);
+	WAVM_API Global* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+											const std::string& name,
+											const IR::GlobalType& type);
+	WAVM_API ExceptionType* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+												   const std::string& name,
+												   const IR::ExceptionType& type);
+
 	// Gets an array of the objects exported by a module instance. The array indices correspond to
 	// the IR::Module::exports array.
 	WAVM_API const std::vector<Object*>& getInstanceExports(const ModuleInstance* moduleInstance);
