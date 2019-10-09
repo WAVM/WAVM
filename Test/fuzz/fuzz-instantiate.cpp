@@ -32,7 +32,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
 	module.featureSpec.maxDataSegments = 65536;
-	module.featureSpec.sharedTables = true;
+	module.featureSpec.setWAVMFeatures(true);
 	Serialization::MemoryInputStream inputStream(data, numBytes);
 	if(!WASM::loadBinaryModule(inputStream, module)) { return 0; }
 

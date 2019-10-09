@@ -53,7 +53,7 @@ I32 main(int argc, char** argv)
 			RandomStream random(inputBytes.data(), inputBytes.size());
 
 			IR::Module module(IR::FeatureSpec(true));
-			module.featureSpec.sharedTables = true;
+			module.featureSpec.setWAVMFeatures(true);
 			generateValidModule(module, random);
 
 			Serialization::ArrayOutputStream arrayOutputStream;

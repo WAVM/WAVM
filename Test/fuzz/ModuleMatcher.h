@@ -66,6 +66,18 @@ namespace WAVM {
 				default: WAVM_UNREACHABLE();
 				};
 			}
+
+			if(aModule.customSections.size() != bModule.customSections.size())
+			{ failVerification(); }
+			for(Uptr customSectionIndex = 0; customSectionIndex < aModule.customSections.size();
+				++customSectionIndex)
+			{
+				const CustomSection& aSection = aModule.customSections[customSectionIndex];
+				const CustomSection& bSection = bModule.customSections[customSectionIndex];
+				if(aSection.afterSection != bSection.afterSection || aSection.name != bSection.name
+				   || aSection.data != bSection.data)
+				{ failVerification(); }
+			}
 		}
 
 	private:

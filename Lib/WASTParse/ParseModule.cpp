@@ -1097,6 +1097,152 @@ static void parseStart(CursorState* cursor)
 	});
 }
 
+static OrderedSectionID parseOrderedSectionID(CursorState* cursor)
+{
+	OrderedSectionID result;
+	switch(cursor->nextToken->type)
+	{
+	case t_type: result = OrderedSectionID::type; break;
+	case t_import: result = OrderedSectionID::import; break;
+	case t_func: result = OrderedSectionID::function; break;
+	case t_table: result = OrderedSectionID::table; break;
+	case t_memory: result = OrderedSectionID::memory; break;
+	case t_global: result = OrderedSectionID::global; break;
+	case t_exception_type:
+		if(!cursor->moduleState->module.featureSpec.exceptionHandling)
+		{
+			parseErrorf(
+				cursor->parseState,
+				cursor->nextToken,
+				"custom section after 'exception_type' section requires the 'exception-handling' feature.");
+		}
+		result = OrderedSectionID::exceptionType;
+		break;
+	case t_export: result = OrderedSectionID::export_; break;
+	case t_start: result = OrderedSectionID::start; break;
+	case t_elem: result = OrderedSectionID::elem; break;
+	case t_data_count:
+		if(!cursor->moduleState->module.featureSpec.bulkMemoryOperations)
+		{
+			parseErrorf(
+				cursor->parseState,
+				cursor->nextToken,
+				"custom section after exception_type section requires the 'bulk-memory-operations' feature.");
+		}
+		result = OrderedSectionID::dataCount;
+		break;
+	case t_code: result = OrderedSectionID::code; break;
+	case t_data: result = OrderedSectionID::data; break;
+
+	default:
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected section ID");
+		throw RecoverParseException();
+	};
+	++cursor->nextToken;
+	return result;
+}
+
+static void parseCustomSection(CursorState* cursor)
+{
+	if(!cursor->moduleState->module.featureSpec.customSectionsInTextFormat)
+	{
+		parseErrorf(
+			cursor->parseState,
+			cursor->nextToken,
+			"custom sections in the text format require the 'wat-custom-sections' feature.");
+	}
+
+	const Token* customSectionToken = cursor->nextToken;
+	require(cursor, t_custom_section);
+
+	// Parse the section name.
+	IR::CustomSection customSection;
+	customSection.name = parseUTF8String(cursor);
+
+	// Parse the section order.
+	OrderedSectionID afterSection = OrderedSectionID::moduleBeginning;
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_after)
+	{
+		parseParenthesized(cursor, [&] {
+			WAVM_ASSERT(cursor->nextToken->type == t_after);
+			++cursor->nextToken;
+			afterSection = parseOrderedSectionID(cursor);
+		});
+	}
+	customSection.afterSection = afterSection;
+
+	// Ensure that custom sections do not occur out-of-order w.r.t. afterSection.
+	if(cursor->moduleState->module.customSections.size())
+	{
+		const CustomSection& lastCustomSection = cursor->moduleState->module.customSections.back();
+		if(lastCustomSection.afterSection > afterSection)
+		{
+			WAVM_ASSERT(cursor->moduleState->lastCustomSectionToken);
+			parseErrorf(cursor->parseState,
+						customSectionToken,
+						"out-of-order custom section: this section is declared to be after '%s'...",
+						asString(afterSection));
+			parseErrorf(cursor->parseState,
+						cursor->moduleState->lastCustomSectionToken,
+						"...but it occurs after a custom section that is declared to be after '%s'",
+						asString(lastCustomSection.afterSection));
+		}
+	}
+	cursor->moduleState->lastCustomSectionToken = customSectionToken;
+
+	// Parse a list of strings that contains the custom section's data.
+	std::string dataString;
+	while(tryParseString(cursor, dataString)) {};
+
+	customSection.data = std::vector<U8>((const U8*)dataString.data(),
+										 (const U8*)dataString.data() + dataString.size());
+
+	// Add the custom section to the module.
+	cursor->moduleState->module.customSections.push_back(std::move(customSection));
+
+	// After all declarations have been parsed, validate that the custom section ordering constraint
+	// doesn't reference a virtual section that may not be present in the binary encoding of the
+	// module. This ensures that the text format cannot express order constraints that may not be
+	// encoded in a binary module.
+	cursor->moduleState->postDeclarationCallbacks.push_back(
+		[customSectionToken, afterSection](ModuleState* moduleState) {
+			const IR::Module& module = moduleState->module;
+			bool hasPrecedingSection = true;
+			switch(afterSection)
+			{
+			case OrderedSectionID::moduleBeginning: break;
+			case OrderedSectionID::type: hasPrecedingSection = hasTypeSection(module); break;
+			case OrderedSectionID::import: hasPrecedingSection = hasImportSection(module); break;
+			case OrderedSectionID::function:
+				hasPrecedingSection = hasFunctionSection(module);
+				break;
+			case OrderedSectionID::table: hasPrecedingSection = hasTableSection(module); break;
+			case OrderedSectionID::memory: hasPrecedingSection = hasMemorySection(module); break;
+			case OrderedSectionID::global: hasPrecedingSection = hasGlobalSection(module); break;
+			case OrderedSectionID::exceptionType:
+				hasPrecedingSection = hasExceptionTypeSection(module);
+				break;
+			case OrderedSectionID::export_: hasPrecedingSection = hasExportSection(module); break;
+			case OrderedSectionID::start: hasPrecedingSection = hasStartSection(module); break;
+			case OrderedSectionID::elem: hasPrecedingSection = hasElemSection(module); break;
+			case OrderedSectionID::dataCount:
+				hasPrecedingSection = hasDataCountSection(module);
+				break;
+			case OrderedSectionID::code: hasPrecedingSection = hasCodeSection(module); break;
+			case OrderedSectionID::data: hasPrecedingSection = hasDataSection(module); break;
+			default: WAVM_UNREACHABLE();
+			};
+
+			if(!hasPrecedingSection)
+			{
+				parseErrorf(moduleState->parseState,
+							customSectionToken,
+							"custom section is after a virtual section that is not present (%s)",
+							asString(afterSection));
+			}
+		});
+}
+
 static void parseDeclaration(CursorState* cursor)
 {
 	parseParenthesized(cursor, [&] {
@@ -1113,6 +1259,7 @@ static void parseDeclaration(CursorState* cursor)
 		case t_elem: parseElem(cursor); return true;
 		case t_func: parseFunc(cursor); return true;
 		case t_start: parseStart(cursor); return true;
+		case t_custom_section: parseCustomSection(cursor); return true;
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "unrecognized definition in module");
 			throw RecoverParseException();

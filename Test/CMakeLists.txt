@@ -41,6 +41,7 @@ ADD_WAST_TESTS(
 			syntax_recursion.wast
 			threads.wast
 			trunc_sat.wast
+			wat_custom_section.wast
 			wavm_atomic.wast)
 
 if(WAVM_ENABLE_RUNTIME)

@@ -22,9 +22,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	wastBytes.push_back(0);
 
 	Module wastModule(FeatureSpec(true));
-	wastModule.featureSpec.sharedTables = true;
-	wastModule.featureSpec.quotedNamesInTextFormat = true;
-	wastModule.featureSpec.extendedNamesSection = true;
+	wastModule.featureSpec.setWAVMFeatures(true);
 	std::vector<WAST::Error> parseErrors;
 	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), wastModule, parseErrors))
 	{
@@ -36,9 +34,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 		}
 
 		Module wasmModule(FeatureSpec(true));
-		wasmModule.featureSpec.sharedTables = true;
-		wasmModule.featureSpec.quotedNamesInTextFormat = true;
-		wasmModule.featureSpec.extendedNamesSection = true;
+		wasmModule.featureSpec.setWAVMFeatures(true);
 		{
 			Serialization::MemoryInputStream inputStream(wasmBytes.data(), wasmBytes.size());
 			WASM::LoadError loadError;

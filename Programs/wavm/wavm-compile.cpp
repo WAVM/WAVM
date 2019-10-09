@@ -245,7 +245,8 @@ int execCompileCommand(int argc, char** argv)
 		std::vector<U8> objectCode = LLVMJIT::compileModule(irModule, targetSpec);
 
 		// Extract the compiled object code and add it to the IR module as a user section.
-		irModule.userSections.push_back({"wavm.precompiled_object", objectCode});
+		irModule.customSections.push_back(CustomSection{
+			OrderedSectionID::moduleBeginning, "wavm.precompiled_object", std::move(objectCode)});
 
 		// Serialize the WASM module.
 		Timing::Timer saveTimer;

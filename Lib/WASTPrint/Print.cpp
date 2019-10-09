@@ -317,7 +317,9 @@ struct ModulePrintContext
 
 	void printModule();
 
-	void printLinkingSection(const IR::UserSection& linkingSection);
+	void printCustomSectionsAfterKnownSection(OrderedSectionID sectionID);
+
+	void printLinkingSection(const IR::CustomSection& linkingSection);
 
 	void printInitializerExpression(const InitializerExpression& expression)
 	{
@@ -809,6 +811,9 @@ void ModulePrintContext::printModule()
 {
 	ScopedTagPrinter moduleTag(string, "module");
 
+	// Print the custom sections that precede all known sections.
+	printCustomSectionsAfterKnownSection(OrderedSectionID::moduleBeginning);
+
 	// Print the types.
 	for(Uptr typeIndex = 0; typeIndex < module.types.size(); ++typeIndex)
 	{
@@ -820,6 +825,7 @@ void ModulePrintContext::printModule()
 		print(string, module.types[typeIndex]);
 		string += ')';
 	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::type);
 
 	// Print the module imports.
 	for(const auto& import : module.imports)
@@ -871,6 +877,66 @@ void ModulePrintContext::printModule()
 		default: WAVM_UNREACHABLE();
 		};
 	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::import);
+
+	// Print the custom sections that are meant to occur after the function declaration section
+	// here. The text format prints the function declarations later, at the same time as their code,
+	// but printing the custom sections here maintains the same custom section order as a binary
+	// module.
+	printCustomSectionsAfterKnownSection(OrderedSectionID::function);
+
+	// Print the module memory definitions.
+	for(Uptr defIndex = 0; defIndex < module.memories.defs.size(); ++defIndex)
+	{
+		const MemoryDef& memoryDef = module.memories.defs[defIndex];
+		string += '\n';
+		ScopedTagPrinter memoryTag(string, "memory");
+		string += ' ';
+		string += names.memories[module.memories.imports.size() + defIndex];
+		string += ' ';
+		print(string, memoryDef.type);
+	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::memory);
+
+	// Print the module table definitions.
+	for(Uptr defIndex = 0; defIndex < module.tables.defs.size(); ++defIndex)
+	{
+		const TableDef& tableDef = module.tables.defs[defIndex];
+		string += '\n';
+		ScopedTagPrinter memoryTag(string, "table");
+		string += ' ';
+		string += names.tables[module.tables.imports.size() + defIndex];
+		string += ' ';
+		print(string, tableDef.type);
+	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::table);
+
+	// Print the module global definitions.
+	for(Uptr defIndex = 0; defIndex < module.globals.defs.size(); ++defIndex)
+	{
+		const GlobalDef& globalDef = module.globals.defs[defIndex];
+		string += '\n';
+		ScopedTagPrinter memoryTag(string, "global");
+		string += ' ';
+		string += names.globals[module.globals.imports.size() + defIndex];
+		string += ' ';
+		print(string, globalDef.type);
+		string += ' ';
+		printInitializerExpression(globalDef.initializer);
+	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::global);
+
+	// Print the module exception type definitions.
+	for(Uptr defIndex = 0; defIndex < module.exceptionTypes.defs.size(); ++defIndex)
+	{
+		const ExceptionTypeDef& exceptionTypeDef = module.exceptionTypes.defs[defIndex];
+		string += '\n';
+		ScopedTagPrinter exceptionTypeTag(string, "exception_type");
+		string += ' ';
+		string += names.exceptionTypes[module.exceptionTypes.imports.size() + defIndex];
+		print(string, exceptionTypeDef.type);
+	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::exceptionType);
 
 	// Print the module exports.
 	for(auto export_ : module.exports)
@@ -895,57 +961,20 @@ void ModulePrintContext::printModule()
 		};
 		string += ')';
 	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::export_);
 
-	// Print the module memory definitions.
-	for(Uptr defIndex = 0; defIndex < module.memories.defs.size(); ++defIndex)
+	// Print the start function.
+	if(module.startFunctionIndex != UINTPTR_MAX)
 	{
-		const MemoryDef& memoryDef = module.memories.defs[defIndex];
 		string += '\n';
-		ScopedTagPrinter memoryTag(string, "memory");
+		ScopedTagPrinter startTag(string, "start");
 		string += ' ';
-		string += names.memories[module.memories.imports.size() + defIndex];
-		string += ' ';
-		print(string, memoryDef.type);
+		string += names.functions[module.startFunctionIndex].name;
 	}
 
-	// Print the module table definitions and elem segments.
-	for(Uptr defIndex = 0; defIndex < module.tables.defs.size(); ++defIndex)
-	{
-		const TableDef& tableDef = module.tables.defs[defIndex];
-		string += '\n';
-		ScopedTagPrinter memoryTag(string, "table");
-		string += ' ';
-		string += names.tables[module.tables.imports.size() + defIndex];
-		string += ' ';
-		print(string, tableDef.type);
-	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::start);
 
-	// Print the module global definitions.
-	for(Uptr defIndex = 0; defIndex < module.globals.defs.size(); ++defIndex)
-	{
-		const GlobalDef& globalDef = module.globals.defs[defIndex];
-		string += '\n';
-		ScopedTagPrinter memoryTag(string, "global");
-		string += ' ';
-		string += names.globals[module.globals.imports.size() + defIndex];
-		string += ' ';
-		print(string, globalDef.type);
-		string += ' ';
-		printInitializerExpression(globalDef.initializer);
-	}
-
-	// Print the module exception type definitions.
-	for(Uptr defIndex = 0; defIndex < module.exceptionTypes.defs.size(); ++defIndex)
-	{
-		const ExceptionTypeDef& exceptionTypeDef = module.exceptionTypes.defs[defIndex];
-		string += '\n';
-		ScopedTagPrinter exceptionTypeTag(string, "exception_type");
-		string += ' ';
-		string += names.exceptionTypes[module.exceptionTypes.imports.size() + defIndex];
-		print(string, exceptionTypeDef.type);
-	}
-
-	// Print the data and elem segment definitions.
+	// Print the elem segments.
 	for(Uptr segmentIndex = 0; segmentIndex < module.elemSegments.size(); ++segmentIndex)
 	{
 		const ElemSegment& elemSegment = module.elemSegments[segmentIndex];
@@ -1033,44 +1062,12 @@ void ModulePrintContext::printModule()
 			}
 		}
 	}
-	for(Uptr segmentIndex = 0; segmentIndex < module.dataSegments.size(); ++segmentIndex)
-	{
-		const DataSegment& dataSegment = module.dataSegments[segmentIndex];
-		string += '\n';
-		ScopedTagPrinter dataTag(string, "data");
-		string += ' ';
-		string += names.dataSegments[segmentIndex];
-		string += ' ';
-		if(dataSegment.isActive)
-		{
-			if(dataSegment.memoryIndex != 0)
-			{
-				string += "(memory ";
-				string += names.memories[dataSegment.memoryIndex];
-				string += ") ";
-			}
-			printInitializerExpression(dataSegment.baseOffset);
-		}
 
-		static constexpr Uptr numBytesPerLine = 64;
-		for(Uptr offset = 0; offset < dataSegment.data->size(); offset += numBytesPerLine)
-		{
-			string += "\n\"";
-			string += escapeString(
-				(const char*)dataSegment.data->data() + offset,
-				std::min(Uptr(dataSegment.data->size()) - offset, Uptr(numBytesPerLine)));
-			string += "\"";
-		}
-	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::elem);
 
-	// Print the start function.
-	if(module.startFunctionIndex != UINTPTR_MAX)
-	{
-		string += '\n';
-		ScopedTagPrinter startTag(string, "start");
-		string += ' ';
-		string += names.functions[module.startFunctionIndex].name;
-	}
+	// The data count section is not directly represented in the text format, but print the custom
+	// sections that follow it here.
+	printCustomSectionsAfterKnownSection(OrderedSectionID::dataCount);
 
 	// Print the function definitions.
 	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
@@ -1134,31 +1131,90 @@ void ModulePrintContext::printModule()
 		functionContext.printFunctionBody();
 	}
 
-	// Print user sections (other than the name section).
-	for(const auto& userSection : module.userSections)
+	printCustomSectionsAfterKnownSection(OrderedSectionID::code);
+
+	// Print the data segments
+	for(Uptr segmentIndex = 0; segmentIndex < module.dataSegments.size(); ++segmentIndex)
 	{
-		if(userSection.name == "linking") { printLinkingSection(userSection); }
-		else if(userSection.name != "name")
+		const DataSegment& dataSegment = module.dataSegments[segmentIndex];
+		string += "\n\n";
+		ScopedTagPrinter dataTag(string, "data");
+		string += ' ';
+		string += names.dataSegments[segmentIndex];
+		string += ' ';
+		if(dataSegment.isActive)
 		{
-			string += '\n';
-			string += ";; User section \"";
-			string += escapeString(userSection.name.c_str(), userSection.name.length());
-			string += "\":" INDENT_STRING;
-			static constexpr Uptr numBytesPerLine = 32;
-			for(Uptr offset = 0; offset < userSection.data.size(); offset += numBytesPerLine)
+			if(dataSegment.memoryIndex != 0)
 			{
-				string += "\n;; \"";
-				string += escapeString(
-					(const char*)userSection.data.data() + offset,
-					std::min(Uptr(userSection.data.size()) - offset, Uptr(numBytesPerLine)));
-				string += "\"";
+				string += "(memory ";
+				string += names.memories[dataSegment.memoryIndex];
+				string += ") ";
 			}
-			string += DEDENT_STRING "\n";
+			printInitializerExpression(dataSegment.baseOffset);
+		}
+
+		static constexpr Uptr numBytesPerLine = 64;
+		for(Uptr offset = 0; offset < dataSegment.data->size(); offset += numBytesPerLine)
+		{
+			string += "\n\"";
+			string += escapeString(
+				(const char*)dataSegment.data->data() + offset,
+				std::min(Uptr(dataSegment.data->size()) - offset, Uptr(numBytesPerLine)));
+			string += "\"";
+		}
+	}
+	printCustomSectionsAfterKnownSection(OrderedSectionID::data);
+}
+
+void ModulePrintContext::printCustomSectionsAfterKnownSection(OrderedSectionID afterSection)
+{
+	// Print custom sections (other than the name section) that are tagged as occurring after the
+	// given section ID.
+	for(const auto& customSection : module.customSections)
+	{
+		if(customSection.afterSection == afterSection)
+		{
+			if(customSection.name == "linking") { printLinkingSection(customSection); }
+
+			if(customSection.name != "name")
+			{
+				string += "\n\n";
+				if(!module.featureSpec.customSectionsInTextFormat) { string += ";;"; }
+				string += "(custom_section \"";
+				string += escapeString(customSection.name.c_str(), customSection.name.length());
+				string += '\"';
+				if(module.featureSpec.customSectionsInTextFormat) { string += INDENT_STRING; }
+
+				if(customSection.afterSection != OrderedSectionID::moduleBeginning)
+				{
+					string += '\n';
+					if(!module.featureSpec.customSectionsInTextFormat) { string += ";;  "; }
+					string += "(after ";
+					string += asString(customSection.afterSection);
+					string += ')';
+				}
+
+				static constexpr Uptr numBytesPerLine = 32;
+				for(Uptr offset = 0; offset < customSection.data.size(); offset += numBytesPerLine)
+				{
+					string += '\n';
+					if(!module.featureSpec.customSectionsInTextFormat) { string += ";;  "; }
+					string += '\"';
+					string += escapeString(
+						(const char*)customSection.data.data() + offset,
+						std::min(Uptr(customSection.data.size()) - offset, Uptr(numBytesPerLine)));
+					string += "\"";
+				}
+
+				string += ')';
+				if(module.featureSpec.customSectionsInTextFormat) { string += DEDENT_STRING; }
+				string += "\n\n";
+			}
 		}
 	}
 }
 
-void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSection)
+void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSection)
 {
 	enum class LinkingSubsectionType
 	{
@@ -1395,8 +1451,8 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						kindName = "section ";
 						serializeVarUInt32(substream, index);
 
-						if(index < module.userSections.size())
-						{ symbolName = module.userSections[index].name; }
+						if(index < module.customSections.size())
+						{ symbolName = module.customSections[index].name; }
 						else
 						{
 							symbolName = "*invalid index*";

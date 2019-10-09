@@ -17,7 +17,8 @@ const char* getFeatureListHelpText()
 		   "\n"
 		   "  legacy-instr-names     Allow legacy instruction names.\n"
 		   "  quoted-names           Quoted WAT names extension.\n"
-		   "  shared-tables          Shared tables extension.\n";
+		   "  shared-tables          Shared tables extension.\n"
+		   "  wat-custom-sections    Custom sections in WAT format.\n";
 }
 
 bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
@@ -75,6 +76,11 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	else if(!strcmp(featureName, "quoted-names"))
 	{
 		featureSpec.quotedNamesInTextFormat = enable;
+		return true;
+	}
+	else if(!strcmp(featureName, "wat-custom-sections"))
+	{
+		featureSpec.customSectionsInTextFormat = enable;
 		return true;
 	}
 	else

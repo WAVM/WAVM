@@ -2,6 +2,7 @@ set(Sources
 	DisassemblyNames.cpp
 	FloatPrinting.cpp
 	Operators.cpp
+	Module.cpp
 	Types.cpp
 	Validate.cpp)
 

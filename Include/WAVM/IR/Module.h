@@ -243,11 +243,42 @@ namespace WAVM { namespace IR {
 		std::shared_ptr<Contents> contents;
 	};
 
-	// A user-defined module section as an array of bytes
-	struct UserSection
+	// Identifies sections in the binary format of a module in the order they are required to occur.
+	enum class OrderedSectionID : U8
 	{
+		moduleBeginning,
+
+		type,
+		import,
+		function,
+		table,
+		memory,
+		global,
+		exceptionType,
+		export_,
+		start,
+		elem,
+		dataCount,
+		code,
+		data,
+	};
+
+	WAVM_API const char* asString(OrderedSectionID id);
+
+	// A custom module section as an array of bytes
+	struct CustomSection
+	{
+		OrderedSectionID afterSection{OrderedSectionID::moduleBeginning};
 		std::string name;
 		std::vector<U8> data;
+
+		CustomSection() {}
+		CustomSection(OrderedSectionID inAfterSection,
+					  std::string&& inName,
+					  std::vector<U8>&& inData)
+		: afterSection(inAfterSection), name(std::move(inName)), data(std::move(inData))
+		{
+		}
 	};
 
 	// An index-space for imports and definitions of a specific kind.
@@ -299,7 +330,7 @@ namespace WAVM { namespace IR {
 		std::vector<Export> exports;
 		std::vector<DataSegment> dataSegments;
 		std::vector<ElemSegment> elemSegments;
-		std::vector<UserSection> userSections;
+		std::vector<CustomSection> customSections;
 
 		Uptr startFunctionIndex;
 
@@ -309,21 +340,52 @@ namespace WAVM { namespace IR {
 		}
 	};
 
-	// Finds a named user section in a module.
-	inline bool findUserSection(const Module& module,
-								const char* userSectionName,
-								Uptr& outUserSectionIndex)
+	// Finds a named custom section in a module.
+	WAVM_API bool findCustomSection(const Module& module,
+									const char* customSectionName,
+									Uptr& outCustomSectionIndex);
+
+	// Inserts a named custom section in a module, before any custom sections that come after later
+	// known sections, but after all custom sections that come after the same known section.
+	WAVM_API void insertCustomSection(Module& module, CustomSection&& customSection);
+
+	// Functions that determine whether the binary form of a module will have specific sections.
+
+	inline bool hasTypeSection(const Module& module) { return module.types.size() > 0; }
+	inline bool hasImportSection(const Module& module)
 	{
-		for(Uptr sectionIndex = 0; sectionIndex < module.userSections.size(); ++sectionIndex)
-		{
-			if(module.userSections[sectionIndex].name == userSectionName)
-			{
-				outUserSectionIndex = sectionIndex;
-				return true;
-			}
-		}
-		return false;
+		WAVM_ASSERT((module.imports.size() > 0)
+					== (module.functions.imports.size() > 0 || module.tables.imports.size() > 0
+						|| module.memories.imports.size() > 0 || module.globals.imports.size() > 0
+						|| module.exceptionTypes.imports.size() > 0));
+		return module.imports.size() > 0;
 	}
+	inline bool hasFunctionSection(const Module& module)
+	{
+		return module.functions.defs.size() > 0;
+	}
+	inline bool hasTableSection(const Module& module) { return module.tables.defs.size() > 0; }
+	inline bool hasMemorySection(const Module& module) { return module.memories.defs.size() > 0; }
+	inline bool hasGlobalSection(const Module& module) { return module.globals.defs.size() > 0; }
+	inline bool hasExceptionTypeSection(const Module& module)
+	{
+		return module.exceptionTypes.defs.size() > 0;
+	}
+	inline bool hasExportSection(const Module& module) { return module.exports.size() > 0; }
+	inline bool hasStartSection(const Module& module)
+	{
+		return module.startFunctionIndex != UINTPTR_MAX;
+	}
+	inline bool hasElemSection(const Module& module) { return module.elemSegments.size() > 0; }
+	inline bool hasDataCountSection(const Module& module)
+	{
+		return module.dataSegments.size() > 0 && module.featureSpec.bulkMemoryOperations;
+	}
+	inline bool hasCodeSection(const Module& module) { return module.functions.defs.size() > 0; }
+	inline bool hasDataSection(const Module& module) { return module.dataSegments.size() > 0; }
+
+	WAVM_API OrderedSectionID getMaxPresentSection(const Module& module,
+												   OrderedSectionID maxSection);
 
 	// Resolve an indexed block type to a FunctionType.
 	inline FunctionType resolveBlockType(const Module& module, const IndexedBlockType& indexedType)

@@ -23,28 +23,45 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
 	module.featureSpec.maxDataSegments = 65536;
-	module.featureSpec.sharedTables = true;
-	module.featureSpec.quotedNamesInTextFormat = true;
-	module.featureSpec.extendedNamesSection = true;
+	module.featureSpec.setWAVMFeatures(true);
 	Serialization::MemoryInputStream inputStream(data, numBytes);
 	if(WASM::loadBinaryModule(inputStream, module))
 	{
 		const std::string wastString = WAST::print(module);
 
 #if !WAVM_ENABLE_LIBFUZZER
-		Log::printf(Log::debug, "%s\n", wastString.c_str());
+		// Log::printf(Log::debug, "%s\n", wastString.c_str());
 #endif
 
 		Module wastModule(FeatureSpec(true));
-		wastModule.featureSpec.sharedTables = true;
-		wastModule.featureSpec.quotedNamesInTextFormat = true;
-		wastModule.featureSpec.extendedNamesSection = true;
+		wastModule.featureSpec.setWAVMFeatures(true);
 		std::vector<WAST::Error> parseErrors;
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
 		{
 			WAST::reportParseErrors("disassembly", wastString.c_str(), parseErrors);
 			Errors::fatal("Disassembled module contained syntax errors");
+		}
+
+		// Strip any name section from both WAST and WASM module, since disassembling and
+		// re-assembling the module doesn't produce exactly the same name section.
+		for(auto sectionIt = module.customSections.begin();
+			sectionIt != module.customSections.end();)
+		{
+			if(sectionIt->name != "name") { ++sectionIt; }
+			else
+			{
+				sectionIt = module.customSections.erase(sectionIt);
+			}
+		}
+		for(auto sectionIt = wastModule.customSections.begin();
+			sectionIt != wastModule.customSections.end();)
+		{
+			if(sectionIt->name != "name") { ++sectionIt; }
+			else
+			{
+				sectionIt = wastModule.customSections.erase(sectionIt);
+			}
 		}
 
 		ModuleMatcher moduleMatcher(module, wastModule);

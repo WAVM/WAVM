@@ -63,6 +63,11 @@
 	VISIT_LITERAL_TOKEN(binary)                                                                    \
 	VISIT_LITERAL_TOKEN(v128)                                                                      \
 	VISIT_LITERAL_TOKEN(exception_type)                                                            \
+	VISIT_LITERAL_TOKEN(custom_section)                                                            \
+	VISIT_LITERAL_TOKEN(after)                                                                     \
+	VISIT_LITERAL_TOKEN(before)                                                                    \
+	VISIT_LITERAL_TOKEN(data_count)                                                                \
+	VISIT_LITERAL_TOKEN(code)                                                                      \
 	VISIT_TOKEN(ref_host, "'ref.host'", "ref.host")
 
 #define ENUM_TOKENS()                                                                              \

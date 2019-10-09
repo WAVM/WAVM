@@ -266,12 +266,12 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 	outNames.exceptionTypes.insert(outNames.exceptionTypes.end(), module.exceptionTypes.size(), "");
 
 	// Deserialize the name section, if it is present.
-	Uptr userSectionIndex = 0;
-	if(findUserSection(module, "name", userSectionIndex))
+	Uptr customSectionIndex = 0;
+	if(findCustomSection(module, "name", customSectionIndex))
 	{
 		try
 		{
-			const UserSection& nameSection = module.userSections[userSectionIndex];
+			const CustomSection& nameSection = module.customSections[customSectionIndex];
 			MemoryInputStream stream(nameSection.data.data(), nameSection.data.size());
 
 			while(stream.capacity()) { deserializeNameSubsection(module, outNames, stream); };
@@ -307,12 +307,16 @@ void serializeNameSubsection(OutputStream& stream,
 
 void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 {
-	// Replace an existing name section if one is present, or create a new section.
-	Uptr userSectionIndex = 0;
-	if(!findUserSection(module, "name", userSectionIndex))
+	// Remove any existing name sections.
+	for(auto customSection = module.customSections.begin();
+		customSection != module.customSections.end();)
 	{
-		userSectionIndex = module.userSections.size();
-		module.userSections.push_back({"name", {}});
+		if(customSection->name == "name")
+		{ customSection = module.customSections.erase(customSection); }
+		else
+		{
+			++customSection;
+		}
 	}
 
 	ArrayOutputStream stream;
@@ -406,5 +410,11 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 			});
 	}
 
-	module.userSections[userSectionIndex].data = stream.getBytes();
+	CustomSection customSection;
+
+	customSection.afterSection = getMaxPresentSection(module, OrderedSectionID::data);
+	customSection.name = "name";
+	customSection.data = stream.getBytes();
+
+	insertCustomSection(module, std::move(customSection));
 }

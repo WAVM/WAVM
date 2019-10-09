@@ -101,12 +101,13 @@ int execAssembleCommand(int argc, char** argv)
 	// If the command-line switch to omit names was specified, strip the name section.
 	if(omitNames)
 	{
-		for(auto sectionIt = module.userSections.begin(); sectionIt != module.userSections.end();
+		for(auto sectionIt = module.customSections.begin();
+			sectionIt != module.customSections.end();
 			++sectionIt)
 		{
 			if(sectionIt->name == "name")
 			{
-				module.userSections.erase(sectionIt);
+				module.customSections.erase(sectionIt);
 				break;
 			}
 		}

@@ -148,6 +148,8 @@ namespace WAVM { namespace WAST {
 
 		IR::DisassemblyNames disassemblyNames;
 
+		const Token* lastCustomSectionToken {nullptr};
+
 		// Thunks that are called after parsing all types.
 		std::vector<std::function<void(ModuleState*)>> postTypeCallbacks;
 

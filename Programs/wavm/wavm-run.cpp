@@ -125,12 +125,12 @@ static bool loadPrecompiledModule(std::vector<U8>&& fileBytes,
 	}
 
 	// Check for a precompiled object section.
-	const UserSection* precompiledObjectSection = nullptr;
-	for(const UserSection& userSection : irModule.userSections)
+	const CustomSection* precompiledObjectSection = nullptr;
+	for(const CustomSection& customSection : irModule.customSections)
 	{
-		if(userSection.name == "wavm.precompiled_object")
+		if(customSection.name == "wavm.precompiled_object")
 		{
-			precompiledObjectSection = &userSection;
+			precompiledObjectSection = &customSection;
 			break;
 		}
 	}

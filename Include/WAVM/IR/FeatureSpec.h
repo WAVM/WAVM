@@ -30,6 +30,7 @@ namespace WAVM { namespace IR {
 		bool allowLegacyInstructionNames = false;
 		bool allowAnyExternKindElemSegments = false;
 		bool quotedNamesInTextFormat = false;
+		bool customSectionsInTextFormat = false;
 
 		Uptr maxLocals = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
@@ -48,7 +49,16 @@ namespace WAVM { namespace IR {
 			exceptionHandling = enablePreStandardizationFeatures;
 			multipleResultsAndBlockParams = enablePreStandardizationFeatures;
 			referenceTypes = enablePreStandardizationFeatures;
+			extendedNamesSection = enablePreStandardizationFeatures;
 			multipleMemories = enablePreStandardizationFeatures;
+		}
+
+		void setWAVMFeatures(bool enableWAVMFeatures)
+		{
+			sharedTables = enableWAVMFeatures;
+			quotedNamesInTextFormat = enableWAVMFeatures;
+			extendedNamesSection = enableWAVMFeatures;
+			customSectionsInTextFormat = enableWAVMFeatures;
 		}
 	};
 }}

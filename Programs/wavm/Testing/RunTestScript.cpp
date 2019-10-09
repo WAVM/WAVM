@@ -898,6 +898,7 @@ static I64 threadMain(void* sharedStateVoid)
 		// Use a WebAssembly standard-compliant feature spec that includes all proposed extensions.
 		FeatureSpec featureSpec(true);
 		featureSpec.requireSharedFlagForAtomicOperators = true;
+		featureSpec.customSectionsInTextFormat = true;
 
 		// Parse the test script.
 		WAST::parseTestCommands((const char*)testScriptBytes.data(),
