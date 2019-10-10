@@ -66,34 +66,34 @@ OrderedSectionID IR::getMaxPresentSection(const Module& module, OrderedSectionID
 		if(hasDataCountSection(module)) { return OrderedSectionID::dataCount; }
 		// fall through
 	case OrderedSectionID::elem:
-		if(hasDataCountSection(module)) { return OrderedSectionID::elem; }
+		if(hasElemSection(module)) { return OrderedSectionID::elem; }
 		// fall through
 	case OrderedSectionID::start:
-		if(hasDataCountSection(module)) { return OrderedSectionID::start; }
+		if(hasStartSection(module)) { return OrderedSectionID::start; }
 		// fall through
 	case OrderedSectionID::export_:
-		if(hasDataCountSection(module)) { return OrderedSectionID::export_; }
+		if(hasExportSection(module)) { return OrderedSectionID::export_; }
 		// fall through
 	case OrderedSectionID::exceptionType:
-		if(hasDataCountSection(module)) { return OrderedSectionID::exceptionType; }
+		if(hasExceptionTypeSection(module)) { return OrderedSectionID::exceptionType; }
 		// fall through
 	case OrderedSectionID::global:
-		if(hasDataCountSection(module)) { return OrderedSectionID::global; }
+		if(hasGlobalSection(module)) { return OrderedSectionID::global; }
 		// fall through
 	case OrderedSectionID::memory:
-		if(hasDataCountSection(module)) { return OrderedSectionID::memory; }
+		if(hasMemorySection(module)) { return OrderedSectionID::memory; }
 		// fall through
 	case OrderedSectionID::table:
-		if(hasDataCountSection(module)) { return OrderedSectionID::table; }
+		if(hasTableSection(module)) { return OrderedSectionID::table; }
 		// fall through
 	case OrderedSectionID::function:
-		if(hasDataCountSection(module)) { return OrderedSectionID::function; }
+		if(hasFunctionSection(module)) { return OrderedSectionID::function; }
 		// fall through
 	case OrderedSectionID::import:
-		if(hasDataCountSection(module)) { return OrderedSectionID::import; }
+		if(hasImportSection(module)) { return OrderedSectionID::import; }
 		// fall through
 	case OrderedSectionID::type:
-		if(hasDataCountSection(module)) { return OrderedSectionID::type; }
+		if(hasTypeSection(module)) { return OrderedSectionID::type; }
 		// fall through
 	case OrderedSectionID::moduleBeginning: return OrderedSectionID::moduleBeginning;
 
