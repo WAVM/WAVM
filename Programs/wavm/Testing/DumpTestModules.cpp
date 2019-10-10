@@ -184,6 +184,7 @@ int execDumpTestModules(int argc, char** argv)
 
 	// Parse the test script.
 	IR::FeatureSpec featureSpec(true);
+	featureSpec.setWAVMFeatures(true);
 	featureSpec.requireSharedFlagForAtomicOperators = true;
 	WAST::parseTestCommands((const char*)testScriptBytes.data(),
 							testScriptBytes.size(),
@@ -198,6 +199,7 @@ int execDumpTestModules(int argc, char** argv)
 	}
 	else
 	{
+		reportParseErrors(filename, (const char*)testScriptBytes.data(), testErrors);
 		return EXIT_FAILURE;
 	}
 }
