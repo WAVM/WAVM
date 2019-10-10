@@ -19,4 +19,5 @@ $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh assemble \
 	-jobs=$JOBS_PER_FUZZER \
 	-workers=$WORKERS_PER_FUZZER \
 	-max_total_time=$SECONDS_PER_JOB \
+	-max_len=50000 \
 	-dict=$WAST_DICTIONARY
