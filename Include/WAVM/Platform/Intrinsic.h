@@ -129,7 +129,7 @@ namespace WAVM {
 	inline void bytewiseMemCopy(volatile U8* dest, const U8* source, Uptr numBytes)
 	{
 #ifdef _WIN32
-		__movsb(dest, source, numBytes);
+		__movsb((U8*)dest, source, numBytes);
 #elif defined(__i386__) || defined(__x86_64__)
 		asm volatile("rep movsb"
 					 : "=D"(dest), "=S"(source), "=c"(numBytes)
@@ -149,7 +149,7 @@ namespace WAVM {
 	inline void bytewiseMemSet(volatile U8* dest, U8 value, Uptr numBytes)
 	{
 #ifdef _WIN32
-		__stosb(dest, value, numBytes);
+		__stosb((U8*)dest, value, numBytes);
 #elif defined(__i386__) || defined(__x86_64__)
 		asm volatile("rep stosb"
 					 : "=D"(dest), "=a"(value), "=c"(numBytes)
