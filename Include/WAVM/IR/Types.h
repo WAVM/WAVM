@@ -356,6 +356,30 @@ namespace WAVM { namespace IR {
 	template<> inline TypeTuple inferResultType<I16>();
 	template<> inline TypeTuple inferResultType<U16>();
 
+	// The calling convention for a function.
+	enum class CallingConvention
+	{
+		wasm,
+		intrinsic,
+		intrinsicWithContextSwitch,
+		c,
+		cAPICallback,
+	};
+
+	inline std::string asString(CallingConvention callingConvention)
+	{
+		switch(callingConvention)
+		{
+		case CallingConvention::wasm: return "wasm";
+		case CallingConvention::intrinsic: return "intrinsic";
+		case CallingConvention::intrinsicWithContextSwitch: return "intrinsic_with_context_switch";
+		case CallingConvention::c: return "c";
+		case CallingConvention::cAPICallback: return "c_api_callback";
+
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
 	// The type of a WebAssembly function
 	struct FunctionType
 	{
@@ -365,8 +389,10 @@ namespace WAVM { namespace IR {
 			Uptr impl;
 		};
 
-		FunctionType(TypeTuple inResults = TypeTuple(), TypeTuple inParams = TypeTuple())
-		: impl(getUniqueImpl(inResults, inParams))
+		FunctionType(TypeTuple inResults = TypeTuple(),
+					 TypeTuple inParams = TypeTuple(),
+					 CallingConvention inCallingConvention = CallingConvention::wasm)
+		: impl(getUniqueImpl(inResults, inParams, inCallingConvention))
 		{
 		}
 
@@ -374,6 +400,7 @@ namespace WAVM { namespace IR {
 
 		TypeTuple results() const { return impl->results; }
 		TypeTuple params() const { return impl->params; }
+		CallingConvention callingConvention() const { return impl->callingConvention; }
 		Uptr getHash() const { return impl->hash; }
 		Encoding getEncoding() const { return Encoding{reinterpret_cast<Uptr>(impl)}; }
 
@@ -393,15 +420,18 @@ namespace WAVM { namespace IR {
 			Uptr hash;
 			TypeTuple results;
 			TypeTuple params;
+			CallingConvention callingConvention;
 
-			Impl(TypeTuple inResults, TypeTuple inParams);
+			Impl(TypeTuple inResults, TypeTuple inParams, CallingConvention inCallingConvention);
 		};
 
 		const Impl* impl;
 
 		FunctionType(const Impl* inImpl) : impl(inImpl) {}
 
-		WAVM_API static const Impl* getUniqueImpl(TypeTuple results, TypeTuple params);
+		WAVM_API static const Impl* getUniqueImpl(TypeTuple results,
+												  TypeTuple params,
+												  CallingConvention callingConvention);
 	};
 
 	struct IndexedFunctionType
@@ -427,7 +457,11 @@ namespace WAVM { namespace IR {
 
 	inline std::string asString(const FunctionType& functionType)
 	{
-		return asString(functionType.params()) + "->" + asString(functionType.results());
+		std::string result
+			= asString(functionType.params()) + "->" + asString(functionType.results());
+		if(functionType.callingConvention() != CallingConvention::wasm)
+		{ result += "(calling_conv " + asString(functionType.callingConvention()) + ')'; }
+		return result;
 	}
 
 	inline bool isSubtype(FunctionType subtype, FunctionType supertype)
@@ -436,7 +470,8 @@ namespace WAVM { namespace IR {
 		else
 		{
 			return isSubtype(supertype.params(), subtype.params())
-				   && isSubtype(subtype.results(), supertype.results());
+				   && isSubtype(subtype.results(), supertype.results())
+				   && supertype.callingConvention() == subtype.callingConvention();
 		}
 	}
 
@@ -690,16 +725,6 @@ namespace WAVM { namespace IR {
 		default: return ReferenceType::anyref;
 		}
 	}
-
-	// The calling convention for a function.
-	enum class CallingConvention
-	{
-		wasm,
-		intrinsic,
-		intrinsicWithContextSwitch,
-		c,
-		cAPICallback,
-	};
 }}
 
 // These specializations need to be declared within a WAVM namespace scope to work around a GCC bug.

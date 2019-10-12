@@ -133,22 +133,33 @@ private:
 	GlobalUniqueFunctionTypes() {}
 };
 
-IR::FunctionType::Impl::Impl(TypeTuple inResults, TypeTuple inParams)
-: results(inResults), params(inParams)
+IR::FunctionType::Impl::Impl(TypeTuple inResults,
+							 TypeTuple inParams,
+							 CallingConvention inCallingConvention)
+: results(inResults), params(inParams), callingConvention(inCallingConvention)
 {
 	hash = Hash<Uptr>()(results.getHash(), params.getHash());
+	hash = Hash<Uptr>()(hash, Uptr(callingConvention));
 }
 
-const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results, TypeTuple params)
+const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results,
+														  TypeTuple params,
+														  CallingConvention callingConvention)
 {
-	if(results.size() == 0 && params.size() == 0)
+	if(results.size() == 0 && params.size() == 0 && callingConvention == CallingConvention::wasm)
 	{
-		static Impl emptyImpl{TypeTuple(), TypeTuple()};
+		static Impl emptyImpl{TypeTuple(), TypeTuple(), CallingConvention::wasm};
+		return &emptyImpl;
+	}
+	else if(results.size() == 0 && params.size() == 0
+			&& callingConvention == CallingConvention::intrinsic)
+	{
+		static Impl emptyImpl{TypeTuple(), TypeTuple(), CallingConvention::intrinsic};
 		return &emptyImpl;
 	}
 	else
 	{
-		Impl localImpl(results, params);
+		Impl localImpl(results, params, callingConvention);
 
 		GlobalUniqueFunctionTypes& globalUniqueFunctionTypes = GlobalUniqueFunctionTypes::get();
 		Platform::Mutex::Lock lock(globalUniqueFunctionTypes.mutex);

@@ -302,18 +302,13 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsMemory),
 												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsTable)}))
 	{
-		LLVMJIT::FunctionBinding functionBinding{
-			intrinsicFunctionPair.value->getCallingConvention(),
-			intrinsicFunctionPair.value->getNativeFunction()};
+		LLVMJIT::FunctionBinding functionBinding{intrinsicFunctionPair.value->getNativeFunction()};
 		wavmIntrinsicsExportMap.add(intrinsicFunctionPair.key, functionBinding);
 	}
 
 	std::vector<LLVMJIT::FunctionBinding> jitFunctionImports;
 	for(Uptr importIndex = 0; importIndex < module->ir.functions.imports.size(); ++importIndex)
-	{
-		jitFunctionImports.push_back(
-			{CallingConvention::wasm, const_cast<U8*>(functions[importIndex]->code)});
-	}
+	{ jitFunctionImports.push_back({const_cast<U8*>(functions[importIndex]->code)}); }
 
 	std::vector<LLVMJIT::TableBinding> jitTables;
 	for(Table* table : tables) { jitTables.push_back({table->id}); }

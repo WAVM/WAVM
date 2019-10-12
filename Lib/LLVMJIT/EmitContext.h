@@ -96,9 +96,10 @@ namespace WAVM { namespace LLVMJIT {
 		ValueVector emitCallOrInvoke(llvm::Value* callee,
 									 llvm::ArrayRef<llvm::Value*> args,
 									 IR::FunctionType calleeType,
-									 IR::CallingConvention callingConvention,
 									 llvm::BasicBlock* unwindToBlock = nullptr)
 		{
+			const IR::CallingConvention callingConvention = calleeType.callingConvention();
+
 			llvm::ArrayRef<llvm::Value*> callArgs = args;
 
 			llvm::Value* resultsArray = nullptr;

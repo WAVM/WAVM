@@ -37,12 +37,8 @@ static void initializeModule(Intrinsics::Module* moduleRef)
 Intrinsics::Function::Function(Intrinsics::Module* moduleRef,
 							   const char* inName,
 							   void* inNativeFunction,
-							   IR::FunctionType inType,
-							   IR::CallingConvention inCallingConvention)
-: name(inName)
-, type(inType)
-, nativeFunction(inNativeFunction)
-, callingConvention(inCallingConvention)
+							   IR::FunctionType inType)
+: name(inName), type(inType), nativeFunction(inNativeFunction)
 {
 	initializeModule(moduleRef);
 
@@ -53,7 +49,7 @@ Intrinsics::Function::Function(Intrinsics::Module* moduleRef,
 
 Function* Intrinsics::Function::instantiate(Compartment* compartment)
 {
-	return LLVMJIT::getIntrinsicThunk(nativeFunction, type, callingConvention, name);
+	return LLVMJIT::getIntrinsicThunk(nativeFunction, type, name);
 }
 
 Intrinsics::Global::Global(Intrinsics::Module* moduleRef,

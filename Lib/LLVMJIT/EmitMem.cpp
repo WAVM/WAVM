@@ -74,7 +74,8 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 	ValueVector previousNumPages = emitRuntimeIntrinsic(
 		"memory.grow",
 		FunctionType(TypeTuple(ValueType::i32),
-					 TypeTuple({ValueType::i32, inferValueType<Uptr>()})),
+					 TypeTuple({ValueType::i32, inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{deltaNumPages,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
 	WAVM_ASSERT(previousNumPages.size() == 1);
@@ -84,7 +85,9 @@ void EmitFunctionContext::memory_size(MemoryImm imm)
 {
 	ValueVector currentNumPages = emitRuntimeIntrinsic(
 		"memory.size",
-		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
+		FunctionType(TypeTuple(ValueType::i32),
+					 TypeTuple(inferValueType<Uptr>()),
+					 IR::CallingConvention::intrinsic),
 		{getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
 	WAVM_ASSERT(currentNumPages.size() == 1);
 	push(currentNumPages[0]);
@@ -107,7 +110,8 @@ void EmitFunctionContext::memory_init(DataSegmentAndMemImm imm)
 								ValueType::i32,
 								inferValueType<Uptr>(),
 								inferValueType<Uptr>(),
-								inferValueType<Uptr>()})),
+								inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{destAddress,
 		 sourceOffset,
 		 numBytes,
@@ -120,7 +124,9 @@ void EmitFunctionContext::data_drop(DataSegmentImm imm)
 {
 	emitRuntimeIntrinsic(
 		"data.drop",
-		FunctionType({}, TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()})),
+		FunctionType({},
+					 TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{moduleContext.moduleInstanceId, emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
@@ -137,7 +143,8 @@ void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 								ValueType::i32,
 								ValueType::i32,
 								inferValueType<Uptr>(),
-								inferValueType<Uptr>()})),
+								inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{destAddress,
 		 sourceAddress,
 		 numBytes,
@@ -155,7 +162,8 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		"memory.fill",
 		FunctionType(
 			{},
-			TypeTuple({ValueType::i32, ValueType::i32, ValueType::i32, inferValueType<Uptr>()})),
+			TypeTuple({ValueType::i32, ValueType::i32, ValueType::i32, inferValueType<Uptr>()}),
+			IR::CallingConvention::intrinsic),
 		{destAddress,
 		 value,
 		 numBytes,
@@ -245,7 +253,7 @@ void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 align
 				irBuilder.CreateAnd(address,
 									emitLiteral(llvmContext, (U64(1) << alignmentLog2) - 1))),
 			"misalignedAtomicTrap",
-			FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}),
+			FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}, IR::CallingConvention::intrinsic),
 			{address});
 	}
 }
@@ -259,7 +267,8 @@ void EmitFunctionContext::atomic_notify(AtomicLoadOrStoreImm<2> imm)
 	push(emitRuntimeIntrinsic(
 		"atomic_notify",
 		FunctionType(TypeTuple{ValueType::i32},
-					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64}),
+					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64},
+					 IR::CallingConvention::intrinsic),
 		{address,
 		 numWaiters,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
@@ -275,7 +284,8 @@ void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
 		"atomic_wait_i32",
 		FunctionType(
 			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64, inferValueType<Uptr>()}),
+			TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64, inferValueType<Uptr>()},
+			IR::CallingConvention::intrinsic),
 		{address,
 		 expectedValue,
 		 timeout,
@@ -292,7 +302,8 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		"atomic_wait_i64",
 		FunctionType(
 			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i64, ValueType::i64, inferValueType<Uptr>()}),
+			TypeTuple{ValueType::i32, ValueType::i64, ValueType::i64, inferValueType<Uptr>()},
+			IR::CallingConvention::intrinsic),
 		{address,
 		 expectedValue,
 		 timeout,

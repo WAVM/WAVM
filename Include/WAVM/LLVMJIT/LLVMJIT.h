@@ -77,7 +77,6 @@ namespace WAVM { namespace LLVMJIT {
 
 	struct FunctionBinding
 	{
-		IR::CallingConvention callingConvention;
 		void* code;
 	};
 
@@ -136,6 +135,5 @@ namespace WAVM { namespace LLVMJIT {
 	// Generates a thunk to call a native function from generated code.
 	WAVM_API Runtime::Function* getIntrinsicThunk(void* nativeFunction,
 												  IR::FunctionType functionType,
-												  IR::CallingConvention callingConvention,
 												  const char* debugName);
 }}

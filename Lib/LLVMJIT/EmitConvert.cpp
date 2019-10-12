@@ -93,7 +93,8 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
 	irBuilder.CreateCondBr(isNaN, nanBlock, notNaNBlock, moduleContext.likelyFalseBranchWeights);
 
 	irBuilder.SetInsertPoint(nanBlock);
-	emitRuntimeIntrinsic("invalidFloatOperationTrap", FunctionType(), {});
+	emitRuntimeIntrinsic(
+		"invalidFloatOperationTrap", FunctionType({}, {}, IR::CallingConvention::intrinsic), {});
 	irBuilder.CreateUnreachable();
 
 	irBuilder.SetInsertPoint(notNaNBlock);
@@ -104,7 +105,9 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
 		isOverflow, overflowBlock, noOverflowBlock, moduleContext.likelyFalseBranchWeights);
 
 	irBuilder.SetInsertPoint(overflowBlock);
-	emitRuntimeIntrinsic("divideByZeroOrIntegerOverflowTrap", FunctionType(), {});
+	emitRuntimeIntrinsic("divideByZeroOrIntegerOverflowTrap",
+						 FunctionType({}, {}, IR::CallingConvention::intrinsic),
+						 {});
 	irBuilder.CreateUnreachable();
 
 	irBuilder.SetInsertPoint(noOverflowBlock);

@@ -675,7 +675,6 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// calling convention, so no thunking is necessary.
 	for(auto exportMapPair : wavmIntrinsicsExportMap)
 	{
-		WAVM_ASSERT(exportMapPair.value.callingConvention == IR::CallingConvention::intrinsic);
 		importedSymbolMap.addOrFail(exportMapPair.key,
 									reinterpret_cast<Uptr>(exportMapPair.value.code));
 	}

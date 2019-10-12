@@ -176,10 +176,10 @@ namespace WAVM { namespace LLVMJIT {
 	}
 
 	// Converts a WebAssembly function type to a LLVM type.
-	inline llvm::FunctionType* asLLVMType(LLVMContext& llvmContext,
-										  IR::FunctionType functionType,
-										  IR::CallingConvention callingConvention)
+	inline llvm::FunctionType* asLLVMType(LLVMContext& llvmContext, IR::FunctionType functionType)
 	{
+		const IR::CallingConvention callingConvention = functionType.callingConvention();
+
 		Uptr numParameters;
 		llvm::Type** llvmArgTypes;
 		if(callingConvention == IR::CallingConvention::cAPICallback)

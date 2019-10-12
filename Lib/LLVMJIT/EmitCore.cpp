@@ -312,7 +312,8 @@ void EmitFunctionContext::return_(NoImm)
 void EmitFunctionContext::unreachable(NoImm)
 {
 	// Call an intrinsic that causes a trap, and insert the LLVM unreachable terminator.
-	emitRuntimeIntrinsic("unreachableTrap", FunctionType(), {});
+	emitRuntimeIntrinsic(
+		"unreachableTrap", FunctionType({}, {}, IR::CallingConvention::intrinsic), {});
 	irBuilder.CreateUnreachable();
 
 	enterUnreachable();
@@ -343,7 +344,6 @@ void EmitFunctionContext::call(FunctionImm imm)
 	ValueVector results = emitCallOrInvoke(callee,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
 										   calleeType,
-										   CallingConvention::wasm,
 										   getInnermostUnwindToBlock());
 
 	// Push the results on the operand stack.
@@ -400,7 +400,8 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 					 TypeTuple({ValueType::i32,
 								inferValueType<Uptr>(),
 								ValueType::funcref,
-								inferValueType<Uptr>()})),
+								inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{tableElementIndex,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
 		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.anyrefType),
@@ -410,11 +411,10 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	auto functionPointer = irBuilder.CreatePointerCast(
 		irBuilder.CreateInBoundsGEP(
 			runtimeFunction, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code)))),
-		asLLVMType(llvmContext, calleeType, CallingConvention::wasm)->getPointerTo());
+		asLLVMType(llvmContext, calleeType)->getPointerTo());
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
 										   calleeType,
-										   CallingConvention::wasm,
 										   getInnermostUnwindToBlock());
 
 	// Push the results on the operand stack.

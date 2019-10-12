@@ -127,7 +127,7 @@ void EmitFunctionContext::trapDivideByZero(llvm::Value* divisor)
 	emitConditionalTrapIntrinsic(
 		irBuilder.CreateICmpEQ(divisor, llvm::Constant::getNullValue(divisor->getType())),
 		"divideByZeroOrIntegerOverflowTrap",
-		FunctionType(),
+		FunctionType({}, {}, IR::CallingConvention::intrinsic),
 		{});
 }
 
@@ -148,7 +148,7 @@ void EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(ValueType type,
 															  : emitLiteral(llvmContext, (U64)-1))),
 			irBuilder.CreateICmpEQ(right, llvmContext.typedZeroConstants[(Uptr)type])),
 		"divideByZeroOrIntegerOverflowTrap",
-		FunctionType(),
+		FunctionType({}, {}, IR::CallingConvention::intrinsic),
 		{});
 }
 
@@ -158,22 +158,19 @@ ValueVector EmitFunctionContext::emitRuntimeIntrinsic(
 	FunctionType intrinsicType,
 	const std::initializer_list<llvm::Value*>& args)
 {
+	WAVM_ASSERT(intrinsicType.callingConvention() == CallingConvention::intrinsic);
+
 	llvm::Function* intrinsicFunction = moduleContext.llvmModule->getFunction(intrinsicName);
 	if(!intrinsicFunction)
 	{
-		intrinsicFunction = llvm::Function::Create(
-			asLLVMType(llvmContext, intrinsicType, CallingConvention::intrinsic),
-			llvm::Function::ExternalLinkage,
-			intrinsicName,
-			moduleContext.llvmModule);
-		intrinsicFunction->setCallingConv(asLLVMCallingConv(CallingConvention::intrinsic));
+		intrinsicFunction = llvm::Function::Create(asLLVMType(llvmContext, intrinsicType),
+												   llvm::Function::ExternalLinkage,
+												   intrinsicName,
+												   moduleContext.llvmModule);
+		intrinsicFunction->setCallingConv(asLLVMCallingConv(intrinsicType.callingConvention()));
 	}
 
-	return emitCallOrInvoke(intrinsicFunction,
-							args,
-							intrinsicType,
-							CallingConvention::intrinsic,
-							getInnermostUnwindToBlock());
+	return emitCallOrInvoke(intrinsicFunction, args, intrinsicType, getInnermostUnwindToBlock());
 }
 
 // A helper function to emit a conditional call to a non-returning intrinsic function.
@@ -386,7 +383,7 @@ void EmitFunctionContext::emit()
 	{
 		emitRuntimeIntrinsic(
 			"debugEnterFunction",
-			FunctionType({}, {ValueType::funcref}),
+			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
 				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
 				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});
@@ -417,7 +414,7 @@ void EmitFunctionContext::emit()
 	{
 		emitRuntimeIntrinsic(
 			"debugExitFunction",
-			FunctionType({}, {ValueType::funcref}),
+			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
 				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
 				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});

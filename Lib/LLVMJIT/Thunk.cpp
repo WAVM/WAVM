@@ -180,11 +180,9 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		calleeFunction, {emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code)))});
 	ValueVector results = emitContext.emitCallOrInvoke(
 		emitContext.irBuilder.CreatePointerCast(
-			functionCode,
-			asLLVMType(llvmContext, functionType, IR::CallingConvention::wasm)->getPointerTo()),
+			functionCode, asLLVMType(llvmContext, functionType)->getPointerTo()),
 		arguments,
-		functionType,
-		IR::CallingConvention::wasm);
+		functionType);
 
 	// Write the function's results to the results array.
 	WAVM_ASSERT(results.size() == functionType.results().size());
@@ -216,15 +214,18 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 											  FunctionType functionType,
-											  CallingConvention callingConvention,
 											  const char* debugName)
 {
 	IntrinsicThunkCache& intrinsicThunkCache = IntrinsicThunkCache::get();
 	Platform::RWMutex::ExclusiveLock intrinsicThunkLock(intrinsicThunkCache.mutex);
 
+	const IR::CallingConvention callingConvention = functionType.callingConvention();
 	WAVM_ASSERT(callingConvention == CallingConvention::intrinsic
 				|| callingConvention == CallingConvention::intrinsicWithContextSwitch
 				|| callingConvention == CallingConvention::cAPICallback);
+
+	const FunctionType wasmFunctionType(
+		functionType.results(), functionType.params(), CallingConvention::wasm);
 
 	LLVMContext llvmContext;
 
@@ -242,7 +243,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	llvm::Module llvmModule("", llvmContext);
 	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
 	llvmModule.setDataLayout(targetMachine->createDataLayout());
-	auto llvmFunctionType = asLLVMType(llvmContext, functionType, CallingConvention::wasm);
+	auto llvmFunctionType = asLLVMType(llvmContext, wasmFunctionType);
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
 	function->setCallingConv(asLLVMCallingConv(callingConvention));
@@ -250,7 +251,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 							 function,
 							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
 							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
-							 emitLiteral(llvmContext, functionType.getEncoding().impl));
+							 emitLiteral(llvmContext, wasmFunctionType.getEncoding().impl));
 	setFunctionAttributes(targetMachine.get(), function);
 
 	EmitContext emitContext(llvmContext, {});
@@ -262,11 +263,9 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	for(auto argIt = function->args().begin() + 1; argIt != function->args().end(); ++argIt)
 	{ args.push_back(&*argIt); }
 
-	llvm::Type* llvmNativeFunctionType
-		= asLLVMType(llvmContext, functionType, callingConvention)->getPointerTo();
+	llvm::Type* llvmNativeFunctionType = asLLVMType(llvmContext, functionType)->getPointerTo();
 	llvm::Value* llvmNativeFunction = emitLiteralPointer(nativeFunction, llvmNativeFunctionType);
-	ValueVector results
-		= emitContext.emitCallOrInvoke(llvmNativeFunction, args, functionType, callingConvention);
+	ValueVector results = emitContext.emitCallOrInvoke(llvmNativeFunction, args, functionType);
 
 	// Emit the function return.
 	emitContext.emitReturn(functionType.results(), results);
