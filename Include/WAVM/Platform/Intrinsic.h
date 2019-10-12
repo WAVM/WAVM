@@ -126,7 +126,7 @@ namespace WAVM {
 	// functions. On other architectures, it will fall back to a C loop, which is not likely to be
 	// competitive with the C library function.
 
-	inline void bytewiseMemCopy(U8* dest, const U8* source, Uptr numBytes)
+	inline void bytewiseMemCopy(volatile U8* dest, const U8* source, Uptr numBytes)
 	{
 #ifdef _WIN32
 		__movsb(dest, source, numBytes);
@@ -140,13 +140,13 @@ namespace WAVM {
 #endif
 	}
 
-	inline void bytewiseMemCopyReverse(U8* dest, const U8* source, Uptr numBytes)
+	inline void bytewiseMemCopyReverse(volatile U8* dest, const U8* source, Uptr numBytes)
 	{
 		for(Uptr index = 0; index < numBytes; ++index)
 		{ dest[numBytes - index - 1] = source[numBytes - index - 1]; }
 	}
 
-	inline void bytewiseMemSet(U8* dest, U8 value, Uptr numBytes)
+	inline void bytewiseMemSet(volatile U8* dest, U8 value, Uptr numBytes)
 	{
 #ifdef _WIN32
 		__stosb(dest, value, numBytes);
@@ -164,7 +164,7 @@ namespace WAVM {
 	// reverse order. This ensures that if the source and destination address ranges overlap, the
 	// source bytes will be copied before they are overwritten.
 
-	inline void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
+	inline void bytewiseMemMove(volatile U8* dest, U8* source, Uptr numBytes)
 	{
 		if(source < dest) { bytewiseMemCopyReverse(dest, source, numBytes); }
 		else
