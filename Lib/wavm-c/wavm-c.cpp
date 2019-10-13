@@ -776,7 +776,7 @@ wasm_func_t* wasm_func_new(wasm_compartment_t* compartment,
 {
 	FunctionType callbackType(
 		type->type.results(), type->type.params(), CallingConvention::cAPICallback);
-	Function* function = LLVMJIT::getIntrinsicThunk((void*)callback, type->type, "wasm_func_new");
+	Function* function = LLVMJIT::getIntrinsicThunk((void*)callback, callbackType, "wasm_func_new");
 	addGCRoot(function);
 	return function;
 }
