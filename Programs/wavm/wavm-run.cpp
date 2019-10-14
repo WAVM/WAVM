@@ -592,9 +592,7 @@ struct State
 			// Initialize the Emscripten module instance.
 			if(!Emscripten::initializeModuleInstance(
 				   emscriptenInstance, context, irModule, moduleInstance))
-			{
-				return EXIT_FAILURE;
-			}
+			{ return EXIT_FAILURE; }
 		}
 
 		// Look up the function export to call, validate its type, and set up the invoke arguments.
