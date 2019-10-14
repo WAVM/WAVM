@@ -54,6 +54,11 @@ struct StubFallbackResolver : Resolver
 		if(innerResolver.resolve(moduleName, exportName, type, outObject)) { return true; }
 		else
 		{
+			Log::printf(Log::debug,
+						"Generating stub for %s.%s : %s\n",
+						moduleName.c_str(),
+						exportName.c_str(),
+						asString(type).c_str());
 			return generateStub(
 				moduleName, exportName, type, outObject, compartment, StubFunctionBehavior::trap);
 		}
@@ -172,13 +177,9 @@ static bool isWASIModule(const IR::Module& irModule)
 
 static bool isEmscriptenModule(const IR::Module& irModule)
 {
-	if(!irModule.memories.imports.size() || irModule.memories.imports[0].moduleName != "env"
-	   || irModule.memories.imports[0].exportName != "memory")
-	{ return false; }
-
-	for(const auto& import : irModule.functions.imports)
+	for(const IR::CustomSection& customSection : irModule.customSections)
 	{
-		if(import.moduleName == "env") { return true; }
+		if(customSection.name == "emscripten_metadata") { return true; }
 	}
 
 	return false;
@@ -494,18 +495,24 @@ struct State
 		// module's imports.
 		if(abi == ABI::detect)
 		{
-			if(isWASIModule(irModule))
-			{
-				Log::printf(Log::debug, "Module appears to be a WASI module.\n");
-				abi = ABI::wasi;
-			}
-			else if(isEmscriptenModule(irModule))
+			if(isEmscriptenModule(irModule))
 			{
 				Log::printf(Log::debug, "Module appears to be an Emscripten module.\n");
 				abi = ABI::emscripten;
 			}
+			else if(isWASIModule(irModule))
+			{
+				Log::printf(Log::debug, "Module appears to be a WASI module.\n");
+				abi = ABI::wasi;
+			}
 			else
 			{
+				Log::printf(
+					Log::output,
+					"Warning: could not detect module ABI; using 'bare' ABI.\n"
+					"  Note that WAVM only supports Emscripten modules that were compiled with the\n"
+					"  '-s EMIT_EMSCRIPTEN_METADATA=1' flag.\n"
+					"  You may suppress this warning by passing '--abi=bare' to wavm run.\n");
 				abi = ABI::bare;
 			}
 		}
@@ -537,7 +544,6 @@ struct State
 			// Instantiate the Emscripten environment.
 			emscriptenInstance
 				= Emscripten::instantiate(compartment,
-										  irModule,
 										  Platform::getStdFD(Platform::StdDevice::in),
 										  Platform::getStdFD(Platform::StdDevice::out),
 										  Platform::getStdFD(Platform::StdDevice::err));
@@ -572,10 +578,7 @@ struct State
 		return true;
 	}
 
-	I32 execute(const IR::Module& irModule,
-				ModuleInstance* moduleInstance,
-				Function* function,
-				std::vector<IR::Value>&& invokeArgs)
+	I32 execute(const IR::Module& irModule, ModuleInstance* moduleInstance)
 	{
 		// Create a WASM execution context.
 		Context* context = Runtime::createContext(compartment);
@@ -586,8 +589,112 @@ struct State
 
 		if(emscriptenInstance)
 		{
-			// Call the Emscripten global initalizers.
-			Emscripten::initializeGlobals(emscriptenInstance, context, irModule, moduleInstance);
+			// Initialize the Emscripten module instance.
+			if(!Emscripten::initializeModuleInstance(
+				   emscriptenInstance, context, irModule, moduleInstance))
+			{
+				return EXIT_FAILURE;
+			}
+		}
+
+		// Look up the function export to call, validate its type, and set up the invoke arguments.
+		Function* function = nullptr;
+		std::vector<Value> invokeArgs;
+		if(functionName)
+		{
+			function = asFunctionNullable(getInstanceExport(moduleInstance, functionName));
+			if(!function)
+			{
+				Log::printf(Log::error, "Module does not export '%s'\n", functionName);
+				return EXIT_FAILURE;
+			}
+
+			const FunctionType functionType = getFunctionType(function);
+
+			if(functionType.params().size() != runArgs.size())
+			{
+				Log::printf(Log::error,
+							"'%s' expects %" WAVM_PRIuPTR
+							" argument(s), but command line had %" WAVM_PRIuPTR ".\n",
+							functionName,
+							Uptr(functionType.params().size()),
+							Uptr(runArgs.size()));
+				return EXIT_FAILURE;
+			}
+
+			for(Uptr argIndex = 0; argIndex < runArgs.size(); ++argIndex)
+			{
+				const std::string& argString = runArgs[argIndex];
+				Value value;
+				switch(functionType.params()[argIndex])
+				{
+				case ValueType::i32: value = (U32)atoi(argString.c_str()); break;
+				case ValueType::i64: value = (U64)atol(argString.c_str()); break;
+				case ValueType::f32: value = (F32)atof(argString.c_str()); break;
+				case ValueType::f64: value = atof(argString.c_str()); break;
+				case ValueType::v128:
+				case ValueType::anyref:
+				case ValueType::funcref:
+					Errors::fatalf("Cannot parse command-line argument for %s function parameter",
+								   asString(functionType.params()[argIndex]));
+
+				case ValueType::none:
+				case ValueType::any:
+				case ValueType::nullref:
+				default: WAVM_UNREACHABLE();
+				}
+				invokeArgs.push_back(value);
+			}
+		}
+		else if(abi == ABI::wasi)
+		{
+			// WASI just calls a _start function with the signature ()->().
+			function = getTypedInstanceExport(moduleInstance, "_start", FunctionType());
+			if(!function)
+			{
+				Log::printf(Log::error, "WASM module doesn't export WASI _start function.\n");
+				return EXIT_FAILURE;
+			}
+		}
+		else
+		{
+			// Emscripten calls main or _main with a signature (i32, i32)|() -> i32?
+			function = asFunctionNullable(getInstanceExport(moduleInstance, "main"));
+			if(!function)
+			{ function = asFunctionNullable(getInstanceExport(moduleInstance, "_main")); }
+			if(!function)
+			{
+				Log::printf(Log::error, "Module does not export main function\n");
+				return EXIT_FAILURE;
+			}
+			const FunctionType functionType = getFunctionType(function);
+
+			if(functionType.params().size() == 2)
+			{
+				if(!emscriptenInstance)
+				{
+					Log::printf(
+						Log::error,
+						"Module does not declare a default memory object to put arguments in.\n");
+					return EXIT_FAILURE;
+				}
+				else
+				{
+					std::vector<std::string> args = runArgs;
+					args.insert(args.begin(), filename);
+
+					WAVM_ASSERT(emscriptenInstance);
+					invokeArgs = Emscripten::injectCommandArgs(emscriptenInstance, context, args);
+				}
+			}
+			else if(functionType.params().size() > 0)
+			{
+				Log::printf(Log::error,
+							"WebAssembly function requires %" PRIu64
+							" argument(s), but only 0 or 2 can be passed!",
+							functionType.params().size());
+				return EXIT_FAILURE;
+			}
 		}
 
 		// Split the tagged argument values into their types and untagged values.
@@ -705,117 +812,8 @@ struct State
 			WASI::setProcessMemory(*wasiProcess, memory);
 		}
 
-		// Look up the function export to call, validate its type, and set up the invoke arguments.
-		Function* function = nullptr;
-		std::vector<Value> invokeArgs;
-		if(functionName)
-		{
-			function = asFunctionNullable(getInstanceExport(moduleInstance, functionName));
-			if(!function)
-			{
-				Log::printf(Log::error, "Module does not export '%s'\n", functionName);
-				return EXIT_FAILURE;
-			}
-
-			const FunctionType functionType = getFunctionType(function);
-
-			if(functionType.params().size() != runArgs.size())
-			{
-				Log::printf(Log::error,
-							"'%s' expects %" WAVM_PRIuPTR
-							" argument(s), but command line had %" WAVM_PRIuPTR ".\n",
-							functionName,
-							Uptr(functionType.params().size()),
-							Uptr(runArgs.size()));
-				return EXIT_FAILURE;
-			}
-
-			for(Uptr argIndex = 0; argIndex < runArgs.size(); ++argIndex)
-			{
-				const std::string& argString = runArgs[argIndex];
-				Value value;
-				switch(functionType.params()[argIndex])
-				{
-				case ValueType::i32: value = (U32)atoi(argString.c_str()); break;
-				case ValueType::i64: value = (U64)atol(argString.c_str()); break;
-				case ValueType::f32: value = (F32)atof(argString.c_str()); break;
-				case ValueType::f64: value = atof(argString.c_str()); break;
-				case ValueType::v128:
-				case ValueType::anyref:
-				case ValueType::funcref:
-					Errors::fatalf("Cannot parse command-line argument for %s function parameter",
-								   asString(functionType.params()[argIndex]));
-
-				case ValueType::none:
-				case ValueType::any:
-				case ValueType::nullref:
-				default: WAVM_UNREACHABLE();
-				}
-				invokeArgs.push_back(value);
-			}
-		}
-		else if(abi == ABI::wasi)
-		{
-			// WASI just calls a _start function with the signature ()->().
-			function = asFunctionNullable(getInstanceExport(moduleInstance, "_start"));
-			if(!function)
-			{
-				Log::printf(Log::error, "WASM module doesn't export WASI _start function.\n");
-				return EXIT_FAILURE;
-			}
-			if(getFunctionType(function) != FunctionType())
-			{
-				Log::printf(Log::error,
-							"WASI module exported _start : %s but expected _start : %s.\n",
-							asString(getFunctionType(function)).c_str(),
-							asString(FunctionType()).c_str());
-				return EXIT_FAILURE;
-			}
-		}
-		else
-		{
-			// Emscripten calls main or _main with a signature (i32, i32)|() -> i32?
-			function = asFunctionNullable(getInstanceExport(moduleInstance, "main"));
-			if(!function)
-			{ function = asFunctionNullable(getInstanceExport(moduleInstance, "_main")); }
-			if(!function)
-			{
-				Log::printf(Log::error, "Module does not export main function\n");
-				return EXIT_FAILURE;
-			}
-			const FunctionType functionType = getFunctionType(function);
-
-			if(functionType.params().size() == 2)
-			{
-				if(!emscriptenInstance)
-				{
-					Log::printf(
-						Log::error,
-						"Module does not declare a default memory object to put arguments in.\n");
-					return EXIT_FAILURE;
-				}
-				else
-				{
-					std::vector<std::string> args = runArgs;
-					args.insert(args.begin(), filename);
-
-					WAVM_ASSERT(emscriptenInstance);
-					invokeArgs = Emscripten::injectCommandArgs(emscriptenInstance, args);
-				}
-			}
-			else if(functionType.params().size() > 0)
-			{
-				Log::printf(Log::error,
-							"WebAssembly function requires %" PRIu64
-							" argument(s), but only 0 or 2 can be passed!",
-							functionType.params().size());
-				return EXIT_FAILURE;
-			}
-		}
-
 		// Execute the program.
-		auto executeThunk
-			= [&] { return execute(irModule, moduleInstance, function, std::move(invokeArgs)); };
+		auto executeThunk = [&] { return execute(irModule, moduleInstance); };
 		int result;
 		if(emscriptenInstance) { result = Emscripten::catchExit(std::move(executeThunk)); }
 		else if(wasiProcess)

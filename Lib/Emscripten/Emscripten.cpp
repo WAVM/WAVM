@@ -21,6 +21,8 @@
 #include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/LEB128.h"
+#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
@@ -28,6 +30,7 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
+#include "WAVM/WASI/WASIABI.h"
 
 #ifndef _WIN32
 #include <sys/uio.h>
@@ -38,9 +41,13 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 using namespace WAVM::Emscripten;
 
+typedef uint32_t __wasi_errno_return_t;
+
 WAVM_DEFINE_INTRINSIC_MODULE(env)
 WAVM_DEFINE_INTRINSIC_MODULE(asm2wasm)
 WAVM_DEFINE_INTRINSIC_MODULE(global)
+
+WAVM_DEFINE_INTRINSIC_MODULE(emscripten_wasi_unstable)
 
 static emabi::Result asEmscriptenErrNo(VFS::Result result)
 {
@@ -85,47 +92,9 @@ static emabi::Result asEmscriptenErrNo(VFS::Result result)
 	};
 }
 
-//  0..62 = static data
-// 63..63 = MutableGlobals
-// 64..96 = aliased stack
-// 97..   = dynamic memory
-static constexpr U64 minStaticMemoryPages = 97;
-
-static constexpr emabi::Address mainThreadStackAddress = 64 * IR::numBytesPerPage;
-static constexpr emabi::Address mainThreadNumStackBytes = 32 * IR::numBytesPerPage;
-
-struct MutableGlobals
-{
-	enum
-	{
-		address = 63 * IR::numBytesPerPage
-	};
-
-	emabi::Address DYNAMICTOP_PTR;
-	F64 tempDoublePtr;
-	emabi::FD _stderr;
-	emabi::FD _stdin;
-	emabi::FD _stdout;
-};
-
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "ABORT", I32, ABORT, 0);
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "cttz_i8", I32, cttz_i8, 0);
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "___dso_handle", U32, ___dso_handle, 0);
-WAVM_DEFINE_INTRINSIC_GLOBAL(env,
-							 "_stderr",
-							 I32,
-							 _stderr,
-							 MutableGlobals::address + offsetof(MutableGlobals, _stderr));
-WAVM_DEFINE_INTRINSIC_GLOBAL(env,
-							 "_stdin",
-							 I32,
-							 _stdin,
-							 MutableGlobals::address + offsetof(MutableGlobals, _stdin));
-WAVM_DEFINE_INTRINSIC_GLOBAL(env,
-							 "_stdout",
-							 I32,
-							 _stdout,
-							 MutableGlobals::address + offsetof(MutableGlobals, _stdout));
 
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "__memory_base", U32, memory_base, 1024);
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "memoryBase", U32, emscriptenMemoryBase, 1024);
@@ -133,62 +102,28 @@ WAVM_DEFINE_INTRINSIC_GLOBAL(env, "memoryBase", U32, emscriptenMemoryBase, 1024)
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "__table_base", U32, table_base, 0);
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "tableBase", U32, emscriptenTableBase, 0);
 
-WAVM_DEFINE_INTRINSIC_GLOBAL(env,
-							 "DYNAMICTOP_PTR",
-							 U32,
-							 DYNAMICTOP_PTR,
-							 MutableGlobals::address + offsetof(MutableGlobals, DYNAMICTOP_PTR))
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "_environ", U32, em_environ, 0)
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "EMTSTACKTOP", U32, EMTSTACKTOP, 0)
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "EMT_STACK_MAX", U32, EMT_STACK_MAX, 0)
 WAVM_DEFINE_INTRINSIC_GLOBAL(env, "eb", I32, eb, 0)
 
-bool Emscripten::resizeHeap(Emscripten::Instance* instance, U32 desiredNumBytes)
+emabi::Address Emscripten::dynamicAlloc(Emscripten::Instance* instance,
+										Context* context,
+										emabi::Size numBytes)
 {
-	const Uptr desiredNumPages
-		= (Uptr(desiredNumBytes) + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
-	const Uptr currentNumPages = Runtime::getMemoryNumPages(instance->memory);
-	if(desiredNumPages > currentNumPages)
-	{
-		if(!Runtime::growMemory(instance->memory, desiredNumPages - currentNumPages))
-		{ return false; }
+	WAVM_ASSERT(instance->malloc);
+	static FunctionType mallocSignature({ValueType::i32}, {ValueType::i32});
 
-		return true;
-	}
-	else if(desiredNumPages < currentNumPages)
-	{
-		return false;
-	}
-	else
-	{
-		return true;
-	}
-}
+	UntaggedValue args[1] = {numBytes};
+	UntaggedValue results[1];
+	invokeFunction(context, instance->malloc, mallocSignature, args, results);
 
-emabi::Address Emscripten::dynamicAlloc(Emscripten::Instance* instance, emabi::Size numBytes)
-{
-	MutableGlobals& mutableGlobals
-		= memoryRef<MutableGlobals>(instance->memory, MutableGlobals::address);
-
-	const emabi::Address allocationAddress = mutableGlobals.DYNAMICTOP_PTR;
-	const emabi::Address endAddress = (allocationAddress + numBytes + 15) & -16;
-
-	mutableGlobals.DYNAMICTOP_PTR = endAddress;
-
-	if(endAddress > getMemoryNumPages(instance->memory) * IR::numBytesPerPage)
-	{
-		Uptr memoryMaxPages = getMemoryType(instance->memory).size.max;
-		if(memoryMaxPages == UINT64_MAX) { memoryMaxPages = IR::maxMemoryPages; }
-
-		if(endAddress > memoryMaxPages * IR::numBytesPerPage || !resizeHeap(instance, endAddress))
-		{ throwException(ExceptionTypes::outOfMemory); }
-	}
-
-	return allocationAddress;
+	return results[0].u32;
 }
 
 void Emscripten::initThreadLocals(Thread* thread)
 {
+#if 0
 	// Call the establishStackSpace function exported by the module to set the thread's stack
 	// address and size.
 	Function* establishStackSpace = asFunctionNullable(
@@ -203,6 +138,7 @@ void Emscripten::initThreadLocals(Thread* thread)
 					   FunctionType({}, {ValueType::i32, ValueType::i32}),
 					   args);
 	}
+#endif
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
@@ -221,6 +157,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", emabi::Result, getTotalMem
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "__assert_fail",
+							   void,
+							   emscripten_assert_fail,
+							   I32,
+							   I32,
+							   I32,
+							   I32)
+{
+	throwException(ExceptionTypes::calledAbort);
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "abortOnCannotGrowMemory",
 							   emabi::Result,
 							   abortOnCannotGrowMemory,
@@ -232,15 +180,6 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
 {
 	throwException(ExceptionTypes::stackOverflow);
-}
-WAVM_DEFINE_INTRINSIC_FUNCTION(env,
-							   "_emscripten_resize_heap",
-							   emabi::Result,
-							   _emscripten_resize_heap,
-							   U32 desiredNumBytes)
-{
-	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	return resizeHeap(instance, desiredNumBytes) ? 1 : 0;
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_time", emabi::Result, _time, U32 address)
@@ -320,7 +259,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", emabi::Address, ___ctype_b
 	static emabi::Address vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(instance->memory, dynamicAlloc(instance, sizeof(data)));
+		vmAddress = coerce32bitAddress(
+			instance->memory,
+			dynamicAlloc(instance, getContextFromRuntimeData(contextRuntimeData), sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(instance->memory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(short) * 128;
@@ -354,7 +295,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", emabi::Address, ___c
 	static emabi::Address vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(instance->memory, dynamicAlloc(instance, sizeof(data)));
+		vmAddress = coerce32bitAddress(
+			instance->memory,
+			dynamicAlloc(instance, getContextFromRuntimeData(contextRuntimeData), sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(instance->memory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -388,7 +331,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", emabi::Address, ___c
 	static emabi::Address vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(instance->memory, dynamicAlloc(instance, sizeof(data)));
+		vmAddress = coerce32bitAddress(
+			instance->memory,
+			dynamicAlloc(instance, getContextFromRuntimeData(contextRuntimeData), sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(instance->memory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -448,7 +393,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   U32 size)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	return coerce32bitAddress(instance->memory, dynamicAlloc(instance, size));
+	return coerce32bitAddress(
+		instance->memory,
+		dynamicAlloc(instance, getContextFromRuntimeData(contextRuntimeData), size));
 }
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "__ZSt18uncaught_exceptionv",
@@ -469,6 +416,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 {
 	Log::printf(Log::error, "env.abort(%i)\n", code);
 	throwException(Runtime::ExceptionTypes::calledAbort);
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "proc_exit",
+							   void,
+							   wasi_proc_exit,
+							   __wasi_exitcode_t exitCode)
+{
+	throw ExitException{exitCode};
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_i", void, emscripten_nullFunc_i, I32 code)
@@ -556,7 +511,12 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   emabi::Address base)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	if(!base) { base = coerce32bitAddress(instance->memory, dynamicAlloc(instance, 4)); }
+	if(!base)
+	{
+		base = coerce32bitAddress(
+			instance->memory,
+			dynamicAlloc(instance, getContextFromRuntimeData(contextRuntimeData), 4));
+	}
 	return base;
 }
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_freelocale", void, emscripten__freelocale, emabi::Address a)
@@ -600,28 +560,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_catclose", emabi::Result, emscripten__catc
 	return emabi::esuccess;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env,
-							   "_emscripten_memcpy_big",
-							   emabi::Address,
-							   _emscripten_memcpy_big,
-							   emabi::Address sourceAddress,
-							   emabi::Address destAddress,
-							   emabi::Size numBytes)
-{
-	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	memcpy(memoryArrayPtr<U8>(instance->memory, sourceAddress, numBytes),
-		   memoryArrayPtr<U8>(instance->memory, destAddress, numBytes),
-		   numBytes);
-	return sourceAddress;
-}
-
 enum class ioStreamVMHandle
 {
 	StdIn = 0,
 	StdOut = 1,
 	StdErr = 2,
 };
-static VFS::VFD* getFD(Emscripten::Instance* instance, emabi::FD vmHandle)
+static VFS::VFD* getVFD(Emscripten::Instance* instance, emabi::FD vmHandle)
 {
 	switch((ioStreamVMHandle)vmHandle)
 	{
@@ -652,7 +597,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   emabi::FD file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::VFD* fd = getFD(instance, file);
+	VFS::VFD* fd = getVFD(instance, file);
 	if(!fd) { return emabi::esuccess; }
 
 	const U64 numBytes64 = U64(size) * U64(count);
@@ -678,7 +623,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   emabi::FD file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::VFD* fd = getFD(instance, file);
+	VFS::VFD* fd = getVFD(instance, file);
 	if(!fd) { return emabi::esuccess; }
 
 	const U64 numBytes64 = U64(size) * U64(count);
@@ -697,7 +642,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fputc", emabi::Result, _fputc, I32 character, emabi::FD file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::VFD* fd = getFD(instance, file);
+	VFS::VFD* fd = getVFD(instance, file);
 	if(!fd) { return emabi::ebadf; }
 
 	char c = char(character);
@@ -709,7 +654,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fputc", emabi::Result, _fputc, I32 charact
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fflush", emabi::Result, _fflush, emabi::FD file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::VFD* fd = getFD(instance, file);
+	VFS::VFD* fd = getVFD(instance, file);
 	if(!fd) { return emabi::ebadf; }
 
 	return fd->sync(VFS::SyncType::contentsAndMetadata) == VFS::Result::success ? 0 : -1;
@@ -726,7 +671,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___unlockfile", void, ___unlockfile, I32 a)
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall6", I32, emscripten_close, emabi::FD file, I32)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::VFD* fd = getFD(instance, file);
+	VFS::VFD* fd = getVFD(instance, file);
 	if(!fd) { return emabi::ebadf; }
 
 	return emabi::enosys;
@@ -758,7 +703,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	U32 iov = args[1];
 	U32 iovcnt = args[2];
 
-	VFS::VFD* fd = getFD(instance, file);
+	VFS::VFD* fd = getVFD(instance, file);
 	if(!fd) { return emabi::ebadf; }
 
 	Uptr totalNumBytesRead = 0;
@@ -800,7 +745,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 			};
 			ArgStruct args = memoryRef<ArgStruct>(instance->memory, argsAddress);
 
-			VFS::VFD* fd = getFD(instance, args.file);
+			VFS::VFD* fd = getVFD(instance, args.file);
 			if(!fd) { result = emabi::ebadf; }
 			else
 			{
@@ -838,63 +783,45 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 
 	return result;
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env,
-							   "___syscall146",
-							   emabi::Result,
-							   emscripten_writev,
-							   I32,
-							   emabi::Address argsAddress)
+
+static emabi::Result writeImpl(Emscripten::Instance* instance,
+							   emabi::FD fd,
+							   emabi::Address iovsAddress,
+							   I32 numIOVs,
+							   const __wasi_filesize_t* offset,
+							   Uptr& outNumBytesWritten,
+							   Uptr maxNumBytesWritten)
 {
-	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return emabi::einval; }
+
+	VFS::VFD* vfd = getVFD(instance, fd);
+	if(!vfd) { return emabi::ebadf; }
+
+	// Allocate memory for the IOWriteBuffers.
+	auto vfsWriteBuffers = (VFS::IOWriteBuffer*)malloc(numIOVs * sizeof(VFS::IOWriteBuffer));
 
 	// Catch any out-of-bounds memory access exceptions that are thrown.
-	VFS::IOWriteBuffer* vfsWriteBuffers = nullptr;
-	emabi::Result result = 0;
+	emabi::Result result = emabi::esuccess;
 	Runtime::catchRuntimeExceptions(
 		[&] {
-			struct ArgStruct
+			// Translate the IOVs to IOWriteBuffers
+			const __wasi_ciovec_t* iovs
+				= memoryArrayPtr<__wasi_ciovec_t>(instance->memory, iovsAddress, numIOVs);
+			U64 numBufferBytes = 0;
+			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 			{
-				emabi::FD file;
-				emabi::Address iovsAddress;
-				emabi::Address numIOVs;
-			};
-			ArgStruct args = memoryRef<ArgStruct>(instance->memory, argsAddress);
-
-			VFS::VFD* fd = getFD(instance, args.file);
-			if(!fd) { result = emabi::ebadf; }
+				__wasi_ciovec_t iov = iovs[iovIndex];
+				vfsWriteBuffers[iovIndex].data
+					= memoryArrayPtr<const U8>(instance->memory, iov.buf, iov.buf_len);
+				vfsWriteBuffers[iovIndex].numBytes = iov.buf_len;
+				numBufferBytes += iov.buf_len;
+			}
+			if(numBufferBytes > maxNumBytesWritten) { result = emabi::eoverflow; }
 			else
 			{
-				// Translate the IOVs to IOWriteBuffers
-				vfsWriteBuffers
-					= (VFS::IOWriteBuffer*)malloc(args.numIOVs * sizeof(VFS::IOWriteBuffer));
-				const emabi::iovec* ioBuffers = memoryArrayPtr<emabi::iovec>(
-					instance->memory, args.iovsAddress, args.numIOVs);
-				U64 numBufferBytes = 0;
-				for(U32 iovIndex = 0; iovIndex < args.numIOVs; ++iovIndex)
-				{
-					const emabi::iovec& ioBuffer = ioBuffers[iovIndex];
-					vfsWriteBuffers[iovIndex].data = memoryArrayPtr<const U8>(
-						instance->memory, ioBuffer.address, ioBuffer.numBytes);
-					vfsWriteBuffers[iovIndex].numBytes = ioBuffer.numBytes;
-					numBufferBytes += ioBuffer.numBytes;
-				}
-
-				// Ensure that it will be possible to return the number of bytes in a successful
-				// write in the I32 return value.
-				if(numBufferBytes > INT32_MAX) { result = emabi::eoverflow; }
-				else
-				{
-					// Do the write.
-					U64 numBytesWritten = 0;
-					VFS::Result vfsResult
-						= fd->writev(vfsWriteBuffers, args.numIOVs, &numBytesWritten, nullptr);
-					if(vfsResult != VFS::Result::success) { result = asEmscriptenErrNo(vfsResult); }
-					else
-					{
-						WAVM_ASSERT(numBytesWritten <= INT32_MAX);
-						result = emabi::Result(numBytesWritten);
-					}
-				}
+				// Do the writes.
+				result = asEmscriptenErrNo(
+					vfd->writev(vfsWriteBuffers, numIOVs, &outNumBytesWritten, offset));
 			}
 		},
 		[&](Exception* exception) {
@@ -902,7 +829,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 			WAVM_ERROR_UNLESS(getExceptionType(exception)
 							  == ExceptionTypes::outOfBoundsMemoryAccess);
 			Log::printf(Log::debug,
-						"Caught runtime exception while accessing memory at address 0x%" PRIx64,
+						"Caught runtime exception while reading memory at address 0x%" PRIx64,
 						getExceptionArgument(exception, 1).i64);
 			destroyException(exception);
 			result = emabi::efault;
@@ -912,6 +839,97 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	free(vfsWriteBuffers);
 
 	return result;
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___syscall146",
+							   emabi::Result,
+							   emscripten_writev,
+							   I32,
+							   emabi::Address argsAddress)
+{
+	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
+
+	// Read the args from memory.
+	struct ArgStruct
+	{
+		emabi::FD fd;
+		emabi::Address iovsAddress;
+		emabi::Size numIOVs;
+	};
+	ArgStruct args;
+	Runtime::unwindSignalsAsExceptions(
+		[&] { args = memoryRef<ArgStruct>(instance->memory, argsAddress); });
+
+	// Do the write.
+	Uptr numBytesWritten = 0;
+	emabi::Result result = writeImpl(instance,
+									 args.fd,
+									 args.iovsAddress,
+									 args.numIOVs,
+									 nullptr,
+									 numBytesWritten,
+									 emabi::resultMax);
+	if(result == emabi::esuccess)
+	{
+		WAVM_ASSERT(numBytesWritten <= emabi::resultMax);
+		result = emabi::Result(numBytesWritten);
+	}
+
+	return result;
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "fd_write",
+							   __wasi_errno_return_t,
+							   emscripten_fd_write,
+							   emabi::FD fd,
+							   emabi::Address iovsAddress,
+							   I32 numIOVs,
+							   emabi::Address numBytesWrittenAddress)
+{
+	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
+
+	Uptr numBytesWritten = 0;
+	const emabi::Result emscriptenResult
+		= writeImpl(instance, fd, iovsAddress, numIOVs, nullptr, numBytesWritten, emabi::sizeMax);
+
+	// Write the number of bytes written to memory.
+	WAVM_ASSERT(numBytesWritten <= emabi::sizeMax);
+	memoryRef<emabi::Size>(instance->memory, numBytesWrittenAddress) = emabi::Size(numBytesWritten);
+
+	return (__wasi_errno_t)-emscriptenResult;
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "fd_seek",
+							   __wasi_errno_return_t,
+							   wasi_fd_seek,
+							   emabi::FD fd,
+							   __wasi_filedelta_t offset,
+							   U32 whence,
+							   emabi::Address newOffsetAddress)
+{
+	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
+
+	VFS::VFD* vfd = getVFD(instance, fd);
+	if(!vfd) { return __WASI_EBADF; }
+
+	VFS::SeekOrigin origin;
+	switch(whence)
+	{
+	case __WASI_WHENCE_CUR: origin = VFS::SeekOrigin::cur; break;
+	case __WASI_WHENCE_END: origin = VFS::SeekOrigin::end; break;
+	case __WASI_WHENCE_SET: origin = VFS::SeekOrigin::begin; break;
+	default: return __WASI_EINVAL;
+	};
+
+	U64 newOffset;
+	const VFS::Result result = vfd->seek(offset, origin, &newOffset);
+	if(result != VFS::Result::success) { return (__wasi_errno_t)-asEmscriptenErrNo(result); }
+
+	memoryRef<__wasi_filesize_t>(instance->memory, newOffsetAddress) = newOffset;
+	return __WASI_ESUCCESS;
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-to-int", I32, f64_to_int, F64 f) { return (I32)f; }
@@ -957,13 +975,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-rem", F64, F64_rems, F64 left, F64
 	return (F64)fmod(left, right);
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_getenv", emabi::Result, _getenv, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getenv", emabi::Result, _getenv, I32 a)
 {
 	return emabi::esuccess;
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
-							   "_gettimeofday",
+							   "gettimeofday",
 							   emabi::Result,
 							   _gettimeofday,
 							   I32 timevalAddress,
@@ -978,7 +996,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	return emabi::esuccess;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_gmtime", emabi::Address, emscripten_gmtime, I32 timeAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "gmtime", emabi::Address, emscripten_gmtime, I32 timeAddress)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
@@ -993,7 +1011,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_gmtime", emabi::Address, emscripten_gmtime
 	{
 		struct tm hostTM = *tmPtr;
 
-		emabi::Address emTMAddress = dynamicAlloc(instance, sizeof(emabi::tm));
+		emabi::Address emTMAddress = dynamicAlloc(
+			instance, getContextFromRuntimeData(contextRuntimeData), sizeof(emabi::tm));
 		emabi::tm& emTM = memoryRef<emabi::tm>(instance->memory, emTMAddress);
 
 		emTM.tm_sec = hostTM.tm_sec;
@@ -1063,12 +1082,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	if(file != -1) { return emabi::enosys; }
 	else
 	{
-		Function* memalignFunction
-			= asFunctionNullable(getInstanceExport(instance->moduleInstance, "_memalign"));
-		if(!memalignFunction
-		   || getFunctionType(memalignFunction)
-				  != FunctionType({ValueType::i32}, {ValueType::i32, ValueType::i32}))
-		{ return emabi::enosys; }
+		Function* memalignFunction = getTypedInstanceExport(
+			instance->moduleInstance,
+			"_memalign",
+			FunctionType({ValueType::i32}, {ValueType::i32, ValueType::i32}));
+		if(!memalignFunction) { return emabi::enosys; }
 
 		UntaggedValue memalignArgs[2] = {U32(16384), numBytes};
 		UntaggedValue memalignResult;
@@ -1117,7 +1135,7 @@ WAVM_DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_atexit", emabi::Result, _atexit, U32);
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
-							   "_clock_gettime",
+							   "clock_gettime",
 							   emabi::Result,
 							   _clock_gettime,
 							   U32 clockId,
@@ -1210,73 +1228,82 @@ Emscripten::Instance::~Instance()
 	joinAllThreads(this);
 }
 
+static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMetadata& outMetadata)
+{
+	for(const CustomSection& customSection : module.customSections)
+	{
+		if(customSection.name == "emscripten_metadata")
+		{
+			try
+			{
+				Serialization::MemoryInputStream sectionStream(customSection.data.data(),
+															   customSection.data.size());
+
+				serializeVarUInt32(sectionStream, outMetadata.metadataVersionMajor);
+				serializeVarUInt32(sectionStream, outMetadata.metadataVersionMinor);
+
+				if(outMetadata.metadataVersionMajor != 0 || outMetadata.metadataVersionMinor < 2)
+				{
+					Log::printf(Log::error,
+								"Unsupported Emscripten module metadata version: %u\n",
+								outMetadata.metadataVersionMajor);
+					return false;
+				}
+
+				serializeVarUInt32(sectionStream, outMetadata.abiVersionMajor);
+				serializeVarUInt32(sectionStream, outMetadata.abiVersionMinor);
+
+				serializeVarUInt32(sectionStream, outMetadata.backendID);
+				serializeVarUInt32(sectionStream, outMetadata.numMemoryPages);
+				serializeVarUInt32(sectionStream, outMetadata.numTableElems);
+				serializeVarUInt32(sectionStream, outMetadata.globalBaseAddress);
+				serializeVarUInt32(sectionStream, outMetadata.dynamicBaseAddress);
+				serializeVarUInt32(sectionStream, outMetadata.dynamicTopAddressAddress);
+				serializeVarUInt32(sectionStream, outMetadata.tempDoubleAddress);
+
+				if(outMetadata.metadataVersionMinor >= 3)
+				{ serializeVarUInt32(sectionStream, outMetadata.standaloneWASM); }
+				else
+				{
+					outMetadata.standaloneWASM = 0;
+				}
+
+				return true;
+			}
+			catch(Serialization::FatalSerializationException const& exception)
+			{
+				Log::printf(Log::error,
+							"Error while deserializing Emscripten metadata section: %s\n",
+							exception.message.c_str());
+				return false;
+			}
+		}
+	}
+
+	Log::printf(Log::error,
+				"Module did not contain Emscripten module metadata section: WAVM only supports"
+				" Emscripten modules compiled with '-S EMIT_EMSCRIPTEN_METADATA=1'.\n");
+	return false;
+}
+
 std::shared_ptr<Emscripten::Instance> Emscripten::instantiate(Compartment* compartment,
-															  const IR::Module& module,
 															  VFS::VFD* stdIn,
 															  VFS::VFD* stdOut,
 															  VFS::VFD* stdErr)
 {
-	MemoryType memoryType(false, SizeConstraints{0, 0});
-	if(module.memories.imports.size() && module.memories.imports[0].moduleName == "env"
-	   && module.memories.imports[0].exportName == "memory")
-	{
-		memoryType = module.memories.imports[0].type;
-		if(memoryType.size.max >= minStaticMemoryPages)
-		{
-			if(memoryType.size.min <= minStaticMemoryPages)
-			{
-				// Enlarge the initial memory to make space for the stack and mutable globals.
-				memoryType.size.min = minStaticMemoryPages;
-			}
-		}
-		else
-		{
-			Log::printf(Log::error, "module's memory is too small for Emscripten emulation\n");
-			return nullptr;
-		}
-	}
-	else
-	{
-		Log::printf(Log::error, "module does not import Emscripten's env.memory\n");
-		return nullptr;
-	}
-
-	TableType tableType(ReferenceType::funcref, false, SizeConstraints{0, 0});
-	if(module.tables.imports.size() && module.tables.imports[0].moduleName == "env"
-	   && module.tables.imports[0].exportName == "table")
-	{ tableType = module.tables.imports[0].type; }
-
-	Memory* memory = Runtime::createMemory(compartment, memoryType, "env.memory");
-	Table* table = Runtime::createTable(compartment, tableType, nullptr, "env.table");
-
-	HashMap<std::string, Runtime::Object*> extraEnvExports = {
-		{"memory", Runtime::asObject(memory)},
-		{"table", Runtime::asObject(table)},
-	};
-
 	std::shared_ptr<Instance> instance = std::make_shared<Instance>();
 	instance->env = Intrinsics::instantiateModule(
 		compartment,
 		{WAVM_INTRINSIC_MODULE_REF(env), WAVM_INTRINSIC_MODULE_REF(envThreads)},
-		"env",
-		extraEnvExports);
+		"env");
 	instance->asm2wasm = Intrinsics::instantiateModule(
 		compartment, {WAVM_INTRINSIC_MODULE_REF(asm2wasm)}, "asm2wasm");
 	instance->global
 		= Intrinsics::instantiateModule(compartment, {WAVM_INTRINSIC_MODULE_REF(global)}, "global");
-
-	unwindSignalsAsExceptions([=] {
-		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
-
-		mutableGlobals.DYNAMICTOP_PTR = minStaticMemoryPages * IR::numBytesPerPage;
-		mutableGlobals._stderr = (U32)ioStreamVMHandle::StdErr;
-		mutableGlobals._stdin = (U32)ioStreamVMHandle::StdIn;
-		mutableGlobals._stdout = (U32)ioStreamVMHandle::StdOut;
-	});
+	instance->wasi_unstable = Intrinsics::instantiateModule(
+		compartment, {WAVM_INTRINSIC_MODULE_REF(emscripten_wasi_unstable)}, "wasi_unstable");
 
 	instance->compartment = compartment;
-	instance->memory = memory;
-	instance->table = table;
 
 	instance->stdIn = stdIn;
 	instance->stdOut = stdOut;
@@ -1287,39 +1314,76 @@ std::shared_ptr<Emscripten::Instance> Emscripten::instantiate(Compartment* compa
 	return instance;
 }
 
-void Emscripten::initializeGlobals(const std::shared_ptr<Instance>& instance,
-								   Context* context,
-								   const IR::Module& module,
-								   ModuleInstance* moduleInstance)
+bool Emscripten::initializeModuleInstance(const std::shared_ptr<Instance>& instance,
+										  Context* context,
+										  const IR::Module& module,
+										  ModuleInstance* moduleInstance)
 {
 	instance->moduleInstance = moduleInstance;
+
+	// Read the module metadata.
+	if(!loadEmscriptenMetadata(module, instance->metadata)) { return false; }
+
+	// Check the ABI version used by the module.
+	if(instance->metadata.abiVersionMajor != 0)
+	{
+		Log::printf(Log::error,
+					"Unsupported Emscripten ABI major version (%u)\n",
+					instance->metadata.abiVersionMajor);
+		return false;
+	}
+
+	// Check whether the module was compiled as "standalone".
+	if(!instance->metadata.standaloneWASM)
+	{
+		Log::printf(Log::error,
+					"WAVM only supports Emscripten modules compiled with '-s STANDALONE_WASM=1'.");
+		return false;
+	}
+
+	// Find the various Emscripten ABI objects exported by the module.
+
+	instance->memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
+	if(!instance->memory)
+	{
+		Log::printf(Log::error, "Emscripten module does not export memory.\n");
+		return false;
+	}
+
+	instance->table = asTableNullable(getInstanceExport(moduleInstance, "table"));
+
+	instance->malloc = getTypedInstanceExport(
+		moduleInstance, "malloc", FunctionType({ValueType::i32}, {ValueType::i32}));
+	if(!instance->malloc)
+	{
+		Log::printf(Log::error, "Emscripten module does not export malloc.\n");
+		return false;
+	}
+	instance->free = getTypedInstanceExport(
+		moduleInstance, "free", FunctionType({ValueType::i32}, {ValueType::i32}));
+
+	instance->stackAlloc = getTypedInstanceExport(
+		moduleInstance, "stackAlloc", FunctionType({ValueType::i32}, {ValueType::i32}));
+	instance->stackSave
+		= getTypedInstanceExport(moduleInstance, "stackSave", FunctionType({ValueType::i32}, {}));
+	instance->stackRestore = getTypedInstanceExport(
+		moduleInstance, "stackRestore", FunctionType({}, {ValueType::i32}));
 
 	// Create an Emscripten "main thread" and associate it with this context.
 	instance->mainThread = new Emscripten::Thread(instance.get(), context, nullptr, 0);
 	setUserData(context, instance->mainThread);
 
-	instance->mainThread->stackAddress = mainThreadStackAddress;
-	instance->mainThread->numStackBytes = mainThreadNumStackBytes;
+	// TODO
+	instance->mainThread->stackAddress = 0;
+	instance->mainThread->numStackBytes = 0;
 
 	// Initialize the Emscripten "thread local" state.
 	initThreadLocals(instance->mainThread);
 
-	// Call the global initializer functions: newer Emscripten uses a single globalCtors function,
-	// and older Emscripten uses a __GLOBAL__* function for each translation unit.
-	if(Function* globalCtors = asFunctionNullable(getInstanceExport(moduleInstance, "globalCtors")))
+	// Call the __wasm_call_ctors function that initializes globals.
+	if(Function* globalCtors
+	   = asFunctionNullable(getInstanceExport(moduleInstance, "__wasm_call_ctors")))
 	{ invokeFunction(context, globalCtors); }
-
-	for(Uptr exportIndex = 0; exportIndex < module.exports.size(); ++exportIndex)
-	{
-		const Export& functionExport = module.exports[exportIndex];
-		if(functionExport.kind == IR::ExternKind::function
-		   && !strncmp(functionExport.name.c_str(), "__GLOBAL__", 10))
-		{
-			Function* function
-				= asFunctionNullable(getInstanceExport(moduleInstance, functionExport.name));
-			if(function) { invokeFunction(context, function); }
-		}
-	}
 
 	// Store ___errno_location.
 	Function* errNoLocation
@@ -1331,20 +1395,24 @@ void Emscripten::initializeGlobals(const std::shared_ptr<Instance>& instance,
 			context, errNoLocation, FunctionType({ValueType::i32}, {}), nullptr, &errNoResult);
 		instance->errnoAddress = errNoResult.i32;
 	}
+
+	return true;
 }
 
 std::vector<IR::Value> Emscripten::injectCommandArgs(const std::shared_ptr<Instance>& instance,
+													 Runtime::Context* context,
 													 const std::vector<std::string>& argStrings)
 {
 	U8* memoryBase = getMemoryBaseAddress(instance->memory);
 
 	U32* argvOffsets
 		= (U32*)(memoryBase
-				 + dynamicAlloc(instance.get(), (U32)(sizeof(U32) * (argStrings.size() + 1))));
+				 + dynamicAlloc(
+					 instance.get(), context, (U32)(sizeof(U32) * (argStrings.size() + 1))));
 	for(Uptr argIndex = 0; argIndex < argStrings.size(); ++argIndex)
 	{
 		auto stringSize = argStrings[argIndex].size() + 1;
-		auto stringMemory = memoryBase + dynamicAlloc(instance.get(), (U32)stringSize);
+		auto stringMemory = memoryBase + dynamicAlloc(instance.get(), context, (U32)stringSize);
 		memcpy(stringMemory, argStrings[argIndex].c_str(), stringSize);
 		argvOffsets[argIndex] = (U32)(stringMemory - memoryBase);
 	}
@@ -1362,10 +1430,21 @@ bool Emscripten::Instance::resolve(const std::string& moduleName,
 								   IR::ExternType type,
 								   Runtime::Object*& outObject)
 {
-	ModuleInstance* intrinsicModuleInstance
-		= moduleName == "env"
-			  ? env
-			  : moduleName == "asm2wasm" ? asm2wasm : moduleName == "global" ? global : nullptr;
+	ModuleInstance* intrinsicModuleInstance = nullptr;
+	if(moduleName == "env") { intrinsicModuleInstance = env; }
+	else if(moduleName == "asm2wasm")
+	{
+		intrinsicModuleInstance = asm2wasm;
+	}
+	else if(moduleName == "global")
+	{
+		intrinsicModuleInstance = global;
+	}
+	else if(moduleName == "wasi_unstable")
+	{
+		intrinsicModuleInstance = wasi_unstable;
+	}
+
 	if(intrinsicModuleInstance)
 	{
 		outObject = getInstanceExport(intrinsicModuleInstance, exportName);

@@ -1,12 +1,10 @@
 ;; Blake2b hash function
 
 (module
-	(import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
-	(import "env" "_stdout" (global $stdoutPtr i32))
-	(import "env" "memory" (memory 4096))
-	(import "env" "DYNAMICTOP_PTR" (global $DYNAMICTOP_PTR i32))
-	(export "main" (func $main))
-	
+	(import "wasi_unstable" "fd_write" (func $wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+	(import "wasi_unstable" "proc_exit" (func $wasi_proc_exit (param i32)))
+	(memory (export "memory") 4096)
+
 	(global $numIterations i32 (i32.const 10))
 
 	;; IV array
@@ -42,19 +40,27 @@
 	(global $hexitTable i32 (i32.const 128))
 	(data (i32.const 128) "0123456789abcdef")
 	
-	(global $dataAddressAddress i32 (i32.const 144)) ;; 8 bytes
+	(global $dataAddressAddress i32 (i32.const 144)) ;; 4 bytes
 	(global $dataNumBytes i32 (i32.const 134217728))
 	
-	(global $outputStringAddress i32 (i32.const 152)) ;; 129 bytes
+	(global $outputStringAddress i32 (i32.const 148)) ;; 129 bytes
 	
+	(global $outputIOVecAddress i32 (i32.const 280)) ;; 8 bytes
+	(data (i32.const 280) "\94\00\00\00" ;; buf = 148
+						  "\81\00\00\00" ;; buf_len = 129
+	)
+
+	(global $dynamicTopAddressAddress i32 (i32.const 288)) ;; 4 bytes
+	(data (i32.const 288) "\00\08\00\00")                  ;; 2048
+
 	(global $stateAddress i32 (i32.const 1024))	;; 128 bytes
 	(global $stateNumBytes i32 (i32.const 128))
 
 	(func $sbrk (param $numBytes i32) (result i32)
 		(local $resultAddress i32)
-		(local.set $resultAddress (i32.load (global.get $DYNAMICTOP_PTR)))
+		(local.set $resultAddress (i32.load (global.get $dynamicTopAddressAddress)))
 		(i32.store
-			(global.get $DYNAMICTOP_PTR)
+			(global.get $dynamicTopAddressAddress)
 			(i32.add (local.get $resultAddress) (local.get $numBytes))
 			)
 		(local.get $resultAddress)
@@ -1257,11 +1263,9 @@
 		end
 	)
 
-	(func $main
-		(result i32)
-		(local $stdout i32)
+	(func $main (export "_start")
 		(local $i i32)
-		(local $byte i32)		
+		(local $byte i32)
 		
 		;; Initialize the test data.
 		(i32.store (global.get $dataAddressAddress) (call $sbrk (global.get $dataNumBytes)))
@@ -1296,10 +1300,15 @@
 		(i32.store8 offset=128 (global.get $outputStringAddress) (i32.const 10))
 
 		;; Print the string to the output.
-		(local.set $stdout (i32.load align=4 (global.get $stdoutPtr)))
-		(drop (call $__fwrite (global.get $outputStringAddress) (i32.const 1) (i32.const 129) (local.get $stdout)))
+		(call $wasi_fd_write
+			(i32.const 1)                                            ;; fd 1
+			(global.get $outputIOVecAddress)                         ;; iovec address
+			(i32.const 1)                                            ;; 1 iovec
+			(i32.add (global.get $outputIOVecAddress) (i32.const 4)) ;; write the number of written bytes back to the iovec buf_len.
+		)
 
-		(return (i32.const 0))
+		;; Pass the result of wasi_fd_write to wasi_proc_exit
+		call $wasi_proc_exit
 	)
 
 	(func (export "establishStackSpace") (param i32 i32) (nop))

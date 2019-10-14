@@ -25,15 +25,15 @@ namespace WAVM { namespace Emscripten {
 	struct Instance;
 
 	WAVM_API std::shared_ptr<Instance> instantiate(Runtime::Compartment* compartment,
-												   const IR::Module& module,
 												   VFS::VFD* stdIn = nullptr,
 												   VFS::VFD* stdOut = nullptr,
 												   VFS::VFD* stdErr = nullptr);
-	WAVM_API void initializeGlobals(const std::shared_ptr<Instance>& instance,
-									Runtime::Context* context,
-									const IR::Module& module,
-									Runtime::ModuleInstance* moduleInstance);
+	WAVM_API bool initializeModuleInstance(const std::shared_ptr<Instance>& instance,
+										   Runtime::Context* context,
+										   const IR::Module& module,
+										   Runtime::ModuleInstance* moduleInstance);
 	WAVM_API std::vector<IR::Value> injectCommandArgs(const std::shared_ptr<Instance>& instance,
+													  Runtime::Context* context,
 													  const std::vector<std::string>& argStrings);
 
 	WAVM_API Runtime::Resolver& getInstanceResolver(const std::shared_ptr<Instance>& instance);

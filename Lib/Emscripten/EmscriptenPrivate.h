@@ -25,6 +25,25 @@ namespace WAVM { namespace Emscripten {
 
 	struct Instance;
 
+	// Metadata from the emscripten_metadata user section of a module emitted by Emscripten.
+	struct EmscriptenModuleMetadata
+	{
+		U32 metadataVersionMajor;
+		U32 metadataVersionMinor;
+
+		U32 abiVersionMajor;
+		U32 abiVersionMinor;
+
+		U32 backendID;
+		U32 numMemoryPages;
+		U32 numTableElems;
+		U32 globalBaseAddress;
+		U32 dynamicBaseAddress;
+		U32 dynamicTopAddressAddress;
+		U32 tempDoubleAddress;
+		U32 standaloneWASM;
+	};
+
 	// Keeps track of the entry function used by a running WebAssembly-spawned thread.
 	// Used to find garbage collection roots.
 	struct Thread
@@ -67,16 +86,24 @@ namespace WAVM { namespace Emscripten {
 	struct Instance : Runtime::Resolver
 	{
 		Runtime::GCPointer<Runtime::Compartment> compartment;
-		Runtime::GCPointer<Runtime::ModuleInstance> moduleInstance;
 
+		Runtime::GCPointer<Runtime::ModuleInstance> wasi_unstable;
 		Runtime::GCPointer<Runtime::ModuleInstance> env;
 		Runtime::GCPointer<Runtime::ModuleInstance> asm2wasm;
 		Runtime::GCPointer<Runtime::ModuleInstance> global;
 
+		IntrusiveSharedPtr<Thread> mainThread;
+
+		EmscriptenModuleMetadata metadata;
+		Runtime::GCPointer<Runtime::ModuleInstance> moduleInstance;
 		Runtime::GCPointer<Runtime::Memory> memory;
 		Runtime::GCPointer<Runtime::Table> table;
 
-		IntrusiveSharedPtr<Thread> mainThread;
+		Runtime::GCPointer<Runtime::Function> malloc;
+		Runtime::GCPointer<Runtime::Function> free;
+		Runtime::GCPointer<Runtime::Function> stackAlloc;
+		Runtime::GCPointer<Runtime::Function> stackSave;
+		Runtime::GCPointer<Runtime::Function> stackRestore;
 
 		// A global list of running threads created by WebAssembly code.
 		Platform::Mutex threadsMutex;
@@ -149,8 +176,9 @@ namespace WAVM { namespace Emscripten {
 		return thread;
 	}
 
-	bool resizeHeap(Emscripten::Instance* instance, U32 desiredNumBytes);
-	emabi::Address dynamicAlloc(Emscripten::Instance* instance, emabi::Size numBytes);
+	emabi::Address dynamicAlloc(Emscripten::Instance* instance,
+								Runtime::Context* context,
+								emabi::Size numBytes);
 	void initThreadLocals(Thread* thread);
 
 	WAVM_DECLARE_INTRINSIC_MODULE(envThreads)

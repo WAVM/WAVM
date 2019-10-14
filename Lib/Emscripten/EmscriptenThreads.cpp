@@ -292,7 +292,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 
 	// Allocate the aliased stack for the thread.
 	thread->numStackBytes = 2 * 1024 * 1024;
-	thread->stackAddress = dynamicAlloc(instance, thread->numStackBytes);
+	thread->stackAddress = dynamicAlloc(
+		instance, getContextFromRuntimeData(contextRuntimeData), thread->numStackBytes);
 
 	// Increment the Thread's reference count for the pointer passed to the thread's entry function.
 	thread->addRef();
