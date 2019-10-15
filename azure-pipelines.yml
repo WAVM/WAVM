@@ -144,6 +144,7 @@ stages:
           matrix:
             CentOS7x:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
             CentOS70:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+            CentOS8x:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos8'}
             Fedora29:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora29'}
             Fedora30:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora30'}
             Fedora31:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora31'}
@@ -167,6 +168,7 @@ stages:
           matrix:
             CentOS7x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
             CentOS70:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
+            CentOS8x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos8'}
             Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
             Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
             Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
