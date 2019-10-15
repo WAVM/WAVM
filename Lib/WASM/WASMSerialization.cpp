@@ -1473,11 +1473,13 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	}
 }
 
-void WASM::saveBinaryModule(Serialization::OutputStream& stream, const Module& module)
+std::vector<U8> WASM::saveBinaryModule(const Module& module)
 {
 	try
 	{
+		ArrayOutputStream stream;
 		serializeModule(stream, const_cast<Module&>(module));
+		return stream.getBytes();
 	}
 	catch(Serialization::FatalSerializationException const& exception)
 	{
@@ -1485,17 +1487,20 @@ void WASM::saveBinaryModule(Serialization::OutputStream& stream, const Module& m
 	}
 }
 
-bool WASM::loadBinaryModule(InputStream& stream, IR::Module& outModule, LoadError* outError)
+bool WASM::loadBinaryModule(const U8* wasmBytes,
+							Uptr numWASMBytes,
+							IR::Module& outModule,
+							LoadError* outError)
 {
 	// Load the module from a binary WebAssembly file.
 	try
 	{
 		Timing::Timer loadTimer;
-		const Uptr streamNumBytes = stream.capacity();
+		MemoryInputStream stream(wasmBytes, numWASMBytes);
 
 		serializeModule(stream, outModule);
 
-		Timing::logRatePerSecond("Loaded WASM", loadTimer, streamNumBytes / 1024.0 / 1024.0, "MiB");
+		Timing::logRatePerSecond("Loaded WASM", loadTimer, numWASMBytes / 1024.0 / 1024.0, "MiB");
 		return true;
 	}
 	catch(Serialization::FatalSerializationException const& exception)

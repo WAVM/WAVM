@@ -7,7 +7,6 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/WASM/WASM.h"
@@ -124,10 +123,7 @@ int execAssembleCommand(int argc, char** argv)
 	// Serialize the WASM module.
 
 	Timing::Timer saveTimer;
-
-	Serialization::ArrayOutputStream stream;
-	WASM::saveBinaryModule(stream, module);
-	std::vector<U8> wasmBytes = stream.getBytes();
+	std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
 
 	Timing::logRatePerSecond(
 		"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");

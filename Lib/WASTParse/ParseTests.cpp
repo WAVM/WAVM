@@ -12,7 +12,6 @@
 #include "WAVM/IR/Validate.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
@@ -173,9 +172,10 @@ static void parseTestScriptModule(CursorState* cursor,
 			outQuotedModuleType = QuotedModuleType::binary;
 
 			WASM::LoadError loadError;
-			Serialization::MemoryInputStream wasmInputStream(
-				(const U8*)outQuotedModuleString.data(), outQuotedModuleString.size());
-			if(!WASM::loadBinaryModule(wasmInputStream, outModule, &loadError))
+			if(!WASM::loadBinaryModule((const U8*)outQuotedModuleString.data(),
+									   outQuotedModuleString.size(),
+									   outModule,
+									   &loadError))
 			{
 				switch(loadError.type)
 				{

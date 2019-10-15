@@ -18,7 +18,6 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Inline/Version.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
@@ -120,9 +119,8 @@ static bool loadPrecompiledModule(std::vector<U8>&& fileBytes,
 	IR::Module irModule(featureSpec);
 
 	// Deserialize the module IR from the binary format.
-	Serialization::MemoryInputStream stream(fileBytes.data(), fileBytes.size());
 	WASM::LoadError loadError;
-	if(!WASM::loadBinaryModule(stream, irModule, &loadError))
+	if(!WASM::loadBinaryModule(fileBytes.data(), fileBytes.size(), irModule, &loadError))
 	{
 		Log::printf(
 			Log::error, "Error loading WebAssembly binary file: %s\n", loadError.message.c_str());

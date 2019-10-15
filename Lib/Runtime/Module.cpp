@@ -11,7 +11,6 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Intrinsic.h"
@@ -82,10 +81,8 @@ ModuleRef Runtime::compileModule(const IR::Module& irModule)
 	{
 		// Serialize the IR module to WASM.
 		Timing::Timer keyTimer;
-		Serialization::ArrayOutputStream stream;
-		WASM::saveBinaryModule(stream, irModule);
+		std::vector<U8> wasmBytes = WASM::saveBinaryModule(irModule);
 		Timing::logTimer("Created object cache key from IR module", keyTimer);
-		std::vector<U8> wasmBytes = stream.getBytes();
 
 		// Check for cached object code for the module before compiling it.
 		objectCode
@@ -105,8 +102,7 @@ bool Runtime::loadBinaryModule(const U8* wasmBytes,
 {
 	// Load the module IR.
 	IR::Module irModule(std::move(featureSpec));
-	Serialization::MemoryInputStream stream(wasmBytes, numWASMBytes);
-	if(!WASM::loadBinaryModule(stream, irModule, outError)) { return false; }
+	if(!WASM::loadBinaryModule(wasmBytes, numWASMBytes, irModule, outError)) { return false; }
 
 	// Get a pointer to the global object cache, if there is one.
 	std::shared_ptr<ObjectCacheInterface> objectCache = getGlobalObjectCache();

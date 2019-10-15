@@ -9,7 +9,6 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Hash.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
@@ -56,9 +55,7 @@ static void dumpModule(const Module& module, const char* outputDir, DumpFormat d
 
 	if(dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both)
 	{
-		Serialization::ArrayOutputStream outputStream;
-		WASM::saveBinaryModule(outputStream, module);
-		std::vector<U8> wasmBytes = outputStream.getBytes();
+		std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
 		dumpWASM(wasmBytes.data(), wasmBytes.size(), outputDir);
 	}
 }

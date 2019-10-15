@@ -4,7 +4,6 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/WASM/WASM.h"
@@ -19,9 +18,9 @@ static bool loadBinaryModuleFromFile(const char* filename,
 {
 	std::vector<U8> wasmBytes;
 	if(!loadFile(filename, wasmBytes)) { return false; }
-	Serialization::MemoryInputStream inputStream(wasmBytes.data(), wasmBytes.size());
 	WASM::LoadError loadError;
-	if(WASM::loadBinaryModule(inputStream, outModule, &loadError)) { return true; }
+	if(WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), outModule, &loadError))
+	{ return true; }
 	else
 	{
 		Log::printf(Log::error, "%s\n", loadError.message.c_str());

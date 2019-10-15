@@ -6,7 +6,6 @@
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
@@ -28,9 +27,9 @@ bool loadTextOrBinaryModule(const char* filename, IR::Module& outModule)
 	if(fileBytes.size() >= sizeof(WASM::magicNumber)
 	   && !memcmp(fileBytes.data(), WASM::magicNumber, sizeof(WASM::magicNumber)))
 	{
-		Serialization::MemoryInputStream inputStream(fileBytes.data(), fileBytes.size());
 		WASM::LoadError loadError;
-		if(WASM::loadBinaryModule(inputStream, outModule, &loadError)) { return true; }
+		if(WASM::loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule, &loadError))
+		{ return true; }
 		else
 		{
 			Log::printf(Log::error, "%s\n", loadError.message.c_str());
@@ -250,10 +249,7 @@ int execCompileCommand(int argc, char** argv)
 
 		// Serialize the WASM module.
 		Timing::Timer saveTimer;
-
-		Serialization::ArrayOutputStream stream;
-		WASM::saveBinaryModule(stream, irModule);
-		std::vector<U8> wasmBytes = stream.getBytes();
+		std::vector<U8> wasmBytes = WASM::saveBinaryModule(irModule);
 
 		Timing::logRatePerSecond(
 			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");

@@ -4,7 +4,6 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/OptionalStorage.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
@@ -669,9 +668,9 @@ wasm_module_t* wasm_module_new(wasm_engine_t*, const char* wasmBytes, uintptr_t 
 bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 {
 	IR::Module irModule;
-	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
 	WASM::LoadError loadError;
-	if(WASM::loadBinaryModule(inputStream, irModule, &loadError)) { return true; }
+	if(WASM::loadBinaryModule((const U8*)binary, numBinaryBytes, irModule, &loadError))
+	{ return true; }
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());

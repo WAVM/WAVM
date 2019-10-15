@@ -17,7 +17,6 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/WASM/WASM.h"
 
 #if !WAVM_ENABLE_LIBFUZZER
 #include "WAVM/WASTPrint/WASTPrint.h"
@@ -28,16 +27,17 @@ using namespace WAVM::Runtime;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
-	IR::Module module(IR::FeatureSpec(true));
-	module.featureSpec.maxLabelsPerFunction = 65536;
-	module.featureSpec.maxLocals = 1024;
-	module.featureSpec.maxDataSegments = 65536;
-	module.featureSpec.setWAVMFeatures(true);
-	Serialization::MemoryInputStream inputStream(data, numBytes);
-	if(!WASM::loadBinaryModule(inputStream, module)) { return 0; }
+	IR::FeatureSpec featureSpec(true);
+	featureSpec.maxLabelsPerFunction = 65536;
+	featureSpec.maxLocals = 1024;
+	featureSpec.maxDataSegments = 65536;
+	featureSpec.setWAVMFeatures(true);
+	Runtime::ModuleRef module;
+	if(!Runtime::loadBinaryModule(data, numBytes, module, featureSpec)) { return 0; }
+	const IR::Module& moduleIR = getModuleIR(module);
 
 #if !WAVM_ENABLE_LIBFUZZER
-	std::string wastString = WAST::print(module);
+	std::string wastString = WAST::print(moduleIR);
 	Log::printf(Log::Category::debug, "Disassembly:\n%s\n", wastString.c_str());
 #endif
 
@@ -49,13 +49,13 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	GCPointer<Compartment> compartment = createCompartment();
 	{
 		StubResolver stubResolver(compartment, StubFunctionBehavior::zero, false, resourceQuota);
-		LinkResult linkResult = linkModule(module, stubResolver);
+		LinkResult linkResult = linkModule(moduleIR, stubResolver);
 		if(linkResult.success)
 		{
 			catchRuntimeExceptions(
 				[&] {
 					instantiateModule(compartment,
-									  compileModule(module),
+									  module,
 									  std::move(linkResult.resolvedImports),
 									  "fuzz",
 									  resourceQuota);
