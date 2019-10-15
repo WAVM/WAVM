@@ -44,6 +44,11 @@
 "binary"
 "v128"
 "exception_type"
+"custom_section"
+"after"
+"before"
+"data_count"
+"code"
 "ref.host"
 
 # Whitespace
