@@ -5,7 +5,6 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
 #include "WAVM/WASM/WASM.h"
@@ -56,9 +55,7 @@ I32 main(int argc, char** argv)
 			module.featureSpec.setWAVMFeatures(true);
 			generateValidModule(module, random);
 
-			Serialization::ArrayOutputStream arrayOutputStream;
-			WASM::saveBinaryModule(arrayOutputStream, module);
-			std::vector<U8> wasmBytes = arrayOutputStream.getBytes();
+			std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
 
 			const std::string outputFilePath
 				= outputDir + "/compile-model-translated-" + dirEnt.name;
