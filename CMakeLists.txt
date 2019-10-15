@@ -319,7 +319,7 @@ string(TOUPPER "${WAVM_ENABLE_LTO}" UPPERCASE_WAVM_ENABLE_LTO)
 if(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "THIN")
 	list(APPEND WAVM_LTO_C_CXX_FLAGS "-flto=thin")
 	if(NOT MSVC)
-		list(APPEND WAVM_LINKER_FLAGS "-flto")
+		list(APPEND WAVM_LINKER_FLAGS "-flto=thin")
 	endif()
 
 	# Detect which command line options the linker supports to configure the ThinLTO cache.
