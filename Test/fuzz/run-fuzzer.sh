@@ -25,7 +25,8 @@ bin/fuzz-${FUZZER} \
 	-print_pcs=1 \
 	-reduce_depth=1 \
 	-shrink=1 \
-	$EXTRA_ARGS
+	$EXTRA_ARGS \
+	|| true
 
 # Copy the current corpus into the archive
-cp -rf corpora/${FUZZER} corpora/archive
+cp -rf corpora/${FUZZER} corpora-archive
