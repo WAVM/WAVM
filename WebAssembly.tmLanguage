@@ -49,6 +49,7 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])block(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])loop(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])if(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])then(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])else(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])end(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])try(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
