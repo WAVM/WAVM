@@ -35,7 +35,7 @@ namespace LLVMRuntimeSymbols {
 	extern "C" void __CxxFrameHandler3();
 #else
 	extern "C" void wavm_probe_stack();
-	extern "C" void __gxx_personality_v0();
+	extern "C" int __gxx_personality_v0();
 	extern "C" void* __cxa_begin_catch(void*) throw();
 	extern "C" void __cxa_end_catch();
 #endif
