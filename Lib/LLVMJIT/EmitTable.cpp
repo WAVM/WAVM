@@ -89,7 +89,7 @@ void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
 		{destOffset,
 		 sourceOffset,
 		 numElements,
-		 moduleContext.moduleInstanceId,
+		 moduleContext.instanceId,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
 		 emitLiteral(llvmContext, imm.elemSegmentIndex)});
 }
@@ -101,7 +101,7 @@ void EmitFunctionContext::elem_drop(ElemSegmentImm imm)
 		FunctionType({},
 					 TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()}),
 					 IR::CallingConvention::intrinsic),
-		{moduleContext.moduleInstanceId, emitLiteral(llvmContext, imm.elemSegmentIndex)});
+		{moduleContext.instanceId, emitLiteral(llvmContext, imm.elemSegmentIndex)});
 }
 
 void EmitFunctionContext::table_copy(TableCopyImm imm)

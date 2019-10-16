@@ -273,20 +273,20 @@ namespace WAVM { namespace LLVMJIT {
 	inline void setRuntimeFunctionPrefix(LLVMContext& llvmContext,
 										 llvm::Function* function,
 										 llvm::Constant* mutableData,
-										 llvm::Constant* moduleInstanceId,
+										 llvm::Constant* instanceId,
 										 llvm::Constant* typeId)
 	{
 		function->setPrefixData(
 			llvm::ConstantArray::get(llvm::ArrayType::get(llvmContext.iptrType, 4),
 									 {emitLiteral(llvmContext, Uptr(Runtime::ObjectKind::function)),
 									  mutableData,
-									  moduleInstanceId,
+									  instanceId,
 									  typeId}));
 		static_assert(offsetof(Runtime::Function, object) == sizeof(Uptr) * 0,
 					  "Function prefix must match Runtime::Function layout");
 		static_assert(offsetof(Runtime::Function, mutableData) == sizeof(Uptr) * 1,
 					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, moduleInstanceId) == sizeof(Uptr) * 2,
+		static_assert(offsetof(Runtime::Function, instanceId) == sizeof(Uptr) * 2,
 					  "Function prefix must match Runtime::Function layout");
 		static_assert(offsetof(Runtime::Function, encodedType) == sizeof(Uptr) * 3,
 					  "Function prefix must match Runtime::Function layout");

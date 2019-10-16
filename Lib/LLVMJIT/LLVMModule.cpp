@@ -664,7 +664,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	std::vector<MemoryBinding>&& memories,
 	std::vector<GlobalBinding>&& globals,
 	std::vector<ExceptionTypeBinding>&& exceptionTypes,
-	ModuleInstanceBinding moduleInstance,
+	InstanceBinding instance,
 	Uptr tableReferenceBias,
 	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas)
 {
@@ -750,9 +750,9 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 									reinterpret_cast<Uptr>(functionMutableData));
 	}
 
-	// Bind the moduleInstance symbol to point to the ModuleInstance.
-	WAVM_ASSERT(moduleInstance.id != UINTPTR_MAX);
-	importedSymbolMap.addOrFail("biasedModuleInstanceId", moduleInstance.id + 1);
+	// Bind the instance symbol to point to the Instance.
+	WAVM_ASSERT(instance.id != UINTPTR_MAX);
+	importedSymbolMap.addOrFail("biasedInstanceId", instance.id + 1);
 
 	// Bind the tableReferenceBias symbol to the tableReferenceBias.
 	importedSymbolMap.addOrFail("tableReferenceBias", tableReferenceBias);

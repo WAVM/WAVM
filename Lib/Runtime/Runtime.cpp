@@ -45,7 +45,7 @@ DEFINE_GCOBJECT_TYPE(ObjectKind::table, Table, Table);
 DEFINE_GCOBJECT_TYPE(ObjectKind::memory, Memory, Memory);
 DEFINE_GCOBJECT_TYPE(ObjectKind::global, Global, Global);
 DEFINE_GCOBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionType);
-DEFINE_GCOBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
+DEFINE_GCOBJECT_TYPE(ObjectKind::instance, Instance, Instance);
 DEFINE_GCOBJECT_TYPE(ObjectKind::context, Context, Context);
 DEFINE_GCOBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
 DEFINE_GCOBJECT_TYPE(ObjectKind::foreign, Foreign, Foreign);
@@ -117,7 +117,7 @@ ExternType Runtime::getExternType(const Object* object)
 	case ObjectKind::memory: return asMemory(object)->type;
 	case ObjectKind::exceptionType: return asExceptionType(object)->sig;
 
-	case ObjectKind::moduleInstance:
+	case ObjectKind::instance:
 	case ObjectKind::context:
 	case ObjectKind::compartment:
 	case ObjectKind::foreign:
@@ -146,13 +146,13 @@ ContextRuntimeData* Runtime::getContextRuntimeData(const Context* context)
 	return context->runtimeData;
 }
 
-ModuleInstance* Runtime::getModuleInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
-														  Uptr moduleInstanceId)
+Instance* Runtime::getInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
+														  Uptr instanceId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
-	WAVM_ASSERT(compartment->moduleInstances.contains(moduleInstanceId));
-	return compartment->moduleInstances[moduleInstanceId];
+	WAVM_ASSERT(compartment->instances.contains(instanceId));
+	return compartment->instances[instanceId];
 }
 
 Table* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId)

@@ -396,7 +396,7 @@ bool Runtime::growTable(Table* table,
 	return growTableImpl(table, numElementsToGrow, outOldNumElements, true, initialElement);
 }
 
-void Runtime::initElemSegment(ModuleInstance* moduleInstance,
+void Runtime::initElemSegment(Instance* instance,
 							  Uptr elemSegmentIndex,
 							  const IR::ElemSegment::Contents* contents,
 							  Table* table,
@@ -420,7 +420,7 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 		if(sourceIndex >= numSourceIndices || sourceIndex < sourceOffset)
 		{
 			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-						   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+						   {asObject(instance), U64(elemSegmentIndex), sourceIndex});
 		}
 		sourceIndex = branchlessMin(sourceIndex, numSourceIndices);
 
@@ -434,7 +434,7 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 			{
 			case IR::ElemExpr::Type::ref_null: elemObject = nullptr; break;
 			case IR::ElemExpr::Type::ref_func:
-				elemObject = asObject(moduleInstance->functions[elemExpr.index]);
+				elemObject = asObject(instance->functions[elemExpr.index]);
 				break;
 			default: WAVM_UNREACHABLE();
 			}
@@ -445,19 +445,17 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 			switch(contents->externKind)
 			{
 			case IR::ExternKind::function:
-				elemObject = asObject(moduleInstance->functions[externIndex]);
+				elemObject = asObject(instance->functions[externIndex]);
 				break;
-			case IR::ExternKind::table:
-				elemObject = asObject(moduleInstance->tables[externIndex]);
-				break;
+			case IR::ExternKind::table: elemObject = asObject(instance->tables[externIndex]); break;
 			case IR::ExternKind::memory:
-				elemObject = asObject(moduleInstance->memories[externIndex]);
+				elemObject = asObject(instance->memories[externIndex]);
 				break;
 			case IR::ExternKind::global:
-				elemObject = asObject(moduleInstance->globals[externIndex]);
+				elemObject = asObject(instance->globals[externIndex]);
 				break;
 			case IR::ExternKind::exceptionType:
-				elemObject = asObject(moduleInstance->exceptionTypes[externIndex]);
+				elemObject = asObject(instance->exceptionTypes[externIndex]);
 				break;
 
 			case IR::ExternKind::invalid:
@@ -529,31 +527,25 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   U32 destIndex,
 							   U32 sourceIndex,
 							   U32 numElems,
-							   Uptr moduleInstanceId,
+							   Uptr instanceId,
 							   Uptr tableId,
 							   Uptr elemSegmentIndex)
 {
-	ModuleInstance* moduleInstance
-		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
+	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
-	Platform::RWMutex::ShareableLock elemSegmentsLock(moduleInstance->elemSegmentsMutex);
-	if(!moduleInstance->elemSegments[elemSegmentIndex])
+	Platform::RWMutex::ShareableLock elemSegmentsLock(instance->elemSegmentsMutex);
+	if(!instance->elemSegments[elemSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
 		// Make a copy of the shared_ptr to the segment contents and unlock the elem segments mutex.
 		std::shared_ptr<IR::ElemSegment::Contents> contents
-			= moduleInstance->elemSegments[elemSegmentIndex];
+			= instance->elemSegments[elemSegmentIndex];
 		elemSegmentsLock.unlock();
 
-		initElemSegment(moduleInstance,
-						elemSegmentIndex,
-						contents.get(),
-						table,
-						destIndex,
-						sourceIndex,
-						numElems);
+		initElemSegment(
+			instance, elemSegmentIndex, contents.get(), table, destIndex, sourceIndex, numElems);
 	}
 }
 
@@ -561,18 +553,17 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   "elem.drop",
 							   void,
 							   elem_drop,
-							   Uptr moduleInstanceId,
+							   Uptr instanceId,
 							   Uptr elemSegmentIndex)
 {
-	ModuleInstance* moduleInstance
-		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Platform::RWMutex::ExclusiveLock elemSegmentsLock(moduleInstance->elemSegmentsMutex);
+	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
+	Platform::RWMutex::ExclusiveLock elemSegmentsLock(instance->elemSegmentsMutex);
 
-	if(!moduleInstance->elemSegments[elemSegmentIndex])
+	if(!instance->elemSegments[elemSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		moduleInstance->elemSegments[elemSegmentIndex].reset();
+		instance->elemSegments[elemSegmentIndex].reset();
 	}
 }
 

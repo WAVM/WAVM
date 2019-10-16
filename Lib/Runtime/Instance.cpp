@@ -49,25 +49,25 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	};
 }
 
-ModuleInstance::~ModuleInstance()
+Instance::~Instance()
 {
 	if(id != UINTPTR_MAX)
 	{
 		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
-		compartment->moduleInstances.removeOrFail(id);
+		compartment->instances.removeOrFail(id);
 	}
 }
 
-ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
-										   ModuleConstRefParam module,
-										   ImportBindings&& imports,
-										   std::string&& moduleDebugName,
-										   ResourceQuotaRefParam resourceQuota)
+Instance* Runtime::instantiateModule(Compartment* compartment,
+									 ModuleConstRefParam module,
+									 ImportBindings&& imports,
+									 std::string&& moduleDebugName,
+									 ResourceQuotaRefParam resourceQuota)
 {
 	Uptr id = UINTPTR_MAX;
 	{
 		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
-		id = compartment->moduleInstances.add(UINTPTR_MAX, nullptr);
+		id = compartment->instances.add(UINTPTR_MAX, nullptr);
 	}
 	if(id == UINTPTR_MAX) { return nullptr; }
 
@@ -77,7 +77,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	std::vector<Global*> globals;
 	std::vector<ExceptionType*> exceptionTypes;
 
-	// Check the types of the ModuleInstance's imports.
+	// Check the types of the Instance's imports.
 	WAVM_ERROR_UNLESS(imports.size() == module->ir.imports.size());
 	for(Uptr importIndex = 0; importIndex < imports.size(); ++importIndex)
 	{
@@ -152,7 +152,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		if(!table)
 		{
 			Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
-			compartment->moduleInstances.removeOrFail(id);
+			compartment->instances.removeOrFail(id);
 			throwException(ExceptionTypes::outOfMemory);
 		}
 		tables.push_back(table);
@@ -168,7 +168,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		if(!memory)
 		{
 			Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
-			compartment->moduleInstances.removeOrFail(id);
+			compartment->instances.removeOrFail(id);
 			throwException(ExceptionTypes::outOfMemory);
 		}
 		memories.push_back(memory);
@@ -259,7 +259,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		functionDefMutableDatas.push_back(new FunctionMutableData(std::move(debugName)));
 	}
 
-	// Load the compiled module's object code with this module instance's imports.
+	// Load the compiled module's object code with this instance's imports.
 	std::vector<FunctionType> jitTypes = module->ir.types;
 	std::vector<Runtime::Function*> jitFunctionDefs;
 	jitFunctionDefs.resize(module->ir.functions.defs.size(), nullptr);
@@ -302,7 +302,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		exports.push_back(exportedObject);
 	}
 
-	// Copy the module's data and elem segments into the ModuleInstance for later use.
+	// Copy the module's data and elem segments into the Instance for later use.
 	DataSegmentVector dataSegments;
 	ElemSegmentVector elemSegments;
 	for(const DataSegment& dataSegment : module->ir.dataSegments)
@@ -321,25 +321,25 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		WAVM_ASSERT(FunctionType(startFunction->encodedType) == FunctionType());
 	}
 
-	// Create the ModuleInstance and add it to the compartment's modules list.
-	ModuleInstance* moduleInstance = new ModuleInstance(compartment,
-														id,
-														std::move(exportMap),
-														std::move(exports),
-														std::move(functions),
-														std::move(tables),
-														std::move(memories),
-														std::move(globals),
-														std::move(exceptionTypes),
-														startFunction,
-														std::move(dataSegments),
-														std::move(elemSegments),
-														std::move(jitModule),
-														std::move(moduleDebugName),
-														resourceQuota);
+	// Create the Instance and add it to the compartment's modules list.
+	Instance* instance = new Instance(compartment,
+									  id,
+									  std::move(exportMap),
+									  std::move(exports),
+									  std::move(functions),
+									  std::move(tables),
+									  std::move(memories),
+									  std::move(globals),
+									  std::move(exceptionTypes),
+									  startFunction,
+									  std::move(dataSegments),
+									  std::move(elemSegments),
+									  std::move(jitModule),
+									  std::move(moduleDebugName),
+									  resourceQuota);
 	{
 		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
-		compartment->moduleInstances[id] = moduleInstance;
+		compartment->instances[id] = instance;
 	}
 
 	// Initialize the globals with (ref.func ...) initializers that were deferred until after the
@@ -349,9 +349,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		const GlobalDef& globalDef = module->ir.globals.defs[globalDefIndex];
 		if(globalDef.initializer.type == InitializerExpression::Type::ref_func)
 		{
-			Global* global
-				= moduleInstance->globals[module->ir.globals.imports.size() + globalDefIndex];
-			initializeGlobal(global, moduleInstance->functions[globalDef.initializer.ref]);
+			Global* global = instance->globals[module->ir.globals.imports.size() + globalDefIndex];
+			initializeGlobal(global, instance->functions[globalDef.initializer.ref]);
 		}
 	}
 
@@ -361,17 +360,17 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		const DataSegment& dataSegment = module->ir.dataSegments[segmentIndex];
 		if(dataSegment.isActive)
 		{
-			WAVM_ASSERT(moduleInstance->dataSegments[segmentIndex] == nullptr);
+			WAVM_ASSERT(instance->dataSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance->globals, dataSegment.baseOffset);
+				= evaluateInitializer(instance->globals, dataSegment.baseOffset);
 			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
-			initDataSegment(moduleInstance,
+			initDataSegment(instance,
 							segmentIndex,
 							dataSegment.data.get(),
-							moduleInstance->memories[dataSegment.memoryIndex],
+							instance->memories[dataSegment.memoryIndex],
 							baseOffset,
 							0,
 							dataSegment.data->size());
@@ -384,10 +383,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
 		if(elemSegment.type == ElemSegment::Type::active)
 		{
-			WAVM_ASSERT(moduleInstance->elemSegments[segmentIndex] == nullptr);
+			WAVM_ASSERT(instance->elemSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance->globals, elemSegment.baseOffset);
+				= evaluateInitializer(instance->globals, elemSegment.baseOffset);
 			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
@@ -403,8 +402,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			default: WAVM_UNREACHABLE();
 			};
 
-			Table* table = moduleInstance->tables[elemSegment.tableIndex];
-			initElemSegment(moduleInstance,
+			Table* table = instance->tables[elemSegment.tableIndex];
+			initElemSegment(instance,
 							segmentIndex,
 							elemSegment.contents.get(),
 							table,
@@ -414,169 +413,164 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		}
 	}
 
-	return moduleInstance;
+	return instance;
 }
 
-ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
-											 Compartment* newCompartment)
+Instance* Runtime::cloneInstance(Instance* instance, Compartment* newCompartment)
 {
 	// Remap the module's references to the cloned compartment.
 	HashMap<std::string, Object*> newExportMap;
-	for(const auto& pair : moduleInstance->exportMap)
+	for(const auto& pair : instance->exportMap)
 	{ newExportMap.add(pair.key, remapToClonedCompartment(pair.value, newCompartment)); }
 	std::vector<Object*> newExports;
-	for(Object* exportObject : moduleInstance->exports)
+	for(Object* exportObject : instance->exports)
 	{ newExports.push_back(remapToClonedCompartment(exportObject, newCompartment)); }
 
-	std::vector<Function*> newFunctions = moduleInstance->functions;
+	std::vector<Function*> newFunctions = instance->functions;
 
 	std::vector<Table*> newTables;
-	for(Table* table : moduleInstance->tables)
+	for(Table* table : instance->tables)
 	{ newTables.push_back(remapToClonedCompartment(table, newCompartment)); }
 
 	std::vector<Memory*> newMemories;
-	for(Memory* memory : moduleInstance->memories)
+	for(Memory* memory : instance->memories)
 	{ newMemories.push_back(remapToClonedCompartment(memory, newCompartment)); }
 
 	std::vector<Global*> newGlobals;
-	for(Global* global : moduleInstance->globals)
+	for(Global* global : instance->globals)
 	{ newGlobals.push_back(remapToClonedCompartment(global, newCompartment)); }
 
 	std::vector<ExceptionType*> newExceptionTypes;
-	for(ExceptionType* exceptionType : moduleInstance->exceptionTypes)
+	for(ExceptionType* exceptionType : instance->exceptionTypes)
 	{ newExceptionTypes.push_back(remapToClonedCompartment(exceptionType, newCompartment)); }
 
-	Function* newStartFunction
-		= remapToClonedCompartment(moduleInstance->startFunction, newCompartment);
+	Function* newStartFunction = remapToClonedCompartment(instance->startFunction, newCompartment);
 
 	DataSegmentVector newDataSegments;
 	{
-		Platform::RWMutex::ExclusiveLock passiveDataSegmentsLock(moduleInstance->dataSegmentsMutex);
-		newDataSegments = moduleInstance->dataSegments;
+		Platform::RWMutex::ExclusiveLock passiveDataSegmentsLock(instance->dataSegmentsMutex);
+		newDataSegments = instance->dataSegments;
 	}
 
 	ElemSegmentVector newElemSegments;
 	{
-		Platform::RWMutex::ExclusiveLock passiveElemSegmentsLock(moduleInstance->elemSegmentsMutex);
-		newElemSegments = moduleInstance->elemSegments;
+		Platform::RWMutex::ExclusiveLock passiveElemSegmentsLock(instance->elemSegmentsMutex);
+		newElemSegments = instance->elemSegments;
 	}
 
-	// Create the new ModuleInstance in the cloned compartment, but with the same ID as the old one.
-	std::shared_ptr<LLVMJIT::Module> jitModuleCopy = moduleInstance->jitModule;
-	ModuleInstance* newModuleInstance = new ModuleInstance(newCompartment,
-														   moduleInstance->id,
-														   std::move(newExportMap),
-														   std::move(newExports),
-														   std::move(newFunctions),
-														   std::move(newTables),
-														   std::move(newMemories),
-														   std::move(newGlobals),
-														   std::move(newExceptionTypes),
-														   std::move(newStartFunction),
-														   std::move(newDataSegments),
-														   std::move(newElemSegments),
-														   std::move(jitModuleCopy),
-														   std::string(moduleInstance->debugName),
-														   moduleInstance->resourceQuota);
+	// Create the new Instance in the cloned compartment, but with the same ID as the old one.
+	std::shared_ptr<LLVMJIT::Module> jitModuleCopy = instance->jitModule;
+	Instance* newInstance = new Instance(newCompartment,
+										 instance->id,
+										 std::move(newExportMap),
+										 std::move(newExports),
+										 std::move(newFunctions),
+										 std::move(newTables),
+										 std::move(newMemories),
+										 std::move(newGlobals),
+										 std::move(newExceptionTypes),
+										 std::move(newStartFunction),
+										 std::move(newDataSegments),
+										 std::move(newElemSegments),
+										 std::move(jitModuleCopy),
+										 std::string(instance->debugName),
+										 instance->resourceQuota);
 	{
 		Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
-		newCompartment->moduleInstances.insertOrFail(moduleInstance->id, newModuleInstance);
+		newCompartment->instances.insertOrFail(instance->id, newInstance);
 	}
 
-	return newModuleInstance;
+	return newInstance;
 }
 
-Function* Runtime::getStartFunction(const ModuleInstance* moduleInstance)
+Function* Runtime::getStartFunction(const Instance* instance) { return instance->startFunction; }
+
+Memory* Runtime::getDefaultMemory(const Instance* instance)
 {
-	return moduleInstance->startFunction;
+	return instance->memories.size() ? instance->memories[0] : nullptr;
+}
+Table* Runtime::getDefaultTable(const Instance* instance)
+{
+	return instance->tables.size() ? instance->tables[0] : nullptr;
 }
 
-Memory* Runtime::getDefaultMemory(const ModuleInstance* moduleInstance)
+Object* Runtime::getInstanceExport(const Instance* instance, const std::string& name)
 {
-	return moduleInstance->memories.size() ? moduleInstance->memories[0] : nullptr;
-}
-Table* Runtime::getDefaultTable(const ModuleInstance* moduleInstance)
-{
-	return moduleInstance->tables.size() ? moduleInstance->tables[0] : nullptr;
-}
-
-Object* Runtime::getInstanceExport(const ModuleInstance* moduleInstance, const std::string& name)
-{
-	WAVM_ASSERT(moduleInstance);
-	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	WAVM_ASSERT(instance);
+	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr ? *exportedObjectPtr : nullptr;
 }
 
-Object* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+Object* Runtime::getTypedInstanceExport(const Instance* instance,
 										const std::string& name,
 										const IR::ExternType& type)
 {
-	WAVM_ASSERT(moduleInstance);
-	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	WAVM_ASSERT(instance);
+	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && isA(*exportedObjectPtr, type) ? *exportedObjectPtr : nullptr;
 }
 
-Function* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+Function* Runtime::getTypedInstanceExport(const Instance* instance,
 										  const std::string& name,
 										  const IR::FunctionType& type)
 {
-	WAVM_ASSERT(moduleInstance);
-	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	WAVM_ASSERT(instance);
+	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::function
 				   && FunctionType(asFunction(*exportedObjectPtr)->encodedType) == type
 			   ? asFunction(*exportedObjectPtr)
 			   : nullptr;
 }
 
-Table* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+Table* Runtime::getTypedInstanceExport(const Instance* instance,
 									   const std::string& name,
 									   const IR::TableType& type)
 {
-	WAVM_ASSERT(moduleInstance);
-	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	WAVM_ASSERT(instance);
+	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::table
 				   && isSubtype(asTable(*exportedObjectPtr)->type, type)
 			   ? asTable(*exportedObjectPtr)
 			   : nullptr;
 }
 
-Memory* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+Memory* Runtime::getTypedInstanceExport(const Instance* instance,
 										const std::string& name,
 										const IR::MemoryType& type)
 {
-	WAVM_ASSERT(moduleInstance);
-	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	WAVM_ASSERT(instance);
+	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::memory
 				   && isSubtype(asMemory(*exportedObjectPtr)->type, type)
 			   ? asMemory(*exportedObjectPtr)
 			   : nullptr;
 }
 
-Global* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+Global* Runtime::getTypedInstanceExport(const Instance* instance,
 										const std::string& name,
 										const IR::GlobalType& type)
 {
-	WAVM_ASSERT(moduleInstance);
-	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	WAVM_ASSERT(instance);
+	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::global
 				   && isSubtype(asGlobal(*exportedObjectPtr)->type, type)
 			   ? asGlobal(*exportedObjectPtr)
 			   : nullptr;
 }
 
-Runtime::ExceptionType* Runtime::getTypedInstanceExport(const ModuleInstance* moduleInstance,
+Runtime::ExceptionType* Runtime::getTypedInstanceExport(const Instance* instance,
 														const std::string& name,
 														const IR::ExceptionType& type)
 {
-	WAVM_ASSERT(moduleInstance);
-	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+	WAVM_ASSERT(instance);
+	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::function
 				   && isSubtype(asExceptionType(*exportedObjectPtr)->sig.params, type.params)
 			   ? asExceptionType(*exportedObjectPtr)
 			   : nullptr;
 }
 
-const std::vector<Object*>& Runtime::getInstanceExports(const ModuleInstance* moduleInstance)
+const std::vector<Object*>& Runtime::getInstanceExports(const Instance* instance)
 {
-	return moduleInstance->exports;
+	return instance->exports;
 }

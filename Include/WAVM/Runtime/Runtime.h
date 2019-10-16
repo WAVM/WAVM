@@ -68,7 +68,7 @@ namespace WAVM { namespace Runtime {
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::memory, Memory, Memory);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::global, Global, Global);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionType);
-	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
+	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::instance, Instance, Instance);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::context, Context, Context);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::foreign, Foreign, Foreign);
@@ -445,50 +445,48 @@ namespace WAVM { namespace Runtime {
 
 	typedef std::vector<Object*> ImportBindings;
 
-	// Instantiates a compiled module, bindings its imports to the specified objects. May throw a
-	// runtime exception for bad segment offsets.
-	WAVM_API ModuleInstance* instantiateModule(Compartment* compartment,
-											   ModuleConstRefParam module,
-											   ImportBindings&& imports,
-											   std::string&& debugName,
-											   ResourceQuotaRefParam resourceQuota
-											   = ResourceQuotaRef());
+	// Instantiates a module, bindings its imports to the specified objects. May throw a runtime
+	// exception for bad segment offsets.
+	WAVM_API Instance* instantiateModule(Compartment* compartment,
+										 ModuleConstRefParam module,
+										 ImportBindings&& imports,
+										 std::string&& debugName,
+										 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
-	// Gets the start function of a ModuleInstance.
-	WAVM_API Function* getStartFunction(const ModuleInstance* moduleInstance);
+	// Gets the start function of a Instance.
+	WAVM_API Function* getStartFunction(const Instance* instance);
 
-	// Gets the default table/memory for a ModuleInstance.
-	WAVM_API Memory* getDefaultMemory(const ModuleInstance* moduleInstance);
-	WAVM_API Table* getDefaultTable(const ModuleInstance* moduleInstance);
+	// Gets the default table/memory for a Instance.
+	WAVM_API Memory* getDefaultMemory(const Instance* instance);
+	WAVM_API Table* getDefaultTable(const Instance* instance);
 
-	// Gets an object exported by a ModuleInstance by name.
-	WAVM_API Object* getInstanceExport(const ModuleInstance* moduleInstance,
-									   const std::string& name);
+	// Gets an object exported by a Instance by name.
+	WAVM_API Object* getInstanceExport(const Instance* instance, const std::string& name);
 
-	// Gets an object exported by a ModuleInstance by name and type. If the module exports an object
+	// Gets an object exported by a Instance by name and type. If the module exports an object
 	// with the given name, but the type doesn't match, returns nullptr.
-	WAVM_API Object* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+	WAVM_API Object* getTypedInstanceExport(const Instance* instance,
 											const std::string& name,
 											const IR::ExternType& type);
-	WAVM_API Function* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+	WAVM_API Function* getTypedInstanceExport(const Instance* instance,
 											  const std::string& name,
 											  const IR::FunctionType& type);
-	WAVM_API Table* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+	WAVM_API Table* getTypedInstanceExport(const Instance* instance,
 										   const std::string& name,
 										   const IR::TableType& type);
-	WAVM_API Memory* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+	WAVM_API Memory* getTypedInstanceExport(const Instance* instance,
 											const std::string& name,
 											const IR::MemoryType& type);
-	WAVM_API Global* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+	WAVM_API Global* getTypedInstanceExport(const Instance* instance,
 											const std::string& name,
 											const IR::GlobalType& type);
-	WAVM_API ExceptionType* getTypedInstanceExport(const ModuleInstance* moduleInstance,
+	WAVM_API ExceptionType* getTypedInstanceExport(const Instance* instance,
 												   const std::string& name,
 												   const IR::ExceptionType& type);
 
-	// Gets an array of the objects exported by a module instance. The array indices correspond to
-	// the IR::Module::exports array.
-	WAVM_API const std::vector<Object*>& getInstanceExports(const ModuleInstance* moduleInstance);
+	// Gets an array of the objects exported by an instance. The array indices correspond to the
+	// IR::Module::exports array.
+	WAVM_API const std::vector<Object*>& getInstanceExports(const Instance* instance);
 
 	//
 	// Compartments
@@ -506,8 +504,8 @@ namespace WAVM { namespace Runtime {
 	WAVM_API Global* remapToClonedCompartment(Global* global, const Compartment* newCompartment);
 	WAVM_API ExceptionType* remapToClonedCompartment(ExceptionType* exceptionType,
 													 const Compartment* newCompartment);
-	WAVM_API ModuleInstance* remapToClonedCompartment(ModuleInstance* moduleInstance,
-													  const Compartment* newCompartment);
+	WAVM_API Instance* remapToClonedCompartment(Instance* instance,
+												const Compartment* newCompartment);
 
 	WAVM_API bool isInCompartment(const Object* object, const Compartment* compartment);
 

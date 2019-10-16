@@ -127,7 +127,7 @@ void Emscripten::initThreadLocals(Thread* thread)
 	// Call the establishStackSpace function exported by the module to set the thread's stack
 	// address and size.
 	Function* establishStackSpace = asFunctionNullable(
-		getInstanceExport(thread->instance->moduleInstance, "establishStackSpace"));
+		getInstanceExport(thread->instance->instance, "establishStackSpace"));
 	if(establishStackSpace
 	   && getFunctionType(establishStackSpace)
 			  == FunctionType(TypeTuple{}, TypeTuple{ValueType::i32, ValueType::i32}))
@@ -1083,7 +1083,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	else
 	{
 		Function* memalignFunction = getTypedInstanceExport(
-			instance->moduleInstance,
+			instance->instance,
 			"_memalign",
 			FunctionType({ValueType::i32}, {ValueType::i32, ValueType::i32}));
 		if(!memalignFunction) { return emabi::enosys; }
@@ -1314,27 +1314,27 @@ std::shared_ptr<Emscripten::Instance> Emscripten::instantiate(Compartment* compa
 	return instance;
 }
 
-bool Emscripten::initializeModuleInstance(const std::shared_ptr<Instance>& instance,
-										  Context* context,
-										  const IR::Module& module,
-										  ModuleInstance* moduleInstance)
+bool Emscripten::initializeInstance(const std::shared_ptr<Instance>& emscriptenInstance,
+									Context* context,
+									const IR::Module& module,
+									Runtime::Instance* instance)
 {
-	instance->moduleInstance = moduleInstance;
+	emscriptenInstance->instance = instance;
 
 	// Read the module metadata.
-	if(!loadEmscriptenMetadata(module, instance->metadata)) { return false; }
+	if(!loadEmscriptenMetadata(module, emscriptenInstance->metadata)) { return false; }
 
 	// Check the ABI version used by the module.
-	if(instance->metadata.abiVersionMajor != 0)
+	if(emscriptenInstance->metadata.abiVersionMajor != 0)
 	{
 		Log::printf(Log::error,
 					"Unsupported Emscripten ABI major version (%u)\n",
-					instance->metadata.abiVersionMajor);
+					emscriptenInstance->metadata.abiVersionMajor);
 		return false;
 	}
 
 	// Check whether the module was compiled as "standalone".
-	if(!instance->metadata.standaloneWASM)
+	if(!emscriptenInstance->metadata.standaloneWASM)
 	{
 		Log::printf(Log::error,
 					"WAVM only supports Emscripten modules compiled with '-s STANDALONE_WASM=1'.");
@@ -1343,57 +1343,56 @@ bool Emscripten::initializeModuleInstance(const std::shared_ptr<Instance>& insta
 
 	// Find the various Emscripten ABI objects exported by the module.
 
-	instance->memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
-	if(!instance->memory)
+	emscriptenInstance->memory = asMemoryNullable(getInstanceExport(instance, "memory"));
+	if(!emscriptenInstance->memory)
 	{
 		Log::printf(Log::error, "Emscripten module does not export memory.\n");
 		return false;
 	}
 
-	instance->table = asTableNullable(getInstanceExport(moduleInstance, "table"));
+	emscriptenInstance->table = asTableNullable(getInstanceExport(instance, "table"));
 
-	instance->malloc = getTypedInstanceExport(
-		moduleInstance, "malloc", FunctionType({ValueType::i32}, {ValueType::i32}));
-	if(!instance->malloc)
+	emscriptenInstance->malloc = getTypedInstanceExport(
+		instance, "malloc", FunctionType({ValueType::i32}, {ValueType::i32}));
+	if(!emscriptenInstance->malloc)
 	{
 		Log::printf(Log::error, "Emscripten module does not export malloc.\n");
 		return false;
 	}
-	instance->free = getTypedInstanceExport(
-		moduleInstance, "free", FunctionType({ValueType::i32}, {ValueType::i32}));
+	emscriptenInstance->free = getTypedInstanceExport(
+		instance, "free", FunctionType({ValueType::i32}, {ValueType::i32}));
 
-	instance->stackAlloc = getTypedInstanceExport(
-		moduleInstance, "stackAlloc", FunctionType({ValueType::i32}, {ValueType::i32}));
-	instance->stackSave
-		= getTypedInstanceExport(moduleInstance, "stackSave", FunctionType({ValueType::i32}, {}));
-	instance->stackRestore = getTypedInstanceExport(
-		moduleInstance, "stackRestore", FunctionType({}, {ValueType::i32}));
+	emscriptenInstance->stackAlloc = getTypedInstanceExport(
+		instance, "stackAlloc", FunctionType({ValueType::i32}, {ValueType::i32}));
+	emscriptenInstance->stackSave
+		= getTypedInstanceExport(instance, "stackSave", FunctionType({ValueType::i32}, {}));
+	emscriptenInstance->stackRestore
+		= getTypedInstanceExport(instance, "stackRestore", FunctionType({}, {ValueType::i32}));
 
 	// Create an Emscripten "main thread" and associate it with this context.
-	instance->mainThread = new Emscripten::Thread(instance.get(), context, nullptr, 0);
-	setUserData(context, instance->mainThread);
+	emscriptenInstance->mainThread
+		= new Emscripten::Thread(emscriptenInstance.get(), context, nullptr, 0);
+	setUserData(context, emscriptenInstance->mainThread);
 
 	// TODO
-	instance->mainThread->stackAddress = 0;
-	instance->mainThread->numStackBytes = 0;
+	emscriptenInstance->mainThread->stackAddress = 0;
+	emscriptenInstance->mainThread->numStackBytes = 0;
 
 	// Initialize the Emscripten "thread local" state.
-	initThreadLocals(instance->mainThread);
+	initThreadLocals(emscriptenInstance->mainThread);
 
 	// Call the __wasm_call_ctors function that initializes globals.
-	if(Function* globalCtors
-	   = asFunctionNullable(getInstanceExport(moduleInstance, "__wasm_call_ctors")))
+	if(Function* globalCtors = asFunctionNullable(getInstanceExport(instance, "__wasm_call_ctors")))
 	{ invokeFunction(context, globalCtors); }
 
 	// Store ___errno_location.
-	Function* errNoLocation
-		= asFunctionNullable(getInstanceExport(moduleInstance, "___errno_location"));
+	Function* errNoLocation = asFunctionNullable(getInstanceExport(instance, "___errno_location"));
 	if(errNoLocation && getFunctionType(errNoLocation) == FunctionType({ValueType::i32}, {}))
 	{
 		IR::UntaggedValue errNoResult;
 		invokeFunction(
 			context, errNoLocation, FunctionType({ValueType::i32}, {}), nullptr, &errNoResult);
-		instance->errnoAddress = errNoResult.i32;
+		emscriptenInstance->errnoAddress = errNoResult.i32;
 	}
 
 	return true;
@@ -1430,24 +1429,24 @@ bool Emscripten::Instance::resolve(const std::string& moduleName,
 								   IR::ExternType type,
 								   Runtime::Object*& outObject)
 {
-	ModuleInstance* intrinsicModuleInstance = nullptr;
-	if(moduleName == "env") { intrinsicModuleInstance = env; }
+	Runtime::Instance* intrinsicInstance = nullptr;
+	if(moduleName == "env") { intrinsicInstance = env; }
 	else if(moduleName == "asm2wasm")
 	{
-		intrinsicModuleInstance = asm2wasm;
+		intrinsicInstance = asm2wasm;
 	}
 	else if(moduleName == "global")
 	{
-		intrinsicModuleInstance = global;
+		intrinsicInstance = global;
 	}
 	else if(moduleName == "wasi_unstable")
 	{
-		intrinsicModuleInstance = wasi_unstable;
+		intrinsicInstance = wasi_unstable;
 	}
 
-	if(intrinsicModuleInstance)
+	if(intrinsicInstance)
 	{
-		outObject = getInstanceExport(intrinsicModuleInstance, exportName);
+		outObject = getInstanceExport(intrinsicInstance, exportName);
 		if(outObject)
 		{
 			if(isA(outObject, type)) { return true; }

@@ -91,7 +91,7 @@ namespace WAVM { namespace WASI {
 
 	struct ProcessResolver : Runtime::Resolver
 	{
-		HashMap<std::string, Runtime::GCPointer<Runtime::ModuleInstance>> moduleNameToInstanceMap;
+		HashMap<std::string, Runtime::GCPointer<Runtime::Instance>> moduleNameToInstanceMap;
 
 		bool resolve(const std::string& moduleName,
 					 const std::string& exportName,

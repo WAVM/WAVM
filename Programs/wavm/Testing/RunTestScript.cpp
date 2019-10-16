@@ -49,12 +49,12 @@ struct TestScriptState
 	const Config& config;
 
 	bool hasInstantiatedModule;
-	GCPointer<ModuleInstance> lastModuleInstance;
+	GCPointer<Instance> lastInstance;
 	GCPointer<Compartment> compartment;
 	GCPointer<Context> context;
 
-	HashMap<std::string, GCPointer<ModuleInstance>> moduleInternalNameToInstanceMap;
-	HashMap<std::string, GCPointer<ModuleInstance>> moduleNameToInstanceMap;
+	HashMap<std::string, GCPointer<Instance>> moduleInternalNameToInstanceMap;
+	HashMap<std::string, GCPointer<Instance>> moduleNameToInstanceMap;
 
 	std::vector<WAST::Error> errors;
 
@@ -77,8 +77,7 @@ struct TestScriptState
 		compartment = Runtime::cloneCompartment(copyee.compartment);
 		context = Runtime::cloneContext(copyee.context, compartment);
 
-		lastModuleInstance
-			= Runtime::remapToClonedCompartment(copyee.lastModuleInstance, compartment);
+		lastInstance = Runtime::remapToClonedCompartment(copyee.lastInstance, compartment);
 
 		for(const auto& pair : copyee.moduleInternalNameToInstanceMap)
 		{
@@ -99,7 +98,7 @@ struct TestScriptState
 	{
 		// Ensure that the compartment is garbage-collected after clearing all the references held
 		// by the script state.
-		lastModuleInstance = nullptr;
+		lastInstance = nullptr;
 		context = nullptr;
 		moduleInternalNameToInstanceMap.clear();
 		moduleNameToInstanceMap.clear();
@@ -160,10 +159,10 @@ static void testErrorf(TestScriptState& state,
 	state.errors.push_back({locus, std::move(formattedMessage)});
 }
 
-static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
-													  const TextFileLocus& locus,
-													  const char* context,
-													  const std::string& internalName)
+static Instance* getModuleContextByInternalName(TestScriptState& state,
+												const TextFileLocus& locus,
+												const char* context,
+												const std::string& internalName)
 {
 	// Look up the module this invoke uses.
 	if(!state.hasInstantiatedModule)
@@ -171,7 +170,7 @@ static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
 		testErrorf(state, locus, "no module to use in %s", context);
 		return nullptr;
 	}
-	ModuleInstance* moduleInstance = state.lastModuleInstance;
+	Instance* instance = state.lastInstance;
 	if(internalName.size())
 	{
 		auto namedModule = state.moduleInternalNameToInstanceMap.get(internalName);
@@ -180,9 +179,9 @@ static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
 			testErrorf(state, locus, "unknown %s module name: %s", context, internalName.c_str());
 			return nullptr;
 		}
-		moduleInstance = *namedModule;
+		instance = *namedModule;
 	}
-	return moduleInstance;
+	return instance;
 }
 
 static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expectedType)
@@ -266,7 +265,7 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		auto moduleAction = (ModuleAction*)action;
 
 		// Clear the previous module.
-		state.lastModuleInstance = nullptr;
+		state.lastInstance = nullptr;
 		collectCompartmentGarbage(state.compartment);
 
 		// Link and instantiate the module.
@@ -275,13 +274,13 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		if(linkResult.success)
 		{
 			state.hasInstantiatedModule = true;
-			state.lastModuleInstance = instantiateModule(state.compartment,
-														 compileModule(*moduleAction->module),
-														 std::move(linkResult.resolvedImports),
-														 "test module");
+			state.lastInstance = instantiateModule(state.compartment,
+												   compileModule(*moduleAction->module),
+												   std::move(linkResult.resolvedImports),
+												   "test module");
 
 			// Call the module start function, if it has one.
-			Function* startFunction = getStartFunction(state.lastModuleInstance);
+			Function* startFunction = getStartFunction(state.lastInstance);
 			if(startFunction) { invokeFunction(state.context, startFunction); }
 		}
 		else
@@ -302,7 +301,7 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		if(moduleAction->internalModuleName.size())
 		{
 			state.moduleInternalNameToInstanceMap.set(moduleAction->internalModuleName,
-													  state.lastModuleInstance);
+													  state.lastInstance);
 		}
 
 		return true;
@@ -311,16 +310,15 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		auto invokeAction = (InvokeAction*)action;
 
 		// Look up the module this invoke uses.
-		ModuleInstance* moduleInstance = getModuleContextByInternalName(
+		Instance* instance = getModuleContextByInternalName(
 			state, invokeAction->locus, "invoke", invokeAction->internalModuleName);
 
-		// A null module instance at this point indicates a module that failed to link or
-		// instantiate, so don't produce further errors.
-		if(!moduleInstance) { return false; }
+		// A null instance at this point indicates a module that failed to link or instantiate, so
+		// don't produce further errors.
+		if(!instance) { return false; }
 
-		// Find the named export in the module instance.
-		auto function
-			= asFunctionNullable(getInstanceExport(moduleInstance, invokeAction->exportName));
+		// Find the named export in the instance.
+		auto function = asFunctionNullable(getInstanceExport(instance, invokeAction->exportName));
 		if(!function)
 		{
 			testErrorf(state,
@@ -366,15 +364,15 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		auto getAction = (GetAction*)action;
 
 		// Look up the module this get uses.
-		ModuleInstance* moduleInstance = getModuleContextByInternalName(
+		Instance* instance = getModuleContextByInternalName(
 			state, getAction->locus, "get", getAction->internalModuleName);
 
-		// A null module instance at this point indicates a module that failed to link or
-		// instantiate, so just return without further errors.
-		if(!moduleInstance) { return false; }
+		// A null instance at this point indicates a module that failed to link or instantiate, so
+		// just return without further errors.
+		if(!instance) { return false; }
 
-		// Find the named export in the module instance.
-		auto global = asGlobalNullable(getInstanceExport(moduleInstance, getAction->exportName));
+		// Find the named export in the instance.
+		auto global = asGlobalNullable(getInstanceExport(instance, getAction->exportName));
 		if(!global)
 		{
 			testErrorf(state,
@@ -419,9 +417,9 @@ static void processCommand(TestScriptState& state, const Command* command)
 		auto registerCommand = (RegisterCommand*)command;
 
 		// Look up a module by internal name, and bind the result to the public name.
-		ModuleInstance* moduleInstance = getModuleContextByInternalName(
+		Instance* instance = getModuleContextByInternalName(
 			state, registerCommand->locus, "register", registerCommand->internalModuleName);
-		state.moduleNameToInstanceMap.set(registerCommand->moduleName, moduleInstance);
+		state.moduleNameToInstanceMap.set(registerCommand->moduleName, instance);
 		break;
 	}
 	case Command::action: {
@@ -574,19 +572,19 @@ static void processCommand(TestScriptState& state, const Command* command)
 		auto assertCommand = (AssertThrowsCommand*)command;
 
 		// Look up the module containing the expected exception type.
-		ModuleInstance* moduleInstance
+		Instance* instance
 			= getModuleContextByInternalName(state,
 											 assertCommand->locus,
 											 "assert_throws",
 											 assertCommand->exceptionTypeInternalModuleName);
 
-		// A null module instance at this point indicates a module that failed to link or
-		// instantiate, so don't produce further errors.
-		if(!moduleInstance) { break; }
+		// A null instance at this point indicates a module that failed to link or instantiate, so
+		// don't produce further errors.
+		if(!instance) { break; }
 
-		// Find the named export in the module instance.
+		// Find the named export in the instance.
 		auto expectedExceptionType = asExceptionTypeNullable(
-			getInstanceExport(moduleInstance, assertCommand->exceptionTypeExportName));
+			getInstanceExport(instance, assertCommand->exceptionTypeExportName));
 		if(!expectedExceptionType)
 		{
 			testErrorf(state,
@@ -685,14 +683,14 @@ static void processCommand(TestScriptState& state, const Command* command)
 				LinkResult linkResult = linkModule(*assertCommand->moduleAction->module, resolver);
 				if(linkResult.success)
 				{
-					auto moduleInstance
+					auto instance
 						= instantiateModule(state.compartment,
 											compileModule(*assertCommand->moduleAction->module),
 											std::move(linkResult.resolvedImports),
 											"test module");
 
 					// Call the module start function, if it has one.
-					Function* startFunction = getStartFunction(moduleInstance);
+					Function* startFunction = getStartFunction(instance);
 					if(startFunction) { invokeFunction(state.context, startFunction); }
 
 					testErrorf(state, assertCommand->locus, "module was linkable");
@@ -742,12 +740,12 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 	}
 
 	// Check that the original and cloned memory are the same after processing the command.
-	if(state.lastModuleInstance && clonedState.lastModuleInstance)
+	if(state.lastInstance && clonedState.lastInstance)
 	{
-		WAVM_ASSERT(state.lastModuleInstance != clonedState.lastModuleInstance);
+		WAVM_ASSERT(state.lastInstance != clonedState.lastInstance);
 
-		Memory* memory = getDefaultMemory(state.lastModuleInstance);
-		Memory* clonedMemory = getDefaultMemory(clonedState.lastModuleInstance);
+		Memory* memory = getDefaultMemory(state.lastInstance);
+		Memory* clonedMemory = getDefaultMemory(clonedState.lastInstance);
 		if(memory && clonedMemory)
 		{
 			WAVM_ASSERT(memory != clonedMemory);

@@ -87,15 +87,15 @@ namespace WAVM { namespace Emscripten {
 	{
 		Runtime::GCPointer<Runtime::Compartment> compartment;
 
-		Runtime::GCPointer<Runtime::ModuleInstance> wasi_unstable;
-		Runtime::GCPointer<Runtime::ModuleInstance> env;
-		Runtime::GCPointer<Runtime::ModuleInstance> asm2wasm;
-		Runtime::GCPointer<Runtime::ModuleInstance> global;
+		Runtime::GCPointer<Runtime::Instance> wasi_unstable;
+		Runtime::GCPointer<Runtime::Instance> env;
+		Runtime::GCPointer<Runtime::Instance> asm2wasm;
+		Runtime::GCPointer<Runtime::Instance> global;
 
 		IntrusiveSharedPtr<Thread> mainThread;
 
 		EmscriptenModuleMetadata metadata;
-		Runtime::GCPointer<Runtime::ModuleInstance> moduleInstance;
+		Runtime::GCPointer<Runtime::Instance> instance;
 		Runtime::GCPointer<Runtime::Memory> memory;
 		Runtime::GCPointer<Runtime::Table> table;
 

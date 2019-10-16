@@ -115,8 +115,8 @@ void runInvokeBench()
 	// Instantiate the module.
 	GCPointer<Compartment> compartment = Runtime::createCompartment();
 	auto module = compileModule(irModule);
-	auto moduleInstance = instantiateModule(compartment, module, {}, "nopModule");
-	auto function = asFunction(getInstanceExport(moduleInstance, "nopFunction"));
+	auto instance = instantiateModule(compartment, module, {}, "nopModule");
+	auto function = asFunction(getInstanceExport(instance, "nopFunction"));
 
 	// Call the nop function once to ensure the time to create the invoke thunk isn't benchmarked.
 	{
@@ -210,15 +210,15 @@ void runIntrinsicBench()
 
 	// Instantiate the intrinsic module
 	GCPointer<Compartment> compartment = Runtime::createCompartment();
-	auto intrinsicModuleInstance = Intrinsics::instantiateModule(
+	auto intrinsicInstance = Intrinsics::instantiateModule(
 		compartment, {WAVM_INTRINSIC_MODULE_REF(benchmarkIntrinsics)}, "benchmarkIntrinsics");
-	auto intrinsicIdentityFunction = getInstanceExport(intrinsicModuleInstance, "identity");
+	auto intrinsicIdentityFunction = getInstanceExport(intrinsicInstance, "identity");
 
 	// Instantiate the WASM module.
 	auto module = compileModule(irModule);
-	auto moduleInstance = instantiateModule(
+	auto instance = instantiateModule(
 		compartment, module, {intrinsicIdentityFunction}, "benchmarkIntrinsicModule");
-	auto function = asFunction(getInstanceExport(moduleInstance, "benchmarkIntrinsicFunc"));
+	auto function = asFunction(getInstanceExport(instance, "benchmarkIntrinsicFunc"));
 
 	// Call the benchmark function once to ensure the time to create the invoke thunk isn't
 	// benchmarked.

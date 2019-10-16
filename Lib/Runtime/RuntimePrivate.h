@@ -161,7 +161,7 @@ namespace WAVM { namespace Runtime {
 	};
 
 	// An instance of a WebAssembly module.
-	struct ModuleInstance : GCObject
+	struct Instance : GCObject
 	{
 		const Uptr id;
 		const std::string debugName;
@@ -187,22 +187,22 @@ namespace WAVM { namespace Runtime {
 
 		ResourceQuotaRef resourceQuota;
 
-		ModuleInstance(Compartment* inCompartment,
-					   Uptr inID,
-					   HashMap<std::string, Object*>&& inExportMap,
-					   std::vector<Object*>&& inExports,
-					   std::vector<Function*>&& inFunctions,
-					   std::vector<Table*>&& inTables,
-					   std::vector<Memory*>&& inMemories,
-					   std::vector<Global*>&& inGlobals,
-					   std::vector<ExceptionType*>&& inExceptionTypes,
-					   Function* inStartFunction,
-					   DataSegmentVector&& inPassiveDataSegments,
-					   ElemSegmentVector&& inPassiveElemSegments,
-					   std::shared_ptr<LLVMJIT::Module>&& inJITModule,
-					   std::string&& inDebugName,
-					   ResourceQuotaRefParam inResourceQuota)
-		: GCObject(ObjectKind::moduleInstance, inCompartment)
+		Instance(Compartment* inCompartment,
+				 Uptr inID,
+				 HashMap<std::string, Object*>&& inExportMap,
+				 std::vector<Object*>&& inExports,
+				 std::vector<Function*>&& inFunctions,
+				 std::vector<Table*>&& inTables,
+				 std::vector<Memory*>&& inMemories,
+				 std::vector<Global*>&& inGlobals,
+				 std::vector<ExceptionType*>&& inExceptionTypes,
+				 Function* inStartFunction,
+				 DataSegmentVector&& inPassiveDataSegments,
+				 ElemSegmentVector&& inPassiveElemSegments,
+				 std::shared_ptr<LLVMJIT::Module>&& inJITModule,
+				 std::string&& inDebugName,
+				 ResourceQuotaRefParam inResourceQuota)
+		: GCObject(ObjectKind::instance, inCompartment)
 		, id(inID)
 		, debugName(std::move(inDebugName))
 		, exportMap(std::move(inExportMap))
@@ -220,7 +220,7 @@ namespace WAVM { namespace Runtime {
 		{
 		}
 
-		virtual ~ModuleInstance() override;
+		virtual ~Instance() override;
 	};
 
 	struct Context : GCObject
@@ -243,7 +243,7 @@ namespace WAVM { namespace Runtime {
 		IndexMap<Uptr, Memory*> memories;
 		IndexMap<Uptr, Global*> globals;
 		IndexMap<Uptr, ExceptionType*> exceptionTypes;
-		IndexMap<Uptr, ModuleInstance*> moduleInstances;
+		IndexMap<Uptr, Instance*> instances;
 		IndexMap<Uptr, Context*> contexts;
 
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
@@ -324,19 +324,17 @@ namespace WAVM { namespace Runtime {
 	Table* cloneTable(Table* memory, Compartment* newCompartment);
 	Memory* cloneMemory(Memory* memory, Compartment* newCompartment);
 	ExceptionType* cloneExceptionType(ExceptionType* exceptionType, Compartment* newCompartment);
-	ModuleInstance* cloneModuleInstance(ModuleInstance* moduleInstance,
-										Compartment* newCompartment);
+	Instance* cloneInstance(Instance* instance, Compartment* newCompartment);
 
 	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
 	Global* cloneGlobal(Global* global, Compartment* newCompartment);
 
-	ModuleInstance* getModuleInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
-													 Uptr moduleInstanceId);
+	Instance* getInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr instanceId);
 	Table* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId);
 	Memory* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId);
 
 	// Initialize a data segment (equivalent to executing a memory.init instruction).
-	void initDataSegment(ModuleInstance* moduleInstance,
+	void initDataSegment(Instance* instance,
 						 Uptr dataSegmentIndex,
 						 const std::vector<U8>* dataVector,
 						 Memory* memory,
@@ -345,7 +343,7 @@ namespace WAVM { namespace Runtime {
 						 Uptr numBytes);
 
 	// Initialize a table segment (equivalent to executing a table.init instruction).
-	void initElemSegment(ModuleInstance* moduleInstance,
+	void initElemSegment(Instance* instance,
 						 Uptr elemSegmentIndex,
 						 const IR::ElemSegment::Contents* contents,
 						 Table* table,

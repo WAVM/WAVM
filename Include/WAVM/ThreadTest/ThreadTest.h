@@ -2,9 +2,9 @@
 
 namespace WAVM { namespace Runtime {
 	struct Compartment;
-	struct ModuleInstance;
+	struct Instance;
 }}
 
 namespace WAVM { namespace ThreadTest {
-	WAVM_API Runtime::ModuleInstance* instantiate(Runtime::Compartment* compartment);
+	WAVM_API Runtime::Instance* instantiate(Runtime::Compartment* compartment);
 }}

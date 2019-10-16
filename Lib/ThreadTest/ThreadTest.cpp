@@ -219,7 +219,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U
 	}
 }
 
-ModuleInstance* ThreadTest::instantiate(Compartment* compartment)
+Instance* ThreadTest::instantiate(Compartment* compartment)
 {
 	return Intrinsics::instantiateModule(
 		compartment, {WAVM_INTRINSIC_MODULE_REF(threadTest)}, "threadTest");

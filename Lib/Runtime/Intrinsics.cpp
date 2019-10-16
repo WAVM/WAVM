@@ -106,7 +106,7 @@ Memory* Intrinsics::Memory::instantiate(Compartment* compartment)
 	return createMemory(compartment, type, name);
 }
 
-ModuleInstance* Intrinsics::instantiateModule(
+Instance* Intrinsics::instantiateModule(
 	Compartment* compartment,
 	const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
 	std::string&& debugName,
@@ -171,7 +171,7 @@ ModuleInstance* Intrinsics::instantiateModule(
 					exceptionTypes.push_back(asExceptionType(object));
 					break;
 
-				case ObjectKind::moduleInstance:
+				case ObjectKind::instance:
 				case ObjectKind::context:
 				case ObjectKind::compartment:
 				case ObjectKind::foreign:
@@ -183,27 +183,27 @@ ModuleInstance* Intrinsics::instantiateModule(
 	}
 
 	Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
-	const Uptr id = compartment->moduleInstances.add(UINTPTR_MAX, nullptr);
+	const Uptr id = compartment->instances.add(UINTPTR_MAX, nullptr);
 	if(id == UINTPTR_MAX) { throwException(ExceptionTypes::outOfMemory, {}); }
-	auto moduleInstance = new ModuleInstance(compartment,
-											 id,
-											 std::move(exportMap),
-											 std::move(exports),
-											 std::move(functions),
-											 std::move(tables),
-											 std::move(memories),
-											 std::move(globals),
-											 std::move(exceptionTypes),
-											 nullptr,
-											 {},
-											 {},
-											 nullptr,
-											 std::move(debugName),
-											 ResourceQuotaRef());
-	compartment->moduleInstances[id] = moduleInstance;
+	auto instance = new Instance(compartment,
+								 id,
+								 std::move(exportMap),
+								 std::move(exports),
+								 std::move(functions),
+								 std::move(tables),
+								 std::move(memories),
+								 std::move(globals),
+								 std::move(exceptionTypes),
+								 nullptr,
+								 {},
+								 {},
+								 nullptr,
+								 std::move(debugName),
+								 ResourceQuotaRef());
+	compartment->instances[id] = instance;
 
 	Timing::logTimer("Instantiated intrinsic module", timer);
-	return moduleInstance;
+	return instance;
 }
 
 HashMap<std::string, Intrinsics::Function*> Intrinsics::getUninstantiatedFunctions(

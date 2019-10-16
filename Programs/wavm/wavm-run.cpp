@@ -444,6 +444,7 @@ struct State
 			codeKey = Hash<U64>()(llvmjitVersion.llvmMajor, codeKey);
 			codeKey = Hash<U64>()(llvmjitVersion.llvmMinor, codeKey);
 			codeKey = Hash<U64>()(llvmjitVersion.llvmPatch, codeKey);
+			codeKey = Hash<U64>()(llvmjitVersion.llvmjitVersion, codeKey);
 			codeKey = Hash<U64>()(WAVM_VERSION_MAJOR, codeKey);
 			codeKey = Hash<U64>()(WAVM_VERSION_MINOR, codeKey);
 			codeKey = Hash<U64>()(WAVM_VERSION_PATCH, codeKey);
@@ -576,20 +577,19 @@ struct State
 		return true;
 	}
 
-	I32 execute(const IR::Module& irModule, ModuleInstance* moduleInstance)
+	I32 execute(const IR::Module& irModule, Instance* instance)
 	{
 		// Create a WASM execution context.
 		Context* context = Runtime::createContext(compartment);
 
 		// Call the module start function, if it has one.
-		Function* startFunction = getStartFunction(moduleInstance);
+		Function* startFunction = getStartFunction(instance);
 		if(startFunction) { invokeFunction(context, startFunction); }
 
 		if(emscriptenInstance)
 		{
-			// Initialize the Emscripten module instance.
-			if(!Emscripten::initializeModuleInstance(
-				   emscriptenInstance, context, irModule, moduleInstance))
+			// Initialize the Emscripten instance.
+			if(!Emscripten::initializeInstance(emscriptenInstance, context, irModule, instance))
 			{ return EXIT_FAILURE; }
 		}
 
@@ -598,7 +598,7 @@ struct State
 		std::vector<Value> invokeArgs;
 		if(functionName)
 		{
-			function = asFunctionNullable(getInstanceExport(moduleInstance, functionName));
+			function = asFunctionNullable(getInstanceExport(instance, functionName));
 			if(!function)
 			{
 				Log::printf(Log::error, "Module does not export '%s'\n", functionName);
@@ -645,7 +645,7 @@ struct State
 		else if(abi == ABI::wasi)
 		{
 			// WASI just calls a _start function with the signature ()->().
-			function = getTypedInstanceExport(moduleInstance, "_start", FunctionType());
+			function = getTypedInstanceExport(instance, "_start", FunctionType());
 			if(!function)
 			{
 				Log::printf(Log::error, "WASM module doesn't export WASI _start function.\n");
@@ -655,9 +655,8 @@ struct State
 		else
 		{
 			// Emscripten calls main or _main with a signature (i32, i32)|() -> i32?
-			function = asFunctionNullable(getInstanceExport(moduleInstance, "main"));
-			if(!function)
-			{ function = asFunctionNullable(getInstanceExport(moduleInstance, "_main")); }
+			function = asFunctionNullable(getInstanceExport(instance, "main"));
+			if(!function) { function = asFunctionNullable(getInstanceExport(instance, "_main")); }
 			if(!function)
 			{
 				Log::printf(Log::error, "Module does not export main function\n");
@@ -792,14 +791,14 @@ struct State
 		}
 
 		// Instantiate the module.
-		ModuleInstance* moduleInstance = instantiateModule(
+		Instance* instance = instantiateModule(
 			compartment, module, std::move(linkResult.resolvedImports), filename);
-		if(!moduleInstance) { return EXIT_FAILURE; }
+		if(!instance) { return EXIT_FAILURE; }
 
 		// Take the module's memory as the WASI process memory.
 		if(abi == ABI::wasi)
 		{
-			Memory* memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
+			Memory* memory = asMemoryNullable(getInstanceExport(instance, "memory"));
 			if(!memory)
 			{
 				Log::printf(Log::error, "WASM module doesn't export WASI memory.\n");
@@ -809,7 +808,7 @@ struct State
 		}
 
 		// Execute the program.
-		auto executeThunk = [&] { return execute(irModule, moduleInstance); };
+		auto executeThunk = [&] { return execute(irModule, instance); };
 		int result;
 		if(emscriptenInstance) { result = Emscripten::catchExit(std::move(executeThunk)); }
 		else if(wasiProcess)

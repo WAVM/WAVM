@@ -28,7 +28,7 @@ IMPLEMENT_GCOBJECT_REFCOUNTING(Table)
 IMPLEMENT_GCOBJECT_REFCOUNTING(Memory)
 IMPLEMENT_GCOBJECT_REFCOUNTING(Global)
 IMPLEMENT_GCOBJECT_REFCOUNTING(ExceptionType)
-IMPLEMENT_GCOBJECT_REFCOUNTING(ModuleInstance)
+IMPLEMENT_GCOBJECT_REFCOUNTING(Instance)
 IMPLEMENT_GCOBJECT_REFCOUNTING(Context)
 IMPLEMENT_GCOBJECT_REFCOUNTING(Compartment)
 IMPLEMENT_GCOBJECT_REFCOUNTING(Foreign)
@@ -80,12 +80,11 @@ struct GCState
 			if(object->kind == ObjectKind::function)
 			{
 				Function* function = asFunction(object);
-				if(function->moduleInstanceId != UINTPTR_MAX)
+				if(function->instanceId != UINTPTR_MAX)
 				{
-					WAVM_ASSERT(compartment->moduleInstances.contains(function->moduleInstanceId));
-					ModuleInstance* moduleInstance
-						= compartment->moduleInstances[function->moduleInstanceId];
-					visitReference(moduleInstance);
+					WAVM_ASSERT(compartment->instances.contains(function->instanceId));
+					Instance* instance = compartment->instances[function->instanceId];
+					visitReference(instance);
 				}
 			}
 			else if(unreferencedObjects.remove((GCObject*)object))
@@ -146,13 +145,13 @@ struct GCState
 			}
 			break;
 		}
-		case ObjectKind::moduleInstance: {
-			ModuleInstance* moduleInstance = asModuleInstance(object);
-			visitReferenceArray(moduleInstance->functions);
-			visitReferenceArray(moduleInstance->tables);
-			visitReferenceArray(moduleInstance->memories);
-			visitReferenceArray(moduleInstance->globals);
-			visitReferenceArray(moduleInstance->exceptionTypes);
+		case ObjectKind::instance: {
+			Instance* instance = asInstance(object);
+			visitReferenceArray(instance->functions);
+			visitReferenceArray(instance->tables);
+			visitReferenceArray(instance->memories);
+			visitReferenceArray(instance->globals);
+			visitReferenceArray(instance->exceptionTypes);
 			break;
 		}
 		case ObjectKind::compartment: {
@@ -181,13 +180,13 @@ static bool collectGarbageImpl(Compartment* compartment)
 
 	// Initialize the GC state from the compartment's various sets of objects.
 	state.initGCObject(compartment);
-	for(ModuleInstance* moduleInstance : compartment->moduleInstances)
+	for(Instance* instance : compartment->instances)
 	{
-		if(moduleInstance)
+		if(instance)
 		{
-			// Transfer root markings from functions to their module instance.
+			// Transfer root markings from functions to their instance.
 			bool hasRootFunction = false;
-			for(Function* function : moduleInstance->functions)
+			for(Function* function : instance->functions)
 			{
 				if(function->mutableData->numRootReferences)
 				{
@@ -196,7 +195,7 @@ static bool collectGarbageImpl(Compartment* compartment)
 				}
 			}
 
-			state.initGCObject(moduleInstance, hasRootFunction);
+			state.initGCObject(instance, hasRootFunction);
 		}
 	}
 	for(Memory* memory : compartment->memories) { state.initGCObject(memory); }

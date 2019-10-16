@@ -282,7 +282,7 @@ U8* Runtime::getValidatedMemoryOffsetRange(Memory* memory, Uptr address, Uptr nu
 		numBytes);
 }
 
-void Runtime::initDataSegment(ModuleInstance* moduleInstance,
+void Runtime::initDataSegment(Instance* instance,
 							  Uptr dataSegmentIndex,
 							  const std::vector<U8>* dataVector,
 							  Memory* memory,
@@ -305,9 +305,8 @@ void Runtime::initDataSegment(ModuleInstance* moduleInstance,
 									dataVector->size() - sourceOffset);
 				});
 			}
-			throwException(
-				ExceptionTypes::outOfBoundsDataSegmentAccess,
-				{asObject(moduleInstance), U64(dataSegmentIndex), U64(dataVector->size())});
+			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
+						   {asObject(instance), U64(dataSegmentIndex), U64(dataVector->size())});
 		}
 		else
 		{
@@ -348,25 +347,23 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 							   U32 destAddress,
 							   U32 sourceOffset,
 							   U32 numBytes,
-							   Uptr moduleInstanceId,
+							   Uptr instanceId,
 							   Uptr memoryId,
 							   Uptr dataSegmentIndex)
 {
-	ModuleInstance* moduleInstance
-		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
+	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	Platform::RWMutex::ShareableLock dataSegmentsLock(moduleInstance->dataSegmentsMutex);
-	if(!moduleInstance->dataSegments[dataSegmentIndex])
+	Platform::RWMutex::ShareableLock dataSegmentsLock(instance->dataSegmentsMutex);
+	if(!instance->dataSegments[dataSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
 		// Make a copy of the shared_ptr to the data and unlock the data segments mutex.
-		std::shared_ptr<std::vector<U8>> dataVector
-			= moduleInstance->dataSegments[dataSegmentIndex];
+		std::shared_ptr<std::vector<U8>> dataVector = instance->dataSegments[dataSegmentIndex];
 		dataSegmentsLock.unlock();
 
-		initDataSegment(moduleInstance,
+		initDataSegment(instance,
 						dataSegmentIndex,
 						dataVector.get(),
 						memory,
@@ -380,18 +377,17 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 							   "data.drop",
 							   void,
 							   data_drop,
-							   Uptr moduleInstanceId,
+							   Uptr instanceId,
 							   Uptr dataSegmentIndex)
 {
-	ModuleInstance* moduleInstance
-		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Platform::RWMutex::ExclusiveLock dataSegmentsLock(moduleInstance->dataSegmentsMutex);
+	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
+	Platform::RWMutex::ExclusiveLock dataSegmentsLock(instance->dataSegmentsMutex);
 
-	if(!moduleInstance->dataSegments[dataSegmentIndex])
+	if(!instance->dataSegments[dataSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		moduleInstance->dataSegments[dataSegmentIndex].reset();
+		instance->dataSegments[dataSegmentIndex].reset();
 	}
 }
 

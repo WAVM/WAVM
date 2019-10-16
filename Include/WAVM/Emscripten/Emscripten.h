@@ -16,7 +16,7 @@ namespace WAVM { namespace VFS {
 namespace WAVM { namespace Runtime {
 	struct Compartment;
 	struct Context;
-	struct ModuleInstance;
+	struct Instance;
 	struct Resolver;
 }}
 
@@ -28,10 +28,10 @@ namespace WAVM { namespace Emscripten {
 												   VFS::VFD* stdIn = nullptr,
 												   VFS::VFD* stdOut = nullptr,
 												   VFS::VFD* stdErr = nullptr);
-	WAVM_API bool initializeModuleInstance(const std::shared_ptr<Instance>& instance,
+	WAVM_API bool initializeInstance(const std::shared_ptr<Instance>& emscriptenInstance,
 										   Runtime::Context* context,
 										   const IR::Module& module,
-										   Runtime::ModuleInstance* moduleInstance);
+										   Runtime::Instance* instance);
 	WAVM_API std::vector<IR::Value> injectCommandArgs(const std::shared_ptr<Instance>& instance,
 													  Runtime::Context* context,
 													  const std::vector<std::string>& argStrings);

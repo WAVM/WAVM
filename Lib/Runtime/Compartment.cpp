@@ -19,10 +19,10 @@ Runtime::Compartment::Compartment()
 , unalignedRuntimeData(nullptr)
 , tables(0, maxTables - 1)
 , memories(0, maxMemories - 1)
-// Use UINTPTR_MAX as an invalid ID for globals, exception types, and module instances.
+// Use UINTPTR_MAX as an invalid ID for globals, exception types, and instances.
 , globals(0, UINTPTR_MAX - 1)
 , exceptionTypes(0, UINTPTR_MAX - 1)
-, moduleInstances(0, UINTPTR_MAX - 1)
+, instances(0, UINTPTR_MAX - 1)
 , contexts(0, maxContexts - 1)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
@@ -45,7 +45,7 @@ Runtime::Compartment::~Compartment()
 	WAVM_ASSERT(!tables.size());
 	WAVM_ASSERT(!exceptionTypes.size());
 	WAVM_ASSERT(!globals.size());
-	WAVM_ASSERT(!moduleInstances.size());
+	WAVM_ASSERT(!instances.size());
 	WAVM_ASSERT(!contexts.size());
 
 	Platform::freeAlignedVirtualPages(
@@ -98,11 +98,11 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 		WAVM_ASSERT(newExceptionType->id == exceptionType->id);
 	}
 
-	// Clone module instances.
-	for(ModuleInstance* moduleInstance : compartment->moduleInstances)
+	// Clone instances.
+	for(Instance* instance : compartment->instances)
 	{
-		ModuleInstance* newModuleInstance = cloneModuleInstance(moduleInstance, newCompartment);
-		WAVM_ASSERT(newModuleInstance->id == moduleInstance->id);
+		Instance* newInstance = cloneInstance(instance, newCompartment);
+		WAVM_ASSERT(newInstance->id == instance->id);
 	}
 
 	Timing::logTimer("Cloned compartment", timer);
@@ -122,8 +122,7 @@ Object* Runtime::remapToClonedCompartment(Object* object, const Compartment* new
 	case ObjectKind::global: return newCompartment->globals[asGlobal(object)->id];
 	case ObjectKind::exceptionType:
 		return newCompartment->exceptionTypes[asExceptionType(object)->id];
-	case ObjectKind::moduleInstance:
-		return newCompartment->moduleInstances[asModuleInstance(object)->id];
+	case ObjectKind::instance: return newCompartment->instances[asInstance(object)->id];
 
 	case ObjectKind::function:
 	case ObjectKind::context:
@@ -163,12 +162,11 @@ ExceptionType* Runtime::remapToClonedCompartment(ExceptionType* exceptionType,
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
 	return newCompartment->exceptionTypes[exceptionType->id];
 }
-ModuleInstance* Runtime::remapToClonedCompartment(ModuleInstance* moduleInstance,
-												  const Compartment* newCompartment)
+Instance* Runtime::remapToClonedCompartment(Instance* instance, const Compartment* newCompartment)
 {
-	if(!moduleInstance) { return nullptr; }
+	if(!instance) { return nullptr; }
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
-	return newCompartment->moduleInstances[moduleInstance->id];
+	return newCompartment->instances[instance->id];
 }
 
 bool Runtime::isInCompartment(const Object* object, const Compartment* compartment)
@@ -176,17 +174,17 @@ bool Runtime::isInCompartment(const Object* object, const Compartment* compartme
 	if(object->kind == ObjectKind::function)
 	{
 		// The function may be in multiple compartments, but if this compartment maps the function's
-		// moduleInstanceId to a ModuleInstance with the LLVMJIT LoadedModule that contains this
+		// instanceId to a Instance with the LLVMJIT LoadedModule that contains this
 		// function, then the function is in this compartment.
 		Function* function = (Function*)object;
 
-		// Treat functions with moduleInstanceId=UINTPTR_MAX as if they are in all compartments.
-		if(function->moduleInstanceId == UINTPTR_MAX) { return true; }
+		// Treat functions with instanceId=UINTPTR_MAX as if they are in all compartments.
+		if(function->instanceId == UINTPTR_MAX) { return true; }
 
 		Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
-		if(!compartment->moduleInstances.contains(function->moduleInstanceId)) { return false; }
-		ModuleInstance* moduleInstance = compartment->moduleInstances[function->moduleInstanceId];
-		return moduleInstance->jitModule.get() == function->mutableData->jitModule;
+		if(!compartment->instances.contains(function->instanceId)) { return false; }
+		Instance* instance = compartment->instances[function->instanceId];
+		return instance->jitModule.get() == function->mutableData->jitModule;
 	}
 	else
 	{

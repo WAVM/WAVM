@@ -24,7 +24,7 @@ namespace WAVM { namespace Intrinsics {
 		WAVM_API ~Module();
 	};
 
-	WAVM_API Runtime::ModuleInstance* instantiateModule(
+	WAVM_API Runtime::Instance* instantiateModule(
 		Runtime::Compartment* compartment,
 		const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
 		std::string&& debugName,
@@ -83,9 +83,9 @@ namespace WAVM { namespace Intrinsics {
 		Memory(Intrinsics::Module* moduleRef, const char* inName, const IR::MemoryType& inType);
 		WAVM_API Runtime::Memory* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::Memory* getInstance(Runtime::ModuleInstance* moduleInstance)
+		Runtime::Memory* getInstance(Runtime::Instance* instance)
 		{
-			return asMemory(Runtime::getInstanceExport(moduleInstance, name));
+			return asMemory(Runtime::getInstanceExport(instance, name));
 		}
 
 	private:
@@ -99,9 +99,9 @@ namespace WAVM { namespace Intrinsics {
 		Table(Intrinsics::Module* moduleRef, const char* inName, const IR::TableType& inType);
 		WAVM_API Runtime::Table* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::Table* getInstance(Runtime::ModuleInstance* moduleInstance)
+		Runtime::Table* getInstance(Runtime::Instance* instance)
 		{
-			return asTable(Runtime::getInstanceExport(moduleInstance, name));
+			return asTable(Runtime::getInstanceExport(instance, name));
 		}
 
 	private:

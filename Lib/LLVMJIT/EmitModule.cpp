@@ -176,13 +176,13 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		moduleContext.exceptionTypeIds.push_back(exceptionTypeId);
 	}
 
-	// Create a LLVM external global that will point to the ModuleInstance.
-	llvm::Constant* biasedModuleInstanceIdAsPointer
-		= createImportedConstant(outLLVMModule, "biasedModuleInstanceId");
-	llvm::Constant* biasedModuleInstanceId
-		= llvm::ConstantExpr::getPtrToInt(biasedModuleInstanceIdAsPointer, llvmContext.iptrType);
-	moduleContext.moduleInstanceId
-		= llvm::ConstantExpr::getSub(biasedModuleInstanceId, emitLiteral(llvmContext, Uptr(1)));
+	// Create a LLVM external global that will point to the Instance.
+	llvm::Constant* biasedInstanceIdAsPointer
+		= createImportedConstant(outLLVMModule, "biasedInstanceId");
+	llvm::Constant* biasedInstanceId
+		= llvm::ConstantExpr::getPtrToInt(biasedInstanceIdAsPointer, llvmContext.iptrType);
+	moduleContext.instanceId
+		= llvm::ConstantExpr::getSub(biasedInstanceId, emitLiteral(llvmContext, Uptr(1)));
 
 	// Create a LLVM external global that will be a bias applied to all references in a table.
 	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
@@ -258,7 +258,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		setRuntimeFunctionPrefix(llvmContext,
 								 function,
 								 functionDefMutableDataAsIptr,
-								 moduleContext.moduleInstanceId,
+								 moduleContext.instanceId,
 								 moduleContext.typeIds[functionDef.type.index]);
 		setFunctionAttributes(targetMachine, function);
 

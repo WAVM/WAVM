@@ -36,7 +36,7 @@ namespace WAVM { namespace Runtime {
 		exceptionType = (U8)IR::ExternKind::exceptionType,
 
 		// Runtime-specific object kinds that are only used by transient runtime objects.
-		moduleInstance = 5,
+		instance = 5,
 		context = 6,
 		compartment = 7,
 		foreign = 8,
@@ -167,16 +167,16 @@ namespace WAVM { namespace Runtime {
 	{
 		Object object;
 		FunctionMutableData* mutableData;
-		const Uptr moduleInstanceId;
+		const Uptr instanceId;
 		const IR::FunctionType::Encoding encodedType;
 		const U8 code[1];
 
 		Function(FunctionMutableData* inMutableData,
-				 Uptr inModuleInstanceId,
+				 Uptr inInstanceId,
 				 IR::FunctionType::Encoding inEncodedType)
 		: object{ObjectKind::function}
 		, mutableData(inMutableData)
-		, moduleInstanceId(inModuleInstanceId)
+		, instanceId(inInstanceId)
 		, encodedType(inEncodedType)
 		, code{0xcc} // int3
 		{

@@ -115,7 +115,7 @@ void EmitFunctionContext::memory_init(DataSegmentAndMemImm imm)
 		{destAddress,
 		 sourceOffset,
 		 numBytes,
-		 moduleContext.moduleInstanceId,
+		 moduleContext.instanceId,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex]),
 		 emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
@@ -127,7 +127,7 @@ void EmitFunctionContext::data_drop(DataSegmentImm imm)
 		FunctionType({},
 					 TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()}),
 					 IR::CallingConvention::intrinsic),
-		{moduleContext.moduleInstanceId, emitLiteral(llvmContext, imm.dataSegmentIndex)});
+		{moduleContext.instanceId, emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
 void EmitFunctionContext::memory_copy(MemoryCopyImm imm)

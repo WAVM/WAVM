@@ -20,7 +20,7 @@ namespace WAVM { namespace Runtime {
 	struct ContextRuntimeData;
 	struct ExceptionType;
 	struct Function;
-	struct ModuleInstance;
+	struct Instance;
 }}
 
 namespace WAVM { namespace LLVMJIT {
@@ -50,6 +50,8 @@ namespace WAVM { namespace LLVMJIT {
 		Uptr llvmMajor;
 		Uptr llvmMinor;
 		Uptr llvmPatch;
+
+		Uptr llvmjitVersion;
 	};
 
 	WAVM_API Version getVersion();
@@ -70,7 +72,7 @@ namespace WAVM { namespace LLVMJIT {
 	// Structs that are passed to loadModule to bind undefined symbols in object code to values.
 	//
 
-	struct ModuleInstanceBinding
+	struct InstanceBinding
 	{
 		Uptr id;
 	};
@@ -115,7 +117,7 @@ namespace WAVM { namespace LLVMJIT {
 		std::vector<MemoryBinding>&& memories,
 		std::vector<GlobalBinding>&& globals,
 		std::vector<ExceptionTypeBinding>&& exceptionTypes,
-		ModuleInstanceBinding moduleInstance,
+		InstanceBinding instance,
 		Uptr tableReferenceBias,
 		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);
 

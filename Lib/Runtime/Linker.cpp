@@ -103,10 +103,10 @@ bool Runtime::generateStub(const std::string& moduleName,
 
 		// Instantiate the module and return the stub function instance.
 		auto stubModule = compileModule(stubIRModule);
-		auto stubModuleInstance
+		auto stubInstance
 			= instantiateModule(compartment, stubModule, {}, "importStub", resourceQuota);
-		if(!stubModuleInstance) { return false; }
-		outObject = getInstanceExport(stubModuleInstance, "importStub");
+		if(!stubInstance) { return false; }
+		outObject = getInstanceExport(stubInstance, "importStub");
 		WAVM_ASSERT(outObject);
 		return true;
 	}

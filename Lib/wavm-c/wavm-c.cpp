@@ -30,7 +30,7 @@ typedef Memory wasm_memory_t;
 typedef Global wasm_global_t;
 typedef Object wasm_extern_t;
 
-typedef ModuleInstance wasm_instance_t;
+typedef Instance wasm_instance_t;
 typedef Function wasm_shared_func_t;
 typedef Table wasm_shared_table_t;
 typedef Memory wasm_shared_memory_t;
@@ -959,7 +959,7 @@ wasm_externkind_t wasm_extern_kind(const wasm_extern_t* object)
 	case ObjectKind::global: return WASM_EXTERN_GLOBAL;
 	case ObjectKind::exceptionType: Errors::fatal("wasm_extern_kind can't handle exception types");
 
-	case ObjectKind::moduleInstance:
+	case ObjectKind::instance:
 	case ObjectKind::context:
 	case ObjectKind::compartment:
 	case ObjectKind::foreign:
@@ -1003,17 +1003,17 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 	for(Uptr importIndex = 0; importIndex < irModule.imports.size(); ++importIndex)
 	{ importBindings.push_back(const_cast<Object*>(imports[importIndex])); }
 
-	ModuleInstance* moduleInstance = nullptr;
+	Instance* instance = nullptr;
 	catchRuntimeExceptions(
-		[store, module, &importBindings, &moduleInstance]() {
-			moduleInstance = instantiateModule(getCompartment(store),
-											   module->module,
-											   std::move(importBindings),
-											   "wasm_instance_new");
+		[store, module, &importBindings, &instance]() {
+			instance = instantiateModule(getCompartment(store),
+										 module->module,
+										 std::move(importBindings),
+										 "wasm_instance_new");
 
-			addGCRoot(moduleInstance);
+			addGCRoot(instance);
 
-			Function* startFunction = getStartFunction(moduleInstance);
+			Function* startFunction = getStartFunction(instance);
 			if(startFunction) { invokeFunction(store, startFunction); }
 		},
 		[&](Runtime::Exception* exception) {
@@ -1024,7 +1024,7 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 			}
 		});
 
-	return moduleInstance;
+	return instance;
 }
 
 void wasm_instance_delete(wasm_instance_t* instance) { removeGCRoot(instance); }

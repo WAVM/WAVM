@@ -25,7 +25,7 @@ namespace WAVM { namespace LLVMJIT {
 
 		llvm::Constant* defaultTableOffset;
 
-		llvm::Constant* moduleInstanceId;
+		llvm::Constant* instanceId;
 		llvm::Constant* tableReferenceBias;
 
 		llvm::DIBuilder diBuilder;
