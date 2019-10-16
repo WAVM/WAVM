@@ -9,6 +9,7 @@ set(Sources
 	Invoke.cpp
 	Linker.cpp
 	Memory.cpp
+	Module.cpp
 	ObjectGC.cpp
 	ResourceQuota.cpp
 	Runtime.cpp
