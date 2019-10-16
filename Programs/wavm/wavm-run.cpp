@@ -249,13 +249,13 @@ struct State
 
 	// Objects that need to be cleaned up before exiting.
 	GCPointer<Compartment> compartment = createCompartment();
-	std::shared_ptr<Emscripten::Instance> emscriptenInstance;
+	std::shared_ptr<Emscripten::Process> emscriptenProcess;
 	std::shared_ptr<WASI::Process> wasiProcess;
 	std::shared_ptr<VFS::FileSystem> sandboxFS;
 
 	~State()
 	{
-		emscriptenInstance.reset();
+		emscriptenProcess.reset();
 		wasiProcess.reset();
 
 		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
@@ -541,12 +541,12 @@ struct State
 		if(abi == ABI::emscripten)
 		{
 			// Instantiate the Emscripten environment.
-			emscriptenInstance
-				= Emscripten::instantiate(compartment,
-										  Platform::getStdFD(Platform::StdDevice::in),
-										  Platform::getStdFD(Platform::StdDevice::out),
-										  Platform::getStdFD(Platform::StdDevice::err));
-			if(!emscriptenInstance) { return false; }
+			emscriptenProcess
+				= Emscripten::createProcess(compartment,
+											Platform::getStdFD(Platform::StdDevice::in),
+											Platform::getStdFD(Platform::StdDevice::out),
+											Platform::getStdFD(Platform::StdDevice::err));
+			if(!emscriptenProcess) { return false; }
 		}
 		else if(abi == ABI::wasi)
 		{
@@ -586,10 +586,10 @@ struct State
 		Function* startFunction = getStartFunction(instance);
 		if(startFunction) { invokeFunction(context, startFunction); }
 
-		if(emscriptenInstance)
+		if(emscriptenProcess)
 		{
 			// Initialize the Emscripten instance.
-			if(!Emscripten::initializeInstance(emscriptenInstance, context, irModule, instance))
+			if(!Emscripten::initializeProcess(*emscriptenProcess, context, irModule, instance))
 			{ return EXIT_FAILURE; }
 		}
 
@@ -666,7 +666,7 @@ struct State
 
 			if(functionType.params().size() == 2)
 			{
-				if(!emscriptenInstance)
+				if(!emscriptenProcess)
 				{
 					Log::printf(
 						Log::error,
@@ -678,8 +678,8 @@ struct State
 					std::vector<std::string> args = runArgs;
 					args.insert(args.begin(), filename);
 
-					WAVM_ASSERT(emscriptenInstance);
-					invokeArgs = Emscripten::injectCommandArgs(emscriptenInstance, context, args);
+					WAVM_ASSERT(emscriptenProcess);
+					invokeArgs = Emscripten::injectCommandArgs(*emscriptenProcess, context, args);
 				}
 			}
 			else if(functionType.params().size() > 0)
@@ -767,7 +767,7 @@ struct State
 		if(abi == ABI::emscripten)
 		{
 			StubFallbackResolver stubFallbackResolver(
-				Emscripten::getInstanceResolver(emscriptenInstance), compartment);
+				Emscripten::getInstanceResolver(*emscriptenProcess), compartment);
 			linkResult = linkModule(irModule, stubFallbackResolver);
 		}
 		else if(abi == ABI::wasi)
@@ -810,7 +810,7 @@ struct State
 		// Execute the program.
 		auto executeThunk = [&] { return execute(irModule, instance); };
 		int result;
-		if(emscriptenInstance) { result = Emscripten::catchExit(std::move(executeThunk)); }
+		if(emscriptenProcess) { result = Emscripten::catchExit(std::move(executeThunk)); }
 		else if(wasiProcess)
 		{
 			result = WASI::catchExit(std::move(executeThunk));

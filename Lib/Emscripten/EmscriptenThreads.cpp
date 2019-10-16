@@ -17,10 +17,10 @@ namespace WAVM { namespace Emscripten {
 
 // Adds the thread to the global thread array, assigning it an ID corresponding to its index in the
 // array.
-static U32 allocateThreadId(Emscripten::Instance* instance, Thread* thread)
+static U32 allocateThreadId(Emscripten::Process* process, Thread* thread)
 {
-	Platform::Mutex::Lock threadsLock(instance->threadsMutex);
-	thread->id = instance->threads.add(0, thread);
+	Platform::Mutex::Lock threadsLock(process->threadsMutex);
+	thread->id = process->threads.add(0, thread);
 	WAVM_ERROR_UNLESS(thread->id != 0);
 	return thread->id;
 }
@@ -28,26 +28,26 @@ static U32 allocateThreadId(Emscripten::Instance* instance, Thread* thread)
 // Validates that a thread ID is valid. i.e. 0 < threadId < threads.size(), and threads[threadId] !=
 // null If the thread ID is invalid, throws an invalid argument exception. The caller must have
 // already locked threadsMutex before calling validateThreadId.
-static bool validateThreadId(Emscripten::Instance* instance, emabi::pthread_t threadId)
+static bool validateThreadId(Emscripten::Process* process, emabi::pthread_t threadId)
 {
-	WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(instance->threadsMutex);
+	WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(process->threadsMutex);
 
-	return threadId != 0 && instance->threads.contains(threadId);
+	return threadId != 0 && process->threads.contains(threadId);
 }
 
-void Emscripten::joinAllThreads(Instance* instance)
+void Emscripten::joinAllThreads(Process& process)
 {
 	while(true)
 	{
-		Platform::Mutex::Lock threadsLock(instance->threadsMutex);
+		Platform::Mutex::Lock threadsLock(process.threadsMutex);
 
-		if(!instance->threads.size()) { break; }
-		auto it = instance->threads.begin();
-		WAVM_ASSERT(it != instance->threads.end());
+		if(!process.threads.size()) { break; }
+		auto it = process.threads.begin();
+		WAVM_ASSERT(it != process.threads.end());
 
 		emabi::pthread_t threadId = it.getIndex();
 		IntrusiveSharedPtr<Thread> thread = std::move(*it);
-		instance->threads.removeOrFail(threadId);
+		process.threads.removeOrFail(threadId);
 
 		threadsLock.unlock();
 
@@ -120,11 +120,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 {
 	if(keyAddress == 0) { return emabi::einval; }
 
-	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
+	Emscripten::Process* process = getProcess(contextRuntimeData);
 	Emscripten::Thread* thread = getEmscriptenThread(contextRuntimeData);
 
-	emabi::pthread_key_t key = instance->pthreadSpecificNextKey++;
-	memoryRef<U32>(instance->memory, keyAddress) = key;
+	emabi::pthread_key_t key = process->pthreadSpecificNextKey++;
+	memoryRef<U32>(process->memory, keyAddress) = key;
 	thread->pthreadSpecific.set(key, 0);
 
 	return emabi::esuccess;
@@ -230,10 +230,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   U32 stackBaseAddress,
 							   U32 stackSizeAddress)
 {
-	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
+	Emscripten::Process* process = getProcess(contextRuntimeData);
 	Emscripten::Thread* thread = getEmscriptenThread(contextRuntimeData);
-	memoryRef<U32>(instance->memory, stackBaseAddress) = thread->stackAddress;
-	memoryRef<U32>(instance->memory, stackSizeAddress) = thread->numStackBytes;
+	memoryRef<U32>(process->memory, stackBaseAddress) = thread->stackAddress;
+	memoryRef<U32>(process->memory, stackSizeAddress) = thread->numStackBytes;
 	return emabi::esuccess;
 }
 WAVM_DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(envThreads,
@@ -269,13 +269,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   U32 threadFuncIndex,
 							   U32 threadFuncArg)
 {
-	auto instance = (Emscripten::Instance*)getUserData(
-		getCompartmentFromContextRuntimeData(contextRuntimeData));
+	auto process = getProcess(contextRuntimeData);
 
 	Runtime::Function* threadFunc = nullptr;
-	Runtime::unwindSignalsAsExceptions([&] {
-		threadFunc = asFunctionNullable(getTableElement(instance->table, threadFuncIndex));
-	});
+	Runtime::unwindSignalsAsExceptions(
+		[&] { threadFunc = asFunctionNullable(getTableElement(process->table, threadFuncIndex)); });
 
 	// Validate that the entry function is non-null and has the correct type i32->i32
 	if(!threadFunc
@@ -285,15 +283,15 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.
 	auto newContext = createContext(getCompartmentFromContextRuntimeData(contextRuntimeData));
-	Thread* thread = new Thread(instance, newContext, threadFunc, threadFuncArg);
+	Thread* thread = new Thread(process, newContext, threadFunc, threadFuncArg);
 	setUserData(newContext, thread);
 
-	allocateThreadId(instance, thread);
+	allocateThreadId(process, thread);
 
 	// Allocate the aliased stack for the thread.
 	thread->numStackBytes = 2 * 1024 * 1024;
 	thread->stackAddress = dynamicAlloc(
-		instance, getContextFromRuntimeData(contextRuntimeData), thread->numStackBytes);
+		process, getContextFromRuntimeData(contextRuntimeData), thread->numStackBytes);
 
 	// Increment the Thread's reference count for the pointer passed to the thread's entry function.
 	thread->addRef();
@@ -303,20 +301,20 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 
 	// Write the thread ID to the address provided.
 	unwindSignalsAsExceptions(
-		[=] { memoryRef<emabi::pthread_t>(instance->memory, threadIdAddress) = thread->id; });
+		[=] { memoryRef<emabi::pthread_t>(process->memory, threadIdAddress) = thread->id; });
 
 	return emabi::esuccess;
 }
 
 // Validates a thread ID, removes the corresponding thread from the threads array, and returns it.
-static bool removeThreadById(Emscripten::Instance* instance,
+static bool removeThreadById(Process* process,
 							 emabi::pthread_t threadId,
 							 IntrusiveSharedPtr<Thread>& outThread)
 {
-	Platform::Mutex::Lock threadsLock(instance->threadsMutex);
-	if(!validateThreadId(instance, threadId)) { return false; }
-	outThread = std::move(instance->threads[threadId]);
-	instance->threads.removeOrFail(threadId);
+	Platform::Mutex::Lock threadsLock(process->threadsMutex);
+	if(!validateThreadId(process, threadId)) { return false; }
+	outThread = std::move(process->threads[threadId]);
+	process->threads.removeOrFail(threadId);
 
 	WAVM_ASSERT(outThread->id == threadId);
 	outThread->id = 0;
@@ -339,18 +337,17 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   emabi::pthread_t threadId,
 							   U32 resultAddress)
 {
-	auto instance = (Emscripten::Instance*)getUserData(
-		getCompartmentFromContextRuntimeData(contextRuntimeData));
+	auto process = getProcess(contextRuntimeData);
 
 	IntrusiveSharedPtr<Thread> thread;
-	if(!removeThreadById(instance, threadId, thread)) { return emabi::esrch; }
+	if(!removeThreadById(process, threadId, thread)) { return emabi::esrch; }
 	Platform::joinThread(thread->platformThread);
 	thread->platformThread = nullptr;
 
 	const U32 exitCode = thread->exitCode.load();
 
 	// Write the exit code to the address provided.
-	unwindSignalsAsExceptions([=] { memoryRef<U32>(instance->memory, resultAddress) = exitCode; });
+	unwindSignalsAsExceptions([=] { memoryRef<U32>(process->memory, resultAddress) = exitCode; });
 
 	return emabi::esuccess;
 }

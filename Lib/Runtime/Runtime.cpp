@@ -147,7 +147,7 @@ ContextRuntimeData* Runtime::getContextRuntimeData(const Context* context)
 }
 
 Instance* Runtime::getInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
-														  Uptr instanceId)
+											  Uptr instanceId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);

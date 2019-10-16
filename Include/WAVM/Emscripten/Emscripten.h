@@ -22,23 +22,23 @@ namespace WAVM { namespace Runtime {
 
 namespace WAVM { namespace Emscripten {
 
-	struct Instance;
+	struct Process;
 
-	WAVM_API std::shared_ptr<Instance> instantiate(Runtime::Compartment* compartment,
-												   VFS::VFD* stdIn = nullptr,
-												   VFS::VFD* stdOut = nullptr,
-												   VFS::VFD* stdErr = nullptr);
-	WAVM_API bool initializeInstance(const std::shared_ptr<Instance>& emscriptenInstance,
-										   Runtime::Context* context,
-										   const IR::Module& module,
-										   Runtime::Instance* instance);
-	WAVM_API std::vector<IR::Value> injectCommandArgs(const std::shared_ptr<Instance>& instance,
+	WAVM_API std::shared_ptr<Process> createProcess(Runtime::Compartment* compartment,
+													VFS::VFD* stdIn = nullptr,
+													VFS::VFD* stdOut = nullptr,
+													VFS::VFD* stdErr = nullptr);
+	WAVM_API bool initializeProcess(Process& process,
+									Runtime::Context* context,
+									const IR::Module& module,
+									Runtime::Instance* instance);
+	WAVM_API std::vector<IR::Value> injectCommandArgs(Process& process,
 													  Runtime::Context* context,
 													  const std::vector<std::string>& argStrings);
 
-	WAVM_API Runtime::Resolver& getInstanceResolver(const std::shared_ptr<Instance>& instance);
+	WAVM_API Runtime::Resolver& getInstanceResolver(Process& process);
 
-	WAVM_API void joinAllThreads(Instance* instance);
+	WAVM_API void joinAllThreads(Process& process);
 
 	WAVM_API I32 catchExit(std::function<I32()>&& thunk);
 }}
