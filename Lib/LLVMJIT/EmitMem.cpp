@@ -243,6 +243,12 @@ EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_u, llvmContext.i16x4Type, 3, 
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_s, llvmContext.i32x2Type, 3, sext)
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, zext)
 
+// LLVM fails to match the AArch64 interleaved load instructions if the non-interleaved load is
+// volatile, but volatile is necessary to prevent LLVM from removing possibly-trapping loads that it
+// thinks are dead. To allow benchmarking the AArch64 interleaved load instructions, temporarily
+// omit the volatile flag.
+#define VOLATILE_INTERLEAVED_LOADS 0
+
 #define EMIT_LOAD_INTERLEAVED_OP(name, llvmMemoryType, naturalAlignmentLog2, numVectors, numLanes) \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
@@ -253,7 +259,7 @@ EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, 
 		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
 		 * trap if it's wrong. */                                                                  \
 		load->setAlignment(1);                                                                     \
-		load->setVolatile(true);                                                                   \
+		if(VOLATILE_INTERLEAVED_LOADS) { load->setVolatile(true); }                                \
 		auto undef = llvm::UndefValue::get(llvmMemoryType);                                        \
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                          \
 		{                                                                                          \
