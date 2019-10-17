@@ -117,6 +117,21 @@ LLVMContext::LLVMContext()
 	f32x4Type = llvm::VectorType::get(f32Type, 4);
 	f64x2Type = llvm::VectorType::get(f64Type, 2);
 
+	i8x32Type = llvm::VectorType::get(i8Type, 32);
+	i16x16Type = llvm::VectorType::get(i16Type, 16);
+	i32x8Type = llvm::VectorType::get(i32Type, 8);
+	i64x4Type = llvm::VectorType::get(i64Type, 4);
+
+	i8x48Type = llvm::VectorType::get(i8Type, 48);
+	i16x24Type = llvm::VectorType::get(i16Type, 24);
+	i32x12Type = llvm::VectorType::get(i32Type, 12);
+	i64x6Type = llvm::VectorType::get(i64Type, 6);
+
+	i8x64Type = llvm::VectorType::get(i8Type, 64);
+	i16x32Type = llvm::VectorType::get(i16Type, 32);
+	i32x16Type = llvm::VectorType::get(i32Type, 16);
+	i64x8Type = llvm::VectorType::get(i64Type, 8);
+
 	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any]
 		= valueTypes[(Uptr)ValueType::nullref] = nullptr;
 	valueTypes[(Uptr)ValueType::i32] = i32Type;

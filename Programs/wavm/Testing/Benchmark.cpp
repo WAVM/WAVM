@@ -13,6 +13,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
@@ -255,6 +256,240 @@ void runIntrinsicBench()
 	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 }
 
+static constexpr Uptr numInterleavedLoadStoresPerThread = 100000000;
+
+static constexpr const char* interleavedLoadStoreBenchModuleWAST
+	= "(module\n"
+	  "  (memory 2)\n"
+	  "  (func (export \"v8x16.load_interleaved_3\")\n"
+	  "    (param $numIterations i32) (result v128 v128 v128)\n"
+	  "    (local $i i32)\n"
+	  "    (local $acc0 v128)\n"
+	  "    (local $acc1 v128)\n"
+	  "    (local $acc2 v128)\n"
+	  "    loop $loop\n"
+	  "      (i32.and (i32.const 0xffff) (i32.mul (local.get $i) (i32.const 48)))\n"
+	  "      v8x16.load_interleaved_3\n"
+	  "      local.get $acc2 i8x16.add local.set $acc2\n"
+	  "      local.get $acc1 i8x16.add local.set $acc1\n"
+	  "      local.get $acc0 i8x16.add local.set $acc0\n"
+	  "      (local.set $i (i32.add (local.get $i) (i32.const 1)))\n"
+	  "      (br_if $loop (i32.ne (local.get $i) (local.get $numIterations)))\n"
+	  "    end\n"
+	  "    local.get $acc0\n"
+	  "    local.get $acc1\n"
+	  "    local.get $acc2\n"
+	  "  )\n"
+	  "  (func (export \"emulated_v8x16.load_interleaved_3\")\n"
+	  "    (param $numIterations i32) (result v128 v128 v128)\n"
+	  "    (local $i i32)\n"
+	  "    (local $acc0 v128)\n"
+	  "    (local $acc1 v128)\n"
+	  "    (local $acc2 v128)\n"
+	  "    (local $address i32)\n"
+	  "    (local $4 v128)\n"
+	  "    (local $5 v128)\n"
+	  "    (local $6 v128)\n"
+	  "    (local $7 v128)\n"
+	  "    (local $8 v128)\n"
+	  "    loop $loop\n"
+	  "      (local.set $address (i32.and (i32.const 0xffff) (i32.mul (local.get $i) (i32.const 48))))\n"
+	  "      (local.set $acc0 (i8x16.add (local.get $acc0)\n"
+	  "        (v8x16.shuffle 0 16 1 17 2 18 3 19 4 20 5 21 6 22 7 23\n"
+	  "         (local.tee $7\n"
+	  "          (v8x16.shuffle 0 16 1 17 2 18 3 19 4 20 5 21 6 22 7 23\n"
+	  "           (local.tee $8\n"
+	  "            (v8x16.shuffle 0 16 1 17 2 18 3 19 4 20 5 21 6 22 7 23\n"
+	  "             (local.tee $6\n"
+	  "              (v8x16.shuffle 0 24 1 25 2 26 3 27 4 28 5 29 6 30 7 31\n"
+	  "               (local.tee $4\n"
+	  "                (v128.load align=1\n"
+	  "                 (local.get $address)\n"
+	  "                )\n"
+	  "               )\n"
+	  "               (local.tee $5\n"
+	  "                (v128.load offset=16 align=1\n"
+	  "                 (local.get $address)\n"
+	  "                )\n"
+	  "               )\n"
+	  "              )\n"
+	  "             )\n"
+	  "             (v8x16.shuffle 8 9 10 11 12 13 14 15 0 0 0 0 0 0 0 0\n"
+	  "              (local.tee $4\n"
+	  "               (v8x16.shuffle 8 16 9 17 10 18 11 19 12 20 13 21 14 22 15 23\n"
+	  "                (local.get $4)\n"
+	  "                (local.tee $7\n"
+	  "                 (v128.load offset=32 align=1\n"
+	  "                  (local.get $address)\n"
+	  "                 )\n"
+	  "                )\n"
+	  "               )\n"
+	  "              )\n"
+	  "              (local.get $4)\n"
+	  "             )\n"
+	  "            )\n"
+	  "           )\n"
+	  "           (v8x16.shuffle 8 9 10 11 12 13 14 15 0 0 0 0 0 0 0 0\n"
+	  "            (local.tee $6\n"
+	  "             (v8x16.shuffle 8 16 9 17 10 18 11 19 12 20 13 21 14 22 15 23\n"
+	  "              (local.get $6)\n"
+	  "              (local.tee $5\n"
+	  "               (v8x16.shuffle 0 24 1 25 2 26 3 27 4 28 5 29 6 30 7 31\n"
+	  "                (local.get $5)\n"
+	  "                (local.get $7)\n"
+	  "               )\n"
+	  "              )\n"
+	  "             )\n"
+	  "            )\n"
+	  "            (local.get $4)\n"
+	  "           )\n"
+	  "          )\n"
+	  "         )\n"
+	  "         (v8x16.shuffle 8 9 10 11 12 13 14 15 0 0 0 0 0 0 0 0\n"
+	  "          (local.tee $5\n"
+	  "           (v8x16.shuffle 8 16 9 17 10 18 11 19 12 20 13 21 14 22 15 23\n"
+	  "            (local.get $8)\n"
+	  "            (local.tee $4\n"
+	  "             (v8x16.shuffle 0 16 1 17 2 18 3 19 4 20 5 21 6 22 7 23\n"
+	  "              (local.get $4)\n"
+	  "              (v8x16.shuffle 8 9 10 11 12 13 14 15 0 0 0 0 0 0 0 0\n"
+	  "               (local.get $5)\n"
+	  "               (local.get $4)\n"
+	  "              )\n"
+	  "             )\n"
+	  "            )\n"
+	  "           )\n"
+	  "          )\n"
+	  "          (local.get $4)\n"
+	  "         )\n"
+	  "      )))\n"
+	  "      (local.set $acc1 (i8x16.add (local.get $acc1)\n"
+	  "        (v8x16.shuffle 8 16 9 17 10 18 11 19 12 20 13 21 14 22 15 23\n"
+	  "         (local.get $7)\n"
+	  "         (local.tee $4\n"
+	  "          (v8x16.shuffle 0 16 1 17 2 18 3 19 4 20 5 21 6 22 7 23\n"
+	  "           (local.get $6)\n"
+	  "           (v8x16.shuffle 8 9 10 11 12 13 14 15 0 0 0 0 0 0 0 0\n"
+	  "            (local.get $4)\n"
+	  "            (local.get $4)\n"
+	  "           )\n"
+	  "          )\n"
+	  "         )\n"
+	  "      )))\n"
+	  "      (local.set $acc2 (i8x16.add (local.get $acc2)\n"
+	  "        (v8x16.shuffle 0 16 1 17 2 18 3 19 4 20 5 21 6 22 7 23\n"
+	  "         (local.get $5)\n"
+	  "         (v8x16.shuffle 8 9 10 11 12 13 14 15 0 0 0 0 0 0 0 0\n"
+	  "          (local.get $4)\n"
+	  "          (local.get $4)\n"
+	  "         )\n"
+	  "      )))\n"
+	  "      (local.set $i (i32.add (local.get $i) (i32.const 1)))\n"
+	  "      (br_if $loop (i32.ne (local.get $i) (local.get $numIterations)))\n"
+	  "    end\n"
+	  "    local.get $acc0\n"
+	  "    local.get $acc1\n"
+	  "    local.get $acc2\n"
+	  "  )\n"
+	  ")";
+
+void runInterleavedLoadStoreBench()
+{
+	// Parse the intrinsic benchmark module.
+	std::vector<WAST::Error> parseErrors;
+	IR::Module irModule(IR::FeatureSpec(true));
+	irModule.featureSpec.interleavedLoadStore = true;
+	if(!WAST::parseModule(interleavedLoadStoreBenchModuleWAST,
+						  strlen(interleavedLoadStoreBenchModuleWAST) + 1,
+						  irModule,
+						  parseErrors))
+	{
+		WAST::reportParseErrors(
+			"intrinsic benchmark module", interleavedLoadStoreBenchModuleWAST, parseErrors);
+		Errors::fatal("Failed to parse intrinsic benchmark module WAST");
+	}
+
+	// Instantiate the WASM module.
+	GCPointer<Compartment> compartment = Runtime::createCompartment();
+	auto module = compileModule(irModule);
+	auto instance
+		= instantiateModule(compartment, module, {}, "benchmarkInterleavedLoadStoreModule");
+	auto v8x16_load_interleaved_3
+		= asFunction(getInstanceExport(instance, "v8x16.load_interleaved_3"));
+	auto emulated_v8x16_load_interleaved_3
+		= asFunction(getInstanceExport(instance, "emulated_v8x16.load_interleaved_3"));
+
+	// Print the benchmark module disassembly.
+	std::string disassembly
+		= LLVMJIT::disassembleObject(LLVMJIT::getHostTargetSpec(), Runtime::getObjectCode(module));
+	Log::printf(
+		Log::output,
+		"Benchmark disassembly (functionDef0=v8x16.load_interleaved_3, functionDef1=emulated):\n"
+		"%s\n",
+		disassembly.c_str());
+
+	// Call the benchmark function once to ensure the time to create the invoke thunk isn't
+	// benchmarked.
+	{
+		IR::Value args[1]{I32(numInterleavedLoadStoresPerThread)};
+		IR::Value results[3];
+		invokeFunction(
+			createContext(compartment),
+			v8x16_load_interleaved_3,
+			FunctionType({ValueType::v128, ValueType::v128, ValueType::v128}, {ValueType::i32}),
+			args,
+			results);
+	}
+
+	// Run the benchmark.
+	runBenchmarkSingleAndMultiThreaded(
+		compartment,
+		v8x16_load_interleaved_3,
+		"v8x16.load_interleaved_3",
+		[](void* argument) -> I64 {
+			ThreadArgs* threadArgs = (ThreadArgs*)argument;
+
+			FunctionType invokeSig({ValueType::v128, ValueType::v128, ValueType::v128},
+								   {ValueType::i32});
+
+			Timing::Timer timer;
+			UntaggedValue args[1]{I32(numInterleavedLoadStoresPerThread)};
+			UntaggedValue results[3];
+			invokeFunction(threadArgs->context, threadArgs->function, invokeSig, args, results);
+			timer.stop();
+
+			threadArgs->elapsedNanoseconds
+				= timer.getNanoseconds() / F64(numInterleavedLoadStoresPerThread);
+
+			return 0;
+		});
+
+	runBenchmarkSingleAndMultiThreaded(
+		compartment,
+		emulated_v8x16_load_interleaved_3,
+		"emulated v8x16.load_interleaved_3",
+		[](void* argument) -> I64 {
+			ThreadArgs* threadArgs = (ThreadArgs*)argument;
+
+			FunctionType invokeSig({ValueType::v128, ValueType::v128, ValueType::v128},
+								   {ValueType::i32});
+
+			Timing::Timer timer;
+			UntaggedValue args[1]{I32(numInterleavedLoadStoresPerThread)};
+			UntaggedValue results[3];
+			invokeFunction(threadArgs->context, threadArgs->function, invokeSig, args, results);
+			timer.stop();
+
+			threadArgs->elapsedNanoseconds
+				= timer.getNanoseconds() / F64(numInterleavedLoadStoresPerThread);
+
+			return 0;
+		});
+
+	// Free the compartment.
+	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
+}
+
 int execBenchmark(int argc, char** argv)
 {
 	if(argc != 0)
@@ -265,6 +500,7 @@ int execBenchmark(int argc, char** argv)
 
 	runInvokeBench();
 	runIntrinsicBench();
+	runInterleavedLoadStoreBench();
 
 	return 0;
 }

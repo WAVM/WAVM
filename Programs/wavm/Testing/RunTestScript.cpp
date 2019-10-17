@@ -897,6 +897,7 @@ static I64 threadMain(void* sharedStateVoid)
 		FeatureSpec featureSpec(true);
 		featureSpec.requireSharedFlagForAtomicOperators = true;
 		featureSpec.customSectionsInTextFormat = true;
+		featureSpec.interleavedLoadStore = true;
 
 		// Parse the test script.
 		WAST::parseTestCommands((const char*)testScriptBytes.data(),

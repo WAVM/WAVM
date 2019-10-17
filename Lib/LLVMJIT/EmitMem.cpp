@@ -187,7 +187,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		load->setVolatile(true);                                                                   \
 		push(conversionOp(load, destType));                                                        \
 	}
-#define EMIT_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp)       \
+#define EMIT_STORE_OP(name, llvmMemoryType, naturalAlignmentLog2, conversionOp)                    \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
 		auto value = pop();                                                                        \
@@ -218,17 +218,17 @@ EMIT_LOAD_OP(llvmContext.i64Type, i64_load, llvmContext.i64Type, 3, identity)
 EMIT_LOAD_OP(llvmContext.f32Type, f32_load, llvmContext.f32Type, 2, identity)
 EMIT_LOAD_OP(llvmContext.f64Type, f64_load, llvmContext.f64Type, 3, identity)
 
-EMIT_STORE_OP(i32, i32_store8, llvmContext.i8Type, 0, trunc)
-EMIT_STORE_OP(i64, i64_store8, llvmContext.i8Type, 0, trunc)
-EMIT_STORE_OP(i32, i32_store16, llvmContext.i16Type, 1, trunc)
-EMIT_STORE_OP(i64, i64_store16, llvmContext.i16Type, 1, trunc)
-EMIT_STORE_OP(i32, i32_store, llvmContext.i32Type, 2, trunc)
-EMIT_STORE_OP(i64, i64_store32, llvmContext.i32Type, 2, trunc)
-EMIT_STORE_OP(i64, i64_store, llvmContext.i64Type, 3, identity)
-EMIT_STORE_OP(f32, f32_store, llvmContext.f32Type, 2, identity)
-EMIT_STORE_OP(f64, f64_store, llvmContext.f64Type, 3, identity)
+EMIT_STORE_OP(i32_store8, llvmContext.i8Type, 0, trunc)
+EMIT_STORE_OP(i64_store8, llvmContext.i8Type, 0, trunc)
+EMIT_STORE_OP(i32_store16, llvmContext.i16Type, 1, trunc)
+EMIT_STORE_OP(i64_store16, llvmContext.i16Type, 1, trunc)
+EMIT_STORE_OP(i32_store, llvmContext.i32Type, 2, trunc)
+EMIT_STORE_OP(i64_store32, llvmContext.i32Type, 2, trunc)
+EMIT_STORE_OP(i64_store, llvmContext.i64Type, 3, identity)
+EMIT_STORE_OP(f32_store, llvmContext.f32Type, 2, identity)
+EMIT_STORE_OP(f64_store, llvmContext.f64Type, 3, identity)
 
-EMIT_STORE_OP(v128, v128_store, value->getType(), 4, identity)
+EMIT_STORE_OP(v128_store, value->getType(), 4, identity)
 EMIT_LOAD_OP(llvmContext.i64x2Type, v128_load, llvmContext.i64x2Type, 4, identity)
 
 EMIT_LOAD_OP(llvmContext.i8x16Type, v8x16_load_splat, llvmContext.i8Type, 0, splat<16>)
@@ -242,6 +242,143 @@ EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_s, llvmContext.i16x4Type, 3, 
 EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_u, llvmContext.i16x4Type, 3, zext)
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_s, llvmContext.i32x2Type, 3, sext)
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, zext)
+
+#define EMIT_LOAD_INTERLEAVED_OP(name, llvmMemoryType, naturalAlignmentLog2, numVectors, numLanes) \
+	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
+	{                                                                                              \
+		auto address = pop();                                                                      \
+		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
+		auto load = irBuilder.CreateLoad(pointer);                                                 \
+		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
+		 * trap if it's wrong. */                                                                  \
+		load->setAlignment(1);                                                                     \
+		load->setVolatile(true);                                                                   \
+		auto undef = llvm::UndefValue::get(llvmMemoryType);                                        \
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                          \
+		{                                                                                          \
+			U32 shuffleIndices[numLanes];                                                          \
+			for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                              \
+			{ shuffleIndices[laneIndex] = laneIndex * numVectors + vectorIndex; }                  \
+			push(irBuilder.CreateShuffleVector(load, undef, shuffleIndices));                      \
+		}                                                                                          \
+	}
+
+#define EMIT_STORE_INTERLEAVED_OP(                                                                 \
+	name, llvmMemoryType, llvmValueType, naturalAlignmentLog2, numVectors, numLanes)               \
+	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
+	{                                                                                              \
+		llvm::Value* values[numVectors];                                                           \
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                          \
+		{                                                                                          \
+			values[numVectors - vectorIndex - 1] = irBuilder.CreateBitCast(pop(), llvmValueType);  \
+		}                                                                                          \
+		llvm::Value* interleavedValues = llvm::UndefValue::get(llvmMemoryType);                    \
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                          \
+		{                                                                                          \
+			for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                              \
+			{                                                                                      \
+				interleavedValues = irBuilder.CreateInsertElement(                                 \
+					interleavedValues,                                                             \
+					irBuilder.CreateExtractElement(values[vectorIndex], laneIndex),                \
+					laneIndex * numVectors + vectorIndex);                                         \
+			}                                                                                      \
+		}                                                                                          \
+		auto address = pop();                                                                      \
+		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
+		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
+		auto store = irBuilder.CreateStore(interleavedValues, pointer);                            \
+		store->setVolatile(true);                                                                  \
+		/* Don't trust the alignment hint provided by the WebAssembly code, since the store can't  \
+		 * trap if it's wrong. */                                                                  \
+		store->setAlignment(1);                                                                    \
+	}
+
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_2, llvmContext.i8x32Type, 4, 2, 16)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_3, llvmContext.i8x48Type, 4, 3, 16)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_4, llvmContext.i8x64Type, 4, 4, 16)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_2, llvmContext.i16x16Type, 4, 2, 8)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_3, llvmContext.i16x24Type, 4, 3, 8)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_4, llvmContext.i16x32Type, 4, 4, 8)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_2, llvmContext.i32x8Type, 4, 2, 4)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_3, llvmContext.i32x12Type, 4, 3, 4)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_4, llvmContext.i32x16Type, 4, 4, 4)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_2, llvmContext.i64x4Type, 4, 2, 2)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_3, llvmContext.i64x6Type, 4, 3, 2)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_4, llvmContext.i64x8Type, 4, 4, 2)
+
+EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_2,
+						  llvmContext.i8x32Type,
+						  llvmContext.i8x16Type,
+						  4,
+						  2,
+						  16)
+EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_3,
+						  llvmContext.i8x48Type,
+						  llvmContext.i8x16Type,
+						  4,
+						  3,
+						  16)
+EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_4,
+						  llvmContext.i8x64Type,
+						  llvmContext.i8x16Type,
+						  4,
+						  4,
+						  16)
+EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_2,
+						  llvmContext.i16x16Type,
+						  llvmContext.i16x8Type,
+						  4,
+						  2,
+						  8)
+EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_3,
+						  llvmContext.i16x24Type,
+						  llvmContext.i16x8Type,
+						  4,
+						  3,
+						  8)
+EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_4,
+						  llvmContext.i16x32Type,
+						  llvmContext.i16x8Type,
+						  4,
+						  4,
+						  8)
+EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_2,
+						  llvmContext.i32x8Type,
+						  llvmContext.i32x4Type,
+						  4,
+						  2,
+						  4)
+EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_3,
+						  llvmContext.i32x12Type,
+						  llvmContext.i32x4Type,
+						  4,
+						  3,
+						  4)
+EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_4,
+						  llvmContext.i32x16Type,
+						  llvmContext.i32x4Type,
+						  4,
+						  4,
+						  4)
+EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_2,
+						  llvmContext.i64x4Type,
+						  llvmContext.i64x2Type,
+						  4,
+						  2,
+						  2)
+EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_3,
+						  llvmContext.i64x6Type,
+						  llvmContext.i64x2Type,
+						  4,
+						  3,
+						  2)
+EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4,
+						  llvmContext.i64x8Type,
+						  llvmContext.i64x2Type,
+						  4,
+						  4,
+						  2)
 
 void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {

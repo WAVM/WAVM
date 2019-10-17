@@ -76,6 +76,20 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* f32x4Type;
 		llvm::Type* f64x2Type;
 
+		llvm::Type* i8x32Type;
+		llvm::Type* i16x16Type;
+		llvm::Type* i32x8Type;
+		llvm::Type* i64x4Type;
+
+		llvm::Type* i8x48Type;
+		llvm::Type* i16x24Type;
+		llvm::Type* i32x12Type;
+		llvm::Type* i64x6Type;
+
+		llvm::Type* i8x64Type;
+		llvm::Type* i16x32Type;
+		llvm::Type* i32x16Type;
+		llvm::Type* i64x8Type;
 		llvm::Type* anyrefType;
 
 		// Zero constants of each type.
