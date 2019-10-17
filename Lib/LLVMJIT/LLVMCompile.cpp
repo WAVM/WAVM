@@ -265,9 +265,14 @@ std::string LLVMJIT::disassembleObject(const TargetSpec& targetSpec,
 		llvm::StringRef sectionContents((const char*)objectBytes.data(), objectBytes.size());
 		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
 		{
+			llvm::StringRef sectionContents;
+#if LLVM_VERSION_MAJOR >= 9
 			if(llvm::Expected<llvm::StringRef> maybeSectionContents
 			   = (*symbolSection)->getContents())
 			{ sectionContents = maybeSectionContents.get(); }
+#else
+			(*symbolSection)->getContents(sectionContents);
+#endif
 		}
 
 		WAVM_ERROR_UNLESS(addressInSection.get() + symbolSizePair.second >= addressInSection.get()
