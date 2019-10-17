@@ -15,6 +15,7 @@
 #include "WAVM/Platform/Defines.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
+#include <llvm-c/Disassembler.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/Triple.h>
@@ -24,6 +25,8 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Object/ObjectFile.h>
+#include <llvm/Object/SymbolSize.h>
 #include <llvm/Pass.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Host.h>
@@ -225,4 +228,87 @@ std::string LLVMJIT::emitLLVMIR(const IR::Module& irModule,
 
 	// Print the LLVM IR.
 	return printModule(llvmModule);
+}
+
+std::string LLVMJIT::disassembleObject(const TargetSpec& targetSpec,
+									   const std::vector<U8>& objectBytes)
+{
+	std::string result;
+
+	LLVMDisasmContextRef disasmRef
+		= LLVMCreateDisasm(targetSpec.triple.c_str(), nullptr, 0, nullptr, nullptr);
+	WAVM_ERROR_UNLESS(LLVMSetDisasmOptions(disasmRef, LLVMDisassembler_Option_PrintLatency));
+
+	std::unique_ptr<llvm::object::ObjectFile> object
+		= cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
+			llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "memory")));
+
+	// Iterate over the functions in the loaded object.
+	for(std::pair<llvm::object::SymbolRef, U64> symbolSizePair :
+		llvm::object::computeSymbolSizes(*object))
+	{
+		llvm::object::SymbolRef symbol = symbolSizePair.first;
+
+		// Only process global symbols, which excludes SEH funclets.
+		if(!(symbol.getFlags() & llvm::object::SymbolRef::SF_Global)) { continue; }
+
+		// Get the type, name, and address of the symbol. Need to be careful not to get the
+		// Expected<T> for each value unless it will be checked for success before continuing.
+		llvm::Expected<llvm::object::SymbolRef::Type> type = symbol.getType();
+		if(!type || *type != llvm::object::SymbolRef::ST_Function) { continue; }
+		llvm::Expected<llvm::StringRef> name = symbol.getName();
+		if(!name) { continue; }
+		llvm::Expected<U64> addressInSection = symbol.getAddress();
+		if(!addressInSection) { continue; }
+
+		// Compute the address the function was loaded at.
+		llvm::StringRef sectionContents((const char*)objectBytes.data(), objectBytes.size());
+		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
+		{
+			if(llvm::Expected<llvm::StringRef> maybeSectionContents
+			   = (*symbolSection)->getContents())
+			{ sectionContents = maybeSectionContents.get(); }
+		}
+
+		WAVM_ERROR_UNLESS(addressInSection.get() + symbolSizePair.second >= addressInSection.get()
+						  && addressInSection.get() + symbolSizePair.second
+								 <= sectionContents.size());
+
+		result += name.get().str();
+		result += ": # ";
+		result += std::to_string(addressInSection.get());
+		result += '-';
+		result += std::to_string(addressInSection.get() + symbolSizePair.second);
+		result += '\n';
+
+		const U8* nextByte = (const U8*)sectionContents.data() + addressInSection.get();
+		Uptr numBytesRemaining = Uptr(symbolSizePair.second);
+		while(numBytesRemaining)
+		{
+			char instructionBuffer[256];
+			Uptr numInstructionBytes = LLVMDisasmInstruction(disasmRef,
+															 const_cast<U8*>(nextByte),
+															 numBytesRemaining,
+															 reinterpret_cast<Uptr>(nextByte),
+															 instructionBuffer,
+															 sizeof(instructionBuffer));
+			if(numInstructionBytes == 0)
+			{
+				numInstructionBytes = 1;
+				result += "\t# skipped ";
+				result += std::to_string(numInstructionBytes);
+				result += " bytes.\n";
+			}
+			WAVM_ASSERT(numInstructionBytes <= numBytesRemaining);
+			numBytesRemaining -= numInstructionBytes;
+			nextByte += numInstructionBytes;
+
+			result += instructionBuffer;
+			result += '\n';
+		};
+	}
+
+	LLVMDisasmDispose(disasmRef);
+
+	return result;
 }

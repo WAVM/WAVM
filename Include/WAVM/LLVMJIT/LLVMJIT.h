@@ -65,6 +65,9 @@ namespace WAVM { namespace LLVMJIT {
 									const TargetSpec& targetSpec,
 									bool optimize);
 
+	WAVM_API std::string disassembleObject(const TargetSpec& targetSpec,
+										   const std::vector<U8>& objectBytes);
+
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct Module;
 

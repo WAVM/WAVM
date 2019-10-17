@@ -60,6 +60,7 @@ static const char* getOutputFormatHelpText()
 	return "  unoptimized-llvmir          Unoptimized LLVM IR for the input module.\n"
 		   "  optimized-llvmir            Optimized LLVM IR for the input module.\n"
 		   "  object                      The target platform's native object file format.\n"
+		   "  assembly                    The target platform's native assembly format.\n"
 		   "  precompiled-wasm (default)  The original WebAssembly module with object code\n"
 		   "                              embedded in the wavm.precompiled_object section.\n";
 }
@@ -102,6 +103,7 @@ enum class OutputFormat
 	unoptimizedLLVMIR,
 	optimizedLLVMIR,
 	object,
+	assembly,
 };
 
 int execCompileCommand(int argc, char** argv)
@@ -170,6 +172,10 @@ int execCompileCommand(int argc, char** argv)
 			else if(!strcmp(formatString, "object"))
 			{
 				outputFormat = OutputFormat::object;
+			}
+			else if(!strcmp(formatString, "assembly"))
+			{
+				outputFormat = OutputFormat::assembly;
 			}
 			else
 			{
@@ -265,6 +271,17 @@ int execCompileCommand(int argc, char** argv)
 		// Write the object code to the output file.
 		return saveFile(outputFilename, objectCode.data(), objectCode.size()) ? EXIT_SUCCESS
 																			  : EXIT_FAILURE;
+	}
+	case OutputFormat::assembly: {
+		// Compile the module to object code.
+		std::vector<U8> objectCode = LLVMJIT::compileModule(irModule, targetSpec);
+
+		// Disassemble the object code.
+		std::string disassembly = LLVMJIT::disassembleObject(targetSpec, objectCode);
+
+		// Write the disassembly to the output file.
+		return saveFile(outputFilename, disassembly.data(), disassembly.size()) ? EXIT_SUCCESS
+																				: EXIT_FAILURE;
 	}
 	case OutputFormat::optimizedLLVMIR:
 	case OutputFormat::unoptimizedLLVMIR: {

@@ -25,7 +25,6 @@
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include <llvm-c/Disassembler.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/DebugInfo/DIContext.h>
 #include <llvm/DebugInfo/DWARF/DWARFContext.h>
@@ -56,7 +55,6 @@ namespace WAVM { namespace Runtime {
 }}
 
 #define KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED 0
-#define PRINT_DISASSEMBLY 0
 
 using namespace WAVM;
 using namespace WAVM::LLVMJIT;
@@ -314,36 +312,6 @@ private:
 	void operator=(const ModuleMemoryManager&) = delete;
 };
 
-static void disassembleFunction(U8* bytes, Uptr numBytes)
-{
-	LLVMDisasmContextRef disasmRef
-		= LLVMCreateDisasm(llvm::sys::getProcessTriple().c_str(), nullptr, 0, nullptr, nullptr);
-
-	U8* nextByte = bytes;
-	Uptr numBytesRemaining = numBytes;
-	while(numBytesRemaining)
-	{
-		char instructionBuffer[256];
-		Uptr numInstructionBytes = LLVMDisasmInstruction(disasmRef,
-														 nextByte,
-														 numBytesRemaining,
-														 reinterpret_cast<Uptr>(nextByte),
-														 instructionBuffer,
-														 sizeof(instructionBuffer));
-		if(numInstructionBytes == 0) { numInstructionBytes = 1; }
-		WAVM_ASSERT(numInstructionBytes <= numBytesRemaining);
-		numBytesRemaining -= numInstructionBytes;
-		nextByte += numInstructionBytes;
-
-		Log::printf(Log::output,
-					"\t\t0x%04" WAVM_PRIxPTR " %s\n",
-					(nextByte - bytes - numInstructionBytes),
-					instructionBuffer);
-	};
-
-	LLVMDisasmDispose(disasmRef);
-}
-
 Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
 			   bool shouldLogMetrics)
@@ -589,12 +557,6 @@ Module::Module(const std::vector<U8>& objectBytes,
 		for(auto lineInfo : lineInfoTable)
 		{ offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
 #endif
-
-		if(PRINT_DISASSEMBLY && shouldLogMetrics)
-		{
-			Log::printf(Log::output, "Disassembly for function %s\n", name.get().data());
-			disassembleFunction(reinterpret_cast<U8*>(loadedAddress), Uptr(symbolSizePair.second));
-		}
 
 		// Add the function to the module's name and address to function maps.
 		WAVM_ASSERT(symbolSizePair.second <= UINTPTR_MAX);
