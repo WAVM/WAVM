@@ -36,7 +36,11 @@ cd release
            -DWAVM_ENABLE_UNWIND=${ENABLE_UNWIND}
   make -j2
   ctest -V -j2
-  bin/wavm test benchmark
+  
+  if [ "$ENABLE_RUNTIME" = "YES" ]; then
+    bin/wavm test benchmark
+  fi
+
   cd ..
 fi
 
