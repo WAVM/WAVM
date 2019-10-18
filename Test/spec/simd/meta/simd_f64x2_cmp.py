@@ -277,12 +277,12 @@ class Simdf64x2CmpCase(SimdArithmeticCase):
         for case in unary_test_data:
             cases.append(self.single_unary_test(case))
 
-        self.get_unknow_operator_case(cases)
+        self.get_unknown_operator_case(cases)
 
         return '\n'.join(cases)
 
-    def get_unknow_operator_case(self, cases):
-        """Unknow operator cases.
+    def get_unknown_operator_case(self, cases):
+        """Unknown operator cases.
         """
 
         tpl_assert = "(assert_malformed (module quote \"(memory 1) (func " \
