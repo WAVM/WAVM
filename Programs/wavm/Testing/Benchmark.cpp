@@ -419,7 +419,15 @@ void runInterleavedLoadStoreBench()
 	auto emulated_v8x16_load_interleaved_3
 		= asFunction(getInstanceExport(instance, "emulated_v8x16.load_interleaved_3"));
 
-	// Print the benchmark module disassembly.
+	// Print the benchmark module LLVM IR and disassembly.
+
+	std::string llvmIR = LLVMJIT::emitLLVMIR(irModule, LLVMJIT::getHostTargetSpec(), true);
+	Log::printf(
+		Log::output,
+		"Benchmark LLVM IR (functionDef0=v8x16.load_interleaved_3, functionDef1=emulated):\n"
+		"%s\n",
+		llvmIR.c_str());
+
 	std::string disassembly
 		= LLVMJIT::disassembleObject(LLVMJIT::getHostTargetSpec(), Runtime::getObjectCode(module));
 	Log::printf(
