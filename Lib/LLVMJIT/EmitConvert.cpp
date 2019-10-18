@@ -411,3 +411,12 @@ EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x
 EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, sext)
 EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, zext)
 EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, zext)
+
+void EmitFunctionContext::i8x16_ltz_mask(NoImm)
+{
+	auto i8x16Operand = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
+	auto i1x16Mask = irBuilder.CreateICmpSLT(
+		i8x16Operand, llvm::ConstantVector::getNullValue(llvmContext.i8x16Type));
+	push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x16Mask, llvmContext.i16Type),
+							  llvmContext.i32Type));
+}

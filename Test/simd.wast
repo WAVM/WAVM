@@ -1114,3 +1114,47 @@
 (assert_return (invoke "v128.load" (i32.const 528)) (v128.const i64x2 10000000004 10000000006))
 (assert_return (invoke "v128.load" (i32.const 544)) (v128.const i64x2 10000000001 10000000003))
 (assert_return (invoke "v128.load" (i32.const 560)) (v128.const i64x2 10000000005 10000000007))
+
+;; i8x16.ltz_mask
+
+(module
+  (func (export "i8x16.ltz_mask") (param v128) (result i32)
+    (i8x16.ltz_mask (local.get 0))
+  )
+)
+
+(assert_return
+  (invoke "i8x16.ltz_mask"
+    (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
+  (i32.const 0x00000000)
+)
+
+(assert_return
+  (invoke "i8x16.ltz_mask"
+    (v128.const i8x16 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80))
+  (i32.const 0x0000ffff)
+)
+
+(assert_return
+  (invoke "i8x16.ltz_mask"
+    (v128.const i8x16 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f))
+  (i32.const 0x00000000)
+)
+
+(assert_return
+  (invoke "i8x16.ltz_mask"
+    (v128.const i8x16 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff))
+  (i32.const 0x0000ffff)
+)
+
+(assert_return
+  (invoke "i8x16.ltz_mask"
+    (v128.const i8x16 0x80 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
+  (i32.const 0x00000001)
+)
+
+(assert_return
+  (invoke "i8x16.ltz_mask"
+    (v128.const i8x16 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80))
+  (i32.const 0x0000aaaa)
+)

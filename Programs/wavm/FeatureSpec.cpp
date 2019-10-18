@@ -89,6 +89,11 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 		featureSpec.interleavedLoadStore = enable;
 		return true;
 	}
+	else if(!strcmp(featureName, "ltz-mask"))
+	{
+		featureSpec.ltzMask = enable;
+		return true;
+	}
 	else
 	{
 		return false;

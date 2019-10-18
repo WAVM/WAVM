@@ -470,7 +470,7 @@
 	visitOp(0xfdd5, i32x4_load16x4_u          , "i32x4.load16x4_u"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 	visitOp(0xfdd6, i64x2_load32x2_s          , "i64x2.load32x2_s"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 	visitOp(0xfdd7, i64x2_load32x2_u          , "i64x2.load32x2_u"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
-/* v128 miscellaneous instructions                                                                                                                            */ \
+/* v128 andnot instruction - should be renumbered to be with the other logical instructions                                                                   */ \
 	visitOp(0xfdd8, v128_andnot               , "v128.andnot"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 /* v128 interleaved load/store instructions                                                                                                                   */ \
 	visitOp(0xfdd9, v8x16_load_interleaved_2  , "v8x16.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
@@ -497,6 +497,8 @@
 	visitOp(0xfdee, v64x2_store_interleaved_2 , "v64x2.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
 	visitOp(0xfdef, v64x2_store_interleaved_3 , "v64x2.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
 	visitOp(0xfdf0, v64x2_store_interleaved_4 , "v64x2.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+/* v128 ltz_mask                                                                                                                                              */ \
+	visitOp(0xfdf1, i8x16_ltz_mask            , "i8x16.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
 /* Atomic wait/wake                                                                                                                                           */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
