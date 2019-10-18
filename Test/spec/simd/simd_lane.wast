@@ -441,7 +441,7 @@
 (assert_invalid (module (func (result i32) (i16x8.extract_lane_u 8 (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))) "invalid lane index")
 (assert_invalid (module (func (result i32) (i32x4.extract_lane 4 (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))) "invalid lane index")
 (assert_invalid (module (func (result i32) (f32x4.extract_lane 4 (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))) "invalid lane index")
-(assert_invalid (module (func (result v128) (i16x8.replace_lane 4 (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (i32.const 1)))) "invalid lane index")
+(assert_invalid (module (func (result v128) (i16x8.replace_lane 8 (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (i32.const 1)))) "invalid lane index")
 (assert_invalid (module (func (result v128) (i32x4.replace_lane 4 (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (i32.const 1)))) "invalid lane index")
 (assert_invalid (module (func (result v128) (f32x4.replace_lane 4 (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (i32.const 1)))) "invalid lane index")
 (assert_invalid (module (func (result i64) (i64x2.extract_lane 2 (v128.const i64x2 0 0 0 0)))) "invalid lane index")
