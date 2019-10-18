@@ -243,30 +243,38 @@ EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_u, llvmContext.i16x4Type, 3, 
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_s, llvmContext.i32x2Type, 3, sext)
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, zext)
 
-// LLVM fails to match the AArch64 interleaved load instructions if the non-interleaved load is
-// volatile, but volatile is necessary to prevent LLVM from removing possibly-trapping loads that it
-// thinks are dead. To allow benchmarking the AArch64 interleaved load instructions, temporarily
-// omit the volatile flag.
-#define VOLATILE_INTERLEAVED_LOADS 0
-
-#define EMIT_LOAD_INTERLEAVED_OP(name, llvmMemoryType, naturalAlignmentLog2, numVectors, numLanes) \
+#define EMIT_LOAD_INTERLEAVED_OP(                                                                  \
+	name, llvmMemoryType, llvmValueType, naturalAlignmentLog2, numVectors, numLanes)               \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
-		auto load = irBuilder.CreateLoad(pointer);                                                 \
-		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
-		 * trap if it's wrong. */                                                                  \
-		load->setAlignment(1);                                                                     \
-		if(VOLATILE_INTERLEAVED_LOADS) { load->setVolatile(true); }                                \
-		auto undef = llvm::UndefValue::get(llvmMemoryType);                                        \
-		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                          \
+		if(moduleContext.targetMachine->getTargetTriple().getArch() == llvm::Triple::aarch64)      \
 		{                                                                                          \
-			U32 shuffleIndices[numLanes];                                                          \
-			for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                              \
-			{ shuffleIndices[laneIndex] = laneIndex * numVectors + vectorIndex; }                  \
-			push(irBuilder.CreateShuffleVector(load, undef, shuffleIndices));                      \
+			auto pointer = coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex); \
+			auto results = callLLVMIntrinsic({llvmValueType, llvmValueType->getPointerTo()},       \
+											 llvm::Intrinsic::aarch64_neon_ld##numVectors,         \
+											 {pointer});                                           \
+			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
+			{ push(irBuilder.CreateExtractValue(results, vectorIndex)); }                          \
+		}                                                                                          \
+		else                                                                                       \
+		{                                                                                          \
+			auto pointer                                                                           \
+				= coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);         \
+			auto load = irBuilder.CreateLoad(pointer);                                             \
+			/* Don't trust the alignment hint provided by the WebAssembly code, since the load     \
+			 * can't trap if it's wrong. */                                                        \
+			load->setAlignment(1);                                                                 \
+			load->setVolatile(true);                                                               \
+			auto undef = llvm::UndefValue::get(llvmMemoryType);                                    \
+			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
+			{                                                                                      \
+				U32 shuffleIndices[numLanes];                                                      \
+				for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                          \
+				{ shuffleIndices[laneIndex] = laneIndex * numVectors + vectorIndex; }              \
+				push(irBuilder.CreateShuffleVector(load, undef, shuffleIndices));                  \
+			}                                                                                      \
 		}                                                                                          \
 	}
 
@@ -279,39 +287,116 @@ EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, 
 		{                                                                                          \
 			values[numVectors - vectorIndex - 1] = irBuilder.CreateBitCast(pop(), llvmValueType);  \
 		}                                                                                          \
-		llvm::Value* interleavedValues = llvm::UndefValue::get(llvmMemoryType);                    \
-		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                          \
-		{                                                                                          \
-			for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                              \
-			{                                                                                      \
-				interleavedValues = irBuilder.CreateInsertElement(                                 \
-					interleavedValues,                                                             \
-					irBuilder.CreateExtractElement(values[vectorIndex], laneIndex),                \
-					laneIndex * numVectors + vectorIndex);                                         \
-			}                                                                                      \
-		}                                                                                          \
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
-		auto store = irBuilder.CreateStore(interleavedValues, pointer);                            \
-		store->setVolatile(true);                                                                  \
-		/* Don't trust the alignment hint provided by the WebAssembly code, since the store can't  \
-		 * trap if it's wrong. */                                                                  \
-		store->setAlignment(1);                                                                    \
+		if(moduleContext.targetMachine->getTargetTriple().getArch() == llvm::Triple::aarch64)      \
+		{                                                                                          \
+			auto pointer = coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex); \
+			llvm::Value* args[numVectors + 1];                                                     \
+			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
+			{                                                                                      \
+				args[vectorIndex] = values[vectorIndex];                                           \
+				args[numVectors] = pointer;                                                        \
+			}                                                                                      \
+			callLLVMIntrinsic({llvmValueType, llvmValueType->getPointerTo()},                      \
+							  llvm::Intrinsic::aarch64_neon_st##numVectors,                        \
+							  args);                                                               \
+		}                                                                                          \
+		else                                                                                       \
+		{                                                                                          \
+			llvm::Value* interleavedValues = llvm::UndefValue::get(llvmMemoryType);                \
+			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
+			{                                                                                      \
+				for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                          \
+				{                                                                                  \
+					interleavedValues = irBuilder.CreateInsertElement(                             \
+						interleavedValues,                                                         \
+						irBuilder.CreateExtractElement(values[vectorIndex], laneIndex),            \
+						laneIndex * numVectors + vectorIndex);                                     \
+				}                                                                                  \
+			}                                                                                      \
+			auto pointer                                                                           \
+				= coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);         \
+			auto store = irBuilder.CreateStore(interleavedValues, pointer);                        \
+			store->setVolatile(true);                                                              \
+			/* Don't trust the alignment hint provided by the WebAssembly code, since the store    \
+			 * can't trap if it's wrong. */                                                        \
+			store->setAlignment(1);                                                                \
+		}                                                                                          \
 	}
 
-EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_2, llvmContext.i8x32Type, 4, 2, 16)
-EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_3, llvmContext.i8x48Type, 4, 3, 16)
-EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_4, llvmContext.i8x64Type, 4, 4, 16)
-EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_2, llvmContext.i16x16Type, 4, 2, 8)
-EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_3, llvmContext.i16x24Type, 4, 3, 8)
-EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_4, llvmContext.i16x32Type, 4, 4, 8)
-EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_2, llvmContext.i32x8Type, 4, 2, 4)
-EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_3, llvmContext.i32x12Type, 4, 3, 4)
-EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_4, llvmContext.i32x16Type, 4, 4, 4)
-EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_2, llvmContext.i64x4Type, 4, 2, 2)
-EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_3, llvmContext.i64x6Type, 4, 3, 2)
-EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_4, llvmContext.i64x8Type, 4, 4, 2)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_2,
+						 llvmContext.i8x32Type,
+						 llvmContext.i8x16Type,
+						 4,
+						 2,
+						 16)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_3,
+						 llvmContext.i8x48Type,
+						 llvmContext.i8x16Type,
+						 4,
+						 3,
+						 16)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_4,
+						 llvmContext.i8x64Type,
+						 llvmContext.i8x16Type,
+						 4,
+						 4,
+						 16)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_2,
+						 llvmContext.i16x16Type,
+						 llvmContext.i16x8Type,
+						 4,
+						 2,
+						 8)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_3,
+						 llvmContext.i16x24Type,
+						 llvmContext.i16x8Type,
+						 4,
+						 3,
+						 8)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_4,
+						 llvmContext.i16x32Type,
+						 llvmContext.i16x8Type,
+						 4,
+						 4,
+						 8)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_2,
+						 llvmContext.i32x8Type,
+						 llvmContext.i32x4Type,
+						 4,
+						 2,
+						 4)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_3,
+						 llvmContext.i32x12Type,
+						 llvmContext.i32x4Type,
+						 4,
+						 3,
+						 4)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_4,
+						 llvmContext.i32x16Type,
+						 llvmContext.i32x4Type,
+						 4,
+						 4,
+						 4)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_2,
+						 llvmContext.i64x4Type,
+						 llvmContext.i64x2Type,
+						 4,
+						 2,
+						 2)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_3,
+						 llvmContext.i64x6Type,
+						 llvmContext.i64x2Type,
+						 4,
+						 3,
+						 2)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_4,
+						 llvmContext.i64x8Type,
+						 llvmContext.i64x2Type,
+						 4,
+						 4,
+						 2)
 
 EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_2,
 						  llvmContext.i8x32Type,
@@ -378,15 +463,14 @@ EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_3,
 						  llvmContext.i64x2Type,
 						  4,
 						  3,
-						  2)
-EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4,
-						  llvmContext.i64x8Type,
-						  llvmContext.i64x2Type,
-						  4,
-						  4,
-						  2)
+						  2) EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4,
+													   llvmContext.i64x8Type,
+													   llvmContext.i64x2Type,
+													   4,
+													   4,
+													   2)
 
-void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
+	void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {
 	if(alignmentLog2 > 0)
 	{
