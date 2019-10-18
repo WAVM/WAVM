@@ -463,12 +463,13 @@ EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_3,
 						  llvmContext.i64x2Type,
 						  4,
 						  3,
-						  2) EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4,
-													   llvmContext.i64x8Type,
-													   llvmContext.i64x2Type,
-													   4,
-													   4,
-													   2)
+						  2)
+EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4,
+						  llvmContext.i64x8Type,
+						  llvmContext.i64x2Type,
+						  4,
+						  4,
+						  2)
 
 	void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {
