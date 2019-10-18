@@ -249,7 +249,7 @@ EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, 
 	{                                                                                              \
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		if(moduleContext.targetMachine->getTargetTriple().getArch() == llvm::Triple::aarch64)      \
+		if(moduleContext.targetArch == llvm::Triple::aarch64)                                      \
 		{                                                                                          \
 			auto pointer = coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex); \
 			auto results = callLLVMIntrinsic({llvmValueType, llvmValueType->getPointerTo()},       \
@@ -289,7 +289,7 @@ EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, 
 		}                                                                                          \
 		auto address = pop();                                                                      \
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		if(moduleContext.targetMachine->getTargetTriple().getArch() == llvm::Triple::aarch64)      \
+		if(moduleContext.targetArch == llvm::Triple::aarch64)                                      \
 		{                                                                                          \
 			auto pointer = coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex); \
 			llvm::Value* args[numVectors + 1];                                                     \

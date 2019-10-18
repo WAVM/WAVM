@@ -43,6 +43,7 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 , defaultTableOffset(nullptr)
 , diBuilder(*inLLVMModule)
 {
+	targetArch = targetMachine->getTargetTriple().getArch();
 	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
 
 	diModuleScope = diBuilder.createFile("unknown", "unknown");

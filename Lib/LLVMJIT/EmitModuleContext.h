@@ -14,8 +14,11 @@ namespace WAVM { namespace LLVMJIT {
 
 		LLVMContext& llvmContext;
 		llvm::Module* llvmModule;
+
 		llvm::TargetMachine* targetMachine;
+		llvm::Triple::ArchType targetArch;
 		bool useWindowsSEH;
+
 		std::vector<llvm::Constant*> typeIds;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;

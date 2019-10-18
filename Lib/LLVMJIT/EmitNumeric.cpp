@@ -803,9 +803,8 @@ void EmitFunctionContext::v8x16_swizzle(NoImm)
 	auto indexVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto elementVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 
-	const llvm::Triple::ArchType targetArch
-		= moduleContext.targetMachine->getTargetTriple().getArch();
-	if(targetArch == llvm::Triple::x86_64 || targetArch == llvm::Triple::x86)
+	if(moduleContext.targetArch == llvm::Triple::x86_64
+	   || moduleContext.targetArch == llvm::Triple::x86)
 	{
 		// WASM defines any out-of-range index to write zero to the output vector, but x86 pshufb
 		// just uses the index modulo 16, and only writes zero if the MSB of the index is 1. Do a
@@ -821,7 +820,7 @@ void EmitFunctionContext::v8x16_swizzle(NoImm)
 		push(callLLVMIntrinsic(
 			{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
 	}
-	else if(targetArch == llvm::Triple::aarch64)
+	else if(moduleContext.targetArch == llvm::Triple::aarch64)
 	{
 		push(callLLVMIntrinsic({llvmContext.i8x16Type},
 							   llvm::Intrinsic::aarch64_neon_tbl1,
