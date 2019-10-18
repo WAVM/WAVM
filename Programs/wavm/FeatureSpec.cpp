@@ -18,7 +18,8 @@ const char* getFeatureListHelpText()
 		   "  legacy-instr-names     Allow legacy instruction names.\n"
 		   "  quoted-names           Quoted WAT names extension.\n"
 		   "  shared-tables          Shared tables extension.\n"
-		   "  wat-custom-sections    Custom sections in WAT format.\n";
+		   "  wat-custom-sections    Custom sections in WAT format.\n"
+		   "  interleaved-load-sture Interleaved SIMD load&store instructions.\n";
 }
 
 bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
@@ -81,6 +82,11 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	else if(!strcmp(featureName, "wat-custom-sections"))
 	{
 		featureSpec.customSectionsInTextFormat = enable;
+		return true;
+	}
+	else if(!strcmp(featureName, "interleaved-load-store"))
+	{
+		featureSpec.interleavedLoadStore = enable;
 		return true;
 	}
 	else
