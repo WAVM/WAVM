@@ -471,7 +471,7 @@ EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4,
 						  4,
 						  2)
 
-	void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
+void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {
 	if(alignmentLog2 > 0)
 	{
