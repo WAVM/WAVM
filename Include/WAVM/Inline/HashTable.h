@@ -2,7 +2,7 @@
 
 #include "Assert.h"
 #include "BasicTypes.h"
-#include "OptionalStorage.h"
+#include "Impl/OptionalStorage.h"
 #include "WAVM/Platform/Intrinsic.h"
 
 namespace WAVM {

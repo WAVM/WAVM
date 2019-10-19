@@ -15,7 +15,7 @@ set(PublicHeaders
 	InlineArray.h
 	IntrusiveSharedPtr.h
 	IsNameChar.h
-	OptionalStorage.h Impl/OptionalStorage.natvis
+	Impl/OptionalStorage.h Impl/OptionalStorage.natvis
 	Serialization.h
 	Time.h
 	Timing.h

@@ -1,7 +1,7 @@
 #pragma once
 
+#include "Impl/OptionalStorage.h"
 #include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/OptionalStorage.h"
 
 namespace WAVM {
 	template<typename Element, Uptr maxElements> struct InlineArray
