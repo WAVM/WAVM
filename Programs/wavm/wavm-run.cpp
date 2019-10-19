@@ -540,13 +540,17 @@ struct State
 
 		if(abi == ABI::emscripten)
 		{
+			std::vector<std::string> args = runArgs;
+			args.insert(args.begin(), "/proc/1/exe");
+
 			// Instantiate the Emscripten environment.
 			emscriptenProcess
 				= Emscripten::createProcess(compartment,
+											std::move(args),
+											{},
 											Platform::getStdFD(Platform::StdDevice::in),
 											Platform::getStdFD(Platform::StdDevice::out),
 											Platform::getStdFD(Platform::StdDevice::err));
-			if(!emscriptenProcess) { return false; }
 		}
 		else if(abi == ABI::wasi)
 		{
@@ -642,52 +646,13 @@ struct State
 				invokeArgs.push_back(value);
 			}
 		}
-		else if(abi == ABI::wasi)
+		else if(abi == ABI::wasi || abi == ABI::emscripten)
 		{
-			// WASI just calls a _start function with the signature ()->().
+			// WASI/Emscripten just calls a _start function with the signature ()->().
 			function = getTypedInstanceExport(instance, "_start", FunctionType());
 			if(!function)
 			{
 				Log::printf(Log::error, "WASM module doesn't export WASI _start function.\n");
-				return EXIT_FAILURE;
-			}
-		}
-		else
-		{
-			// Emscripten calls main or _main with a signature (i32, i32)|() -> i32?
-			function = asFunctionNullable(getInstanceExport(instance, "main"));
-			if(!function) { function = asFunctionNullable(getInstanceExport(instance, "_main")); }
-			if(!function)
-			{
-				Log::printf(Log::error, "Module does not export main function\n");
-				return EXIT_FAILURE;
-			}
-			const FunctionType functionType = getFunctionType(function);
-
-			if(functionType.params().size() == 2)
-			{
-				if(!emscriptenProcess)
-				{
-					Log::printf(
-						Log::error,
-						"Module does not declare a default memory object to put arguments in.\n");
-					return EXIT_FAILURE;
-				}
-				else
-				{
-					std::vector<std::string> args = runArgs;
-					args.insert(args.begin(), filename);
-
-					WAVM_ASSERT(emscriptenProcess);
-					invokeArgs = Emscripten::injectCommandArgs(*emscriptenProcess, context, args);
-				}
-			}
-			else if(functionType.params().size() > 0)
-			{
-				Log::printf(Log::error,
-							"WebAssembly function requires %" PRIu64
-							" argument(s), but only 0 or 2 can be passed!",
-							functionType.params().size());
 				return EXIT_FAILURE;
 			}
 		}
@@ -730,8 +695,10 @@ struct State
 				invokeResults[resultIndex] = Value(resultType, untaggedResult);
 			}
 
-			Log::printf(
-				Log::debug, "%s returned: %s\n", functionName, asString(invokeResults).c_str());
+			Log::printf(Log::debug,
+						"%s returned: %s\n",
+						functionName ? functionName : "Module entry point",
+						asString(invokeResults).c_str());
 
 			return EXIT_SUCCESS;
 		}

@@ -99,6 +99,7 @@ namespace WAVM { namespace Emscripten {
 		Runtime::GCPointer<Runtime::Function> stackAlloc;
 		Runtime::GCPointer<Runtime::Function> stackSave;
 		Runtime::GCPointer<Runtime::Function> stackRestore;
+		Runtime::GCPointer<Runtime::Function> errnoLocation;
 
 		// A global list of running threads created by WebAssembly code.
 		Platform::Mutex threadsMutex;
@@ -106,13 +107,14 @@ namespace WAVM { namespace Emscripten {
 
 		std::atomic<emabi::pthread_key_t> pthreadSpecificNextKey{0};
 
-		emabi::Address errnoAddress{0};
-
 		std::atomic<emabi::Address> currentLocale;
 
-		WAVM::VFS::VFD* stdIn{nullptr};
-		WAVM::VFS::VFD* stdOut{nullptr};
-		WAVM::VFS::VFD* stdErr{nullptr};
+		std::vector<std::string> args;
+		std::vector<std::string> envs;
+
+		VFS::VFD* stdIn{nullptr};
+		VFS::VFD* stdOut{nullptr};
+		VFS::VFD* stdErr{nullptr};
 
 		~Process();
 

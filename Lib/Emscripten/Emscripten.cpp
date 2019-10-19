@@ -190,16 +190,20 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_time", emabi::Result, _time, U32 address)
 	return (emabi::Result)t;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___errno_location", emabi::Result, ___errno_location)
-{
-	return emabi::esuccess;
-}
-
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___setErrNo", void, ___seterrno, I32 value)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
-	if(process->errnoAddress)
-	{ memoryRef<I32>(process->memory, process->errnoAddress) = (I32)value; }
+	if(process->errnoLocation)
+	{
+		UntaggedValue errnoLocationResult;
+		invokeFunction(getContextFromRuntimeData(contextRuntimeData),
+					   process->errnoLocation,
+					   FunctionType({ValueType::i32}, {}),
+					   nullptr,
+					   &errnoLocationResult);
+
+		memoryRef<I32>(process->memory, errnoLocationResult.i32) = (I32)value;
+	}
 }
 
 static thread_local I32 tempRet0;
@@ -879,6 +883,21 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "fd_close",
+							   __wasi_errno_return_t,
+							   emscripten_fd_close,
+							   emabi::FD fd)
+{
+	Emscripten::Process* process = getProcess(contextRuntimeData);
+
+	VFS::VFD* vfd = getVFD(process, fd);
+	if(!vfd) { return __WASI_EBADF; }
+
+	// We only support stdio at the moment, so don't bother actually closing those VFDs.
+	return __WASI_ESUCCESS;
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
 							   "fd_write",
 							   __wasi_errno_return_t,
 							   emscripten_fd_write,
@@ -1219,6 +1238,117 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 }
 // WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_tzset", void, _tzset) { }
 
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "args_sizes_get",
+							   __wasi_errno_return_t,
+							   wasi_args_sizes_get,
+							   U32 argcAddress,
+							   U32 argBufSizeAddress)
+{
+	Process* process = getProcess(contextRuntimeData);
+
+	Uptr numArgBufferBytes = 0;
+	for(const std::string& arg : process->args) { numArgBufferBytes += arg.size() + 1; }
+
+	if(process->args.size() > emabi::addressMax || numArgBufferBytes > emabi::addressMax)
+	{ return __WASI_EOVERFLOW; }
+	memoryRef<emabi::Address>(process->memory, argcAddress) = emabi::Address(process->args.size());
+	memoryRef<emabi::Address>(process->memory, argBufSizeAddress)
+		= emabi::Address(numArgBufferBytes);
+
+	return __WASI_ESUCCESS;
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "args_get",
+							   __wasi_errno_return_t,
+							   wasi_args_get,
+							   U32 argvAddress,
+							   U32 argBufAddress)
+{
+	Process* process = getProcess(contextRuntimeData);
+
+	emabi::Address nextArgBufAddress = argBufAddress;
+	for(Uptr argIndex = 0; argIndex < process->args.size(); ++argIndex)
+	{
+		const std::string& arg = process->args[argIndex];
+		const Uptr numArgBytes = arg.size() + 1;
+
+		if(numArgBytes > emabi::addressMax
+		   || nextArgBufAddress > emabi::addressMax - numArgBytes - 1)
+		{ return __WASI_EOVERFLOW; }
+
+		if(numArgBytes > 0)
+		{
+			memcpy(memoryArrayPtr<U8>(process->memory, nextArgBufAddress, numArgBytes),
+				   (const U8*)arg.c_str(),
+				   numArgBytes);
+		}
+		memoryRef<emabi::Address>(process->memory, argvAddress + argIndex * sizeof(U32))
+			= emabi::Address(nextArgBufAddress);
+
+		nextArgBufAddress += emabi::Address(numArgBytes);
+	}
+
+	return __WASI_ESUCCESS;
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "environ_sizes_get",
+							   __wasi_errno_return_t,
+							   wasi_environ_sizes_get,
+							   emabi::Address envCountAddress,
+							   emabi::Address envBufSizeAddress)
+{
+	Process* process = getProcess(contextRuntimeData);
+
+	Uptr numEnvBufferBytes = 0;
+	for(const std::string& env : process->envs) { numEnvBufferBytes += env.size() + 1; }
+
+	if(process->envs.size() > emabi::addressMax || numEnvBufferBytes > emabi::addressMax)
+	{ return __WASI_EOVERFLOW; }
+	memoryRef<emabi::Address>(process->memory, envCountAddress)
+		= emabi::Address(process->envs.size());
+	memoryRef<emabi::Address>(process->memory, envBufSizeAddress)
+		= emabi::Address(numEnvBufferBytes);
+
+	return __WASI_ESUCCESS;
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+							   "environ_get",
+							   __wasi_errno_return_t,
+							   wasi_environ_get,
+							   emabi::Address envvAddress,
+							   emabi::Address envBufAddress)
+{
+	Process* process = getProcess(contextRuntimeData);
+
+	emabi::Address nextEnvBufAddress = envBufAddress;
+	for(Uptr argIndex = 0; argIndex < process->envs.size(); ++argIndex)
+	{
+		const std::string& env = process->envs[argIndex];
+		const Uptr numEnvBytes = env.size() + 1;
+
+		if(numEnvBytes > emabi::addressMax
+		   || nextEnvBufAddress > emabi::addressMax - numEnvBytes - 1)
+		{ return __WASI_EOVERFLOW; }
+
+		if(numEnvBytes > 0)
+		{
+			memcpy(memoryArrayPtr<U8>(process->memory, nextEnvBufAddress, numEnvBytes),
+				   (const U8*)env.c_str(),
+				   numEnvBytes);
+		}
+		memoryRef<emabi::Address>(process->memory, envvAddress + argIndex * sizeof(U32))
+			= emabi::Address(nextEnvBufAddress);
+
+		nextEnvBufAddress += emabi::Address(numEnvBytes);
+	}
+
+	return __WASI_ESUCCESS;
+}
+
 Emscripten::Process::~Process()
 {
 	// Instead of allowing an Instance to live on until all its threads exit, wait for all threads
@@ -1285,11 +1415,20 @@ static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMet
 }
 
 std::shared_ptr<Emscripten::Process> Emscripten::createProcess(Compartment* compartment,
+															   std::vector<std::string>&& inArgs,
+															   std::vector<std::string>&& inEnvs,
 															   VFS::VFD* stdIn,
 															   VFS::VFD* stdOut,
 															   VFS::VFD* stdErr)
 {
 	std::shared_ptr<Process> process = std::make_shared<Process>();
+
+	process->args = std::move(inArgs);
+	process->envs = std::move(inEnvs);
+	process->stdIn = stdIn;
+	process->stdOut = stdOut;
+	process->stdErr = stdErr;
+
 	process->env = Intrinsics::instantiateModule(
 		compartment,
 		{WAVM_INTRINSIC_MODULE_REF(env), WAVM_INTRINSIC_MODULE_REF(envThreads)},
@@ -1302,10 +1441,6 @@ std::shared_ptr<Emscripten::Process> Emscripten::createProcess(Compartment* comp
 		compartment, {WAVM_INTRINSIC_MODULE_REF(emscripten_wasi_unstable)}, "wasi_unstable");
 
 	process->compartment = compartment;
-
-	process->stdIn = stdIn;
-	process->stdOut = stdOut;
-	process->stdErr = stdErr;
 
 	setUserData(compartment, process.get());
 
@@ -1366,6 +1501,8 @@ bool Emscripten::initializeProcess(Process& process,
 		= getTypedInstanceExport(instance, "stackSave", FunctionType({ValueType::i32}, {}));
 	process.stackRestore
 		= getTypedInstanceExport(instance, "stackRestore", FunctionType({}, {ValueType::i32}));
+	process.errnoLocation
+		= getTypedInstanceExport(instance, "__errno_location", FunctionType({ValueType::i32}, {}));
 
 	// Create an Emscripten "main thread" and associate it with this context.
 	process.mainThread = new Emscripten::Thread(&process, context, nullptr, 0);
@@ -1378,41 +1515,7 @@ bool Emscripten::initializeProcess(Process& process,
 	// Initialize the Emscripten "thread local" state.
 	initThreadLocals(process.mainThread);
 
-	// Call the __wasm_call_ctors function that initializes globals.
-	if(Function* globalCtors = asFunctionNullable(getInstanceExport(instance, "__wasm_call_ctors")))
-	{ invokeFunction(context, globalCtors); }
-
-	// Store ___errno_location.
-	Function* errNoLocation = asFunctionNullable(getInstanceExport(instance, "___errno_location"));
-	if(errNoLocation && getFunctionType(errNoLocation) == FunctionType({ValueType::i32}, {}))
-	{
-		IR::UntaggedValue errNoResult;
-		invokeFunction(
-			context, errNoLocation, FunctionType({ValueType::i32}, {}), nullptr, &errNoResult);
-		process.errnoAddress = errNoResult.i32;
-	}
-
 	return true;
-}
-
-std::vector<IR::Value> Emscripten::injectCommandArgs(Process& process,
-													 Runtime::Context* context,
-													 const std::vector<std::string>& argStrings)
-{
-	U8* memoryBase = getMemoryBaseAddress(process.memory);
-
-	U32* argvOffsets
-		= (U32*)(memoryBase
-				 + dynamicAlloc(&process, context, (U32)(sizeof(U32) * (argStrings.size() + 1))));
-	for(Uptr argIndex = 0; argIndex < argStrings.size(); ++argIndex)
-	{
-		auto stringSize = argStrings[argIndex].size() + 1;
-		auto stringMemory = memoryBase + dynamicAlloc(&process, context, (U32)stringSize);
-		memcpy(stringMemory, argStrings[argIndex].c_str(), stringSize);
-		argvOffsets[argIndex] = (U32)(stringMemory - memoryBase);
-	}
-	argvOffsets[argStrings.size()] = 0;
-	return {(U32)argStrings.size(), (U32)((U8*)argvOffsets - memoryBase)};
 }
 
 Runtime::Resolver& Emscripten::getInstanceResolver(Process& process) { return process; }

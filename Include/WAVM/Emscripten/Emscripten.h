@@ -25,6 +25,8 @@ namespace WAVM { namespace Emscripten {
 	struct Process;
 
 	WAVM_API std::shared_ptr<Process> createProcess(Runtime::Compartment* compartment,
+													std::vector<std::string>&& inArgs,
+													std::vector<std::string>&& inEnvs,
 													VFS::VFD* stdIn = nullptr,
 													VFS::VFD* stdOut = nullptr,
 													VFS::VFD* stdErr = nullptr);
@@ -32,9 +34,6 @@ namespace WAVM { namespace Emscripten {
 									Runtime::Context* context,
 									const IR::Module& module,
 									Runtime::Instance* instance);
-	WAVM_API std::vector<IR::Value> injectCommandArgs(Process& process,
-													  Runtime::Context* context,
-													  const std::vector<std::string>& argStrings);
 
 	WAVM_API Runtime::Resolver& getInstanceResolver(Process& process);
 
