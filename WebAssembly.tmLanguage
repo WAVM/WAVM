@@ -547,7 +547,7 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_sat_f64_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict>
 			<key>match</key>
-			<string>(?&lt;=[\s=();])(module|binary|quote|memory|table|data|elem|passive|type|import|export|global|exception_type|ref\.host|func|param|result|local)(?=[\s=();])</string>
+			<string>(?&lt;=[\s=();])(module|binary|quote|memory|table|data|elem|passive|type|import|export|global|exception_type|ref\.host|func|param|result|local|calling_conv)(?=[\s=();])</string>
 			<key>name</key>
 			<string>entity.name.function.wasm</string>
 		</dict>

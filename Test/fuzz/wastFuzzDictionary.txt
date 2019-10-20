@@ -49,6 +49,11 @@
 "before"
 "data_count"
 "code"
+"calling_conv"
+"intrinsic"
+"intrinsic_with_context_switch"
+"c"
+"c_api_callback"
 "ref.host"
 
 # Whitespace
