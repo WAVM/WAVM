@@ -225,6 +225,7 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 
 			default:
 				parseErrorf(cursor->parseState, cursor->nextToken, "expected calling convention");
+				throw RecoverParseException();
 			};
 			++cursor->nextToken;
 		});
