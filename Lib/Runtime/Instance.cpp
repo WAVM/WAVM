@@ -64,20 +64,12 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 									 std::string&& moduleDebugName,
 									 ResourceQuotaRefParam resourceQuota)
 {
-	Uptr id = UINTPTR_MAX;
-	{
-		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
-		id = compartment->instances.add(UINTPTR_MAX, nullptr);
-	}
-	if(id == UINTPTR_MAX) { return nullptr; }
-
-	std::vector<Function*> functions;
-	std::vector<Table*> tables;
-	std::vector<Memory*> memories;
-	std::vector<Global*> globals;
-	std::vector<ExceptionType*> exceptionTypes;
-
-	// Check the types of the Instance's imports.
+	// Check the types of the Instance's imports, and build per-kind import arrays.
+	std::vector<FunctionImportBinding> functionImports;
+	std::vector<Table*> tableImports;
+	std::vector<Memory*> memoryImports;
+	std::vector<Global*> globalImports;
+	std::vector<ExceptionType*> exceptionTypeImports;
 	WAVM_ERROR_UNLESS(imports.size() == module->ir.imports.size());
 	for(Uptr importIndex = 0; importIndex < imports.size(); ++importIndex)
 	{
@@ -94,33 +86,34 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 			const auto& importType
 				= module->ir.types[module->ir.functions.getType(kindIndex.index).index];
 			WAVM_ERROR_UNLESS(function->encodedType == importType);
-			functions.push_back(function);
+			WAVM_ERROR_UNLESS(importType.callingConvention() == CallingConvention::wasm);
+			functionImports.push_back({function});
 			break;
 		}
 		case ExternKind::table: {
 			Table* table = asTable(importObject);
 			WAVM_ERROR_UNLESS(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
-			tables.push_back(table);
+			tableImports.push_back(table);
 			break;
 		}
 		case ExternKind::memory: {
 			Memory* memory = asMemory(importObject);
 			WAVM_ERROR_UNLESS(
 				isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
-			memories.push_back(memory);
+			memoryImports.push_back(memory);
 			break;
 		}
 		case ExternKind::global: {
 			Global* global = asGlobal(importObject);
 			WAVM_ERROR_UNLESS(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
-			globals.push_back(global);
+			globalImports.push_back(global);
 			break;
 		}
 		case ExternKind::exceptionType: {
 			ExceptionType* exceptionType = asExceptionType(importObject);
 			WAVM_ERROR_UNLESS(isSubtype(exceptionType->sig.params,
 										module->ir.exceptionTypes.getType(kindIndex.index).params));
-			exceptionTypes.push_back(exceptionType);
+			exceptionTypeImports.push_back(exceptionType);
 			break;
 		}
 
@@ -129,11 +122,39 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 		};
 	}
 
-	WAVM_ASSERT(functions.size() == module->ir.functions.imports.size());
+	return instantiateModuleInternal(compartment,
+									 module,
+									 std::move(functionImports),
+									 std::move(tableImports),
+									 std::move(memoryImports),
+									 std::move(globalImports),
+									 std::move(exceptionTypeImports),
+									 std::move(moduleDebugName),
+									 resourceQuota);
+}
+
+Instance* Runtime::instantiateModuleInternal(Compartment* compartment,
+											 ModuleConstRefParam module,
+											 std::vector<FunctionImportBinding>&& functionImports,
+											 std::vector<Table*>&& tables,
+											 std::vector<Memory*>&& memories,
+											 std::vector<Global*>&& globals,
+											 std::vector<ExceptionType*>&& exceptionTypes,
+											 std::string&& moduleDebugName,
+											 ResourceQuotaRefParam resourceQuota)
+{
+	WAVM_ASSERT(functionImports.size() == module->ir.functions.imports.size());
 	WAVM_ASSERT(tables.size() == module->ir.tables.imports.size());
 	WAVM_ASSERT(memories.size() == module->ir.memories.imports.size());
 	WAVM_ASSERT(globals.size() == module->ir.globals.imports.size());
 	WAVM_ASSERT(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
+
+	Uptr id = UINTPTR_MAX;
+	{
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
+		id = compartment->instances.add(UINTPTR_MAX, nullptr);
+	}
+	if(id == UINTPTR_MAX) { return nullptr; }
 
 	// Deserialize the disassembly names.
 	DisassemblyNames disassemblyNames;
@@ -175,9 +196,13 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	// Instantiate the module's global definitions.
-	for(const GlobalDef& globalDef : module->ir.globals.defs)
+	for(Uptr globalDefIndex = 0; globalDefIndex < module->ir.globals.defs.size(); ++globalDefIndex)
 	{
-		Global* global = createGlobal(compartment, globalDef.type, resourceQuota);
+		std::string debugName
+			= disassemblyNames.globals[module->ir.globals.imports.size() + globalDefIndex];
+		const GlobalDef& globalDef = module->ir.globals.defs[globalDefIndex];
+		Global* global
+			= createGlobal(compartment, globalDef.type, std::move(debugName), resourceQuota);
 		globals.push_back(global);
 
 		// Defer evaluation of globals with (ref.func ...) initializers until the module's code is
@@ -217,9 +242,23 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 		wavmIntrinsicsExportMap.add(intrinsicFunctionPair.key, functionBinding);
 	}
 
+	std::vector<Function*> functions;
 	std::vector<LLVMJIT::FunctionBinding> jitFunctionImports;
 	for(Uptr importIndex = 0; importIndex < module->ir.functions.imports.size(); ++importIndex)
-	{ jitFunctionImports.push_back({const_cast<U8*>(functions[importIndex]->code)}); }
+	{
+		const FunctionType functionType
+			= module->ir.types[module->ir.functions.imports[importIndex].type.index];
+		if(functionType.callingConvention() == CallingConvention::wasm)
+		{
+			functions.push_back(functionImports[importIndex].wasmFunction);
+			jitFunctionImports.push_back({functionImports[importIndex].wasmFunction->code});
+		}
+		else
+		{
+			functions.push_back(nullptr);
+			jitFunctionImports.push_back({functionImports[importIndex].nativeFunction});
+		}
+	}
 
 	std::vector<LLVMJIT::TableBinding> jitTables;
 	for(Table* table : tables) { jitTables.push_back({table->id}); }
@@ -289,7 +328,12 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 		Object* exportedObject = nullptr;
 		switch(exportIt.kind)
 		{
-		case IR::ExternKind::function: exportedObject = asObject(functions[exportIt.index]); break;
+		case IR::ExternKind::function:
+			exportedObject = asObject(functions[exportIt.index]);
+			WAVM_ERROR_UNLESS(
+				exportedObject
+				&& "Trying to export an import without a Runtime::Function (a native function?)");
+			break;
 		case IR::ExternKind::table: exportedObject = tables[exportIt.index]; break;
 		case IR::ExternKind::memory: exportedObject = memories[exportIt.index]; break;
 		case IR::ExternKind::global: exportedObject = globals[exportIt.index]; break;

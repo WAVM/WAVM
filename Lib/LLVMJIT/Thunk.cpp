@@ -43,30 +43,6 @@ using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 using namespace WAVM::Runtime;
 
-struct IntrinsicThunkKey
-{
-	void* nativeFunction;
-	FunctionType type;
-
-	friend bool operator==(const IntrinsicThunkKey& a, const IntrinsicThunkKey& b)
-	{
-		return a.nativeFunction == b.nativeFunction && a.type == b.type;
-	}
-};
-
-namespace WAVM {
-	template<> struct Hash<IntrinsicThunkKey>
-	{
-		Uptr operator()(const IntrinsicThunkKey& key, Uptr seed = 0) const
-		{
-			Uptr hash = seed;
-			hash = Hash<Uptr>()(reinterpret_cast<Uptr>(key.nativeFunction), hash);
-			hash = Hash<Uptr>()(key.type.getHash(), hash);
-			return hash;
-		}
-	};
-}
-
 // A global invoke thunk cache
 struct InvokeThunkCache
 {
@@ -83,23 +59,6 @@ struct InvokeThunkCache
 
 private:
 	InvokeThunkCache() {}
-};
-
-// A global intrinsic thunk cache.
-struct IntrinsicThunkCache
-{
-	Platform::RWMutex mutex;
-	HashMap<IntrinsicThunkKey, Runtime::Function*> functionToThunkMap;
-	std::vector<std::unique_ptr<LLVMJIT::Module>> modules;
-
-	static IntrinsicThunkCache& get()
-	{
-		static IntrinsicThunkCache singleton;
-		return singleton;
-	}
-
-private:
-	IntrinsicThunkCache() {}
 };
 
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
@@ -210,74 +169,4 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	invokeThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
-}
-
-Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
-											  FunctionType functionType,
-											  const char* debugName)
-{
-	IntrinsicThunkCache& intrinsicThunkCache = IntrinsicThunkCache::get();
-	Platform::RWMutex::ExclusiveLock intrinsicThunkLock(intrinsicThunkCache.mutex);
-
-	const IR::CallingConvention callingConvention = functionType.callingConvention();
-	WAVM_ASSERT(callingConvention == CallingConvention::intrinsic
-				|| callingConvention == CallingConvention::intrinsicWithContextSwitch
-				|| callingConvention == CallingConvention::cAPICallback);
-
-	const FunctionType wasmFunctionType(
-		functionType.results(), functionType.params(), CallingConvention::wasm);
-
-	LLVMContext llvmContext;
-
-	// Reuse cached intrinsic thunks for the same function+type.
-	Runtime::Function*& intrinsicThunkFunction
-		= intrinsicThunkCache.functionToThunkMap.getOrAdd({nativeFunction, functionType}, nullptr);
-	if(intrinsicThunkFunction) { return intrinsicThunkFunction; }
-
-	// Create a FunctionMutableData object for the thunk.
-	FunctionMutableData* functionMutableData
-		= new FunctionMutableData(std::string("thnk!WASM to C thunk!(") + debugName + ')');
-
-	// Create a LLVM module containing a single function with the same signature as the native
-	// function, but with the WASM calling convention.
-	llvm::Module llvmModule("", llvmContext);
-	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
-	llvmModule.setDataLayout(targetMachine->createDataLayout());
-	auto llvmFunctionType = asLLVMType(llvmContext, wasmFunctionType);
-	auto function = llvm::Function::Create(
-		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
-	function->setCallingConv(asLLVMCallingConv(callingConvention));
-	setRuntimeFunctionPrefix(llvmContext,
-							 function,
-							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
-							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
-							 emitLiteral(llvmContext, wasmFunctionType.getEncoding().impl));
-	setFunctionAttributes(targetMachine.get(), function);
-
-	EmitContext emitContext(llvmContext, {});
-	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
-
-	emitContext.initContextVariables(&*function->args().begin());
-
-	llvm::SmallVector<llvm::Value*, 8> args;
-	for(auto argIt = function->args().begin() + 1; argIt != function->args().end(); ++argIt)
-	{ args.push_back(&*argIt); }
-
-	llvm::Type* llvmNativeFunctionType = asLLVMType(llvmContext, functionType)->getPointerTo();
-	llvm::Value* llvmNativeFunction = emitLiteralPointer(nativeFunction, llvmNativeFunctionType);
-	ValueVector results = emitContext.emitCallOrInvoke(llvmNativeFunction, args, functionType);
-
-	// Emit the function return.
-	emitContext.emitReturn(functionType.results(), results);
-
-	// Compile the LLVM IR to object code.
-	std::vector<U8> objectBytes
-		= compileLLVMModule(llvmContext, std::move(llvmModule), false, targetMachine.get());
-
-	// Load the object code.
-	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
-	intrinsicThunkCache.modules.push_back(std::unique_ptr<LLVMJIT::Module>(jitModule));
-
-	intrinsicThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
-	return intrinsicThunkFunction;
 }

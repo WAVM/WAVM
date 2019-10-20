@@ -107,6 +107,7 @@ namespace WAVM { namespace Runtime {
 		Uptr id = UINTPTR_MAX;
 
 		const IR::GlobalType type;
+		std::string debugName;
 		const U32 mutableGlobalIndex;
 		IR::UntaggedValue initialValue;
 		bool hasBeenInitialized;
@@ -114,9 +115,11 @@ namespace WAVM { namespace Runtime {
 		Global(Compartment* inCompartment,
 			   IR::GlobalType inType,
 			   U32 inMutableGlobalId,
+			   std::string&& inDebugName,
 			   IR::UntaggedValue inInitialValue = IR::UntaggedValue())
 		: GCObject(ObjectKind::global, inCompartment)
 		, type(inType)
+		, debugName(std::move(inDebugName))
 		, mutableGlobalIndex(inMutableGlobalId)
 		, initialValue(inInitialValue)
 		, hasBeenInitialized(false)
@@ -350,6 +353,32 @@ namespace WAVM { namespace Runtime {
 						 Uptr destOffset,
 						 Uptr sourceOffset,
 						 Uptr numElems);
+
+	// This function is like Runtime::instantiateModule, but allows binding function imports
+	// directly to native code. The interpretation of each FunctionImportBinding is determined by
+	// the import's calling convention:
+	// An import with CallingConvention::wasm reads FunctionImportBinding::wasmFunction,
+	// but all other imports read FunctionImportBinding::nativeFunction.
+	struct FunctionImportBinding
+	{
+		union
+		{
+			Function* wasmFunction;
+			const void* nativeFunction;
+		};
+
+		FunctionImportBinding(Function* inWASMFunction) : wasmFunction(inWASMFunction) {}
+		FunctionImportBinding(void* inNativeFunction) : nativeFunction(inNativeFunction) {}
+	};
+	Instance* instantiateModuleInternal(Compartment* compartment,
+										ModuleConstRefParam module,
+										std::vector<FunctionImportBinding>&& functionImports,
+										std::vector<Table*>&& tableImports,
+										std::vector<Memory*>&& memoryImports,
+										std::vector<Global*>&& globalImports,
+										std::vector<ExceptionType*>&& exceptionTypeImports,
+										std::string&& debugName,
+										ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 }}
 
 namespace WAVM { namespace Intrinsics {

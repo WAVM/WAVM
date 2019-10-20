@@ -121,7 +121,8 @@ bool Runtime::generateStub(const std::string& moduleName,
 		return outObject != nullptr;
 	}
 	case IR::ExternKind::global: {
-		outObject = asObject(Runtime::createGlobal(compartment, asGlobalType(type), resourceQuota));
+		outObject = asObject(Runtime::createGlobal(
+			compartment, asGlobalType(type), std::string(exportName), resourceQuota));
 		return outObject != nullptr;
 	}
 	case IR::ExternKind::exceptionType: {

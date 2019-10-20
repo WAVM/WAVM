@@ -9,6 +9,7 @@
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
+#include "WAVM/Runtime/Intrinsics.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -774,7 +775,10 @@ wasm_func_t* wasm_func_new(wasm_compartment_t* compartment,
 {
 	FunctionType callbackType(
 		type->type.results(), type->type.params(), CallingConvention::cAPICallback);
-	Function* function = LLVMJIT::getIntrinsicThunk((void*)callback, callbackType, "wasm_func_new");
+	Intrinsics::Module intrinsicModule;
+	Intrinsics::Function intrinsicFunction(&intrinsicModule, "wasm_func_new", (void*)callback, callbackType);
+	Instance* instance = Intrinsics::instantiateModule(compartment, { &intrinsicModule }, "wasm_func_new");
+	Function* function = getTypedInstanceExport(instance, "wasm_func_new", type->type);
 	addGCRoot(function);
 	return function;
 }
@@ -835,7 +839,7 @@ wasm_global_t* wasm_global_new(wasm_compartment_t* compartment,
 							   const wasm_globaltype_t* type,
 							   const wasm_val_t* value)
 {
-	Global* global = createGlobal(compartment, type->type);
+	Global* global = createGlobal(compartment, type->type, "wasm_global_new");
 	addGCRoot(global);
 	initializeGlobal(global, asValue(type->type.valueType, value));
 	return global;

@@ -196,16 +196,12 @@ static void print(std::string& string, FunctionType functionType)
 	switch(functionType.callingConvention())
 	{
 	case CallingConvention::wasm: break;
-	case CallingConvention::intrinsic: string += " (calling_convention intrinsic)"; break;
+	case CallingConvention::intrinsic: string += " (calling_conv intrinsic)"; break;
 	case CallingConvention::intrinsicWithContextSwitch:
-		string += " (calling_convention intrinsic_with_context_switch)";
+		string += " (calling_conv intrinsic_with_context_switch)";
 		break;
-	case CallingConvention::c:
-		string += " (calling_convention c)";
-		break;
-	case CallingConvention::cAPICallback:
-		string += " (calling_convention c_api_callback)";
-		break;
+	case CallingConvention::c: string += " (calling_conv c)"; break;
+	case CallingConvention::cAPICallback: string += " (calling_conv c_api_callback)"; break;
 
 	default: WAVM_UNREACHABLE();
 	}

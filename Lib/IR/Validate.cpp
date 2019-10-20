@@ -1124,6 +1124,17 @@ void IR::validateDataSegments(const Module& module)
 	}
 }
 
+void IR::validateCodeSection(const Module& module)
+{
+	for(const auto& functionDef : module.functions.defs)
+	{
+		CodeValidationStream validationStream(module, functionDef);
+		OperatorDecoderStream operatorDecoderStream(functionDef.code);
+		while(operatorDecoderStream)
+		{ operatorDecoderStream.decodeOp(validationStream); }
+	}
+}
+
 namespace WAVM { namespace IR {
 	struct CodeValidationStreamImpl
 	{

@@ -27,8 +27,7 @@ namespace WAVM { namespace Intrinsics {
 	WAVM_API Runtime::Instance* instantiateModule(
 		Runtime::Compartment* compartment,
 		const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
-		std::string&& debugName,
-		const HashMap<std::string, Runtime::Object*>& extraExports = {});
+		std::string&& debugName);
 
 	// An intrinsic function.
 	struct Function
@@ -37,8 +36,9 @@ namespace WAVM { namespace Intrinsics {
 						  const char* inName,
 						  void* inNativeFunction,
 						  IR::FunctionType type);
-		WAVM_API Runtime::Function* instantiate(Runtime::Compartment* compartment);
 
+		const char* getName() const { return name; }
+		IR::FunctionType getType() const { return type; }
 		void* getNativeFunction() const { return nativeFunction; }
 
 	private:
@@ -54,8 +54,9 @@ namespace WAVM { namespace Intrinsics {
 						const char* inName,
 						IR::ValueType inType,
 						IR::Value inValue);
-		WAVM_API Runtime::Global* instantiate(Runtime::Compartment* compartment);
 
+		const char* getName() const { return name; }
+		IR::ValueType getType() const { return type; }
 		IR::Value getValue() const { return value; }
 
 	private:
@@ -81,12 +82,9 @@ namespace WAVM { namespace Intrinsics {
 	{
 		WAVM_API
 		Memory(Intrinsics::Module* moduleRef, const char* inName, const IR::MemoryType& inType);
-		WAVM_API Runtime::Memory* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::Memory* getInstance(Runtime::Instance* instance)
-		{
-			return asMemory(Runtime::getInstanceExport(instance, name));
-		}
+		const char* getName() const { return name; }
+		IR::MemoryType getType() const { return type; }
 
 	private:
 		const char* name;
@@ -97,12 +95,9 @@ namespace WAVM { namespace Intrinsics {
 	{
 		WAVM_API
 		Table(Intrinsics::Module* moduleRef, const char* inName, const IR::TableType& inType);
-		WAVM_API Runtime::Table* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::Table* getInstance(Runtime::Instance* instance)
-		{
-			return asTable(Runtime::getInstanceExport(instance, name));
-		}
+		const char* getName() const { return name; }
+		IR::TableType getType() const { return type; }
 
 	private:
 		const char* name;

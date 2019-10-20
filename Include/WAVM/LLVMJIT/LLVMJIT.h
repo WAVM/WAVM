@@ -82,7 +82,7 @@ namespace WAVM { namespace LLVMJIT {
 
 	struct FunctionBinding
 	{
-		void* code;
+		const void* code;
 	};
 
 	struct TableBinding
@@ -136,9 +136,4 @@ namespace WAVM { namespace LLVMJIT {
 
 	// Generates an invoke thunk for a specific function type.
 	WAVM_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);
-
-	// Generates a thunk to call a native function from generated code.
-	WAVM_API Runtime::Function* getIntrinsicThunk(void* nativeFunction,
-												  IR::FunctionType functionType,
-												  const char* debugName);
 }}

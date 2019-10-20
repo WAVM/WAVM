@@ -4,9 +4,15 @@
 #include <utility>
 #include <vector>
 #include "RuntimePrivate.h"
+#include "WAVM/IR/FeatureSpec.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Validate.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -23,6 +29,7 @@ namespace WAVM { namespace Intrinsics {
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
+using namespace WAVM::IR;
 
 Intrinsics::Module::~Module()
 {
@@ -37,7 +44,7 @@ static void initializeModule(Intrinsics::Module* moduleRef)
 Intrinsics::Function::Function(Intrinsics::Module* moduleRef,
 							   const char* inName,
 							   void* inNativeFunction,
-							   IR::FunctionType inType)
+							   FunctionType inType)
 : name(inName), type(inType), nativeFunction(inNativeFunction)
 {
 	initializeModule(moduleRef);
@@ -47,15 +54,10 @@ Intrinsics::Function::Function(Intrinsics::Module* moduleRef,
 	moduleRef->impl->functionMap.set(name, this);
 }
 
-Function* Intrinsics::Function::instantiate(Compartment* compartment)
-{
-	return LLVMJIT::getIntrinsicThunk(nativeFunction, type, name);
-}
-
 Intrinsics::Global::Global(Intrinsics::Module* moduleRef,
 						   const char* inName,
-						   IR::ValueType inType,
-						   IR::Value inValue)
+						   ValueType inType,
+						   Value inValue)
 : name(inName), type(inType), value(inValue)
 {
 	initializeModule(moduleRef);
@@ -65,16 +67,7 @@ Intrinsics::Global::Global(Intrinsics::Module* moduleRef,
 	moduleRef->impl->globalMap.set(name, this);
 }
 
-Runtime::Global* Intrinsics::Global::instantiate(Compartment* compartment)
-{
-	Runtime::Global* global = createGlobal(compartment, IR::GlobalType(type, false));
-	initializeGlobal(global, value);
-	return global;
-}
-
-Intrinsics::Table::Table(Intrinsics::Module* moduleRef,
-						 const char* inName,
-						 const IR::TableType& inType)
+Intrinsics::Table::Table(Intrinsics::Module* moduleRef, const char* inName, const TableType& inType)
 : name(inName), type(inType)
 {
 	initializeModule(moduleRef);
@@ -84,14 +77,9 @@ Intrinsics::Table::Table(Intrinsics::Module* moduleRef,
 	moduleRef->impl->tableMap.set(name, this);
 }
 
-Table* Intrinsics::Table::instantiate(Compartment* compartment)
-{
-	return createTable(compartment, type, nullptr, name);
-}
-
 Intrinsics::Memory::Memory(Intrinsics::Module* moduleRef,
 						   const char* inName,
-						   const IR::MemoryType& inType)
+						   const MemoryType& inType)
 : name(inName), type(inType)
 {
 	initializeModule(moduleRef);
@@ -101,106 +89,156 @@ Intrinsics::Memory::Memory(Intrinsics::Module* moduleRef,
 	moduleRef->impl->memoryMap.set(name, this);
 }
 
-Memory* Intrinsics::Memory::instantiate(Compartment* compartment)
-{
-	return createMemory(compartment, type, name);
-}
+namespace WAVM { namespace WAST {
+	// Prints a module in WAST format.
+	WAVM_API std::string print(const IR::Module& module);
+}}
 
 Instance* Intrinsics::instantiateModule(
 	Compartment* compartment,
 	const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
-	std::string&& debugName,
-	const HashMap<std::string, Object*>& extraExports)
+	std::string&& debugName)
 {
 	Timing::Timer timer;
 
-	std::vector<Runtime::Object*> exports;
-	HashMap<std::string, Object*> exportMap = extraExports;
-	std::vector<Runtime::Function*> functions;
-	std::vector<Runtime::Table*> tables;
-	std::vector<Runtime::Memory*> memories;
-	std::vector<Runtime::Global*> globals;
-	std::vector<Runtime::ExceptionType*> exceptionTypes;
+	IR::Module irModule(IR::FeatureSpec(true));
+	irModule.featureSpec.setWAVMFeatures(true);
+	DisassemblyNames names;
+
+	std::vector<FunctionImportBinding> functionImportBindings;
 	for(const Intrinsics::Module* moduleRef : moduleRefs)
 	{
 		if(moduleRef->impl)
 		{
 			for(const auto& pair : moduleRef->impl->functionMap)
 			{
-				auto function = pair.value->instantiate(compartment);
-				functions.push_back(function);
-				exportMap.addOrFail(pair.key, asObject(function));
-				exports.push_back(asObject(function));
+				functionImportBindings.push_back({pair.value->getNativeFunction()});
+				const Uptr typeIndex = irModule.types.size();
+				const Uptr functionIndex = irModule.functions.size();
+				irModule.types.push_back(pair.value->getType());
+				irModule.functions.imports.push_back({{typeIndex}, "", pair.value->getName()});
+				irModule.imports.push_back({ExternKind::function, functionIndex});
+				names.functions.push_back({pair.value->getName(), {}, {}});
 			}
 
 			for(const auto& pair : moduleRef->impl->tableMap)
 			{
-				auto table = pair.value->instantiate(compartment);
-				tables.push_back(table);
-				exportMap.addOrFail(pair.key, asObject(table));
-				exports.push_back(asObject(table));
+				const Uptr tableIndex = irModule.tables.size();
+				irModule.tables.defs.push_back({pair.value->getType()});
+				names.tables.push_back(pair.value->getName());
+				irModule.exports.push_back({pair.value->getName(), ExternKind::table, tableIndex});
 			}
 
 			for(const auto& pair : moduleRef->impl->memoryMap)
 			{
-				auto memory = pair.value->instantiate(compartment);
-				memories.push_back(memory);
-				exportMap.addOrFail(pair.key, asObject(memory));
-				exports.push_back(asObject(memory));
+				const Uptr memoryIndex = irModule.memories.size();
+				irModule.memories.defs.push_back({pair.value->getType()});
+				names.memories.push_back(pair.value->getName());
+				irModule.exports.push_back(
+					{pair.value->getName(), ExternKind::memory, memoryIndex});
 			}
 
 			for(const auto& pair : moduleRef->impl->globalMap)
 			{
-				auto global = pair.value->instantiate(compartment);
-				globals.push_back(global);
-				exportMap.addOrFail(pair.key, asObject(global));
-				exports.push_back(asObject(global));
-			}
-
-			for(const auto& pair : extraExports)
-			{
-				Object* object = pair.value;
-				exports.push_back(object);
-				switch(object->kind)
+				InitializerExpression initializerExpression;
+				switch(pair.value->getType())
 				{
-				case ObjectKind::function: functions.push_back(asFunction(object)); break;
-				case ObjectKind::table: tables.push_back(asTable(object)); break;
-				case ObjectKind::memory: memories.push_back(asMemory(object)); break;
-				case ObjectKind::global: globals.push_back(asGlobal(object)); break;
-				case ObjectKind::exceptionType:
-					exceptionTypes.push_back(asExceptionType(object));
+				case ValueType::i32:
+					initializerExpression.type = InitializerExpression::Type::i32_const;
+					initializerExpression.i32 = pair.value->getValue().i32;
+					break;
+				case ValueType::i64:
+					initializerExpression.type = InitializerExpression::Type::i64_const;
+					initializerExpression.i64 = pair.value->getValue().i64;
+					break;
+				case ValueType::f32:
+					initializerExpression.type = InitializerExpression::Type::f32_const;
+					initializerExpression.f32 = pair.value->getValue().f32;
+					break;
+				case ValueType::f64:
+					initializerExpression.type = InitializerExpression::Type::f64_const;
+					initializerExpression.f64 = pair.value->getValue().f64;
+					break;
+				case ValueType::v128:
+					initializerExpression.type = InitializerExpression::Type::v128_const;
+					initializerExpression.v128 = pair.value->getValue().v128;
 					break;
 
-				case ObjectKind::instance:
-				case ObjectKind::context:
-				case ObjectKind::compartment:
-				case ObjectKind::foreign:
-				case ObjectKind::invalid:
+				case ValueType::anyref:
+				case ValueType::funcref:
+					Errors::fatal("Intrinsic reference-typed globals are not supported");
+
+				case ValueType::none:
+				case ValueType::any:
+				case ValueType::nullref:
 				default: WAVM_UNREACHABLE();
 				};
+
+				const Uptr globalIndex = irModule.globals.size();
+				irModule.globals.defs.push_back(
+					{GlobalType(pair.value->getType(), false), initializerExpression});
+				names.globals.push_back(pair.value->getName());
+				irModule.exports.push_back(
+					{pair.value->getName(), ExternKind::global, globalIndex});
 			}
 		}
 	}
 
-	Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
-	const Uptr id = compartment->instances.add(UINTPTR_MAX, nullptr);
-	if(id == UINTPTR_MAX) { throwException(ExceptionTypes::outOfMemory, {}); }
-	auto instance = new Instance(compartment,
-								 id,
-								 std::move(exportMap),
-								 std::move(exports),
-								 std::move(functions),
-								 std::move(tables),
-								 std::move(memories),
-								 std::move(globals),
-								 std::move(exceptionTypes),
-								 nullptr,
-								 {},
-								 {},
-								 nullptr,
-								 std::move(debugName),
-								 ResourceQuotaRef());
-	compartment->instances[id] = instance;
+	// Generate thunks for the intrinsic functions.
+	for(Uptr functionImportIndex = 0; functionImportIndex < irModule.functions.imports.size();
+		++functionImportIndex)
+	{
+		const FunctionImport& functionImport = irModule.functions.imports[functionImportIndex];
+		const FunctionType intrinsicFunctionType = irModule.types[functionImport.type.index];
+		const FunctionType wasmFunctionType(intrinsicFunctionType.results(),
+											intrinsicFunctionType.params(),
+											CallingConvention::wasm);
+
+		const Uptr wasmFunctionTypeIndex = irModule.types.size();
+		irModule.types.push_back(wasmFunctionType);
+
+		Serialization::ArrayOutputStream codeStream;
+		OperatorEncoderStream opEncoder(codeStream);
+		for(Uptr paramIndex = 0; paramIndex < intrinsicFunctionType.params().size(); ++paramIndex)
+		{ opEncoder.local_get({paramIndex}); }
+		opEncoder.call({functionImportIndex});
+		opEncoder.end();
+
+		const Uptr wasmFunctionIndex = irModule.functions.size();
+		irModule.functions.defs.push_back({{wasmFunctionTypeIndex}, {}, codeStream.getBytes(), {}});
+		names.functions.push_back({"thunk:" + functionImport.exportName, {}, {}});
+		irModule.exports.push_back(
+			{functionImport.exportName, ExternKind::function, wasmFunctionIndex});
+	}
+
+	setDisassemblyNames(irModule, names);
+
+	if(WAVM_ENABLE_ASSERTS)
+	{
+		try
+		{
+			validatePreCodeSections(irModule);
+			validateCodeSection(irModule);
+			validatePostCodeSections(irModule);
+		}
+		catch(ValidationException const& exception)
+		{
+			Errors::fatalf("Validation exception in intrinsic module: %s",
+						   exception.message.c_str());
+		}
+	}
+
+	Log::printf(Log::output, "Intrinsic thunk module:\n%s\n", WAST::print(irModule).c_str());
+
+	ModuleRef module = compileModule(irModule);
+	Instance* instance = instantiateModuleInternal(compartment,
+												   module,
+												   std::move(functionImportBindings),
+												   {},
+												   {},
+												   {},
+												   {},
+												   std::move(debugName));
 
 	Timing::logTimer("Instantiated intrinsic module", timer);
 	return instance;

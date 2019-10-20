@@ -17,6 +17,7 @@ using namespace WAVM::Runtime;
 
 Global* Runtime::createGlobal(Compartment* compartment,
 							  GlobalType type,
+							  std::string&& debugName,
 							  ResourceQuotaRefParam resourceQuota)
 {
 	U32 mutableGlobalIndex = UINT32_MAX;
@@ -33,7 +34,7 @@ Global* Runtime::createGlobal(Compartment* compartment,
 	}
 
 	// Create the global and add it to the compartment's list of globals.
-	Global* global = new Global(compartment, type, mutableGlobalIndex);
+	Global* global = new Global(compartment, type, mutableGlobalIndex, std::move(debugName));
 	{
 		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 		global->id = compartment->globals.add(UINTPTR_MAX, global);
@@ -81,8 +82,11 @@ Global* Runtime::cloneGlobal(Global* global, Compartment* newCompartment)
 		}
 	}
 
-	Global* newGlobal
-		= new Global(newCompartment, global->type, global->mutableGlobalIndex, initialValue);
+	Global* newGlobal = new Global(newCompartment,
+								   global->type,
+								   global->mutableGlobalIndex,
+								   std::string(global->debugName),
+								   initialValue);
 	newGlobal->id = global->id;
 
 	Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);

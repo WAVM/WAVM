@@ -209,10 +209,10 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 
 	// Parse an optional calling convention.
 	if(cursor->nextToken[0].type == t_leftParenthesis
-	   && cursor->nextToken[1].type == t_calling_convention)
+	   && cursor->nextToken[1].type == t_calling_conv)
 	{
 		parseParenthesized(cursor, [&] {
-			require(cursor, t_calling_convention);
+			require(cursor, t_calling_conv);
 
 			switch(cursor->nextToken->type)
 			{

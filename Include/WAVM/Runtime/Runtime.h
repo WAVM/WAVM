@@ -390,6 +390,7 @@ namespace WAVM { namespace Runtime {
 	// Creates a Global with the specified type. The initial value is set to the appropriate zero.
 	WAVM_API Global* createGlobal(Compartment* compartment,
 								  IR::GlobalType type,
+								  std::string&& debugName,
 								  ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 	// Initializes a Global with the specified value. May not be called more than once/Global.
