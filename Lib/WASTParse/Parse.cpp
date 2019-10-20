@@ -171,6 +171,7 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 {
 	std::vector<ValueType> parameters;
 	std::vector<ValueType> results;
+	CallingConvention callingConvention = CallingConvention::wasm;
 
 	// Parse the function parameters.
 	while(tryParseParenthesizedTagged(cursor, t_param, [&] {
@@ -206,7 +207,30 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 		});
 	};
 
-	return FunctionType(TypeTuple(results), TypeTuple(parameters));
+	// Parse an optional calling convention.
+	if(cursor->nextToken[0].type == t_leftParenthesis
+	   && cursor->nextToken[1].type == t_calling_convention)
+	{
+		parseParenthesized(cursor, [&] {
+			require(cursor, t_calling_convention);
+
+			switch(cursor->nextToken->type)
+			{
+			case t_intrinsic: callingConvention = CallingConvention::intrinsic; break;
+			case t_intrinsic_with_context_switch:
+				callingConvention = CallingConvention::intrinsicWithContextSwitch;
+				break;
+			case t_c: callingConvention = CallingConvention::c; break;
+			case t_c_api_callback: callingConvention = CallingConvention::cAPICallback; break;
+
+			default:
+				parseErrorf(cursor->parseState, cursor->nextToken, "expected calling convention");
+			};
+			++cursor->nextToken;
+		});
+	}
+
+	return FunctionType(TypeTuple(results), TypeTuple(parameters), callingConvention);
 }
 
 UnresolvedFunctionType WAST::parseFunctionTypeRefAndOrDecl(

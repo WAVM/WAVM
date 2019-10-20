@@ -179,6 +179,10 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 			throw ValidationException(
 				"block has multiple results, but \"multivalue\" extension is disabled");
 		}
+		else if(functionType.callingConvention() != CallingConvention::wasm)
+		{
+			throw ValidationException("invalid calling convention for block");
+		}
 		return functionType;
 	}
 	default: WAVM_UNREACHABLE();
@@ -882,6 +886,13 @@ void IR::validateTypes(const Module& module)
 				"function/block has multiple return values, but \"multivalue\" extension is "
 				"disabled");
 		}
+
+		if(functionType.callingConvention() != CallingConvention::wasm
+		   && !module.featureSpec.nonWASMFunctionTypes)
+		{
+			throw ValidationException(
+				"non-WASM function types require the 'nonWASMFunctionTypes' feature");
+		}
 	}
 }
 
@@ -917,7 +928,10 @@ void IR::validateFunctionDeclarations(const Module& module)
 		++functionDefIndex)
 	{
 		const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
-		validateFunctionType(module, functionDef.type);
+		const FunctionType functionType = validateFunctionType(module, functionDef.type);
+
+		if(functionType.callingConvention() != CallingConvention::wasm)
+		{ throw ValidationException("Function definitions must have WASM calling convention"); }
 	}
 }
 

@@ -314,6 +314,8 @@ private:
 
 void EmitFunctionContext::emit()
 {
+	WAVM_ASSERT(functionType.callingConvention() == CallingConvention::wasm);
+
 	// Create debug info for the function.
 	llvm::SmallVector<llvm::Metadata*, 10> diFunctionParameterTypes;
 	for(auto parameterType : functionType.params())

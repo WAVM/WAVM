@@ -192,6 +192,23 @@ static void print(std::string& string, FunctionType functionType)
 			print(string, functionType.results()[resultIndex]);
 		}
 	}
+
+	switch(functionType.callingConvention())
+	{
+	case CallingConvention::wasm: break;
+	case CallingConvention::intrinsic: string += " (calling_convention intrinsic)"; break;
+	case CallingConvention::intrinsicWithContextSwitch:
+		string += " (calling_convention intrinsic_with_context_switch)";
+		break;
+	case CallingConvention::c:
+		string += " (calling_convention c)";
+		break;
+	case CallingConvention::cAPICallback:
+		string += " (calling_convention c_api_callback)";
+		break;
+
+	default: WAVM_UNREACHABLE();
+	}
 }
 
 static void print(std::string& string, ReferenceType type)

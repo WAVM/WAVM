@@ -976,30 +976,90 @@ static void serializeFunctionBody(InputStream& sectionStream,
 	functionDef.code = std::move(irCodeByteStream.getBytes());
 }
 
+static void serializeCallingConvention(InputStream& stream, CallingConvention& callingConvention)
+{
+	U32 encoding = 0;
+	serializeVarUInt32(stream, encoding);
+
+	switch(encoding)
+	{
+	case 0: callingConvention = CallingConvention::wasm; break;
+	case 1: callingConvention = CallingConvention::intrinsic; break;
+	case 2: callingConvention = CallingConvention::intrinsicWithContextSwitch; break;
+	case 3: callingConvention = CallingConvention::c; break;
+	case 4: callingConvention = CallingConvention::cAPICallback; break;
+
+	default:
+		throw FatalSerializationException("unknown calling convention (" + std::to_string(encoding)
+										  + ")");
+	};
+}
+
+static void serializeCallingConvention(OutputStream& stream, CallingConvention callingConvention)
+{
+	U32 encoding = 0;
+	switch(callingConvention)
+	{
+	case CallingConvention::wasm: encoding = 0; break;
+	case CallingConvention::intrinsic: encoding = 1; break;
+	case CallingConvention::intrinsicWithContextSwitch: encoding = 2; break;
+	case CallingConvention::c: encoding = 3; break;
+	case CallingConvention::cAPICallback: encoding = 4; break;
+
+	default: WAVM_UNREACHABLE();
+	};
+
+	serializeVarUInt32(stream, encoding);
+}
+
+template<typename Stream> void serializeFunctionType(Stream& stream, FunctionType& functionType)
+{
+	if(Stream::isInput)
+	{
+		U8 tag = 0;
+		serializeNativeValue(stream, tag);
+
+		CallingConvention callingConvention = CallingConvention::wasm;
+		switch(tag)
+		{
+		case 0x60: break;
+		case 0x61: serializeCallingConvention(stream, callingConvention); break;
+		default:
+			throw FatalSerializationException("unknown function type tag (" + std::to_string(tag)
+											  + ")");
+		};
+
+		TypeTuple params;
+		serialize(stream, params);
+
+		TypeTuple results;
+		serialize(stream, results);
+
+		functionType = FunctionType(results, params, callingConvention);
+	}
+	else
+	{
+		U8 tag = functionType.callingConvention() == CallingConvention::wasm ? 0x60 : 0x61;
+		serializeNativeValue(stream, tag);
+
+		if(tag == 0x61)
+		{
+			CallingConvention callingConvention = functionType.callingConvention();
+			serializeCallingConvention(stream, callingConvention);
+		}
+
+		TypeTuple params = functionType.params();
+		serialize(stream, params);
+
+		TypeTuple results = functionType.results();
+		serialize(stream, results);
+	}
+}
+
 template<typename Stream> void serializeTypeSection(Stream& moduleStream, Module& module)
 {
 	serializeSection(moduleStream, SectionID::type, [&module](Stream& sectionStream) {
-		serializeArray(sectionStream, module.types, [](Stream& stream, FunctionType& functionType) {
-			serializeConstant(stream, "function type tag", U8(0x60));
-			if(Stream::isInput)
-			{
-				TypeTuple params;
-				serialize(stream, params);
-
-				TypeTuple results;
-				serialize(stream, results);
-
-				functionType = FunctionType(results, params);
-			}
-			else
-			{
-				TypeTuple params = functionType.params();
-				serialize(stream, params);
-
-				TypeTuple results = functionType.results();
-				serialize(stream, results);
-			}
-		});
+		serializeArray(sectionStream, module.types, serializeFunctionType<Stream>);
 	});
 }
 template<typename Stream> void serializeImportSection(Stream& moduleStream, Module& module)

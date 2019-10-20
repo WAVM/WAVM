@@ -33,6 +33,7 @@ namespace WAVM { namespace IR {
 		bool customSectionsInTextFormat = false;
 		bool interleavedLoadStore = false;
 		bool ltzMask = false;
+		bool nonWASMFunctionTypes = false;
 
 		Uptr maxLocals = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
@@ -63,6 +64,7 @@ namespace WAVM { namespace IR {
 			customSectionsInTextFormat = enableWAVMFeatures;
 			interleavedLoadStore = enableWAVMFeatures;
 			ltzMask = enableWAVMFeatures;
+			nonWASMFunctionTypes = enableWAVMFeatures;
 		}
 	};
 }}

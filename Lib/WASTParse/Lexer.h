@@ -68,6 +68,11 @@
 	VISIT_LITERAL_TOKEN(before)                                                                    \
 	VISIT_LITERAL_TOKEN(data_count)                                                                \
 	VISIT_LITERAL_TOKEN(code)                                                                      \
+	VISIT_LITERAL_TOKEN(calling_convention)                                                        \
+	VISIT_LITERAL_TOKEN(intrinsic)                                                                 \
+	VISIT_LITERAL_TOKEN(intrinsic_with_context_switch)                                             \
+	VISIT_LITERAL_TOKEN(c)                                                                         \
+	VISIT_LITERAL_TOKEN(c_api_callback)                                                            \
 	VISIT_TOKEN(ref_host, "'ref.host'", "ref.host")
 
 #define ENUM_TOKENS()                                                                              \
