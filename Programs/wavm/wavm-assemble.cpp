@@ -50,55 +50,53 @@ void showAssembleHelp(Log::Category outputCategory)
 
 int execAssembleCommand(int argc, char** argv)
 {
-	if(argc < 2)
-	{
-		showAssembleHelp(Log::error);
-		return EXIT_FAILURE;
-	}
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
 	bool omitNames = false;
 	IR::FeatureSpec featureSpec;
-	if(argc > 2)
+	for(Iptr argIndex = 0; argIndex < argc; ++argIndex)
 	{
-		for(Iptr argIndex = 0; argIndex < argc; ++argIndex)
+		if(!strcmp(argv[argIndex], "-n") || !strcmp(argv[argIndex], "--omit-names"))
+		{ omitNames = true; }
+		else if(!strcmp(argv[argIndex], "--enable"))
 		{
-			if(!strcmp(argv[argIndex], "-n") || !strcmp(argv[argIndex], "--omit-names"))
-			{ omitNames = true; }
-			else if(!strcmp(argv[argIndex], "--enable"))
+			++argIndex;
+			if(!argv[argIndex])
 			{
-				++argIndex;
-				if(!argv[argIndex])
-				{
-					Log::printf(Log::error, "Expected feature name following '--enable'.\n");
-					return false;
-				}
+				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+				return false;
+			}
 
-				if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
-				{
-					Log::printf(Log::error,
-								"Unknown feature '%s'. Supported features:\n"
-								"%s"
-								"\n",
-								argv[argIndex],
-								getFeatureListHelpText());
-					return false;
-				}
-			}
-			else if(!inputFilename)
+			if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
 			{
-				inputFilename = argv[argIndex];
-			}
-			else if(!outputFilename)
-			{
-				outputFilename = argv[argIndex];
-			}
-			else
-			{
-				Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
-				return EXIT_FAILURE;
+				Log::printf(Log::error,
+							"Unknown feature '%s'. Supported features:\n"
+							"%s"
+							"\n",
+							argv[argIndex],
+							getFeatureListHelpText());
+				return false;
 			}
 		}
+		else if(!inputFilename)
+		{
+			inputFilename = argv[argIndex];
+		}
+		else if(!outputFilename)
+		{
+			outputFilename = argv[argIndex];
+		}
+		else
+		{
+			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(!inputFilename || !outputFilename)
+	{
+		showAssembleHelp(Log::error);
+		return EXIT_FAILURE;
 	}
 
 	// Load the WAST module.
