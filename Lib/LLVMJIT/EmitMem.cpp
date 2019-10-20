@@ -314,7 +314,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 {
 	static constexpr U32 maxVectors = 4;
 	WAVM_ASSERT(numVectors <= 4);
-	
+
 	llvm::Value* values[maxVectors];
 	for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 	{
