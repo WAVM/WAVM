@@ -89,11 +89,6 @@ Intrinsics::Memory::Memory(Intrinsics::Module* moduleRef,
 	moduleRef->impl->memoryMap.set(name, this);
 }
 
-namespace WAVM { namespace WAST {
-	// Prints a module in WAST format.
-	WAVM_API std::string print(const IR::Module& module);
-}}
-
 Instance* Intrinsics::instantiateModule(
 	Compartment* compartment,
 	const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
@@ -227,8 +222,6 @@ Instance* Intrinsics::instantiateModule(
 						   exception.message.c_str());
 		}
 	}
-
-	Log::printf(Log::output, "Intrinsic thunk module:\n%s\n", WAST::print(irModule).c_str());
 
 	ModuleRef module = compileModule(irModule);
 	Instance* instance = instantiateModuleInternal(compartment,
