@@ -378,6 +378,7 @@ struct State
 			else
 			{
 				Log::printf(Log::error, "Unknown command-line argument: '%s'\n", *nextArg);
+				showRunHelp(Log::error);
 				return false;
 			}
 

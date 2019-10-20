@@ -89,6 +89,7 @@ int execAssembleCommand(int argc, char** argv)
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
+			showDisassembleHelp(Log::error);
 			return EXIT_FAILURE;
 		}
 	}

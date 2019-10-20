@@ -198,6 +198,7 @@ int execCompileCommand(int argc, char** argv)
 		}
 		else
 		{
+			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
 			showCompileHelp(Log::error);
 			return EXIT_FAILURE;
 		}

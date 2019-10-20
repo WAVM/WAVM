@@ -46,51 +46,46 @@ int execDisassembleCommand(int argc, char** argv)
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
 
-	bool showHelp = false;
 	IR::FeatureSpec featureSpec;
-	if(argc < 1) { showHelp = true; }
-	else
+	for(int argIndex = 0; argIndex < argc; ++argIndex)
 	{
-		for(int argIndex = 0; argIndex < argc; ++argIndex)
+		if(!strcmp(argv[argIndex], "--enable"))
 		{
-			if(!strcmp(argv[argIndex], "--help")) { showHelp = true; }
-			else if(!strcmp(argv[argIndex], "--enable"))
+			++argIndex;
+			if(!argv[argIndex])
 			{
-				++argIndex;
-				if(!argv[argIndex])
-				{
-					Log::printf(Log::error, "Expected feature name following '--enable'.\n");
-					return false;
-				}
+				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+				return false;
+			}
 
-				if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
-				{
-					Log::printf(Log::error,
-								"Unknown feature '%s'. Supported features:\n"
-								"%s"
-								"\n",
-								argv[argIndex],
-								getFeatureListHelpText());
-					return false;
-				}
-			}
-			else if(!inputFilename)
+			if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
 			{
-				inputFilename = argv[argIndex];
+				Log::printf(Log::error,
+							"Unknown feature '%s'. Supported features:\n"
+							"%s"
+							"\n",
+							argv[argIndex],
+							getFeatureListHelpText());
+				return false;
 			}
-			else if(!outputFilename)
-			{
-				outputFilename = argv[argIndex];
-			}
-			else
-			{
-				showHelp = true;
-				break;
-			}
+		}
+		else if(!inputFilename)
+		{
+			inputFilename = argv[argIndex];
+		}
+		else if(!outputFilename)
+		{
+			outputFilename = argv[argIndex];
+		}
+		else
+		{
+			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
+			showDisassembleHelp(Log::error);
+			return EXIT_FAILURE;
 		}
 	}
 
-	if(showHelp)
+	if(!inputFilename)
 	{
 		showDisassembleHelp(Log::error);
 		return EXIT_FAILURE;
