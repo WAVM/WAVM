@@ -244,7 +244,6 @@ EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_s, llvmContext.i32x2Type, 3, 
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, zext)
 
 static void emitLoadInterleaved(EmitFunctionContext& functionContext,
-								llvm::Type* llvmMemoryType,
 								llvm::Type* llvmValueType,
 								llvm::Intrinsic::ID aarch64IntrinsicID,
 								U8 alignmentLog2,
@@ -253,15 +252,17 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 								U32 numVectors,
 								U32 numLanes)
 {
+	static constexpr U32 maxVectors = 4;
 	static constexpr U32 maxLanes = 16;
+	WAVM_ASSERT(numVectors < maxVectors);
 	WAVM_ASSERT(numLanes < maxLanes);
 
 	auto address = functionContext.pop();
 	auto boundedAddress = getOffsetAndBoundedAddress(functionContext, address, offset);
+	auto pointer
+		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
 	if(functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
 	{
-		auto pointer
-			= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
 		auto results = functionContext.callLLVMIntrinsic(
 			{llvmValueType, llvmValueType->getPointerTo()}, aarch64IntrinsicID, {pointer});
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
@@ -272,87 +273,100 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 	}
 	else
 	{
-		auto pointer
-			= functionContext.coerceAddressToPointer(boundedAddress, llvmMemoryType, memoryIndex);
-		auto load = functionContext.irBuilder.CreateLoad(pointer);
-		/* Don't trust the alignment hint provided by the WebAssembly code, since the load
-		 * can't trap if it's wrong. */
-		load->setAlignment(1);
-		load->setVolatile(true);
-		auto undef = llvm::UndefValue::get(llvmMemoryType);
+		llvm::Value* loads[maxVectors];
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
-			U32 shuffleIndices[maxLanes];
+			auto load
+				= functionContext.irBuilder.CreateLoad(functionContext.irBuilder.CreateInBoundsGEP(
+					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
+			/* Don't trust the alignment hint provided by the WebAssembly code, since the load
+			 * can't trap if it's wrong. */
+			load->setAlignment(1);
+			load->setVolatile(true);
+			loads[vectorIndex] = load;
+		}
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+		{
+			llvm::Value* deinterleavedVector = llvm::UndefValue::get(llvmValueType);
 			for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)
-			{ shuffleIndices[laneIndex] = laneIndex * numVectors + vectorIndex; }
-			functionContext.push(functionContext.irBuilder.CreateShuffleVector(
-				load, undef, llvm::ArrayRef<U32>(shuffleIndices, numLanes)));
+			{
+				const Uptr interleavedElementIndex = laneIndex * numVectors + vectorIndex;
+				deinterleavedVector = functionContext.irBuilder.CreateInsertElement(
+					deinterleavedVector,
+					functionContext.irBuilder.CreateExtractElement(
+						loads[interleavedElementIndex / numLanes],
+						interleavedElementIndex % numLanes),
+					laneIndex);
+			}
+			functionContext.push(deinterleavedVector);
 		}
 	}
 }
 
 static void emitStoreInterleaved(EmitFunctionContext& functionContext,
-	llvm::Type* llvmMemoryType,
-	llvm::Type* llvmValueType,
-	llvm::Intrinsic::ID aarch64IntrinsicID,
-	U8 alignmentLog2,
-	U32 offset,
-	Uptr memoryIndex,
-	U32 numVectors,
-	U32 numLanes)
+								 llvm::Type* llvmValueType,
+								 llvm::Intrinsic::ID aarch64IntrinsicID,
+								 U8 alignmentLog2,
+								 U32 offset,
+								 Uptr memoryIndex,
+								 U32 numVectors,
+								 U32 numLanes)
 {
 	static constexpr U32 maxVectors = 4;
 
 	WAVM_ASSERT(numVectors < 4);
 	llvm::Value* values[maxVectors];
-	for (U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+	for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 	{
 		values[numVectors - vectorIndex - 1]
 			= functionContext.irBuilder.CreateBitCast(functionContext.pop(), llvmValueType);
 	}
 	auto address = functionContext.pop();
 	auto boundedAddress = getOffsetAndBoundedAddress(functionContext, address, offset);
-	if (functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
+	auto pointer
+		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
+	if(functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
 	{
-		auto pointer
-			= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
 		llvm::Value* args[maxVectors + 1];
-		for (U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
 			args[vectorIndex] = values[vectorIndex];
 			args[numVectors] = pointer;
 		}
-		functionContext.callLLVMIntrinsic({ llvmValueType, llvmValueType->getPointerTo() },
-			aarch64IntrinsicID,
-			llvm::ArrayRef<llvm::Value*>(args, numVectors + 1));
+		functionContext.callLLVMIntrinsic({llvmValueType, llvmValueType->getPointerTo()},
+										  aarch64IntrinsicID,
+										  llvm::ArrayRef<llvm::Value*>(args, numVectors + 1));
 	}
 	else
 	{
-		llvm::Value* interleavedValues = llvm::UndefValue::get(llvmMemoryType);
-		for (U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
-			for (U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)
+			llvm::Value* interleavedVector = llvm::UndefValue::get(llvmValueType);
+			for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 			{
-				interleavedValues = functionContext.irBuilder.CreateInsertElement(
-					interleavedValues,
-					functionContext.irBuilder.CreateExtractElement(values[vectorIndex], laneIndex),
-					laneIndex * numVectors + vectorIndex);
+				const Uptr interleavedElementIndex = vectorIndex * numLanes + laneIndex;
+				const Uptr deinterleavedVectorIndex = interleavedElementIndex % numVectors;
+				const Uptr deinterleavedLaneIndex = interleavedElementIndex / numVectors;
+				interleavedVector = functionContext.irBuilder.CreateInsertElement(
+					interleavedVector,
+					functionContext.irBuilder.CreateExtractElement(values[deinterleavedVectorIndex],
+																   deinterleavedLaneIndex),
+					laneIndex);
 			}
+			auto store = functionContext.irBuilder.CreateStore(
+				interleavedVector,
+				functionContext.irBuilder.CreateInBoundsGEP(
+					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
+			store->setVolatile(true);
+			store->setAlignment(1);
 		}
-		auto pointer
-			= functionContext.coerceAddressToPointer(boundedAddress, llvmMemoryType, memoryIndex);
-		auto store = functionContext.irBuilder.CreateStore(interleavedValues, pointer);
-		store->setVolatile(true);
-		store->setAlignment(1);
 	}
 }
 
-#define EMIT_LOAD_INTERLEAVED_OP(                                                                  \
-	name, llvmMemoryType, llvmValueType, naturalAlignmentLog2, numVectors, numLanes)               \
+#define EMIT_LOAD_INTERLEAVED_OP(name, llvmValueType, naturalAlignmentLog2, numVectors, numLanes)  \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
 		emitLoadInterleaved(*this,                                                                 \
-							llvmMemoryType,                                                        \
 							llvmValueType,                                                         \
 							llvm::Intrinsic::aarch64_neon_ld##numVectors,                          \
 							imm.alignmentLog2,                                                     \
@@ -362,12 +376,10 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 							numLanes);                                                             \
 	}
 
-#define EMIT_STORE_INTERLEAVED_OP(                                                                 \
-	name, llvmMemoryType, llvmValueType, naturalAlignmentLog2, numVectors, numLanes)               \
+#define EMIT_STORE_INTERLEAVED_OP(name, llvmValueType, naturalAlignmentLog2, numVectors, numLanes) \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
 		emitStoreInterleaved(*this,                                                                \
-							 llvmMemoryType,                                                       \
 							 llvmValueType,                                                        \
 							 llvm::Intrinsic::aarch64_neon_st##numVectors,                         \
 							 imm.alignmentLog2,                                                    \
@@ -377,151 +389,31 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 							 numLanes);                                                            \
 	}
 
-EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_2,
-						 llvmContext.i8x32Type,
-						 llvmContext.i8x16Type,
-						 4,
-						 2,
-						 16)
-EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_3,
-						 llvmContext.i8x48Type,
-						 llvmContext.i8x16Type,
-						 4,
-						 3,
-						 16)
-EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_4,
-						 llvmContext.i8x64Type,
-						 llvmContext.i8x16Type,
-						 4,
-						 4,
-						 16)
-EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_2,
-						 llvmContext.i16x16Type,
-						 llvmContext.i16x8Type,
-						 4,
-						 2,
-						 8)
-EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_3,
-						 llvmContext.i16x24Type,
-						 llvmContext.i16x8Type,
-						 4,
-						 3,
-						 8)
-EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_4,
-						 llvmContext.i16x32Type,
-						 llvmContext.i16x8Type,
-						 4,
-						 4,
-						 8)
-EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_2,
-						 llvmContext.i32x8Type,
-						 llvmContext.i32x4Type,
-						 4,
-						 2,
-						 4)
-EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_3,
-						 llvmContext.i32x12Type,
-						 llvmContext.i32x4Type,
-						 4,
-						 3,
-						 4)
-EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_4,
-						 llvmContext.i32x16Type,
-						 llvmContext.i32x4Type,
-						 4,
-						 4,
-						 4)
-EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_2,
-						 llvmContext.i64x4Type,
-						 llvmContext.i64x2Type,
-						 4,
-						 2,
-						 2)
-EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_3,
-						 llvmContext.i64x6Type,
-						 llvmContext.i64x2Type,
-						 4,
-						 3,
-						 2)
-EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_4,
-						 llvmContext.i64x8Type,
-						 llvmContext.i64x2Type,
-						 4,
-						 4,
-						 2)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_2, llvmContext.i8x16Type, 4, 2, 16)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_3, llvmContext.i8x16Type, 4, 3, 16)
+EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_4, llvmContext.i8x16Type, 4, 4, 16)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_2, llvmContext.i16x8Type, 4, 2, 8)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_3, llvmContext.i16x8Type, 4, 3, 8)
+EMIT_LOAD_INTERLEAVED_OP(v16x8_load_interleaved_4, llvmContext.i16x8Type, 4, 4, 8)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_2, llvmContext.i32x4Type, 4, 2, 4)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_3, llvmContext.i32x4Type, 4, 3, 4)
+EMIT_LOAD_INTERLEAVED_OP(v32x4_load_interleaved_4, llvmContext.i32x4Type, 4, 4, 4)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_2, llvmContext.i64x2Type, 4, 2, 2)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_3, llvmContext.i64x2Type, 4, 3, 2)
+EMIT_LOAD_INTERLEAVED_OP(v64x2_load_interleaved_4, llvmContext.i64x2Type, 4, 4, 2)
 
-EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_2,
-						  llvmContext.i8x32Type,
-						  llvmContext.i8x16Type,
-						  4,
-						  2,
-						  16)
-EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_3,
-						  llvmContext.i8x48Type,
-						  llvmContext.i8x16Type,
-						  4,
-						  3,
-						  16)
-EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_4,
-						  llvmContext.i8x64Type,
-						  llvmContext.i8x16Type,
-						  4,
-						  4,
-						  16)
-EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_2,
-						  llvmContext.i16x16Type,
-						  llvmContext.i16x8Type,
-						  4,
-						  2,
-						  8)
-EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_3,
-						  llvmContext.i16x24Type,
-						  llvmContext.i16x8Type,
-						  4,
-						  3,
-						  8)
-EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_4,
-						  llvmContext.i16x32Type,
-						  llvmContext.i16x8Type,
-						  4,
-						  4,
-						  8)
-EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_2,
-						  llvmContext.i32x8Type,
-						  llvmContext.i32x4Type,
-						  4,
-						  2,
-						  4)
-EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_3,
-						  llvmContext.i32x12Type,
-						  llvmContext.i32x4Type,
-						  4,
-						  3,
-						  4)
-EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_4,
-						  llvmContext.i32x16Type,
-						  llvmContext.i32x4Type,
-						  4,
-						  4,
-						  4)
-EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_2,
-						  llvmContext.i64x4Type,
-						  llvmContext.i64x2Type,
-						  4,
-						  2,
-						  2)
-EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_3,
-						  llvmContext.i64x6Type,
-						  llvmContext.i64x2Type,
-						  4,
-						  3,
-						  2)
-EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4,
-						  llvmContext.i64x8Type,
-						  llvmContext.i64x2Type,
-						  4,
-						  4,
-						  2)
+EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_2, llvmContext.i8x16Type, 4, 2, 16)
+EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_3, llvmContext.i8x16Type, 4, 3, 16)
+EMIT_STORE_INTERLEAVED_OP(v8x16_store_interleaved_4, llvmContext.i8x16Type, 4, 4, 16)
+EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_2, llvmContext.i16x8Type, 4, 2, 8)
+EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_3, llvmContext.i16x8Type, 4, 3, 8)
+EMIT_STORE_INTERLEAVED_OP(v16x8_store_interleaved_4, llvmContext.i16x8Type, 4, 4, 8)
+EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_2, llvmContext.i32x4Type, 4, 2, 4)
+EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_3, llvmContext.i32x4Type, 4, 3, 4)
+EMIT_STORE_INTERLEAVED_OP(v32x4_store_interleaved_4, llvmContext.i32x4Type, 4, 4, 4)
+EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_2, llvmContext.i64x2Type, 4, 2, 2)
+EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_3, llvmContext.i64x2Type, 4, 3, 2)
+EMIT_STORE_INTERLEAVED_OP(v64x2_store_interleaved_4, llvmContext.i64x2Type, 4, 4, 2)
 
 void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {
