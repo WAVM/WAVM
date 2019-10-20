@@ -1130,8 +1130,7 @@ void IR::validateCodeSection(const Module& module)
 	{
 		CodeValidationStream validationStream(module, functionDef);
 		OperatorDecoderStream operatorDecoderStream(functionDef.code);
-		while(operatorDecoderStream)
-		{ operatorDecoderStream.decodeOp(validationStream); }
+		while(operatorDecoderStream) { operatorDecoderStream.decodeOp(validationStream); }
 	}
 }
 

@@ -6,10 +6,10 @@
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
-#include "WAVM/Runtime/Intrinsics.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -776,8 +776,10 @@ wasm_func_t* wasm_func_new(wasm_compartment_t* compartment,
 	FunctionType callbackType(
 		type->type.results(), type->type.params(), CallingConvention::cAPICallback);
 	Intrinsics::Module intrinsicModule;
-	Intrinsics::Function intrinsicFunction(&intrinsicModule, "wasm_func_new", (void*)callback, callbackType);
-	Instance* instance = Intrinsics::instantiateModule(compartment, { &intrinsicModule }, "wasm_func_new");
+	Intrinsics::Function intrinsicFunction(
+		&intrinsicModule, "wasm_func_new", (void*)callback, callbackType);
+	Instance* instance
+		= Intrinsics::instantiateModule(compartment, {&intrinsicModule}, "wasm_func_new");
 	Function* function = getTypedInstanceExport(instance, "wasm_func_new", type->type);
 	addGCRoot(function);
 	return function;
