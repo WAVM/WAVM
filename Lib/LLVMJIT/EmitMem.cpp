@@ -254,8 +254,8 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 {
 	static constexpr U32 maxVectors = 4;
 	static constexpr U32 maxLanes = 16;
-	WAVM_ASSERT(numVectors < maxVectors);
-	WAVM_ASSERT(numLanes < maxLanes);
+	WAVM_ASSERT(numVectors <= maxVectors);
+	WAVM_ASSERT(numLanes <= maxLanes);
 
 	auto address = functionContext.pop();
 	auto boundedAddress = getOffsetAndBoundedAddress(functionContext, address, offset);
@@ -313,8 +313,8 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 								 U32 numLanes)
 {
 	static constexpr U32 maxVectors = 4;
-
-	WAVM_ASSERT(numVectors < 4);
+	WAVM_ASSERT(numVectors <= 4);
+	
 	llvm::Value* values[maxVectors];
 	for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 	{
