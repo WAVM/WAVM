@@ -243,86 +243,138 @@ EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_u, llvmContext.i16x4Type, 3, 
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_s, llvmContext.i32x2Type, 3, sext)
 EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, zext)
 
+static void emitLoadInterleaved(EmitFunctionContext& functionContext,
+								llvm::Type* llvmMemoryType,
+								llvm::Type* llvmValueType,
+								llvm::Intrinsic::ID aarch64IntrinsicID,
+								U8 alignmentLog2,
+								U32 offset,
+								Uptr memoryIndex,
+								U32 numVectors,
+								U32 numLanes)
+{
+	static constexpr U32 maxLanes = 16;
+	WAVM_ASSERT(numLanes < maxLanes);
+
+	auto address = functionContext.pop();
+	auto boundedAddress = getOffsetAndBoundedAddress(functionContext, address, offset);
+	if(functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
+	{
+		auto pointer
+			= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
+		auto results = functionContext.callLLVMIntrinsic(
+			{llvmValueType, llvmValueType->getPointerTo()}, aarch64IntrinsicID, {pointer});
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+		{
+			functionContext.push(
+				functionContext.irBuilder.CreateExtractValue(results, vectorIndex));
+		}
+	}
+	else
+	{
+		auto pointer
+			= functionContext.coerceAddressToPointer(boundedAddress, llvmMemoryType, memoryIndex);
+		auto load = functionContext.irBuilder.CreateLoad(pointer);
+		/* Don't trust the alignment hint provided by the WebAssembly code, since the load
+		 * can't trap if it's wrong. */
+		load->setAlignment(1);
+		load->setVolatile(true);
+		auto undef = llvm::UndefValue::get(llvmMemoryType);
+		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+		{
+			U32 shuffleIndices[maxLanes];
+			for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)
+			{ shuffleIndices[laneIndex] = laneIndex * numVectors + vectorIndex; }
+			functionContext.push(functionContext.irBuilder.CreateShuffleVector(
+				load, undef, llvm::ArrayRef<U32>(shuffleIndices, numLanes)));
+		}
+	}
+}
+
+static void emitStoreInterleaved(EmitFunctionContext& functionContext,
+	llvm::Type* llvmMemoryType,
+	llvm::Type* llvmValueType,
+	llvm::Intrinsic::ID aarch64IntrinsicID,
+	U8 alignmentLog2,
+	U32 offset,
+	Uptr memoryIndex,
+	U32 numVectors,
+	U32 numLanes)
+{
+	static constexpr U32 maxVectors = 4;
+
+	WAVM_ASSERT(numVectors < 4);
+	llvm::Value* values[maxVectors];
+	for (U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+	{
+		values[numVectors - vectorIndex - 1]
+			= functionContext.irBuilder.CreateBitCast(functionContext.pop(), llvmValueType);
+	}
+	auto address = functionContext.pop();
+	auto boundedAddress = getOffsetAndBoundedAddress(functionContext, address, offset);
+	if (functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
+	{
+		auto pointer
+			= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
+		llvm::Value* args[maxVectors + 1];
+		for (U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+		{
+			args[vectorIndex] = values[vectorIndex];
+			args[numVectors] = pointer;
+		}
+		functionContext.callLLVMIntrinsic({ llvmValueType, llvmValueType->getPointerTo() },
+			aarch64IntrinsicID,
+			llvm::ArrayRef<llvm::Value*>(args, numVectors + 1));
+	}
+	else
+	{
+		llvm::Value* interleavedValues = llvm::UndefValue::get(llvmMemoryType);
+		for (U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
+		{
+			for (U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)
+			{
+				interleavedValues = functionContext.irBuilder.CreateInsertElement(
+					interleavedValues,
+					functionContext.irBuilder.CreateExtractElement(values[vectorIndex], laneIndex),
+					laneIndex * numVectors + vectorIndex);
+			}
+		}
+		auto pointer
+			= functionContext.coerceAddressToPointer(boundedAddress, llvmMemoryType, memoryIndex);
+		auto store = functionContext.irBuilder.CreateStore(interleavedValues, pointer);
+		store->setVolatile(true);
+		store->setAlignment(1);
+	}
+}
+
 #define EMIT_LOAD_INTERLEAVED_OP(                                                                  \
 	name, llvmMemoryType, llvmValueType, naturalAlignmentLog2, numVectors, numLanes)               \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
-		auto address = pop();                                                                      \
-		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		if(moduleContext.targetArch == llvm::Triple::aarch64)                                      \
-		{                                                                                          \
-			auto pointer = coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex); \
-			auto results = callLLVMIntrinsic({llvmValueType, llvmValueType->getPointerTo()},       \
-											 llvm::Intrinsic::aarch64_neon_ld##numVectors,         \
-											 {pointer});                                           \
-			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
-			{ push(irBuilder.CreateExtractValue(results, vectorIndex)); }                          \
-		}                                                                                          \
-		else                                                                                       \
-		{                                                                                          \
-			auto pointer                                                                           \
-				= coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);         \
-			auto load = irBuilder.CreateLoad(pointer);                                             \
-			/* Don't trust the alignment hint provided by the WebAssembly code, since the load     \
-			 * can't trap if it's wrong. */                                                        \
-			load->setAlignment(1);                                                                 \
-			load->setVolatile(true);                                                               \
-			auto undef = llvm::UndefValue::get(llvmMemoryType);                                    \
-			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
-			{                                                                                      \
-				U32 shuffleIndices[numLanes];                                                      \
-				for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                          \
-				{ shuffleIndices[laneIndex] = laneIndex * numVectors + vectorIndex; }              \
-				push(irBuilder.CreateShuffleVector(load, undef, shuffleIndices));                  \
-			}                                                                                      \
-		}                                                                                          \
+		emitLoadInterleaved(*this,                                                                 \
+							llvmMemoryType,                                                        \
+							llvmValueType,                                                         \
+							llvm::Intrinsic::aarch64_neon_ld##numVectors,                          \
+							imm.alignmentLog2,                                                     \
+							imm.offset,                                                            \
+							imm.memoryIndex,                                                       \
+							numVectors,                                                            \
+							numLanes);                                                             \
 	}
 
 #define EMIT_STORE_INTERLEAVED_OP(                                                                 \
 	name, llvmMemoryType, llvmValueType, naturalAlignmentLog2, numVectors, numLanes)               \
 	void EmitFunctionContext::name(LoadOrStoreImm<naturalAlignmentLog2> imm)                       \
 	{                                                                                              \
-		llvm::Value* values[numVectors];                                                           \
-		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                          \
-		{                                                                                          \
-			values[numVectors - vectorIndex - 1] = irBuilder.CreateBitCast(pop(), llvmValueType);  \
-		}                                                                                          \
-		auto address = pop();                                                                      \
-		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
-		if(moduleContext.targetArch == llvm::Triple::aarch64)                                      \
-		{                                                                                          \
-			auto pointer = coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex); \
-			llvm::Value* args[numVectors + 1];                                                     \
-			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
-			{                                                                                      \
-				args[vectorIndex] = values[vectorIndex];                                           \
-				args[numVectors] = pointer;                                                        \
-			}                                                                                      \
-			callLLVMIntrinsic({llvmValueType, llvmValueType->getPointerTo()},                      \
-							  llvm::Intrinsic::aarch64_neon_st##numVectors,                        \
-							  args);                                                               \
-		}                                                                                          \
-		else                                                                                       \
-		{                                                                                          \
-			llvm::Value* interleavedValues = llvm::UndefValue::get(llvmMemoryType);                \
-			for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)                      \
-			{                                                                                      \
-				for(U32 laneIndex = 0; laneIndex < numLanes; ++laneIndex)                          \
-				{                                                                                  \
-					interleavedValues = irBuilder.CreateInsertElement(                             \
-						interleavedValues,                                                         \
-						irBuilder.CreateExtractElement(values[vectorIndex], laneIndex),            \
-						laneIndex * numVectors + vectorIndex);                                     \
-				}                                                                                  \
-			}                                                                                      \
-			auto pointer                                                                           \
-				= coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);         \
-			auto store = irBuilder.CreateStore(interleavedValues, pointer);                        \
-			store->setVolatile(true);                                                              \
-			/* Don't trust the alignment hint provided by the WebAssembly code, since the store    \
-			 * can't trap if it's wrong. */                                                        \
-			store->setAlignment(1);                                                                \
-		}                                                                                          \
+		emitStoreInterleaved(*this,                                                                \
+							 llvmMemoryType,                                                       \
+							 llvmValueType,                                                        \
+							 llvm::Intrinsic::aarch64_neon_st##numVectors,                         \
+							 imm.alignmentLog2,                                                    \
+							 imm.offset,                                                           \
+							 imm.memoryIndex,                                                      \
+							 numVectors,                                                           \
+							 numLanes);                                                            \
 	}
 
 EMIT_LOAD_INTERLEAVED_OP(v8x16_load_interleaved_2,
