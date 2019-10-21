@@ -91,14 +91,19 @@ bool Runtime::generateStub(const std::string& moduleName,
 		stubModuleNames.functions.push_back(
 			{"importStub: " + exportName + " (" + asString(asFunctionType(type)) + ")"});
 		IR::setDisassemblyNames(stubIRModule, stubModuleNames);
-		try
+
+		if(WAVM_ENABLE_ASSERTS)
 		{
-			IR::validatePreCodeSections(stubIRModule);
-			IR::validatePostCodeSections(stubIRModule);
-		}
-		catch(const ValidationException& exception)
-		{
-			Errors::fatalf("Stub module failed validation: %s", exception.message.c_str());
+			try
+			{
+				IR::validatePreCodeSections(stubIRModule);
+				IR::validateCodeSection(stubIRModule);
+				IR::validatePostCodeSections(stubIRModule);
+			}
+			catch(const ValidationException& exception)
+			{
+				Errors::fatalf("Stub module failed validation: %s", exception.message.c_str());
+			}
 		}
 
 		// Instantiate the module and return the stub function instance.
