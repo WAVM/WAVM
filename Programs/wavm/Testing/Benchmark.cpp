@@ -432,6 +432,12 @@ int execBenchmark(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
+	const auto targetSpec = LLVMJIT::getHostTargetSpec();
+	Log::printf(Log::output,
+				"Host triple: %s\nHost CPU: %s\n",
+				targetSpec.triple.c_str(),
+				targetSpec.cpu.c_str());
+
 	runInvokeBench();
 	runIntrinsicBench();
 	runInterleavedLoadStoreBench();
