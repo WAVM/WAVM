@@ -1158,3 +1158,14 @@
     (v128.const i8x16 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80))
   (i32.const 0x0000aaaa)
 )
+
+;; Test for LLVM bug found by fuzzing: https://bugs.llvm.org/show_bug.cgi?id=43750
+
+(module 
+  (func (param v128) (result f64)
+    local.get 0
+    i8x16.ltz_mask
+    i16x8.splat
+    f64x2.extract_lane 1
+  )
+)
