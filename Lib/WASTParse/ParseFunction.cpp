@@ -800,10 +800,12 @@ static WAVM_FORCENOINLINE void parseExprSequence(CursorState* cursor, Uptr depth
 	static WAVM_FORCENOINLINE void parseOp_##name(                                                 \
 		CursorState* cursor, bool isExpression, Uptr depth)                                        \
 	{                                                                                              \
+		const Token* opcodeToken = cursor->nextToken;                                              \
 		++cursor->nextToken;                                                                       \
 		Imm imm;                                                                                   \
 		parseImm(cursor, imm);                                                                     \
 		if(isExpression) { parseExprSequence(cursor, depth); }                                     \
+		cursor->functionState->validatingCodeStream.validationErrorToken = opcodeToken;            \
 		cursor->functionState->validatingCodeStream.name(imm);                                     \
 	}
 WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
