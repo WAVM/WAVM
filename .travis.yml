@@ -14,16 +14,17 @@ after_failure: Build/notify-discord.sh failure $DISCORD_WEBHOOK_URL
 # Build configuration matrix
 jobs:
   include:
-    - stage: build
-      name: "ARM64 UbuntuBionic/GCC"
-      arch: arm64
-      os: linux
-      compiler: gcc
-      env: ENABLE_RUNTIME=YES ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO ENABLE_TSAN=NO ENABLE_RELEASE=YES ENABLE_DEBUG=YES ENABLE_UNWIND=NO LLVM_URL=http://releases.llvm.org/9.0.0/clang+llvm-9.0.0-aarch64-linux-gnu.tar.xz
-      addons:
-        apt:
-          packages:
-            - zlib1g-dev
+    #- stage: build
+    #  name: "ARM64 UbuntuBionic/GCC"
+    #  arch: arm64
+    #  os: linux
+    #  dist: bionic
+    #  compiler: gcc
+    #  env: ENABLE_RUNTIME=YES ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO ENABLE_TSAN=NO ENABLE_RELEASE=YES ENABLE_DEBUG=YES ENABLE_UNWIND=NO LLVM_URL=http://releases.llvm.org/9.0.0/clang+llvm-9.0.0-aarch64-linux-gnu.tar.xz
+    #  addons:
+    #    apt:
+    #      packages:
+    #        - zlib1g-dev
 
     - stage: build
       name: "OSX/Xcode10.3"
