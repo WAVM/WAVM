@@ -116,6 +116,25 @@ template<typename Type> void validateType(Type expectedType, Type actualType, co
 	}
 }
 
+static void validateExternKind(const Module& module, ExternKind externKind)
+{
+	switch(externKind)
+	{
+	case ExternKind::function:
+	case ExternKind::table:
+	case ExternKind::memory:
+	case ExternKind::global: break;
+
+	case ExternKind::exceptionType:
+		VALIDATE_FEATURE("exception type extern", exceptionHandling);
+		break;
+
+	case ExternKind::invalid:
+	default:
+		throw ValidationException("invalid extern kind (" + std::to_string(Uptr(externKind)) + ")");
+	};
+}
+
 static ValueType validateGlobalIndex(const Module& module,
 									 Uptr globalIndex,
 									 bool mustBeMutable,
@@ -942,6 +961,7 @@ void IR::validateExports(const Module& module)
 	HashSet<std::string> exportNameSet;
 	for(auto& exportIt : module.exports)
 	{
+		validateExternKind(module, exportIt.kind);
 		switch(exportIt.kind)
 		{
 		case ExternKind::function: VALIDATE_INDEX(exportIt.index, module.functions.size()); break;
@@ -960,7 +980,7 @@ void IR::validateExports(const Module& module)
 			break;
 
 		case ExternKind::invalid:
-		default: throw ValidationException("unknown export kind");
+		default: WAVM_UNREACHABLE();
 		};
 
 		VALIDATE_UNLESS("duplicate export: ", exportNameSet.contains(exportIt.name));
@@ -984,11 +1004,15 @@ void IR::validateElemSegments(const Module& module)
 {
 	for(auto& elemSegment : module.elemSegments)
 	{
-		if(elemSegment.contents->encoding == ElemSegment::Encoding::index
-		   && elemSegment.contents->externKind != ExternKind::function)
+		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)
 		{
-			VALIDATE_FEATURE("elem segment reference non-function externs",
-							 allowAnyExternKindElemSegments);
+			validateExternKind(module, elemSegment.contents->externKind);
+
+			if(elemSegment.contents->externKind != ExternKind::function)
+			{
+				VALIDATE_FEATURE("elem segment reference non-function externs",
+								 allowAnyExternKindElemSegments);
+			}
 		}
 
 		switch(elemSegment.type)
