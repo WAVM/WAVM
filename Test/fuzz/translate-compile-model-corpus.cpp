@@ -51,8 +51,7 @@ I32 main(int argc, char** argv)
 		{
 			RandomStream random(inputBytes.data(), inputBytes.size());
 
-			IR::Module module(IR::FeatureSpec(true));
-			module.featureSpec.setWAVMFeatures(true);
+			IR::Module module(FeatureLevel::wavm);
 			generateValidModule(module, random);
 
 			std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);

@@ -20,15 +20,13 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	std::vector<U8> wastBytes(data, data + numBytes);
 	wastBytes.push_back(0);
 
-	Module wastModule(FeatureSpec(true));
-	wastModule.featureSpec.setWAVMFeatures(true);
+	Module wastModule(FeatureLevel::wavm);
 	std::vector<WAST::Error> parseErrors;
 	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), wastModule, parseErrors))
 	{
 		std::vector<U8> wasmBytes = WASM::saveBinaryModule(wastModule);
 
-		Module wasmModule(FeatureSpec(true));
-		wasmModule.featureSpec.setWAVMFeatures(true);
+		Module wasmModule(FeatureLevel::wavm);
 		{
 			WASM::LoadError loadError;
 			if(!WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), wasmModule, &loadError))

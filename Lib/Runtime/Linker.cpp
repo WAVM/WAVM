@@ -83,7 +83,7 @@ bool Runtime::generateStub(const std::string& moduleName,
 		encoder.end();
 
 		// Generate a module for the stub function.
-		IR::Module stubIRModule(FeatureSpec(true));
+		IR::Module stubIRModule(FeatureLevel::wavm);
 		DisassemblyNames stubModuleNames;
 		stubIRModule.types.push_back(asFunctionType(type));
 		stubIRModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});

@@ -217,7 +217,7 @@ void showRunHelp(Log::Category outputCategory)
 				"%s"
 				"\n",
 				getABIListHelpText(),
-				getFeatureListHelpText());
+				getFeatureListHelpText().c_str());
 }
 
 template<Uptr numPrefixChars>
@@ -236,7 +236,7 @@ enum class ABI
 
 struct State
 {
-	IR::FeatureSpec featureSpec{false};
+	IR::FeatureSpec featureSpec;
 
 	// Command-line options.
 	const char* filename = nullptr;
@@ -320,7 +320,7 @@ struct State
 								"%s"
 								"\n",
 								*nextArg,
-								getFeatureListHelpText());
+								getFeatureListHelpText().c_str());
 					return false;
 				}
 			}

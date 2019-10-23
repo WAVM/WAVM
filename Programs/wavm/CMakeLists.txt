@@ -5,7 +5,6 @@ set(NonRuntimeSources Testing/DumpTestModules.cpp
 					  Testing/TestI128.cpp
 					  Testing/wavm-test.cpp
 					  Testing/wavm-test.h
-					  FeatureSpec.cpp
 					  wavm.cpp
 					  wavm.h
 					  wavm-assemble.cpp

@@ -96,8 +96,8 @@ Instance* Intrinsics::instantiateModule(
 {
 	Timing::Timer timer;
 
-	IR::Module irModule(IR::FeatureSpec(true));
-	irModule.featureSpec.setWAVMFeatures(true);
+	IR::Module irModule(FeatureLevel::wavm);
+	irModule.featureSpec.nonWASMFunctionTypes = true;
 	DisassemblyNames names;
 
 	std::vector<FunctionImportBinding> functionImportBindings;

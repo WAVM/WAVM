@@ -230,11 +230,11 @@
 	visitOp(0x00be, f32_reinterpret_i32, "f32.reinterpret_i32"              , NoImm                     , WAVM_UNARY(i32,f32)       , mvp                    )   \
 	visitOp(0x00bf, f64_reinterpret_i64, "f64.reinterpret_i64"              , NoImm                     , WAVM_UNARY(i64,f64)       , mvp                    )   \
 /* 8- and 16-bit sign extension operators                                                                                                                     */ \
-	visitOp(0x00c0, i32_extend8_s             , "i32.extend8_s"             , NoImm                     , WAVM_UNARY(i32,i32)       , extendedSignExtension  )   \
-	visitOp(0x00c1, i32_extend16_s            , "i32.extend16_s"            , NoImm                     , WAVM_UNARY(i32,i32)       , extendedSignExtension  )   \
-	visitOp(0x00c2, i64_extend8_s             , "i64.extend8_s"             , NoImm                     , WAVM_UNARY(i64,i64)       , extendedSignExtension  )   \
-	visitOp(0x00c3, i64_extend16_s            , "i64.extend16_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , extendedSignExtension  )   \
-	visitOp(0x00c4, i64_extend32_s            , "i64.extend32_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , extendedSignExtension  )   \
+	visitOp(0x00c0, i32_extend8_s             , "i32.extend8_s"             , NoImm                     , WAVM_UNARY(i32,i32)       , signExtension          )   \
+	visitOp(0x00c1, i32_extend16_s            , "i32.extend16_s"            , NoImm                     , WAVM_UNARY(i32,i32)       , signExtension          )   \
+	visitOp(0x00c2, i64_extend8_s             , "i64.extend8_s"             , NoImm                     , WAVM_UNARY(i64,i64)       , signExtension          )   \
+	visitOp(0x00c3, i64_extend16_s            , "i64.extend16_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , signExtension          )   \
+	visitOp(0x00c4, i64_extend32_s            , "i64.extend32_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , signExtension          )   \
 /* Reference type operators                                                                                                                                   */ \
 	visitOp(0x00d0, ref_null                  , "ref.null"                  , NoImm                     , WAVM_NULLARY(nullref)     , referenceTypes         )   \
 	visitOp(0x00d1, ref_is_null               , "ref.is_null"               , NoImm                     , WAVM_UNARY(anyref,i32)    , referenceTypes         )   \

@@ -180,9 +180,7 @@ int execDumpTestModules(int argc, char** argv)
 	std::vector<WAST::Error> testErrors;
 
 	// Parse the test script.
-	IR::FeatureSpec featureSpec(true);
-	featureSpec.setWAVMFeatures(true);
-	featureSpec.requireSharedFlagForAtomicOperators = true;
+	IR::FeatureSpec featureSpec(IR::FeatureLevel::wavm);
 	WAST::parseTestCommands((const char*)testScriptBytes.data(),
 							testScriptBytes.size(),
 							featureSpec,

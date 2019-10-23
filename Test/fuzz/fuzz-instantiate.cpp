@@ -27,11 +27,10 @@ using namespace WAVM::Runtime;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
-	IR::FeatureSpec featureSpec(true);
+	IR::FeatureSpec featureSpec(IR::FeatureLevel::wavm);
 	featureSpec.maxLabelsPerFunction = 65536;
 	featureSpec.maxLocals = 1024;
 	featureSpec.maxDataSegments = 65536;
-	featureSpec.setWAVMFeatures(true);
 	Runtime::ModuleRef module;
 	if(!Runtime::loadBinaryModule(data, numBytes, module, featureSpec)) { return 0; }
 	const IR::Module& moduleIR = getModuleIR(module);

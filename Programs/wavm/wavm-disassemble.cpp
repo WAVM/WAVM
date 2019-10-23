@@ -38,7 +38,7 @@ void showDisassembleHelp(Log::Category outputCategory)
 				"Features:\n"
 				"%s"
 				"\n",
-				getFeatureListHelpText());
+				getFeatureListHelpText().c_str());
 }
 
 int execDisassembleCommand(int argc, char** argv)
@@ -65,7 +65,7 @@ int execDisassembleCommand(int argc, char** argv)
 							"%s"
 							"\n",
 							argv[argIndex],
-							getFeatureListHelpText());
+							getFeatureListHelpText().c_str());
 				return false;
 			}
 		}

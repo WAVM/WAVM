@@ -45,7 +45,7 @@ void showAssembleHelp(Log::Category outputCategory)
 				"Features:\n"
 				"%s"
 				"\n",
-				getFeatureListHelpText());
+				getFeatureListHelpText().c_str());
 }
 
 int execAssembleCommand(int argc, char** argv)
@@ -74,7 +74,7 @@ int execAssembleCommand(int argc, char** argv)
 							"%s"
 							"\n",
 							argv[argIndex],
-							getFeatureListHelpText());
+							getFeatureListHelpText().c_str());
 				return false;
 			}
 		}

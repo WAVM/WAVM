@@ -323,7 +323,7 @@ void runInterleavedLoadStoreBench()
 {
 	// Parse the intrinsic benchmark module.
 	std::vector<WAST::Error> parseErrors;
-	IR::Module irModule(IR::FeatureSpec(true));
+	IR::Module irModule(FeatureLevel::proposed);
 	irModule.featureSpec.interleavedLoadStore = true;
 	if(!WAST::parseModule(interleavedLoadStoreBenchModuleWAST,
 						  strlen(interleavedLoadStoreBenchModuleWAST) + 1,

@@ -894,8 +894,7 @@ static I64 threadMain(void* sharedStateVoid)
 		std::vector<std::unique_ptr<Command>> testCommands;
 
 		// Use a WebAssembly standard-compliant feature spec that includes all proposed extensions.
-		FeatureSpec featureSpec(true);
-		featureSpec.requireSharedFlagForAtomicOperators = true;
+		FeatureSpec featureSpec(FeatureLevel::proposed);
 		featureSpec.customSectionsInTextFormat = true;
 		featureSpec.interleavedLoadStore = true;
 		featureSpec.ltzMask = true;

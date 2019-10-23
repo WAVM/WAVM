@@ -1,70 +1,95 @@
 #pragma once
 
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 
+// Standardized features, or extensions that are expected to be standardized without breaking
+// backward compatibility. These are enabled by default.
+#define WAVM_ENUM_MATURE_FEATURES(V)                                                               \
+	V(mvp, "mvp", "WebAssembly MVP")                                                               \
+	V(importExportMutableGlobals,                                                                  \
+	  "import-export-mutable-globals",                                                             \
+	  "Allows importing and exporting mutable globals")                                            \
+	V(nonTrappingFloatToInt, "non-trapping-float-to-int", "Non-trapping float-to-int conversion")  \
+	V(signExtension, "sign-extension", "Sign-extension")                                           \
+	V(bulkMemoryOperations, "bulk-memory", "Bulk memory")
+
+// Proposed standard extensions. These are disabled by default, but may be enabled on the
+// command-line.
+#define WAVM_ENUM_PROPOSED_FEATURES(V)                                                             \
+	V(simd, "simd", "128-bit SIMD")                                                                \
+	V(atomics, "atomics", "Shared memories and atomic instructions")                               \
+	V(exceptionHandling, "exception-handling", "Exception handling")                               \
+	V(multipleResultsAndBlockParams, "multivalue", "Multiple results and block parameters")        \
+	V(referenceTypes, "ref-types", "Reference types")                                              \
+	V(extendedNameSection, "extended-name-section", "Extended name section")                       \
+	V(multipleMemories, "multi-memory", "Multiple memories")
+
+// Non-standard extensions. These are disabled by default, but may be enabled on the command-line.
+#define WAVM_ENUM_NONSTANDARD_FEATURES(V)                                                          \
+	V(sharedTables, "shared-tables", "Shared tables")                                              \
+	V(allowLegacyInstructionNames, "legacy-instr-names", "Legacy instruction names")               \
+	V(allowAnyExternKindElemSegments,                                                              \
+	  "any-extern-kind-elems",                                                                     \
+	  "Elem segments containing non-func externs")                                                 \
+	V(quotedNamesInTextFormat, "quoted-names", "Quoted names in text format")                      \
+	V(customSectionsInTextFormat, "wat-custom-sections", "Custom sections in text format")         \
+	V(interleavedLoadStore, "interleaved-load-store", "Interleaved SIMD load&store instructions")  \
+	V(ltzMask, "ltz-mask", "SIMD less-than-zero mask instruction")
+
+// WAVM extensions meant for internal use only (not exposed to users).
+#define WAVM_ENUM_INTERNAL_FEATURES(V)                                                             \
+	V(nonWASMFunctionTypes, "non-wasm-func-types", "Non-WebAssembly function calling conventions")
+
+#define WAVM_ENUM_FEATURES(V)                                                                      \
+	WAVM_ENUM_MATURE_FEATURES(V)                                                                   \
+	WAVM_ENUM_PROPOSED_FEATURES(V)                                                                 \
+	WAVM_ENUM_NONSTANDARD_FEATURES(V)                                                              \
+	WAVM_ENUM_INTERNAL_FEATURES(V)
+
 namespace WAVM { namespace IR {
+
+#define VISIT_FEATURE(name, ...) name,
+	enum class Feature
+	{
+		WAVM_ENUM_FEATURES(VISIT_FEATURE)
+	};
+#undef VISIT_FEATURE
+
+	// A feature level hierarchy where each feature level is a superset of the previous.
+	enum class FeatureLevel
+	{
+		mvp,      // Only the WebAssembly MVP.
+		mature,   // The above + mature proposed standard extensions.
+		proposed, // The above + all proposed standard extensions.
+		wavm,     // The above + non-standard WAVM extensions.
+	};
+
 	struct FeatureSpec
 	{
-		// A feature flag for the MVP, just so the MVP operators can reference it as the required
-		// feature flag.
-		const bool mvp = true;
-
-		// Proposed standard extensions that are likely to be standardized without further changes.
-		bool importExportMutableGlobals = true;
-		bool nonTrappingFloatToInt = true;
-		bool extendedSignExtension = true;
-		bool bulkMemoryOperations = true;
-
-		// Proposed standard extensions
-		bool simd = true;
-		bool atomics = true;
-		bool exceptionHandling = true;
-		bool multipleResultsAndBlockParams = true;
-		bool referenceTypes = true;
-		bool extendedNamesSection = true;
-		bool multipleMemories = true;
-
-		// WAVM-specific extensions
-		bool sharedTables = false;
-		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
-		bool allowLegacyInstructionNames = false;
-		bool allowAnyExternKindElemSegments = false;
-		bool quotedNamesInTextFormat = false;
-		bool customSectionsInTextFormat = false;
-		bool interleavedLoadStore = false;
-		bool ltzMask = false;
-		bool nonWASMFunctionTypes = false;
+		// Declare a bool member for each feature.
+#define VISIT_FEATURE_DEFAULT_ON(name, ...) bool name;
+#define VISIT_FEATURE_DEFAULT_OFF(name, ...) bool name;
+		WAVM_ENUM_MATURE_FEATURES(VISIT_FEATURE_DEFAULT_ON)
+		WAVM_ENUM_PROPOSED_FEATURES(VISIT_FEATURE_DEFAULT_OFF)
+		WAVM_ENUM_NONSTANDARD_FEATURES(VISIT_FEATURE_DEFAULT_OFF)
+		WAVM_ENUM_INTERNAL_FEATURES(VISIT_FEATURE_DEFAULT_OFF)
+#undef VISIT_FEATURE_DEFAULT_ON
+#undef VISIT_FEATURE_DEFAULT_OFF
 
 		Uptr maxLocals = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
 		Uptr maxDataSegments = UINTPTR_MAX;
 		Uptr maxSyntaxRecursion = 500;
 
-		FeatureSpec(bool enablePreStandardizationFeatures = false)
+		FeatureSpec(FeatureLevel featureLevel = FeatureLevel::mature)
 		{
-			setPreStandardizationFeatures(enablePreStandardizationFeatures);
+			setFeatureLevel(featureLevel);
 		}
 
-		void setPreStandardizationFeatures(bool enablePreStandardizationFeatures)
-		{
-			simd = enablePreStandardizationFeatures;
-			atomics = enablePreStandardizationFeatures;
-			exceptionHandling = enablePreStandardizationFeatures;
-			multipleResultsAndBlockParams = enablePreStandardizationFeatures;
-			referenceTypes = enablePreStandardizationFeatures;
-			extendedNamesSection = enablePreStandardizationFeatures;
-			multipleMemories = enablePreStandardizationFeatures;
-		}
-
-		void setWAVMFeatures(bool enableWAVMFeatures)
-		{
-			sharedTables = enableWAVMFeatures;
-			quotedNamesInTextFormat = enableWAVMFeatures;
-			extendedNamesSection = enableWAVMFeatures;
-			customSectionsInTextFormat = enableWAVMFeatures;
-			interleavedLoadStore = enableWAVMFeatures;
-			ltzMask = enableWAVMFeatures;
-			nonWASMFunctionTypes = enableWAVMFeatures;
-		}
+		WAVM_API void setFeatureLevel(FeatureLevel featureLevel);
 	};
+
+	WAVM_API Feature getFeatureByName(const char* name);
+	WAVM_API const char* getFeatureName(Feature feature);
 }}

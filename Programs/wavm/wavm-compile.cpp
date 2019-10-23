@@ -87,7 +87,7 @@ void showCompileHelp(Log::Category outputCategory)
 				hostTargetSpec.triple.c_str(),
 				hostTargetSpec.cpu.c_str(),
 				getOutputFormatHelpText(),
-				getFeatureListHelpText());
+				getFeatureListHelpText().c_str());
 }
 
 template<Uptr numPrefixChars>

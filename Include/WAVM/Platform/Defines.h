@@ -83,3 +83,11 @@
 #else
 #define WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(code) code
 #endif
+
+#if __cplusplus >= 201703
+#define FALLTHROUGH [[fallthrough]]
+#elif defined(__GNUC__)
+#define FALLTHROUGH [[gnu::fallthrough]]
+#else
+#define FALLTHROUGH
+#endif

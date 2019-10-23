@@ -1,5 +1,6 @@
 set(Sources
 	DisassemblyNames.cpp
+	FeatureSpec.cpp
 	FloatPrinting.cpp
 	Operators.cpp
 	Module.cpp

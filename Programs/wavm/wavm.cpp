@@ -1,6 +1,7 @@
 #include "wavm.h"
 #include <stdlib.h>
 #include <string.h>
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
@@ -74,6 +75,62 @@ static const char* getCommandListHelpText()
 #endif
 		   "  test         Groups subcommands used to test WAVM\n"
 		   "  version      Display information about the WAVM version\n";
+}
+
+std::string getFeatureListHelpText()
+{
+	char buffer[2048];
+	char* bufferNext = buffer;
+
+	auto formatFeature
+		= [&buffer, &bufferNext](const char* name, const char* desc, bool isNonStandard) {
+			  const int result = snprintf(bufferNext,
+										  buffer + sizeof(buffer) - bufferNext,
+										  "  %-23s %s %s\n",
+										  name,
+										  isNonStandard ? "*" : " ",
+										  desc);
+			  WAVM_ERROR_UNLESS(result >= 0);
+			  bufferNext += result;
+			  WAVM_ERROR_UNLESS(bufferNext < buffer + sizeof(buffer));
+		  };
+
+#define VISIT_STANDARD_FEATURE(_, name, desc) formatFeature(name, desc, false);
+#define VISIT_NONSTANDARD_FEATURE(_, name, desc) formatFeature(name, desc, true);
+	formatFeature("proposed", "All features proposed for standardization", false);
+	WAVM_ENUM_PROPOSED_FEATURES(VISIT_STANDARD_FEATURE)
+	formatFeature("", "", false);
+	WAVM_ENUM_NONSTANDARD_FEATURES(VISIT_NONSTANDARD_FEATURE)
+#undef VISIT_STANDARD_FEATURE
+#undef VISIT_NONSTANDARD_FEATURE
+
+	formatFeature("", "", false);
+	formatFeature("", "Indicates a non-standard feature", true);
+
+	return std::string(buffer);
+}
+
+bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
+{
+	if(!strcmp(featureName, "proposed"))
+	{
+#define VISIT_FEATURE(cName, ...) featureSpec.cName = true;
+		WAVM_ENUM_PROPOSED_FEATURES(VISIT_FEATURE)
+#undef VISIT_FEATURE
+		return true;
+	}
+
+#define VISIT_FEATURE(cName, cliName, ...)                                                         \
+	if(!strcmp(featureName, cliName))                                                              \
+	{                                                                                              \
+		featureSpec.cName = enable;                                                                \
+		return true;                                                                               \
+	}
+	WAVM_ENUM_PROPOSED_FEATURES(VISIT_FEATURE)
+	WAVM_ENUM_NONSTANDARD_FEATURES(VISIT_FEATURE)
+#undef VISIT_FEATURE
+
+	return false;
 }
 
 static void showTopLevelHelp(Log::Category outputCategory)
