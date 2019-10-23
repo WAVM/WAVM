@@ -14,15 +14,22 @@ void FeatureSpec::setFeatureLevel(FeatureLevel featureLevel)
 
 	switch(featureLevel)
 	{
-	case FeatureLevel::wavm: WAVM_ENUM_NONSTANDARD_FEATURES(SET_FEATURE); FALLTHROUGH;
-	case FeatureLevel::proposed: WAVM_ENUM_PROPOSED_FEATURES(SET_FEATURE); FALLTHROUGH;
-	case FeatureLevel::mature: WAVM_ENUM_MATURE_FEATURES(SET_FEATURE);
+	case FeatureLevel::wavm:
+		WAVM_ENUM_NONSTANDARD_FEATURES(SET_FEATURE);
+		WAVM_ENUM_PROPOSED_FEATURES(SET_FEATURE);
+		WAVM_ENUM_MATURE_FEATURES(SET_FEATURE);
+		break;
+	case FeatureLevel::proposed:
+		WAVM_ENUM_PROPOSED_FEATURES(SET_FEATURE);
+		WAVM_ENUM_MATURE_FEATURES(SET_FEATURE);
+		break;
+	case FeatureLevel::mature: WAVM_ENUM_MATURE_FEATURES(SET_FEATURE); break;
 	case FeatureLevel::mvp: break;
 	default: WAVM_UNREACHABLE();
 	}
 
 #undef SET_FEATURE
-#undef UNSET_FEATURE
+#undef UNSET_FEATUR
 }
 
 const char* IR::getFeatureName(Feature feature)
