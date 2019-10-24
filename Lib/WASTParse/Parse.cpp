@@ -497,6 +497,41 @@ Uptr WAST::resolveRef(ParseState* parseState,
 	};
 }
 
+Uptr WAST::resolveExternRef(ModuleState* moduleState, ExternKind externKind, const Reference& ref)
+{
+	switch(externKind)
+	{
+	case ExternKind::function:
+		return resolveRef(moduleState->parseState,
+						  moduleState->functionNameToIndexMap,
+						  moduleState->module.functions.size(),
+						  ref);
+	case ExternKind::table:
+		return resolveRef(moduleState->parseState,
+						  moduleState->tableNameToIndexMap,
+						  moduleState->module.tables.size(),
+						  ref);
+	case ExternKind::memory:
+		return resolveRef(moduleState->parseState,
+						  moduleState->memoryNameToIndexMap,
+						  moduleState->module.memories.size(),
+						  ref);
+	case ExternKind::global:
+		return resolveRef(moduleState->parseState,
+						  moduleState->globalNameToIndexMap,
+						  moduleState->module.globals.size(),
+						  ref);
+	case ExternKind::exceptionType:
+		return resolveRef(moduleState->parseState,
+						  moduleState->exceptionTypeNameToIndexMap,
+						  moduleState->module.exceptionTypes.size(),
+						  ref);
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
+	}
+}
+
 bool WAST::tryParseHexit(const char*& nextChar, U8& outValue)
 {
 	if(*nextChar >= '0' && *nextChar <= '9') { outValue = *nextChar - '0'; }

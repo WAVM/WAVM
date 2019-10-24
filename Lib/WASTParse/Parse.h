@@ -258,6 +258,7 @@ namespace WAVM { namespace WAST {
 					const NameToIndexMap& nameToIndexMap,
 					Uptr maxIndex,
 					const Reference& ref);
+	Uptr resolveExternRef(ModuleState* moduleState, IR::ExternKind externKind, const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
 	void findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken);

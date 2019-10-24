@@ -27,15 +27,12 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	{
 		const std::string wastString = WAST::print(module);
 
-#if !WAVM_ENABLE_LIBFUZZER
-		// Log::printf(Log::debug, "%s\n", wastString.c_str());
-#endif
-
 		Module wastModule(FeatureLevel::wavm);
 		std::vector<WAST::Error> parseErrors;
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
 		{
+			Log::printf(Log::error, "Disassembled module:\n%s\n", wastString.c_str());
 			WAST::reportParseErrors("disassembly", wastString.c_str(), parseErrors);
 			Errors::fatal("Disassembled module contained syntax errors");
 		}

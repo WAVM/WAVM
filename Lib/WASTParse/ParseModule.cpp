@@ -429,43 +429,8 @@ static void parseExport(CursorState* cursor)
 		cursor->moduleState->module.exports.push_back({std::move(exportName), exportKind, 0});
 
 		cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
-			Uptr& exportedObjectIndex = moduleState->module.exports[exportIndex].index;
-			switch(exportKind)
-			{
-			case ExternKind::function:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->functionNameToIndexMap,
-												 moduleState->module.functions.size(),
-												 exportRef);
-				break;
-			case ExternKind::table:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->tableNameToIndexMap,
-												 moduleState->module.tables.size(),
-												 exportRef);
-				break;
-			case ExternKind::memory:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->memoryNameToIndexMap,
-												 moduleState->module.memories.size(),
-												 exportRef);
-				break;
-			case ExternKind::global:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->globalNameToIndexMap,
-												 moduleState->module.globals.size(),
-												 exportRef);
-				break;
-			case ExternKind::exceptionType:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->exceptionTypeNameToIndexMap,
-												 moduleState->module.exceptionTypes.size(),
-												 exportRef);
-				break;
-
-			case ExternKind::invalid:
-			default: WAVM_UNREACHABLE();
-			}
+			moduleState->module.exports[exportIndex].index
+				= resolveExternRef(moduleState, exportKind, exportRef);
 		});
 	});
 }
@@ -597,11 +562,11 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 {
 	struct UnresolvedElem
 	{
-		ElemExpr::Type type;
 		Reference ref;
-		UnresolvedElem() : type(ElemExpr::Type::ref_null), ref() {}
-		UnresolvedElem(ElemExpr::Type inType, Reference&& inRef)
-		: type(inType), ref(std::move(inRef))
+		ElemExpr::Type type;
+		UnresolvedElem(Reference&& inRef = Reference(),
+					   ElemExpr::Type inType = ElemExpr::Type::ref_null)
+		: ref(std::move(inRef)), type(inType)
 		{
 		}
 	};
@@ -636,7 +601,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					}
 
 					elementReferences->push_back(
-						UnresolvedElem(ElemExpr::Type::ref_func, std::move(elementRef)));
+						UnresolvedElem(std::move(elementRef), ElemExpr::Type::ref_func));
 					break;
 				}
 				default:
@@ -654,8 +619,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					cursor->parseState, cursor->nextToken, "expected function name or index");
 				throw RecoverParseException();
 			}
-			elementReferences->push_back(
-				UnresolvedElem(ElemExpr::Type::ref_func, std::move(elementRef)));
+			elementReferences->push_back(UnresolvedElem(std::move(elementRef)));
 			break;
 		}
 
@@ -689,7 +653,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 															 elementReferences,
 															 elemToken,
 															 baseIndex,
-															 encoding](ModuleState* moduleState) {
+															 encoding,
+															 externKind](ModuleState* moduleState) {
 		ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
 
 		if(segmentType == ElemSegment::Type::active)
@@ -743,13 +708,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
 			{
 				const UnresolvedElem& unresolvedElem = (*elementReferences)[elementIndex];
-				WAVM_ASSERT(unresolvedElem.type == ElemExpr::Type::ref_func);
-
 				elemSegment.contents->elemIndices[elementIndex]
-					= resolveRef(moduleState->parseState,
-								 moduleState->functionNameToIndexMap,
-								 moduleState->module.functions.size(),
-								 unresolvedElem.ref);
+					= resolveExternRef(moduleState, externKind, unresolvedElem.ref);
 			}
 			break;
 
