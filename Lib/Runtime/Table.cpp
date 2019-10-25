@@ -638,24 +638,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	if(asObject(function) == getOutOfBoundsElement())
-	{
-		Log::printf(Log::debug, "call_indirect: index %u is out-of-bounds\n", index);
-		throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)});
-	}
+	{ throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
 	else if(asObject(function) == getUninitializedElement())
 	{
-		Log::printf(Log::debug, "call_indirect: index %u is uninitialized\n", index);
 		throwException(ExceptionTypes::uninitializedTableElement, {table, U64(index)});
 	}
 	else
 	{
-		IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedTypeEncoding}};
-		Log::printf(Log::debug,
-					"call_indirect: index %u has signature %s (%s), but was expecting %s\n",
-					index,
-					asString(IR::FunctionType{function->encodedType}).c_str(),
-					function->mutableData->debugName.c_str(),
-					asString(expectedSignature).c_str());
 		throwException(ExceptionTypes::indirectCallSignatureMismatch,
 					   {function, U64(expectedTypeEncoding)});
 	}
