@@ -656,6 +656,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 					asString(IR::FunctionType{function->encodedType}).c_str(),
 					function->mutableData->debugName.c_str(),
 					asString(expectedSignature).c_str());
-		throwException(ExceptionTypes::indirectCallSignatureMismatch);
+		throwException(ExceptionTypes::indirectCallSignatureMismatch,
+					   {function, U64(expectedTypeEncoding)});
 	}
 }

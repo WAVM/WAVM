@@ -162,7 +162,7 @@ namespace WAVM { namespace Runtime {
 	visit(invalidFloatOperation);                                                                  \
 	visit(invokeSignatureMismatch);                                                                \
 	visit(reachedUnreachable);                                                                     \
-	visit(indirectCallSignatureMismatch);                                                          \
+	visit(indirectCallSignatureMismatch, WAVM::IR::ValueType::funcref, WAVM::IR::ValueType::i64);  \
 	visit(uninitializedTableElement, WAVM::IR::ValueType::anyref, WAVM::IR::ValueType::i64);       \
 	visit(calledAbort);                                                                            \
 	visit(calledUnimplementedIntrinsic);                                                           \

@@ -225,6 +225,23 @@ std::string Runtime::describeException(const Exception* exception)
 		result += std::to_string(exception->arguments[1].u64);
 		result += "])";
 	}
+	else if(exception->type == ExceptionTypes::indirectCallSignatureMismatch)
+	{
+		Function* function = exception->arguments[0].function;
+		IR::FunctionType expectedSignature(
+			IR::FunctionType::Encoding{Uptr(exception->arguments[1].u64)});
+		result += '(';
+		if(!function) { result += "<unknown function>"; }
+		else
+		{
+			result += function->mutableData->debugName;
+			result += " : ";
+			result += asString(getFunctionType(function));
+		}
+		result += ", ";
+		result += asString(expectedSignature);
+		result += ')';
+	}
 	else if(exception->type->sig.params.size())
 	{
 		result += '(';
