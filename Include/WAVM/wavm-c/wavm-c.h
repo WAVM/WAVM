@@ -93,7 +93,33 @@ WASM_DECLARE_OWN(config)
 
 WASM_C_API own wasm_config_t* wasm_config_new();
 
-// Embedders may provide custom functions for manipulating configs.
+#define WASM_DECLARE_FEATURE(feature)                                                              \
+	WASM_C_API void wasm_config_feature_set_##feature(wasm_config_t* config, bool enable);
+
+// Standardized, or mature proposed standard extensions that are expected to be standardized without
+// breaking backward compatibility: enabled by default.
+WASM_DECLARE_FEATURE(import_export_mutable_globals)
+WASM_DECLARE_FEATURE(nontrapping_float_to_int)
+WASM_DECLARE_FEATURE(sign_extension)
+WASM_DECLARE_FEATURE(bulk_memory_ops)
+
+// Proposed standard extensions: disabled by default.
+WASM_DECLARE_FEATURE(simd)
+WASM_DECLARE_FEATURE(atomics)
+WASM_DECLARE_FEATURE(exception_handling)
+WASM_DECLARE_FEATURE(multivalue)
+WASM_DECLARE_FEATURE(reference_types)
+WASM_DECLARE_FEATURE(extended_name_section)
+WASM_DECLARE_FEATURE(multimemory)
+
+// Non-standard extensions.
+WASM_DECLARE_FEATURE(shared_tables)
+WASM_DECLARE_FEATURE(allow_legacy_inst_names)
+WASM_DECLARE_FEATURE(any_extern_kind_elems)
+WASM_DECLARE_FEATURE(wat_quoted_names)
+WASM_DECLARE_FEATURE(wat_custom_sections)
+
+#undef WASM_DECLARE_FEATURE
 
 // Engine
 

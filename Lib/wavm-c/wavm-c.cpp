@@ -53,6 +53,16 @@ typedef struct wasm_module_t wasm_shared_module_t;
 
 static_assert(sizeof(wasm_val_t) == sizeof(UntaggedValue), "wasm_val_t should match UntaggedValue");
 
+struct wasm_config_t
+{
+	FeatureSpec featureSpec;
+};
+
+struct wasm_engine_t
+{
+	wasm_config_t config;
+};
+
 struct wasm_valtype_t
 {
 	ValueType type;
@@ -209,13 +219,43 @@ static wasm_val_t as_val(const Value& value)
 extern "C" {
 
 // wasm_config_t
-void wasm_config_delete(wasm_config_t* config) {}
-wasm_config_t* wasm_config_new() { return nullptr; }
+void wasm_config_delete(wasm_config_t* config) { delete config; }
+wasm_config_t* wasm_config_new() { return new wasm_config_t; }
+
+#define IMPLEMENT_FEATURE(cAPIName, wavmName)                                                      \
+	WASM_C_API void wasm_config_feature_set_##cAPIName(wasm_config_t* config, bool enable)         \
+	{                                                                                              \
+		config->featureSpec.wavmName = enable;                                                     \
+	}
+
+IMPLEMENT_FEATURE(import_export_mutable_globals, importExportMutableGlobals)
+IMPLEMENT_FEATURE(nontrapping_float_to_int, nonTrappingFloatToInt)
+IMPLEMENT_FEATURE(sign_extension, signExtension)
+IMPLEMENT_FEATURE(bulk_memory_ops, bulkMemoryOperations)
+
+IMPLEMENT_FEATURE(simd, simd)
+IMPLEMENT_FEATURE(atomics, atomics)
+IMPLEMENT_FEATURE(exception_handling, exceptionHandling)
+IMPLEMENT_FEATURE(multivalue, multipleResultsAndBlockParams)
+IMPLEMENT_FEATURE(reference_types, referenceTypes)
+IMPLEMENT_FEATURE(extended_name_section, extendedNameSection)
+IMPLEMENT_FEATURE(multimemory, multipleMemories)
+
+IMPLEMENT_FEATURE(shared_tables, sharedTables)
+IMPLEMENT_FEATURE(allow_legacy_inst_names, allowLegacyInstructionNames)
+IMPLEMENT_FEATURE(any_extern_kind_elems, allowAnyExternKindElemSegments)
+IMPLEMENT_FEATURE(wat_quoted_names, quotedNamesInTextFormat)
+IMPLEMENT_FEATURE(wat_custom_sections, customSectionsInTextFormat)
 
 // wasm_engine_t
-wasm_engine_t* wasm_engine_new() { return nullptr; }
-wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* config) { return nullptr; }
-void wasm_engine_delete(wasm_engine_t* engine) {}
+wasm_engine_t* wasm_engine_new() { return new wasm_engine_t; }
+wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* config)
+{
+	wasm_engine_t* engine = new wasm_engine_t{*config};
+	delete config;
+	return engine;
+}
+void wasm_engine_delete(wasm_engine_t* engine) { delete engine; }
 
 // wasm_compartment_t
 void wasm_compartment_delete(wasm_compartment_t* compartment)
@@ -662,11 +702,12 @@ void wasm_val_copy(wasm_valkind_t kind, wasm_val_t* out, const wasm_val_t* val)
 // wasm_module_t
 void wasm_module_delete(wasm_module_t* module) { delete module; }
 wasm_module_t* wasm_module_copy(wasm_module_t* module) { return new wasm_module_t{module->module}; }
-wasm_module_t* wasm_module_new(wasm_engine_t*, const char* wasmBytes, uintptr_t numWASMBytes)
+wasm_module_t* wasm_module_new(wasm_engine_t* engine, const char* wasmBytes, uintptr_t numWASMBytes)
 {
 	WASM::LoadError loadError;
 	ModuleRef module;
-	if(loadBinaryModule((const U8*)wasmBytes, numWASMBytes, module, IR::FeatureSpec(), &loadError))
+	if(loadBinaryModule(
+		   (const U8*)wasmBytes, numWASMBytes, module, engine->config.featureSpec, &loadError))
 	{ return new wasm_module_t{module}; }
 	else
 	{
@@ -674,14 +715,14 @@ wasm_module_t* wasm_module_new(wasm_engine_t*, const char* wasmBytes, uintptr_t 
 		return nullptr;
 	}
 }
-wasm_module_t* wasm_module_new_text(wasm_engine_t*, const char* text, size_t num_text_chars)
+wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, size_t num_text_chars)
 {
 	// WAST::parseModule requires that the WAST string be null-terminated, so make a copy of the
 	// input string as a std::string to make sure it is.
 	std::string wastString(text, num_text_chars);
 
 	std::vector<WAST::Error> parseErrors;
-	IR::Module irModule;
+	IR::Module irModule(engine->config.featureSpec);
 	if(!WAST::parseModule(wastString.c_str(), wastString.size(), irModule, parseErrors))
 	{
 		if(Log::isCategoryEnabled(Log::debug))
