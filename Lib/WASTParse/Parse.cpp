@@ -693,12 +693,13 @@ std::string WAST::parseUTF8String(CursorState* cursor)
 
 void WAST::reportParseErrors(const char* filename,
 							 const char* source,
-							 const std::vector<WAST::Error>& parseErrors)
+							 const std::vector<WAST::Error>& parseErrors,
+							 Log::Category outputCategory)
 {
 	// Print any parse errors.
 	for(auto& error : parseErrors)
 	{
-		Log::printf(Log::error,
+		Log::printf(outputCategory,
 					"%s:%s: %s\n%.*s\n%*s\n",
 					filename,
 					error.locus.describe().c_str(),

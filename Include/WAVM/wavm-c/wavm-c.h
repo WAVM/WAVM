@@ -376,6 +376,10 @@ WASM_C_API own wasm_module_t* wasm_module_new(wasm_engine_t*,
 											  const char* binary,
 											  size_t num_binary_bytes);
 
+WASM_C_API own wasm_module_t* wasm_module_new_text(wasm_engine_t*,
+												   const char* text,
+												   size_t num_text_chars);
+
 WASM_C_API bool wasm_module_validate(const char* binary, size_t num_binary_bytes);
 
 WASM_C_API size_t wasm_module_num_imports(const wasm_module_t* module);

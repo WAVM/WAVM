@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Logging/Logging.h"
 
 namespace WAVM { namespace IR {
 	struct Module;
@@ -61,5 +62,6 @@ namespace WAVM { namespace WAST {
 
 	WAVM_API void reportParseErrors(const char* filename,
 									const char* source,
-									const std::vector<Error>& parseErrors);
+									const std::vector<Error>& parseErrors,
+									Log::Category outputCategory = Log::Category::error);
 }}

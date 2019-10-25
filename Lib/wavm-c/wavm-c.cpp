@@ -10,6 +10,7 @@
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -665,6 +666,28 @@ wasm_module_t* wasm_module_new(wasm_engine_t*, const char* wasmBytes, uintptr_t 
 		return nullptr;
 	}
 }
+wasm_module_t* wasm_module_new_text(wasm_engine_t*, const char* text, size_t num_text_chars)
+{
+	// WAST::parseModule requires that the WAST string be null-terminated, so make a copy of the
+	// input string as a std::string to make sure it is.
+	std::string wastString(text, num_text_chars);
+
+	std::vector<WAST::Error> parseErrors;
+	IR::Module irModule;
+	if(!WAST::parseModule(wastString.c_str(), wastString.size(), irModule, parseErrors))
+	{
+		if(Log::isCategoryEnabled(Log::debug))
+		{
+			WAST::reportParseErrors(
+				"wasm_module_new_text", wastString.c_str(), parseErrors, Log::debug);
+		}
+		return nullptr;
+	}
+
+	ModuleRef module = compileModule(irModule);
+	return new wasm_module_t{module};
+}
+
 bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 {
 	IR::Module irModule;
