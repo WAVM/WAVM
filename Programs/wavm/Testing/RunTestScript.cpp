@@ -42,6 +42,7 @@ struct Config
 	bool strictAssertInvalid{false};
 	bool strictAssertMalformed{false};
 	bool testCloning{false};
+	bool traceTests{false};
 };
 
 struct TestScriptState
@@ -910,10 +911,13 @@ static I64 threadMain(void* sharedStateVoid)
 			// Process the test script commands.
 			for(auto& command : testCommands)
 			{
-				Log::printf(Log::debug,
-							"Evaluating test command at %s(%s)\n",
-							filename,
-							command->locus.describe().c_str());
+				if(sharedState->config.traceTests)
+				{
+					Log::printf(Log::output,
+								"Evaluating test command at %s(%s)\n",
+								filename,
+								command->locus.describe().c_str());
+				}
 				catchRuntimeExceptions(
 					[&testScriptState, &command] {
 						if(testScriptState.config.testCloning)
@@ -954,7 +958,8 @@ static void showHelp()
 		"                             module was invalid\n"
 		"  --test-cloning             Run each test command in the original compartment\n"
 		"                             and a clone of it, and compare the resulting state\n"
-		"  --trace                    Prints instructions to stdout as they are compiled.\n");
+		"  --trace                    Prints instructions to stdout as they are compiled.\n"
+		"  --trace-tests              Prints test commands to stdout as they are executed.\n");
 }
 
 int execRunTestScript(int argc, char** argv)
@@ -1004,6 +1009,10 @@ int execRunTestScript(int argc, char** argv)
 		{
 			Log::setCategoryEnabled(Log::traceValidation, true);
 			Log::setCategoryEnabled(Log::traceCompilation, true);
+		}
+		else if(!strcmp(argv[argIndex], "--trace-tests"))
+		{
+			config.traceTests = true;
 		}
 		else
 		{
