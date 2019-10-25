@@ -407,7 +407,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	U8* destPointer = getReservedMemoryOffsetRange(destMemory, destAddress, numBytes);
 	U8* sourcePointer = getReservedMemoryOffsetRange(sourceMemory, sourceAddress, numBytes);
 
-	unwindSignalsAsExceptions([=] { bytewiseMemMove(destPointer, sourcePointer, numBytes); });
+	unwindSignalsAsExceptions([=] {
+		if(sourceAddress < destAddress)
+		{ bytewiseMemCopyReverse(destPointer, sourcePointer, numBytes); }
+		else
+		{
+			bytewiseMemCopy(destPointer, sourcePointer, numBytes);
+		}
+	});
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
