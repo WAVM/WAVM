@@ -24,6 +24,7 @@ Runtime::Compartment::Compartment()
 , exceptionTypes(0, UINTPTR_MAX - 1)
 , instances(0, UINTPTR_MAX - 1)
 , contexts(0, maxContexts - 1)
+, foreigns(0, UINTPTR_MAX - 1)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
 		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
@@ -47,6 +48,7 @@ Runtime::Compartment::~Compartment()
 	WAVM_ASSERT(!globals.size());
 	WAVM_ASSERT(!instances.size());
 	WAVM_ASSERT(!contexts.size());
+	WAVM_ASSERT(!foreigns.size());
 
 	Platform::freeAlignedVirtualPages(
 		unalignedRuntimeData,
@@ -109,10 +111,10 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 	return newCompartment;
 }
 
-Object* Runtime::remapToClonedCompartment(Object* object, const Compartment* newCompartment)
+Object* Runtime::remapToClonedCompartment(const Object* object, const Compartment* newCompartment)
 {
 	if(!object) { return nullptr; }
-	if(object->kind == ObjectKind::function) { return object; }
+	if(object->kind == ObjectKind::function) { return const_cast<Object*>(object); }
 
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
 	switch(object->kind)
@@ -133,40 +135,49 @@ Object* Runtime::remapToClonedCompartment(Object* object, const Compartment* new
 	};
 }
 
-Function* Runtime::remapToClonedCompartment(Function* function, const Compartment* newCompartment)
+Function* Runtime::remapToClonedCompartment(const Function* function,
+											const Compartment* newCompartment)
 {
-	return function;
+	return const_cast<Function*>(function);
 }
-Table* Runtime::remapToClonedCompartment(Table* table, const Compartment* newCompartment)
+Table* Runtime::remapToClonedCompartment(const Table* table, const Compartment* newCompartment)
 {
 	if(!table) { return nullptr; }
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
 	return newCompartment->tables[table->id];
 }
-Memory* Runtime::remapToClonedCompartment(Memory* memory, const Compartment* newCompartment)
+Memory* Runtime::remapToClonedCompartment(const Memory* memory, const Compartment* newCompartment)
 {
 	if(!memory) { return nullptr; }
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
 	return newCompartment->memories[memory->id];
 }
-Global* Runtime::remapToClonedCompartment(Global* global, const Compartment* newCompartment)
+Global* Runtime::remapToClonedCompartment(const Global* global, const Compartment* newCompartment)
 {
 	if(!global) { return nullptr; }
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
 	return newCompartment->globals[global->id];
 }
-ExceptionType* Runtime::remapToClonedCompartment(ExceptionType* exceptionType,
+ExceptionType* Runtime::remapToClonedCompartment(const ExceptionType* exceptionType,
 												 const Compartment* newCompartment)
 {
 	if(!exceptionType) { return nullptr; }
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
 	return newCompartment->exceptionTypes[exceptionType->id];
 }
-Instance* Runtime::remapToClonedCompartment(Instance* instance, const Compartment* newCompartment)
+Instance* Runtime::remapToClonedCompartment(const Instance* instance,
+											const Compartment* newCompartment)
 {
 	if(!instance) { return nullptr; }
 	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
 	return newCompartment->instances[instance->id];
+}
+Foreign* Runtime::remapToClonedCompartment(const Foreign* foreign,
+										   const Compartment* newCompartment)
+{
+	if(!foreign) { return nullptr; }
+	Platform::RWMutex::ShareableLock compartmentLock(newCompartment->mutex);
+	return newCompartment->foreigns[foreign->id];
 }
 
 bool Runtime::isInCompartment(const Object* object, const Compartment* compartment)

@@ -497,16 +497,21 @@ namespace WAVM { namespace Runtime {
 
 	WAVM_API Compartment* cloneCompartment(const Compartment* compartment);
 
-	WAVM_API Object* remapToClonedCompartment(Object* object, const Compartment* newCompartment);
-	WAVM_API Function* remapToClonedCompartment(Function* function,
+	WAVM_API Object* remapToClonedCompartment(const Object* object,
+											  const Compartment* newCompartment);
+	WAVM_API Function* remapToClonedCompartment(const Function* function,
 												const Compartment* newCompartment);
-	WAVM_API Table* remapToClonedCompartment(Table* table, const Compartment* newCompartment);
-	WAVM_API Memory* remapToClonedCompartment(Memory* memory, const Compartment* newCompartment);
-	WAVM_API Global* remapToClonedCompartment(Global* global, const Compartment* newCompartment);
-	WAVM_API ExceptionType* remapToClonedCompartment(ExceptionType* exceptionType,
+	WAVM_API Table* remapToClonedCompartment(const Table* table, const Compartment* newCompartment);
+	WAVM_API Memory* remapToClonedCompartment(const Memory* memory,
+											  const Compartment* newCompartment);
+	WAVM_API Global* remapToClonedCompartment(const Global* global,
+											  const Compartment* newCompartment);
+	WAVM_API ExceptionType* remapToClonedCompartment(const ExceptionType* exceptionType,
 													 const Compartment* newCompartment);
-	WAVM_API Instance* remapToClonedCompartment(Instance* instance,
+	WAVM_API Instance* remapToClonedCompartment(const Instance* instance,
 												const Compartment* newCompartment);
+	WAVM_API Foreign* remapToClonedCompartment(const Foreign* foreign,
+											   const Compartment* newCompartment);
 
 	WAVM_API bool isInCompartment(const Object* object, const Compartment* compartment);
 

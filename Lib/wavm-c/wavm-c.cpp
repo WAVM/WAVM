@@ -230,11 +230,11 @@ wasm_compartment_t* wasm_compartment_new(wasm_engine_t*)
 	addGCRoot(compartment);
 	return compartment;
 }
-wasm_compartment_t* wasm_compartment_clone(wasm_compartment_t* compartment)
+wasm_compartment_t* wasm_compartment_clone(const wasm_compartment_t* compartment)
 {
 	return cloneCompartment(compartment);
 }
-bool wasm_compartment_contains(wasm_compartment_t* compartment, wasm_ref_t* ref)
+bool wasm_compartment_contains(const wasm_compartment_t* compartment, const wasm_ref_t* ref)
 {
 	return isInCompartment(ref, compartment);
 }
@@ -520,6 +520,14 @@ const wasm_memorytype_t* wasm_externtype_as_memorytype_const(const wasm_externty
 		wasm_##name##_t* ref, void* userData, void (*finalizeUserData)(void*))                     \
 	{                                                                                              \
 		setUserData(ref, userData, finalizeUserData);                                              \
+	}                                                                                              \
+                                                                                                   \
+	wasm_##name##_t* wasm_##name##_remap_to_cloned_compartment(                                    \
+		const wasm_##name##_t* ref, const wasm_compartment_t* compartment)                         \
+	{                                                                                              \
+		wasm_##name##_t* remappedRef = remapToClonedCompartment(ref, compartment);                 \
+		addGCRoot(remappedRef);                                                                    \
+		return remappedRef;                                                                        \
 	}
 
 #define IMPLEMENT_REF(name, Type)                                                                  \

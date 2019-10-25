@@ -107,9 +107,9 @@ WASM_C_API own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 WASM_DECLARE_OWN(compartment)
 
 WASM_C_API own wasm_compartment_t* wasm_compartment_new(wasm_engine_t* engine);
-WASM_C_API own wasm_compartment_t* wasm_compartment_clone(wasm_compartment_t*);
+WASM_C_API own wasm_compartment_t* wasm_compartment_clone(const wasm_compartment_t*);
 
-WASM_C_API bool wasm_compartment_contains(wasm_compartment_t*, wasm_ref_t*);
+WASM_C_API bool wasm_compartment_contains(const wasm_compartment_t*, const wasm_ref_t*);
 
 // Store
 
@@ -318,7 +318,10 @@ WASM_C_API void wasm_val_copy(wasm_valkind_t kind, own wasm_val_t* out, const wa
 	WASM_C_API void* wasm_##name##_get_host_info(const wasm_##name##_t*);                          \
 	WASM_C_API void wasm_##name##_set_host_info(wasm_##name##_t*, void*);                          \
 	WASM_C_API void wasm_##name##_set_host_info_with_finalizer(                                    \
-		wasm_##name##_t*, void*, void (*)(void*));
+		wasm_##name##_t*, void*, void (*)(void*));                                                 \
+                                                                                                   \
+	WASM_C_API own wasm_##name##_t* wasm_##name##_remap_to_cloned_compartment(                     \
+		const wasm_##name##_t*, const wasm_compartment_t*);
 
 #define WASM_DECLARE_REF(name)                                                                     \
 	WASM_DECLARE_REF_BASE(name)                                                                    \

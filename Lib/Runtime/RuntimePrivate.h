@@ -248,6 +248,7 @@ namespace WAVM { namespace Runtime {
 		IndexMap<Uptr, ExceptionType*> exceptionTypes;
 		IndexMap<Uptr, Instance*> instances;
 		IndexMap<Uptr, Context*> contexts;
+		IndexMap<Uptr, Foreign*> foreigns;
 
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
 		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
@@ -258,6 +259,8 @@ namespace WAVM { namespace Runtime {
 
 	struct Foreign : GCObject
 	{
+		Uptr id = UINTPTR_MAX;
+
 		Foreign(Compartment* inCompartment) : GCObject(ObjectKind::foreign, inCompartment) {}
 	};
 

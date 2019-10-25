@@ -174,5 +174,16 @@ Foreign* Runtime::createForeign(Compartment* compartment, void* userData, void (
 {
 	Foreign* foreign = new Foreign(compartment);
 	setUserData(foreign, userData, finalizer);
+
+	{
+		Platform::RWMutex::ExclusiveLock lock(compartment->mutex);
+		foreign->id = compartment->foreigns.add(UINTPTR_MAX, foreign);
+		if(foreign->id == UINTPTR_MAX)
+		{
+			delete foreign;
+			return nullptr;
+		}
+	}
+
 	return foreign;
 }
