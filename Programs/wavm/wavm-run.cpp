@@ -200,6 +200,7 @@ void showRunHelp(Log::Category outputCategory)
 				"Options:\n"
 				"  -f|--function name    Specify function name to run in module (default:main)\n"
 				"  --precompiled         Use precompiled object code in program file\n"
+				"  --nocache             Don't use the WAVM object cache\n"
 				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
 				"                        features below.\n"
 				"  --abi=<abi>           Specifies the ABI used by the WASM module. See the list\n"
@@ -245,6 +246,7 @@ struct State
 	std::vector<std::string> runArgs;
 	ABI abi = ABI::detect;
 	bool precompiled = false;
+	bool allowCaching = true;
 	WASI::SyscallTraceLevel wasiTraceLavel = WASI::SyscallTraceLevel::none;
 
 	// Objects that need to be cleaned up before exiting.
@@ -327,6 +329,10 @@ struct State
 			else if(!strcmp(*nextArg, "--precompiled"))
 			{
 				precompiled = true;
+			}
+			else if(!strcmp(*nextArg, "--nocache"))
+			{
+				allowCaching = false;
 			}
 			else if(!strcmp(*nextArg, "--mount-root"))
 			{
@@ -416,7 +422,7 @@ struct State
 
 		const char* objectCachePath
 			= WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(getenv("WAVM_OBJECT_CACHE_DIR"));
-		if(objectCachePath && *objectCachePath)
+		if(allowCaching && objectCachePath && *objectCachePath)
 		{
 			Uptr maxBytes = 1024 * 1024 * 1024;
 
