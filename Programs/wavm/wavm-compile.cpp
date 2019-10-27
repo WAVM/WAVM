@@ -110,7 +110,8 @@ int execCompileCommand(int argc, char** argv)
 {
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
-	LLVMJIT::TargetSpec targetSpec = LLVMJIT::getHostTargetSpec();
+	bool useHostTargetSpec = true;
+	LLVMJIT::TargetSpec targetSpec;
 	IR::FeatureSpec featureSpec;
 	OutputFormat outputFormat = OutputFormat::unspecified;
 	for(int argIndex = 0; argIndex < argc; ++argIndex)
@@ -124,6 +125,7 @@ int execCompileCommand(int argc, char** argv)
 			}
 			++argIndex;
 			targetSpec.triple = argv[argIndex];
+			useHostTargetSpec = false;
 		}
 		else if(!strcmp(argv[argIndex], "--target-cpu"))
 		{
@@ -134,6 +136,7 @@ int execCompileCommand(int argc, char** argv)
 			}
 			++argIndex;
 			targetSpec.cpu = argv[argIndex];
+			useHostTargetSpec = false;
 		}
 		else if(!strcmp(argv[argIndex], "--enable"))
 		{
@@ -209,6 +212,8 @@ int execCompileCommand(int argc, char** argv)
 		showCompileHelp(Log::error);
 		return EXIT_FAILURE;
 	}
+
+	if(useHostTargetSpec) { targetSpec = LLVMJIT::getHostTargetSpec(); }
 
 	// Validate the target.
 	switch(LLVMJIT::validateTarget(targetSpec, featureSpec))
