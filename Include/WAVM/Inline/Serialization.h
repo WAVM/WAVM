@@ -30,7 +30,7 @@ namespace WAVM { namespace Serialization {
 		// cursor.
 		inline U8* advance(Uptr numBytes)
 		{
-			if(next + numBytes > end) { extendBuffer(numBytes); }
+			if(Uptr(end - next) < numBytes) { extendBuffer(numBytes); }
 			WAVM_ASSERT(next + numBytes <= end);
 
 			U8* data = next;
