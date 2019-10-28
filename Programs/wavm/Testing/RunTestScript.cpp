@@ -741,7 +741,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		IR::Module benchmarkModule(IR::FeatureLevel::wavm);
 		benchmarkModule.types.push_back(invokeFunctionSig);
 		benchmarkModule.types.push_back(benchmarkFunctionSig);
-		benchmarkModule.functions.imports.push_back({0, "", ""});
+		benchmarkModule.functions.imports.push_back({{0}, "", ""});
 		benchmarkModule.imports.push_back({ExternKind::function, 0});
 
 		// Generate a function that calls the imported function a variable number of times.
