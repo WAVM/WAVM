@@ -553,7 +553,33 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 														quotedModuleType,
 														std::move(quotedModuleString)));
 				break;
-			};
+			}
+			case t_benchmark: {
+				++cursor->nextToken;
+
+				std::string name;
+				if(!tryParseString(cursor, name))
+				{
+					parseErrorf(
+						cursor->parseState, cursor->nextToken, "expected benchmark name string");
+					throw RecoverParseException();
+				}
+
+				if(cursor->nextToken[0].type != t_leftParenthesis
+				   || cursor->nextToken[1].type != t_invoke)
+				{
+					parseErrorf(cursor->parseState, cursor->nextToken, "expected invoke");
+					throw RecoverParseException();
+				}
+
+				std::unique_ptr<InvokeAction> invokeAction(
+					(InvokeAction*)parseAction(cursor, featureSpec).release());
+
+				result = std::unique_ptr<Command>(new BenchmarkCommand(
+					std::move(locus), std::move(name), std::move(invokeAction)));
+
+				break;
+			}
 			default:
 				parseErrorf(cursor->parseState, cursor->nextToken, "unknown script command");
 				throw RecoverParseException();

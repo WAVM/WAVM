@@ -112,6 +112,7 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 	case Command::assert_return_func:
 	case Command::assert_trap:
 	case Command::assert_throws:
+	case Command::benchmark:
 	default: break;
 	};
 }

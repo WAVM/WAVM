@@ -38,6 +38,7 @@
 	VISIT_LITERAL_TOKEN(assert_unlinkable)                                                         \
 	VISIT_LITERAL_TOKEN(assert_malformed)                                                          \
 	VISIT_LITERAL_TOKEN(assert_exhaustion)                                                         \
+	VISIT_LITERAL_TOKEN(benchmark)                                                                 \
 	VISIT_LITERAL_TOKEN(invoke)                                                                    \
 	VISIT_LITERAL_TOKEN(get)                                                                       \
 	VISIT_LITERAL_TOKEN(align)                                                                     \

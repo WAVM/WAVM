@@ -28,6 +28,7 @@ namespace WAVM { namespace WAST {
 			assert_invalid,
 			assert_malformed,
 			assert_unlinkable,
+			benchmark,
 		};
 		const Type type;
 		const TextFileLocus locus;
@@ -260,6 +261,21 @@ namespace WAVM { namespace WAST {
 								std::unique_ptr<ModuleAction> inModuleAction)
 		: Command(Command::assert_unlinkable, std::move(inLocus))
 		, moduleAction(std::move(inModuleAction))
+		{
+		}
+	};
+
+	struct BenchmarkCommand : Command
+	{
+		std::string name;
+		std::unique_ptr<InvokeAction> invokeAction;
+
+		BenchmarkCommand(TextFileLocus&& inLocus,
+						 std::string&& inName,
+						 std::unique_ptr<InvokeAction>&& inInvokeAction)
+		: Command(Command::benchmark, std::move(inLocus))
+		, name(std::move(inName))
+		, invokeAction(std::move(inInvokeAction))
 		{
 		}
 	};
