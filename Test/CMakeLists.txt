@@ -4,7 +4,7 @@ function(ADD_WAST_TESTS)
 	cmake_parse_arguments(TEST
 		""
 		""
-		"SOURCES"
+		"SOURCES;WAVM_ARGS"
 		${ARGN})
 
 	foreach(TEST_SOURCE ${TEST_SOURCES})
@@ -16,7 +16,7 @@ function(ADD_WAST_TESTS)
 			get_filename_component(TEST_NAME ${TEST_SOURCE} NAME)
 			add_test(
 				NAME ${TEST_NAME}
-				COMMAND $<TARGET_FILE:wavm> test script ${TEST_SOURCE_ABSOLUTE} "--test-cloning")
+				COMMAND $<TARGET_FILE:wavm> test script ${TEST_SOURCE_ABSOLUTE} ${TEST_WAVM_ARGS})
 		endif()
 	endforeach()
 endfunction()
@@ -42,7 +42,8 @@ ADD_WAST_TESTS(
 			threads.wast
 			trunc_sat.wast
 			wat_custom_section.wast
-			wavm_atomic.wast)
+			wavm_atomic.wast
+	WAVM_ARGS "--test-cloning")
 
 if(WAVM_ENABLE_RUNTIME)
 	# TODO: fix the memory leak in this test.
@@ -53,6 +54,7 @@ if(WAVM_ENABLE_FUZZ_TARGETS)
 	add_subdirectory(fuzz)
 endif()
 
+add_subdirectory(benchmark)
 add_subdirectory(emscripten)
 add_subdirectory(spec)
 add_subdirectory(wasi)

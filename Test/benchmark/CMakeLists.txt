@@ -1,0 +1,1 @@
+ADD_WAST_TESTS(SOURCES memory_copy_benchmark.wast)

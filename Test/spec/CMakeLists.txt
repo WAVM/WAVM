@@ -85,7 +85,8 @@ ADD_WAST_TESTS(
 			utf8-invalid-encoding.wast
 			utf8-custom-section-id.wast
 			utf8-import-field.wast
-			utf8-import-module.wast)
+			utf8-import-module.wast
+	WAVM_ARGS "--test-cloning")
 
 add_subdirectory(simd)
 
