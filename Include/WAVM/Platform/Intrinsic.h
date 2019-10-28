@@ -159,17 +159,4 @@ namespace WAVM {
 		for(Uptr index = 0; index < numBytes; ++index) { dest[index] = value; }
 #endif
 	}
-
-	// Byte-wise memmove: if the source address is lower than the destination address, then copy in
-	// reverse order. This ensures that if the source and destination address ranges overlap, the
-	// source bytes will be copied before they are overwritten.
-
-	inline void bytewiseMemMove(volatile U8* dest, U8* source, Uptr numBytes)
-	{
-		if(source < dest) { bytewiseMemCopyReverse(dest, source, numBytes); }
-		else
-		{
-			bytewiseMemCopy(dest, source, numBytes);
-		}
-	}
 }

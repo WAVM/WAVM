@@ -74,6 +74,7 @@ static bool globalInitLLVM()
 	llvm::InitializeAllTargets();
 	llvm::InitializeAllTargetMCs();
 	llvm::InitializeAllAsmPrinters();
+	llvm::InitializeAllAsmParsers();
 	llvm::InitializeAllDisassemblers();
 	llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 	return true;
