@@ -1316,15 +1316,6 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		WAVM_ASSERT(outModule.dataSegments.size() == disassemblyNames.dataSegments.size());
 		WAVM_ASSERT(outModule.exceptionTypes.size() == disassemblyNames.exceptionTypes.size());
 		IR::setDisassemblyNames(outModule, disassemblyNames);
-
-		// If metrics logging is enabled, log some statistics about the module's name maps.
-		if(Log::isCategoryEnabled(Log::metrics))
-		{
-			dumpHashMapSpaceAnalysis(moduleState.functionNameToIndexMap, "functionNameToIndexMap");
-			dumpHashMapSpaceAnalysis(moduleState.globalNameToIndexMap, "globalNameToIndexMap");
-			dumpHashMapSpaceAnalysis(moduleState.functionTypeToIndexMap, "functionTypeToIndexMap");
-			dumpHashMapSpaceAnalysis(moduleState.typeNameToIndexMap, "typeNameToIndexMap");
-		}
 	}
 	catch(RecoverParseException const&)
 	{
