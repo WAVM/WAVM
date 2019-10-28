@@ -37,12 +37,6 @@
 #define MAP_STACK_FLAGS 0
 #endif
 
-#if WAVM_ENABLE_ASAN
-extern "C" void __asan_get_shadow_mapping(Uptr* shadow_scale, Uptr* shadow_offset);
-extern "C" Uptr __asan_stack_malloc(Uptr size, Uptr real_stack);
-extern "C" void __asan_stack_free(Uptr ptr, Uptr size, Uptr real_stack);
-#endif
-
 using namespace WAVM;
 using namespace WAVM::Platform;
 
