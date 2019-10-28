@@ -626,9 +626,11 @@ void serialize(Stream& stream,
 	serializeVarUInt32(stream, imm.sourceTableIndex);
 }
 
-template<typename Stream> void serialize(Stream& stream, V128& v128)
-{
-	serializeNativeValue(stream, v128);
+namespace WAVM {
+	template<typename Stream> void serialize(Stream& stream, V128& v128)
+	{
+		serializeNativeValue(stream, v128);
+	}
 }
 
 template<typename Stream, Uptr numLanes>
