@@ -115,8 +115,13 @@
 (module (func (v128.const i32x4 0xffffffff 0xffffffff -0x80000000 -0x80000000) drop))
 (module (func (v128.const i32x4 0xffffffff 4294967295 -0x80000000 -0x80000000) drop))
 (module (func (v128.const i32x4 0xffffffff 4294967295 -0x80000000 -2147483648) drop))
+(module (func (v128.const f32x4 0x1p127 0x1p127 -0x1p127 -1e38) drop))
+(module (func (v128.const f32x4 0x1p127 340282356779733623858607532500980858880 -1e38 -340282356779733623858607532500980858880) drop))
+(module (func (v128.const f32x4 nan -nan inf -inf) drop))
 (module (func (v128.const i64x2 0xffffffffffffffff 0x8000000000000000) drop))
 (module (func (v128.const i64x2 0xffffffffffffffff -9223372036854775808) drop))
+(module (func (v128.const f64x2 0x1p1023 -1e308) drop))
+(module (func (v128.const f64x2 nan -inf) drop))
 
 ;; Constant out of range (int literal is too large)
 
@@ -211,15 +216,6 @@
                 "                        -340282356779733661637539395458142568448 -340282356779733661637539395458142568448) drop)")
   "constant out of range"
 )
-(assert_malformed
-  (module quote "(func (v128.const f32x4 nan:1 nan:1 nan:1 nan:1) drop)")
-  "unknown operator"
-)
-
-(assert_malformed
-  (module quote "(func (v128.const f32x4 nan:0x0 nan:0x0 nan:0x0 nan:0x0) drop)")
-  "constant out of range"
-)
 
 (assert_malformed
   (module quote "(func (v128.const f32x4 nan:0x80_0000 nan:0x80_0000 nan:0x80_0000 nan:0x80_0000) drop)")
@@ -234,15 +230,6 @@
 (assert_malformed
   (module quote "(func (v128.const f64x2 -269653970229347356221791135597556535197105851288767494898376215204735891170042808140884337949150317257310688430271573696351481990334196274152701320055306275479074865864826923114368235135583993416113802762682700913456874855354834422248712838998185022412196739306217084753107265771378949821875606039276187287552"
                 "                        -269653970229347356221791135597556535197105851288767494898376215204735891170042808140884337949150317257310688430271573696351481990334196274152701320055306275479074865864826923114368235135583993416113802762682700913456874855354834422248712838998185022412196739306217084753107265771378949821875606039276187287552) drop)")
-  "constant out of range"
-)
-(assert_malformed
-  (module quote "(func (v128.const f64x2 nan:1 nan:1) drop)")
-  "unknown operator"
-)
-
-(assert_malformed
-  (module quote "(func (v128.const f64x2 nan:0x0 nan:0x0) drop)")
   "constant out of range"
 )
 
@@ -401,6 +388,14 @@
   (module quote "(func (v128.const f32x4 0x0pA 0x0pA 0x0pA 0x0pA) drop)")
   "unknown operator"
 )
+(assert_malformed
+  (module quote "(func (v128.const f32x4 nan:1 nan:1 nan:1 nan:1) drop)")
+  "unknown operator"
+)
+(assert_malformed
+  (module quote "(func (v128.const f32x4 nan:0x0 nan:0x0 nan:0x0 nan:0x0) drop)")
+  "unknown operator"
+)
 
 (assert_malformed
   (module quote "(func (v128.const f64x2) drop)")
@@ -476,6 +471,14 @@
 )
 (assert_malformed
   (module quote "(func (v128.const f64x2 0x0pA 0x0pA) drop)")
+  "unknown operator"
+)
+(assert_malformed
+  (module quote "(func (v128.const f64x2 nan:1 nan:1) drop)")
+  "unknown operator"
+)
+(assert_malformed
+  (module quote "(func (v128.const f64x2 nan:0x0 nan:0x0) drop)")
   "unknown operator"
 )
 
