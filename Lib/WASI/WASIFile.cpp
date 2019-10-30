@@ -55,6 +55,7 @@ static __wasi_errno_t asWASIErrNo(VFS::Result result)
 	case Result::brokenPipe: return __WASI_EPIPE;
 	case Result::missingDevice: return __WASI_ENXIO;
 	case Result::busy: return __WASI_EBUSY;
+	case Result::notSupported: return __WASI_ENOTSUP;
 
 	default: WAVM_UNREACHABLE();
 	};

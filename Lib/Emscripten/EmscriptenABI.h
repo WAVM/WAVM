@@ -104,6 +104,7 @@ namespace WAVM { namespace Emscripten { namespace emabi {
 	static constexpr Result eoverflow = -__WASI_EOVERFLOW;
 	static constexpr Result eilseq = -__WASI_EILSEQ;
 	static constexpr Result enotsock = -__WASI_ENOTSOCK;
+	static constexpr Result enotsup = -__WASI_ENOTSUP;
 	static constexpr Result edestaddrreq = -__WASI_EDESTADDRREQ;
 	static constexpr Result emsgsize = -__WASI_EMSGSIZE;
 	static constexpr Result eprototype = -__WASI_EPROTOTYPE;

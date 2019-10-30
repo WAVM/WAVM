@@ -156,7 +156,8 @@ namespace WAVM { namespace VFS {
 		v(isNotEmpty, "Directory isn't empty") \
 		v(brokenPipe, "Pipe is broken") \
 		v(missingDevice, "Device is missing") \
-		v(busy, "Device or resource busy")
+		v(busy, "Device or resource busy") \
+		v(notSupported, "Operation not supported")
 
 	enum class Result : I32
 	{

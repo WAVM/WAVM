@@ -73,6 +73,7 @@ static Result asVFSResult(int error)
 	case EBUSY: return Result::busy;
 	case ENOTEMPTY: return Result::isNotEmpty;
 	case EMLINK: return Result::outOfLinksToParentDir;
+	case ENOTSUP: return Result::notSupported;
 
 	case EINVAL:
 		// This probably needs to be handled differently for each API entry point.

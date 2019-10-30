@@ -87,6 +87,7 @@ static emabi::Result asEmscriptenErrNo(VFS::Result result)
 	case VFS::Result::brokenPipe: return emabi::epipe;
 	case VFS::Result::missingDevice: return emabi::enxio;
 	case VFS::Result::busy: return emabi::ebusy;
+	case VFS::Result::notSupported: return emabi::enotsup;
 
 	default: WAVM_UNREACHABLE();
 	};
