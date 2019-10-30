@@ -283,7 +283,7 @@ struct State
 			{
 				if(abi != ABI::detect)
 				{
-					Log::printf(Log::error, "'--sys=' may only occur once on the command line.\n");
+					Log::printf(Log::error, "'--abi=' may only occur once on the command line.\n");
 					return false;
 				}
 
