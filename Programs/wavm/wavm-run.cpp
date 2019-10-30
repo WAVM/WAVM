@@ -198,7 +198,7 @@ void showRunHelp(Log::Category outputCategory)
 				"  [program arguments]   The arguments to pass to the WebAssembly function\n"
 				"\n"
 				"Options:\n"
-				"  -f|--function name    Specify function name to run in module (default:main)\n"
+				"  --function=<name>     Specify function name to run in module (default:main)\n"
 				"  --precompiled         Use precompiled object code in program file\n"
 				"  --nocache             Don't use the WAVM object cache\n"
 				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
@@ -268,14 +268,16 @@ struct State
 		char** nextArg = argv;
 		while(*nextArg)
 		{
-			if(!strcmp(*nextArg, "--function") || !strcmp(*nextArg, "-f"))
+			if(stringStartsWith(*nextArg, "--function="))
 			{
-				if(!*++nextArg)
+				if(functionName)
 				{
-					showRunHelp(Log::error);
+					Log::printf(Log::error,
+								"'--function=' may only occur once on the command line.\n");
 					return false;
 				}
-				functionName = *nextArg;
+
+				functionName = *nextArg + strlen("--function=");
 			}
 			else if(stringStartsWith(*nextArg, "--abi="))
 			{
