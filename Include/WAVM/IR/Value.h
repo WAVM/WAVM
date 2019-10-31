@@ -36,7 +36,7 @@ namespace WAVM { namespace IR {
 		UntaggedValue(V128 inV128) { v128 = inV128; }
 		UntaggedValue(Runtime::Object* inObject) { object = inObject; }
 		UntaggedValue(Runtime::Function* inFunction) { function = inFunction; }
-		UntaggedValue() { memset(this, 0, sizeof(*this)); }
+		UntaggedValue() { memset(bytes, 0, sizeof(bytes)); }
 	};
 
 	// A boxed value: may hold any value that can be passed to a function invoked through the
