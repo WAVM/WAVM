@@ -44,6 +44,17 @@ stages:
           llvmBuildBaseName: 'Win32'
           llvmVersion: '9.x'
 
+      # Ubuntu 19.10 GCC
+      - template: Build/azure-pipelines/posix-build-job-template.yml
+        parameters:
+          name: Ubuntu1910_GCC
+          vmImage: 'ubuntu-16.04'
+          container: 'wavm/ubuntu19.10-builder:latest'
+          llvmBuildBaseName: 'Ubuntu1910'
+          llvmVersion: '9.x'
+          cpackGenerators: 'TGZ;DEB'
+          compiler: 'gcc'
+
       # Ubuntu 16.04 GCC
       - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
