@@ -1411,7 +1411,7 @@ static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMet
 
 	Log::printf(Log::error,
 				"Module did not contain Emscripten module metadata section: WAVM only supports"
-				" Emscripten modules compiled with '-S EMIT_EMSCRIPTEN_METADATA=1'.\n");
+				" Emscripten modules compiled with '-s EMIT_EMSCRIPTEN_METADATA=1'.\n");
 	return false;
 }
 
