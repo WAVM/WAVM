@@ -6,7 +6,6 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Platform/Clock.h"
@@ -14,7 +13,18 @@
 #include "WAVM/Runtime/Runtime.h"
 #include "lmdb.h"
 
-#define CURRENT_DB_VERSION 0
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4804)
+#endif
+
+#include "blake2.h"
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
+#define CURRENT_DB_VERSION 1
 
 using namespace WAVM;
 using namespace WAVM::ObjectCache;
@@ -29,26 +39,24 @@ using namespace WAVM::ObjectCache;
 // and a hash of the module's WASM serialization.
 WAVM_PACKED_STRUCT(struct ModuleKey {
 	U8 codeKeyBytes[8];
-	U8 moduleHashBytes[8];
+
+	union
+	{
+		U8 moduleHashBytes[16];
+		U64 moduleHashU64s[2];
+	};
 
 	ModuleKey() {}
-	ModuleKey(U64 codeKey, U64 moduleHash)
+	ModuleKey(U64 codeKey, U8 inModuleHashBytes[16])
 	{
 		memcpy(codeKeyBytes, &codeKey, sizeof(codeKeyBytes));
-		memcpy(moduleHashBytes, &moduleHash, sizeof(moduleHashBytes));
+		memcpy(moduleHashBytes, inModuleHashBytes, sizeof(moduleHashBytes));
 	}
 
 	U64 getCodeKey() const
 	{
 		U64 result = 0;
 		memcpy(&result, codeKeyBytes, sizeof(U64));
-		return result;
-	}
-
-	U64 getModuleHash() const
-	{
-		U64 result = 0;
-		memcpy(&result, moduleHashBytes, sizeof(U64));
 		return result;
 	}
 });
@@ -357,7 +365,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		ERROR_UNLESS_MDB_SUCCESS(mdb_env_create(&env));
 		ERROR_UNLESS_MDB_SUCCESS(mdb_env_set_mapsize(env, maxBytes));
 		ERROR_UNLESS_MDB_SUCCESS(mdb_env_set_maxdbs(env, 5));
-		const int openError = mdb_env_open(env, path, 0, 0666);
+		const int openError = mdb_env_open(env, path, MDB_NOMETASYNC, 0666);
 		if(openError)
 		{
 			mdb_env_close(env);
@@ -382,7 +390,6 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			ScopedTxn txn(database->beginTxn());
 
 			// Open or create the database tables used by the object cache.
-			moduleTable = database->openTable(txn, "modules", MDB_CREATE);
 			objectTable = database->openTable(txn, "objects", MDB_CREATE);
 			metaTable = database->openTable(txn, "meta", MDB_CREATE);
 			lruTable = database->openTable(txn, "lru", MDB_CREATE);
@@ -403,7 +410,6 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 				Log::printf(Log::debug,
 							"Clearing contents of outdated object cache database '%s'.\n",
 							path);
-				Database::dropDB(txn, moduleTable);
 				Database::dropDB(txn, objectTable);
 				Database::dropDB(txn, metaTable);
 				Database::dropDB(txn, lruTable);
@@ -439,7 +445,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		}
 	}
 
-	bool tryGetCachedObject(U64 moduleHash,
+	bool tryGetCachedObject(U8 moduleHash[16],
 							const U8* wasmBytes,
 							Uptr numWASMBytes,
 							std::vector<U8>& outObjectCode)
@@ -451,26 +457,17 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		// Check for a cached module with this hash key.
 		bool hadCachedObject = false;
 		ModuleKey moduleKey(codeKey, moduleHash);
-		MDB_val cachedModuleBytes;
-		if(Database::tryGetKeyValue(txn, moduleTable, moduleKey, cachedModuleBytes))
+		if(Database::tryGetKeyValue(txn, objectTable, moduleKey, outObjectCode))
 		{
-			// Check that the cached module is the same as the one being queried.
-			if(cachedModuleBytes.mv_size == numWASMBytes
-			   && !memcmp(cachedModuleBytes.mv_data, wasmBytes, numWASMBytes))
-			{
-				// If so, get the cached object code for the cached module.
-				Database::getKeyValue(txn, objectTable, moduleKey, outObjectCode);
+			// Update the last-used time for the cached module.
+			Metadata metadata;
+			Database::getKeyValue(txn, metaTable, moduleKey, metadata);
+			Database::deleteKey(txn, lruTable, metadata.lastAccessTimeKey);
+			metadata.lastAccessTimeKey = Platform::getClockTime(Platform::Clock::realtime);
+			Database::putKeyValue(txn, metaTable, moduleKey, metadata);
+			Database::putKeyValue(txn, lruTable, metadata.lastAccessTimeKey, moduleKey);
 
-				// Update the last-used time for the cached module.
-				Metadata metadata;
-				Database::getKeyValue(txn, metaTable, moduleKey, metadata);
-				Database::deleteKey(txn, lruTable, metadata.lastAccessTimeKey);
-				metadata.lastAccessTimeKey = Platform::getClockTime(Platform::Clock::realtime);
-				Database::putKeyValue(txn, metaTable, moduleKey, metadata);
-				Database::putKeyValue(txn, lruTable, metadata.lastAccessTimeKey, moduleKey);
-
-				hadCachedObject = true;
-			}
+			hadCachedObject = true;
 		}
 
 		// Commit the read transaction.
@@ -481,7 +478,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		return hadCachedObject;
 	}
 
-	void addCachedObject(U64 moduleHash,
+	void addCachedObject(U8 moduleHash[16],
 						 const U8* wasmBytes,
 						 Uptr numWASMBytes,
 						 const std::vector<U8>& objectBytes)
@@ -519,13 +516,9 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			{ Database::deleteKey(txn, lruTable, metadata.lastAccessTimeKey); }
 			metadata.lastAccessTimeKey = now;
 
-			// Add the module to the module, object, metadata, and LRU tables.
-			MDB_val wasmBytesVal;
-			wasmBytesVal.mv_data = const_cast<U8*>(wasmBytes);
-			wasmBytesVal.mv_size = numWASMBytes;
+			// Add the module to the object, metadata, and LRU tables.
 			if(Database::tryPutKeyValue(txn, metaTable, moduleKey, metadata)
 			   && Database::tryPutKeyValue(txn, lruTable, metadata.lastAccessTimeKey, moduleKey)
-			   && Database::tryPutKeyValue(txn, moduleTable, moduleKey, wasmBytesVal)
 			   && Database::tryPutKeyValue(txn, objectTable, moduleKey, objectBytes))
 			{
 				txn.commit();
@@ -542,30 +535,6 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 
 		ScopedTxn txn(database->beginTxn(MDB_RDONLY));
 
-		// Dump the contents of the module table.
-		Log::printf(Log::debug, "Module table:\n");
-		{
-			MDB_cursor* cursor = Database::openCursor(txn, moduleTable);
-
-			ModuleKey moduleKey;
-			MDB_val moduleBytesVal;
-			bool getResult = Database::tryGetCursor(cursor, moduleKey, moduleBytesVal, MDB_FIRST);
-			while(getResult)
-			{
-				const U64 storedCodeKey = moduleKey.getCodeKey();
-				const U64 moduleHash = moduleKey.getModuleHash();
-
-				Log::printf(Log::debug,
-							"  %16" PRIx64 "|%16" PRIx64 " %zu bytes\n",
-							storedCodeKey,
-							moduleHash,
-							moduleBytesVal.mv_size);
-
-				getResult = Database::tryGetCursor(cursor, moduleKey, moduleBytesVal, MDB_NEXT);
-			};
-			Database::closeCursor(cursor);
-		}
-
 		// Dump the contents of the object table.
 		Log::printf(Log::debug, "Object table:\n");
 		{
@@ -576,13 +545,11 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			bool getResult = Database::tryGetCursor(cursor, moduleKey, objectBytesVal, MDB_FIRST);
 			while(getResult)
 			{
-				const U64 storedCodeKey = moduleKey.getCodeKey();
-				const U64 moduleHash = moduleKey.getModuleHash();
-
 				Log::printf(Log::debug,
-							"  %16" PRIx64 "|%16" PRIx64 " %zu bytes\n",
-							storedCodeKey,
-							moduleHash,
+							"  %16" PRIx64 "|%16" PRIx64 "%16" PRIx64 " %zu bytes\n",
+							moduleKey.getCodeKey(),
+							moduleKey.moduleHashU64s[0],
+							moduleKey.moduleHashU64s[1],
 							objectBytesVal.mv_size);
 
 				getResult = Database::tryGetCursor(cursor, moduleKey, objectBytesVal, MDB_NEXT);
@@ -600,16 +567,15 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			bool getResult = Database::tryGetCursor(cursor, moduleKey, metadata, MDB_FIRST);
 			while(getResult)
 			{
-				const U64 storedCodeKey = moduleKey.getCodeKey();
-				const U64 moduleHash = moduleKey.getModuleHash();
-
 				const F64 lastAccessTimeAge
 					= F64((now.ns - metadata.lastAccessTimeKey.getTime().ns) / 1000000000);
 
 				Log::printf(Log::debug,
-							"  %16" PRIx64 "|%16" PRIx64 " last access: %.1f seconds ago\n",
-							storedCodeKey,
-							moduleHash,
+							"  %16" PRIx64 "|%16" PRIx64 "%16" PRIx64
+							" last access: %.1f seconds ago\n",
+							moduleKey.getCodeKey(),
+							moduleKey.moduleHashU64s[0],
+							moduleKey.moduleHashU64s[1],
 							lastAccessTimeAge);
 
 				getResult = Database::tryGetCursor(cursor, moduleKey, metadata, MDB_NEXT);
@@ -628,14 +594,13 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 				= Database::tryGetCursor(cursor, lastAccessTimeKey, moduleKey, MDB_FIRST);
 			while(getResult)
 			{
-				const U64 storedCodeKey = moduleKey.getCodeKey();
-				const U64 moduleHash = moduleKey.getModuleHash();
 				const F64 ageSeconds = F64((now.ns - lastAccessTimeKey.getTime().ns) / 1000000000);
 
 				Log::printf(Log::debug,
-							"  %16" PRIx64 "|%16" PRIx64 " %.1f seconds ago\n",
-							storedCodeKey,
-							moduleHash,
+							"  %16" PRIx64 "|%16" PRIx64 "%16" PRIx64 " %.1f seconds ago\n",
+							moduleKey.getCodeKey(),
+							moduleKey.moduleHashU64s[0],
+							moduleKey.moduleHashU64s[1],
 							ageSeconds);
 
 				getResult = Database::tryGetCursor(cursor, lastAccessTimeKey, moduleKey, MDB_NEXT);
@@ -651,7 +616,11 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 	{
 		// Compute a hash of the serialized WASM module.
 		Timing::Timer hashTimer;
-		const U64 moduleHash = XXH64(wasmBytes, numWASMBytes, 0);
+
+		U8 moduleHashBytes[16];
+		if(blake2b(moduleHashBytes, sizeof(moduleHashBytes), wasmBytes, numWASMBytes, nullptr, 0))
+		{ Errors::fatal("blake2b error"); }
+
 		Timing::logRatePerSecond(
 			"Hashed module key", hashTimer, numWASMBytes / 1024.0 / 1024.0, "MiB");
 
@@ -659,7 +628,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		std::vector<U8> objectCode;
 		try
 		{
-			if(tryGetCachedObject(moduleHash, wasmBytes, numWASMBytes, objectCode))
+			if(tryGetCachedObject(moduleHashBytes, wasmBytes, numWASMBytes, objectCode))
 			{ return objectCode; }
 		}
 		catch(Database::Exception const& exception)
@@ -675,7 +644,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		// Add the cached module+object code to the database.
 		try
 		{
-			addCachedObject(moduleHash, wasmBytes, numWASMBytes, objectCode);
+			addCachedObject(moduleHashBytes, wasmBytes, numWASMBytes, objectCode);
 		}
 		catch(Database::Exception const& exception)
 		{
@@ -689,7 +658,6 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 
 private:
 	std::unique_ptr<Database> database;
-	MDB_dbi moduleTable;
 	MDB_dbi objectTable;
 	MDB_dbi metaTable;
 	MDB_dbi lruTable;
@@ -709,7 +677,6 @@ private:
 		Database::closeCursor(cursor);
 
 		// Delete the cached object identified by the oldest entry in the LRU table from all tables.
-		Database::deleteKey(txn, moduleTable, moduleKey);
 		Database::deleteKey(txn, objectTable, moduleKey);
 		Database::deleteKey(txn, metaTable, moduleKey);
 		Database::deleteKey(txn, lruTable, lastAccessTimeKey);
@@ -718,8 +685,9 @@ private:
 		txn.commit();
 
 		Log::printf(Log::debug,
-					"Evicted %16" PRIx64 " from the object cache.\n",
-					moduleKey.getModuleHash());
+					"Evicted %16" PRIx64 "%16" PRIx64 " from the object cache.\n",
+					moduleKey.moduleHashU64s[0],
+					moduleKey.moduleHashU64s[1]);
 
 		return true;
 	}

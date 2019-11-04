@@ -31,3 +31,5 @@ The xxhash library (https://github.com/WAVM/WAVM/tree/Include/WAVM/Inline/xxhash
 The WASI ABI header (https://github.com/WAVM/WAVM/blob/Include/WASI/WASIABI.h) is covered by the license in https://github.com/WAVM/WAVM/blob/Include/WASI/WASIABI.LICENSE.
 
 The WAVM C API (https://github.com/WAVM/WAVM/blob/Include/WAVM/wavm-c/wavm-c.h) is based on wasm-c-api (https://github.com/WebAssembly/wasm-c-api), which is covered by the license in https://github.com/WAVM/WAVM/blob/Include/WAVM/wavm-c/wasm-c-api.LICENSE.
+
+The BLAKE2 library (https://github.com/WAVM/WAVM/tree/ThirdParty/BLAKE2) is covered by the license in https://github.com/WebAssembly/wasm-c-api), which is covered by the license in https://github.com/WAVM/WAVM/blob/ThirdParty/BLAKE2/COPYING

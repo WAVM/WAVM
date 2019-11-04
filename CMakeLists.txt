@@ -709,6 +709,7 @@ add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
 add_subdirectory(Programs/wavm)
 add_subdirectory(Test)
+add_subdirectory(ThirdParty/BLAKE2)
 add_subdirectory(ThirdParty/liblmdb)
 
 if(WAVM_ENABLE_RUNTIME)
