@@ -163,26 +163,6 @@ static void reportLinkErrors(const LinkResult& linkResult)
 	}
 }
 
-static bool isWASIModule(const IR::Module& irModule)
-{
-	for(const auto& import : irModule.functions.imports)
-	{
-		if(import.moduleName == "wasi_unstable") { return true; }
-	}
-
-	return false;
-}
-
-static bool isEmscriptenModule(const IR::Module& irModule)
-{
-	for(const IR::CustomSection& customSection : irModule.customSections)
-	{
-		if(customSection.name == "emscripten_metadata") { return true; }
-	}
-
-	return false;
-}
-
 static const char* getABIListHelpText()
 {
 	return "  none        No ABI: bare virtual metal.\n"
@@ -497,33 +477,65 @@ struct State
 		return true;
 	}
 
-	bool initABIEnvironment(const IR::Module& irModule)
+	bool detectModuleABI(const IR::Module& irModule)
 	{
-		// If the user didn't specify an ABI on the command-line, try to figure it out from the
-		// module's imports.
-		if(abi == ABI::detect)
+		// First, check if the module has an Emscripten metadata section, which is an unambiguous
+		// signal that it uses the Emscripten ABI.
+		for(const IR::CustomSection& customSection : irModule.customSections)
 		{
-			if(isEmscriptenModule(irModule))
-			{
-				Log::printf(Log::debug, "Module appears to be an Emscripten module.\n");
-				abi = ABI::emscripten;
-			}
-			else if(isWASIModule(irModule))
-			{
-				Log::printf(Log::debug, "Module appears to be a WASI module.\n");
-				abi = ABI::wasi;
-			}
-			else
+			if(customSection.name == "emscripten_metadata")
 			{
 				Log::printf(
-					Log::output,
-					"Warning: could not detect module ABI; using 'bare' ABI.\n"
-					"  Note that WAVM only supports Emscripten modules that were compiled with the\n"
-					"  '-s EMIT_EMSCRIPTEN_METADATA=1' flag.\n"
-					"  You may suppress this warning by passing '--abi=bare' to wavm run.\n");
-				abi = ABI::bare;
+					Log::debug,
+					"Module has an \'emscripten_metadata\' section: using Emscripten ABI.\n");
+				abi = ABI::emscripten;
+				return true;
 			}
 		}
+
+		// Otherwise, check whether it has any WASI or non-WASI imports.
+		bool hasWASIImports = false;
+		bool hasNonWASIImports = false;
+		for(const auto& import : irModule.functions.imports)
+		{
+			if(import.moduleName == "wasi_unstable") { hasWASIImports = true; }
+			else
+			{
+				hasNonWASIImports = true;
+			}
+		}
+
+		if(hasNonWASIImports)
+		{
+			// If there are any non-WASI imports, it might be an Emscripten module. However, since
+			// it didn't have the 'emscripten_metadata' section, WAVM can't use it.
+			Log::printf(
+				Log::error,
+				"Module appears to be an Emscripten module, but does not have an"
+				" 'emscripten_metadata' section. WAVM only supports Emscripten modules compiled"
+				" with '-s EMIT_EMSCRIPTEN_METADATA=1'.\n"
+				"If this is not an Emscripten module, please use '--abi=<ABI>' on the WAVM"
+				" command line to specify the correct ABI.\n");
+			return false;
+		}
+		else if(hasWASIImports)
+		{
+			Log::printf(Log::debug, "Module has only WASI imports: using WASI ABI.\n");
+			abi = ABI::wasi;
+			return true;
+		}
+		else
+		{
+			Log::printf(Log::debug, "Module has no imports: using bare ABI.\n");
+			abi = ABI::bare;
+			return true;
+		}
+	}
+
+	bool initABIEnvironment(const IR::Module& irModule)
+	{
+		// If the user didn't specify an ABI on the command-line, try to detect it from the module.
+		if(abi == ABI::detect && !detectModuleABI(irModule)) { return false; }
 
 		// If a directory to mount as the root filesystem was passed on the command-line, create a
 		// SandboxFS for it.
