@@ -417,6 +417,57 @@ void EmitFunctionContext::i8x16_ltz_mask(NoImm)
 	auto i8x16Operand = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto i1x16Mask = irBuilder.CreateICmpSLT(
 		i8x16Operand, llvm::ConstantVector::getNullValue(llvmContext.i8x16Type));
-	push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x16Mask, llvmContext.i16Type),
-							  llvmContext.i32Type));
+	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	{
+		auto i8x16Mask = irBuilder.CreateSExt(i1x16Mask, llvmContext.i8x16Type);
+		auto constant1 = llvm::ConstantInt::get(llvmContext.i8Type, 1);
+		auto constant2 = llvm::ConstantInt::get(llvmContext.i8Type, 2);
+		auto constant4 = llvm::ConstantInt::get(llvmContext.i8Type, 4);
+		auto constant8 = llvm::ConstantInt::get(llvmContext.i8Type, 8);
+		auto constant16 = llvm::ConstantInt::get(llvmContext.i8Type, 16);
+		auto constant32 = llvm::ConstantInt::get(llvmContext.i8Type, 32);
+		auto constant64 = llvm::ConstantInt::get(llvmContext.i8Type, 64);
+		auto constant128 = llvm::ConstantInt::get(llvmContext.i8Type, 128);
+		auto i8x16OrthogonalBitMask = irBuilder.CreateAnd(i8x16Mask,
+														  llvm::ConstantVector::get({constant1,
+																					 constant2,
+																					 constant4,
+																					 constant8,
+																					 constant16,
+																					 constant32,
+																					 constant64,
+																					 constant128,
+																					 constant1,
+																					 constant2,
+																					 constant4,
+																					 constant8,
+																					 constant16,
+																					 constant32,
+																					 constant64,
+																					 constant128}));
+		auto i8x8OriginalBitMaskA
+			= irBuilder.CreateShuffleVector(i8x16OrthogonalBitMask,
+											llvm::UndefValue::get(llvmContext.i8x16Type),
+											{0, 1, 2, 3, 4, 5, 6, 7});
+		auto i8x8OriginalBitMaskB
+			= irBuilder.CreateShuffleVector(i8x16OrthogonalBitMask,
+											llvm::UndefValue::get(llvmContext.i8x16Type),
+											{8, 9, 10, 11, 12, 13, 14, 15});
+		auto i8CombinedBitMaskA = callLLVMIntrinsic({llvmContext.i8x8Type},
+													llvm::Intrinsic::experimental_vector_reduce_add,
+													{i8x8OriginalBitMaskA});
+		auto i8CombinedBitMaskB = callLLVMIntrinsic({llvmContext.i8x8Type},
+													llvm::Intrinsic::experimental_vector_reduce_add,
+													{i8x8OriginalBitMaskB});
+		auto i32CombinedBitMask = irBuilder.CreateOr(
+			irBuilder.CreateZExt(i8CombinedBitMaskA, llvmContext.i32Type),
+			irBuilder.CreateShl(irBuilder.CreateZExt(i8CombinedBitMaskB, llvmContext.i32Type),
+								emitLiteral(llvmContext, U32(8))));
+		push(i32CombinedBitMask);
+	}
+	else
+	{
+		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x16Mask, llvmContext.i16Type),
+								  llvmContext.i32Type));
+	}
 }
