@@ -587,6 +587,18 @@ struct State
 											  Platform::getStdFD(Platform::StdDevice::out),
 											  Platform::getStdFD(Platform::StdDevice::err));
 		}
+		else if(abi == ABI::bare)
+		{
+			// Require that a function name to invoke is specified for bare ABI modules.
+			if(!functionName)
+			{
+				Log::printf(
+					Log::error,
+					"You must specify the name of the function to invoke when running a bare ABI"
+					" module. e.g. wavm run --abi=bare --function=main ...\n");
+				return false;
+			}
+		}
 
 		if(wasiTraceLavel != WASI::SyscallTraceLevel::none)
 		{
@@ -621,6 +633,7 @@ struct State
 		// Look up the function export to call, validate its type, and set up the invoke arguments.
 		Function* function = nullptr;
 		std::vector<Value> invokeArgs;
+		WAVM_ASSERT(abi != ABI::bare || functionName);
 		if(functionName)
 		{
 			function = asFunctionNullable(getInstanceExport(instance, functionName));
@@ -677,6 +690,7 @@ struct State
 				return EXIT_FAILURE;
 			}
 		}
+		WAVM_ASSERT(function);
 
 		// Split the tagged argument values into their types and untagged values.
 		std::vector<ValueType> invokeArgTypes;
