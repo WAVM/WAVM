@@ -36,14 +36,15 @@ class SimdI64x2ArithmeticCase(SimdArithmeticCase):
 
     @property
     def i64x2_i8x16_test_data(self):
+        """This test data will be intepreted by the SIMD.v128_const() method in simd.py."""
         return {
             'i64x2.add': [
-                [['0x7fffffffffffffff', ['0', '0', '0', '0', '0', '0', '0', '0x80'] * 4], '-1',
+                [['0x7fffffffffffffff', ['0', '0', '0', '0', '0', '0', '0', '0x80'] * 2], '-1',
                  ['i64x2', 'i8x16', 'i64x2']],
                 [['1', '255'], '0', ['i64x2', 'i8x16', 'i64x2']]
             ],
             'i64x2.sub': [
-                [['0x7fffffffffffffff', ['0', '0', '0', '0', '0', '0', '0', '0x80'] * 4], '-1',
+                [['0x7fffffffffffffff', ['0', '0', '0', '0', '0', '0', '0', '0x80'] * 2], '-1',
                  ['i64x2', 'i8x16', 'i64x2']],
                 [['1', '255'], '2', ['i64x2', 'i8x16', 'i64x2']]
             ],
@@ -55,6 +56,7 @@ class SimdI64x2ArithmeticCase(SimdArithmeticCase):
 
     @property
     def i64x2_i16x8_test_data(self):
+        """This test data will be intepreted by the SIMD.v128_const() method in simd.py."""
         return {
             'i64x2.add': [
                 [['0x7fffffffffffffff', ['0', '0', '0', '0x8000'] * 2], '-1', ['i64x2', 'i16x8', 'i64x2']],
@@ -72,6 +74,7 @@ class SimdI64x2ArithmeticCase(SimdArithmeticCase):
 
     @property
     def i64x2_i32x4_test_data(self):
+        """This test data will be intepreted by the SIMD.v128_const() method in simd.py."""
         return {
             'i64x2.add': [
                 [['0x7fffffffffffffff', ['0', '0x80000000'] * 2], '-1', ['i64x2', 'i32x4', 'i64x2']],
@@ -89,6 +92,7 @@ class SimdI64x2ArithmeticCase(SimdArithmeticCase):
 
     @property
     def i64x2_f64x2_test_data(self):
+        """This test data will be intepreted by the SIMD.v128_const() method in simd.py."""
         return {
             'i64x2.add': [
                 [['0x8000000000000000', '+0.0'], '0x8000000000000000', ['i64x2', 'f64x2', 'i64x2']],
@@ -121,6 +125,7 @@ class SimdI64x2ArithmeticCase(SimdArithmeticCase):
 
     @property
     def combine_dec_hex_test_data(self):
+        """This test data will be intepreted by the SIMD.v128_const() method in simd.py."""
         return {
             'i64x2.add': [
                 [[['0', '1'], ['0', '0xffffffffffffffff']], ['0'] * 2, ['i64x2'] * 3]
@@ -135,6 +140,7 @@ class SimdI64x2ArithmeticCase(SimdArithmeticCase):
 
     @property
     def range_test_data(self):
+        """This test data will be intepreted by the SIMD.v128_const() method in simd.py."""
         return {
             'i64x2.add': [
                 [[[str(i) for i in range(2)], [str(i * 2) for i in range(2)]],
