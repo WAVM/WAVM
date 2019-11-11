@@ -20,16 +20,16 @@ class Simdf64x2Case(Simdf32x4Case):
 
     NAN_NUMBERS = ('nan', '-nan', 'nan:0x4000000000000', '-nan:0x4000000000000')
 
-    def gen_test_fn_template(self):
+    def gen_test_func_template(self):
 
         # Get function code
-        template = Simdf32x4ArithmeticCase.gen_test_fn_template(self)
+        template = Simdf32x4ArithmeticCase.gen_test_func_template(self)
 
         # Function template
-        tpl_func = '  (func (export "{}"){} (result v128) ({} {}{}))'
+        tpl_func = '  (func (export "{func}"){params} (result v128) ({op} {operand_1}{operand_2}))'
 
-        # Const data for min and max
-        lst_instr_with_const = [
+        # Raw data list specific for "const vs const" and "param vs const" tests
+        const_test_raw_data = [
             [
                 [['0', '1'], ['0', '2']],
                 [['0', '1'], ['0', '2']]
@@ -64,8 +64,9 @@ class Simdf64x2Case(Simdf32x4Case):
             ]
         ]
 
-        # Assert data
-        lst_oprt_with_const_assert = {}
+        # Test data list combined with `const_test_raw_data` and corresponding ops and function names
+        # specific for "const vs const" and "param vs const" tests
+        const_test_data = {}
 
         # Generate func and assert
         for op in self.BINARY_OPS:
@@ -76,20 +77,20 @@ class Simdf64x2Case(Simdf32x4Case):
             template.insert(len(template)-1, '  ;; {} const vs const'.format(op_name))
 
             # Add const vs const cases
-            for case_data in lst_instr_with_const:
+            for case_data in const_test_raw_data:
 
-                func_name = "{}_with_const_{}".format(op_name, len(template)-7)
+                func = "{op}_with_const_{index}".format(op=op_name, index=len(template)-7)
                 template.insert(len(template)-1,
-                                tpl_func.format(func_name, '', op_name,
-                                                self.v128_const('f64x2', case_data[0][0]),
-                                                ' ' + self.v128_const('f64x2', case_data[0][1])))
+                                tpl_func.format(func=func, params='', op=op_name,
+                                                operand_1=self.v128_const('f64x2', case_data[0][0]),
+                                                operand_2=' ' + self.v128_const('f64x2', case_data[0][1])))
 
                 ret_idx = 0 if op == 'min' else 1
 
-                if op not in lst_oprt_with_const_assert:
-                    lst_oprt_with_const_assert[op] = []
+                if op not in const_test_data:
+                    const_test_data[op] = []
 
-                lst_oprt_with_const_assert[op].append([func_name, case_data[1][ret_idx]])
+                const_test_data[op].append([func, case_data[1][ret_idx]])
 
             # Add comment for the case script "  ;; [f64x2.min, f64x2.max] param vs const"
             template.insert(len(template)-1, '  ;; {} param vs const'.format(op_name))
@@ -97,43 +98,42 @@ class Simdf64x2Case(Simdf32x4Case):
             case_cnt = 0
 
             # Add param vs const cases
-            for case_data in lst_instr_with_const:
+            for case_data in const_test_raw_data:
 
-                func_name = "{}_with_const_{}".format(op_name, len(template)-7)
+                func = "{op}_with_const_{index}".format(op=op_name, index=len(template)-7)
 
                 # Cross parameters and constants
                 if case_cnt in (0, 3):
-                    func_param_0 = '(local.get 0)'
-                    func_param_1 = self.v128_const('f64x2', case_data[0][0])
+                    operand_1 = '(local.get 0)'
+                    operand_2 = self.v128_const('f64x2', case_data[0][0])
                 else:
-                    func_param_0 = self.v128_const('f64x2', case_data[0][0])
-                    func_param_1 = '(local.get 0)'
+                    operand_1 = self.v128_const('f64x2', case_data[0][0])
+                    operand_2 = '(local.get 0)'
 
                 template.insert(len(template)-1,
-                                tpl_func.format(func_name, '(param v128)', op_name, func_param_0, ' ' + func_param_1))
+                                tpl_func.format(func=func, params=' (param v128)', op=op_name,
+                                                operand_1=operand_1, operand_2=' ' + operand_2))
 
                 ret_idx = 0 if op == 'min' else 1
 
-                if op not in lst_oprt_with_const_assert:
-                    lst_oprt_with_const_assert[op] = []
+                if op not in const_test_data:
+                    const_test_data[op] = []
 
-                lst_oprt_with_const_assert[op].append([func_name, case_data[0][1], case_data[1][ret_idx]])
+                const_test_data[op].append([func, case_data[0][1], case_data[1][ret_idx]])
 
                 case_cnt += 1
-
-        # print(lst_oprt_with_const_assert)
 
         # Generate func for abs
         op_name = self.full_op_name('abs')
         template.insert(len(template)-1, '')
-        func_name = "{}_with_const_{}".format(op_name, 35)
+        func = "{op}_with_const_{index}".format(op=op_name, index=35)
         template.insert(len(template)-1,
-                        tpl_func.format(func_name, '', op_name,
-                                        self.v128_const('f64x2', ['-0', '-1']), ''))
-        func_name = "{}_with_const_{}".format(op_name, 36)
+                        tpl_func.format(func=func, params='', op=op_name,
+                                        operand_1=self.v128_const('f64x2', ['-0', '-1']), operand_2=''))
+        func = "{op}_with_const_{index}".format(op=op_name, index=36)
         template.insert(len(template)-1,
-                        tpl_func.format(func_name, '', op_name,
-                                        self.v128_const('f64x2', ['-2', '-3']), ''))
+                        tpl_func.format(func=func, params='', op=op_name,
+                                        operand_1=self.v128_const('f64x2', ['-2', '-3']), operand_2=''))
 
         # Test different lanes go through different if-then clauses
         lst_diff_lane_vs_clause = [
@@ -179,16 +179,16 @@ class Simdf64x2Case(Simdf32x4Case):
         case_cnt = 0
 
         # Template for func name to extract a lane
-        tpl_func_name_by_lane = 'call_indirect_vv_v_f64x2_extract_lane_{}'
+        tpl_func_by_lane = 'call_indirect_vv_v_f64x2_extract_lane_{}'
 
         # Template for assert
-        tpl_assert = '({}\n' \
-                     '  (invoke "{}"\n' \
-                     '    {}\n' \
-                     '    {}\n' \
-                     '    {}\n' \
+        tpl_assert = '({assert_type}\n' \
+                     '  (invoke "{func}"\n' \
+                     '    {operand_1}\n' \
+                     '    {operand_2}\n' \
+                     '    {operand_3}\n' \
                      '  )\n' \
-                     '{}' \
+                     '{expected_result}' \
                      ')'
 
         lst_diff_lane_vs_clause_assert = []
@@ -240,20 +240,20 @@ class Simdf64x2Case(Simdf32x4Case):
                 # append assert
                 if 'nan' in ret:
 
-                    lst_diff_lane_vs_clause_assert.append(tpl_assert.format('assert_return_canonical_nan',
-                                                                            tpl_func_name_by_lane.format(lane_idx),
-                                                                            self.v128_const('f64x2', case_data[1][0]),
-                                                                            self.v128_const('f64x2', case_data[1][1]),
-                                                                            self.v128_const('i32', idx_func),
-                                                                            ''))
+                    lst_diff_lane_vs_clause_assert.append(tpl_assert.format(assert_type='assert_return_canonical_nan',
+                                                                            func=tpl_func_by_lane.format(lane_idx),
+                                                                            operand_1=self.v128_const('f64x2', case_data[1][0]),
+                                                                            operand_2=self.v128_const('f64x2', case_data[1][1]),
+                                                                            operand_3=self.v128_const('i32', idx_func),
+                                                                            expected_result=''))
                 else:
 
-                    lst_diff_lane_vs_clause_assert.append(tpl_assert.format('assert_return',
-                                                                            tpl_func_name_by_lane.format(lane_idx),
-                                                                            self.v128_const('f64x2', case_data[1][0]),
-                                                                            self.v128_const('f64x2', case_data[1][1]),
-                                                                            self.v128_const('i32', idx_func),
-                                                                            '  '+self.v128_const('f64', ret)+'\n'))
+                    lst_diff_lane_vs_clause_assert.append(tpl_assert.format(assert_type='assert_return',
+                                                                            func=tpl_func_by_lane.format(lane_idx),
+                                                                            operand_1=self.v128_const('f64x2', case_data[1][0]),
+                                                                            operand_2=self.v128_const('f64x2', case_data[1][1]),
+                                                                            operand_3=self.v128_const('i32', idx_func),
+                                                                            expected_result='  '+self.v128_const('f64', ret)+'\n'))
 
             case_cnt += 1
             if case_cnt == 2:
@@ -262,10 +262,10 @@ class Simdf64x2Case(Simdf32x4Case):
         lst_diff_lane_vs_clause_assert.append('')
 
         # Add test for operations with constant operands
-        for key in lst_oprt_with_const_assert:
+        for key in const_test_data:
 
             case_cnt = 0
-            for case_data in lst_oprt_with_const_assert[key]:
+            for case_data in const_test_data[key]:
 
                 # Add comment for the param combination
                 if case_cnt == 0:
@@ -283,10 +283,10 @@ class Simdf64x2Case(Simdf32x4Case):
         # Generate and append f64x2.abs assert
         op_name = self.full_op_name('abs')
         template.append('')
-        func_name = "{}_with_const_{}".format(op_name, 35)
-        template.append(str(AssertReturn(func_name, [], self.v128_const('f64x2', ['0', '1']))))
-        func_name = "{}_with_const_{}".format(op_name, 36)
-        template.append(str(AssertReturn(func_name, [], self.v128_const('f64x2', ['2', '3']))))
+        func = "{op}_with_const_{index}".format(op=op_name, index=35)
+        template.append(str(AssertReturn(func, [], self.v128_const('f64x2', ['0', '1']))))
+        func = "{op}_with_const_{index}".format(op=op_name, index=36)
+        template.append(str(AssertReturn(func, [], self.v128_const('f64x2', ['2', '3']))))
 
         template.extend(lst_diff_lane_vs_clause_assert)
 
@@ -294,6 +294,8 @@ class Simdf64x2Case(Simdf32x4Case):
 
     @property
     def combine_ternary_arith_test_data(self):
+        # This method overrides the base class method from SimdArithmeticCase
+        # used for generating test data for min and max combination tests.
         return {
             'min-max': [
                 ['1.125'] * 2, ['0.25'] * 2, ['0.125'] * 2, ['0.125'] * 2
@@ -305,6 +307,8 @@ class Simdf64x2Case(Simdf32x4Case):
 
     @property
     def combine_binary_arith_test_data(self):
+        # This method overrides the base class method from SimdArithmeticCase
+        # used for generating test data for min, max and abs combination tests.
         return {
             'min-abs': [
                 ['-1.125'] * 2, ['0.125'] * 2, ['0.125'] * 2
