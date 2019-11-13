@@ -91,7 +91,7 @@ static I64 threadEntry(void* threadVoid)
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_cond_wait",
 							   emabi::Result,
-							   _pthread_cond_wait,
+							   emscripten_pthread_cond_wait,
 							   I32 a,
 							   I32 b)
 {
@@ -100,7 +100,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_cond_broadcast",
 							   emabi::Result,
-							   _pthread_cond_broadcast,
+							   emscripten_pthread_cond_broadcast,
 							   I32 a)
 {
 	return emabi::esuccess;
@@ -114,7 +114,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads, "_pthread_equal", I32, _pthread_equal
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_key_create",
 							   emabi::Result,
-							   _pthread_key_create,
+							   emscripten_pthread_key_create,
 							   U32 keyAddress,
 							   I32 destructorPtr)
 {
@@ -132,7 +132,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_mutex_lock",
 							   emabi::Result,
-							   _pthread_mutex_lock,
+							   emscripten_pthread_mutex_lock,
 							   I32 a)
 {
 	return emabi::esuccess;
@@ -140,7 +140,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_mutex_unlock",
 							   emabi::Result,
-							   _pthread_mutex_unlock,
+							   emscripten_pthread_mutex_unlock,
 							   I32 a)
 {
 	return emabi::esuccess;
@@ -148,7 +148,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_setspecific",
 							   emabi::Result,
-							   _pthread_setspecific,
+							   emscripten_pthread_setspecific,
 							   emabi::pthread_key_t key,
 							   emabi::Address value)
 {
@@ -160,7 +160,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_getspecific",
 							   emabi::Address,
-							   _pthread_getspecific,
+							   emscripten_pthread_getspecific,
 							   emabi::pthread_key_t key)
 {
 	Emscripten::Thread* thread = getEmscriptenThread(contextRuntimeData);
@@ -170,7 +170,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_once",
 							   emabi::Result,
-							   _pthread_once,
+							   emscripten_pthread_once,
 							   I32 a,
 							   I32 b)
 {
@@ -179,7 +179,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_cleanup_push",
 							   void,
-							   _pthread_cleanup_push,
+							   emscripten_pthread_cleanup_push,
 							   I32 a,
 							   I32 b)
 {
@@ -187,7 +187,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_cleanup_pop",
 							   void,
-							   _pthread_cleanup_pop,
+							   emscripten_pthread_cleanup_pop,
 							   I32 a)
 {
 }
@@ -200,7 +200,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads, "_pthread_self", emabi::pthread_t, _p
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_attr_init",
 							   emabi::Result,
-							   _pthread_attr_init,
+							   emscripten_pthread_attr_init,
 							   I32 address)
 {
 	return emabi::esuccess;
@@ -208,7 +208,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_attr_destroy",
 							   emabi::Result,
-							   _pthread_attr_destroy,
+							   emscripten_pthread_attr_destroy,
 							   I32 address)
 {
 	return emabi::esuccess;
@@ -216,7 +216,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_getattr_np",
 							   emabi::Result,
-							   _pthread_getattr_np,
+							   emscripten_pthread_getattr_np,
 							   I32 thread,
 							   I32 address)
 {
@@ -225,7 +225,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 							   "_pthread_attr_getstack",
 							   emabi::Result,
-							   _pthread_attr_getstack,
+							   emscripten_pthread_attr_getstack,
 							   U32 attrAddress,
 							   U32 stackBaseAddress,
 							   U32 stackSizeAddress)

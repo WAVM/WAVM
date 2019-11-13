@@ -145,7 +145,7 @@ void Emscripten::initThreadLocals(Thread* thread)
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "_emscripten_get_heap_size",
 							   emabi::Result,
-							   _emscripten_get_heap_size)
+							   emscripten_get_heap_size)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	return coerce32bitAddress(process->memory,
@@ -154,7 +154,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", emabi::Result, getTotalMemory)
 {
-	return _emscripten_get_heap_size(contextRuntimeData);
+	return emscripten_get_heap_size(contextRuntimeData);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
@@ -183,7 +183,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverfl
 	throwException(ExceptionTypes::stackOverflow);
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_time", emabi::Result, _time, U32 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_time", emabi::Result, emscripten_time, U32 address)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	time_t t = time(nullptr);
@@ -191,7 +191,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_time", emabi::Result, _time, U32 address)
 	return (emabi::Result)t;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___setErrNo", void, ___seterrno, I32 value)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___setErrNo", void, emscripten___seterrno, I32 value)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	if(process->errnoLocation)
@@ -214,7 +214,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "setTempRet0", void, setTempRet0, I32 value)
 }
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getTempRet0", emabi::Result, getTempRet0) { return tempRet0; }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", emabi::Result, _sysconf, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", emabi::Result, emscripten_sysconf, I32 a)
 {
 	enum : U32
 	{
@@ -227,7 +227,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", emabi::Result, _sysconf, I32 a)
 	}
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", emabi::Address, ___ctype_b_loc)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", emabi::Address, emscripten___ctype_b_loc)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	unsigned short data[384] = {
@@ -271,7 +271,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", emabi::Address, ___ctype_b
 	}
 	return vmAddress + sizeof(short) * 128;
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", emabi::Address, ___ctype_toupper_loc)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___ctype_toupper_loc",
+							   emabi::Address,
+							   emscripten___ctype_toupper_loc)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	I32 data[384]
@@ -307,7 +310,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", emabi::Address, ___c
 	}
 	return vmAddress + sizeof(I32) * 128;
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", emabi::Address, ___ctype_tolower_loc)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___ctype_tolower_loc",
+							   emabi::Address,
+							   emscripten___ctype_tolower_loc)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	I32 data[384]
@@ -346,7 +352,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", emabi::Address, ___c
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "___assert_fail",
 							   void,
-							   ___assert_fail,
+							   emscripten___assert_fail,
 							   I32 condition,
 							   I32 filename,
 							   I32 line,
@@ -358,7 +364,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "___cxa_atexit",
 							   emabi::Result,
-							   ___cxa_atexit,
+							   emscripten___cxa_atexit,
 							   I32 a,
 							   I32 b,
 							   I32 c)
@@ -368,7 +374,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "___cxa_guard_acquire",
 							   emabi::Result,
-							   ___cxa_guard_acquire,
+							   emscripten___cxa_guard_acquire,
 							   U32 address)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
@@ -382,19 +388,35 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 		return emabi::esuccess;
 	}
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_release", void, ___cxa_guard_release, I32 a) {}
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_throw", void, ___cxa_throw, I32 a, I32 b, I32 c)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___cxa_guard_release",
+							   void,
+							   emscripten___cxa_guard_release,
+							   I32 a)
+{
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___cxa_throw",
+							   void,
+							   emscripten___cxa_throw,
+							   I32 a,
+							   I32 b,
+							   I32 c)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_begin_catch", emabi::Address, ___cxa_begin_catch, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___cxa_begin_catch",
+							   emabi::Address,
+							   emscripten___cxa_begin_catch,
+							   I32 a)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "___cxa_allocate_exception",
 							   U32,
-							   ___cxa_allocate_exception,
+							   emscripten___cxa_allocate_exception,
 							   U32 size)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
@@ -405,7 +427,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "__ZSt18uncaught_exceptionv",
 							   emabi::Result,
-							   __ZSt18uncaught_exceptionv)
+							   emscripten__ZSt18uncaught_exceptionv)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
@@ -501,7 +523,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_jiji", void, emscripten_nullFunc_j
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "_uselocale",
 							   emabi::Address,
-							   _uselocale,
+							   emscripten_uselocale,
 							   emabi::Address newLocale)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
@@ -510,7 +532,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "_newlocale",
 							   emabi::Address,
-							   _newlocale,
+							   emscripten_newlocale,
 							   I32 mask,
 							   emabi::Address locale,
 							   emabi::Address base)
@@ -585,7 +607,7 @@ static VFS::VFD* getVFD(Emscripten::Process* process, emabi::FD vmHandle)
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "_vfprintf",
 							   emabi::Result,
-							   _vfprintf,
+							   emscripten_vfprintf,
 							   emabi::FD file,
 							   emabi::Address formatStringAddress,
 							   emabi::Address argListAddress)
@@ -595,7 +617,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "_fread",
 							   emabi::Result,
-							   _fread,
+							   emscripten_fread,
 							   U32 destAddress,
 							   U32 size,
 							   U32 count,
@@ -621,7 +643,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "_fwrite",
 							   emabi::Result,
-							   _fwrite,
+							   emscripten_fwrite,
 							   emabi::Address sourceAddress,
 							   emabi::Size size,
 							   emabi::Size count,
@@ -644,7 +666,12 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 		return emabi::Result(numBytesWritten);
 	}
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fputc", emabi::Result, _fputc, I32 character, emabi::FD file)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_fputc",
+							   emabi::Result,
+							   emscripten_fputc,
+							   I32 character,
+							   emabi::FD file)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	VFS::VFD* fd = getVFD(process, file);
@@ -656,7 +683,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fputc", emabi::Result, _fputc, I32 charact
 	const VFS::Result result = fd->write(&c, 1, &numBytesWritten);
 	return result == VFS::Result::success ? emabi::esuccess : asEmscriptenErrNo(result);
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fflush", emabi::Result, _fflush, emabi::FD file)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fflush", emabi::Result, emscripten_fflush, emabi::FD file)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 	VFS::VFD* fd = getVFD(process, file);
@@ -665,13 +692,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fflush", emabi::Result, _fflush, emabi::FD
 	return fd->sync(VFS::SyncType::contentsAndMetadata) == VFS::Result::success ? 0 : -1;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___lock", void, ___lock, I32 a) {}
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___unlock", void, ___unlock, I32 a) {}
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___lockfile", emabi::Result, ___lockfile, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___lock", void, emscripten___lock, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___unlock", void, emscripten___unlock, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___lockfile", emabi::Result, emscripten___lockfile, I32 a)
 {
 	return emabi::enosys;
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___unlockfile", void, ___unlockfile, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___unlockfile", void, emscripten___unlockfile, I32 a) {}
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall6", I32, emscripten_close, emabi::FD file, I32)
 {
@@ -994,7 +1021,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-rem", F64, F64_rems, F64 left, F64
 	return (F64)fmod(left, right);
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getenv", emabi::Result, _getenv, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getenv", emabi::Result, emscripten_getenv, I32 a)
 {
 	return emabi::esuccess;
 }
@@ -1002,7 +1029,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getenv", emabi::Result, _getenv, I32 a)
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "gettimeofday",
 							   emabi::Result,
-							   _gettimeofday,
+							   emscripten_gettimeofday,
 							   I32 timevalAddress,
 							   I32)
 {
@@ -1049,7 +1076,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "gmtime", emabi::Address, emscripten_gmtime,
 	}
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sem_init", emabi::Result, _sem_init, I32 a, I32 b, I32 c)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_sem_init",
+							   emabi::Result,
+							   emscripten_sem_init,
+							   I32 a,
+							   I32 b,
+							   I32 c)
 {
 	return emabi::esuccess;
 }
@@ -1076,7 +1109,7 @@ WAVM_DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
 											 ___buildEnvironment,
 											 U32);
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_pure_virtual", void, ___cxa_pure_virtual)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_pure_virtual", void, emscripten___cxa_pure_virtual)
 {
 	Errors::fatal("env.__cxa_pure_virtual called");
 }
@@ -1155,7 +1188,7 @@ WAVM_DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_atexit", emabi::Result, _ate
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "clock_gettime",
 							   emabi::Result,
-							   _clock_gettime,
+							   emscripten_clock_gettime,
 							   U32 clockId,
 							   U32 timespecAddress)
 {
