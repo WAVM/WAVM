@@ -229,7 +229,7 @@
     (i8x16.sub_saturate_u (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
   (func (export "as-i16x8_sub_saturate_u-operands") (param i32 i32) (result v128)
     (i16x8.sub_saturate_u (i16x8.splat (local.get 0)) (i16x8.splat (local.get 1))))
-  
+
   ;; Bit shifts
   (func (export "as-i8x16_shr_s-operand") (param i32 i32) (result v128)
     (i8x16.shr_s (i8x16.splat (local.get 0)) (local.get 1)))
