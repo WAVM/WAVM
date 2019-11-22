@@ -876,6 +876,26 @@ size_t wasm_func_result_arity(const wasm_func_t* function)
 {
 	return getFunctionType(function).results().size();
 }
+bool wasm_func_name(const wasm_func_t* function, char* out_message, size_t* inout_num_message_bytes)
+{
+	if (!function || !function->mutableData) {
+		return false;
+	}
+
+	const auto name = function->mutableData->debugName;
+	if(*inout_num_message_bytes < name.size() + 1)
+	{
+		*inout_num_message_bytes = name.size() + 1;
+		return false;
+	}
+	else
+	{
+		WAVM_ASSERT(out_message);
+		memcpy(out_message, name.c_str(), name.size() + 1);
+		*inout_num_message_bytes = name.size() + 1;
+		return true;
+	}
+}
 
 wasm_trap_t* wasm_func_call(wasm_store_t* store,
 							const wasm_func_t* function,

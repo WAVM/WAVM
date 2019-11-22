@@ -441,6 +441,9 @@ WASM_C_API own wasm_func_t* wasm_func_new_with_env(wasm_compartment_t*,
 WASM_C_API own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 WASM_C_API size_t wasm_func_param_arity(const wasm_func_t*);
 WASM_C_API size_t wasm_func_result_arity(const wasm_func_t*);
+WASM_C_API bool wasm_func_name(const wasm_func_t* function,
+							   char* out_message,
+							   size_t* inout_num_message_bytes);
 
 WASM_C_API own wasm_trap_t* wasm_func_call(wasm_store_t*,
 										   const wasm_func_t*,
