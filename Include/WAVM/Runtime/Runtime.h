@@ -10,6 +10,11 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Diagnostics.h"
 
+// These values are hacked in because the integer type is unsigned (otherwise I'd use negative numbers)
+#define WAVM_MEMERR_RESOURCE_QUOTA 1111111111111
+#define WAVM_MEMERR_MAX_MEM 1111111111112
+#define WAVM_MEMERR_COMMIT_FAILED 1111111111113
+
 // Declare some types to avoid including the full definition.
 namespace WAVM {
 	namespace IR {

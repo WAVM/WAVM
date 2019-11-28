@@ -193,12 +193,14 @@ IR::MemoryType Runtime::getMemoryType(const Memory* memory) { return memory->typ
 bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPages)
 {
 	Uptr oldNumPages;
-	if(numPagesToGrow == 0) { oldNumPages = memory->numPages.load(std::memory_order_seq_cst); }
-	else
-	{
+	if(numPagesToGrow == 0) {
+	    oldNumPages = memory->numPages.load(std::memory_order_seq_cst);
+	} else {
 		// Check the memory page quota.
-		if(memory->resourceQuota && !memory->resourceQuota->memoryPages.allocate(numPagesToGrow))
-		{ return false; }
+		if(memory->resourceQuota && !memory->resourceQuota->memoryPages.allocate(numPagesToGrow)) {
+		    *outOldNumPages = WAVM_MEMERR_RESOURCE_QUOTA;
+		    return false;
+		}
 
 		Lock<Platform::Mutex> resizingLock(memory->resizingMutex);
 		oldNumPages = memory->numPages.load(std::memory_order_acquire);
@@ -208,18 +210,23 @@ bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPag
 		if(numPagesToGrow > memory->type.size.max
 		   || oldNumPages > memory->type.size.max - numPagesToGrow
 		   || numPagesToGrow > IR::maxMemoryPages
-		   || oldNumPages > IR::maxMemoryPages - numPagesToGrow)
-		{
-			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
+		   || oldNumPages > IR::maxMemoryPages - numPagesToGrow) {
+            *outOldNumPages = WAVM_MEMERR_MAX_MEM;
+
+            if(memory->resourceQuota) {
+			    memory->resourceQuota->memoryPages.free(numPagesToGrow);
+			}
 			return false;
 		}
 
 		// Try to commit the new pages, and return -1 if the commit fails.
 		if(!Platform::commitVirtualPages(
 			   memory->baseAddress + oldNumPages * IR::numBytesPerPage,
-			   numPagesToGrow << getPlatformPagesPerWebAssemblyPageLog2()))
-		{
-			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
+			   numPagesToGrow << getPlatformPagesPerWebAssemblyPageLog2())) {
+            *outOldNumPages = WAVM_MEMERR_COMMIT_FAILED;
+			if(memory->resourceQuota) {
+			    memory->resourceQuota->memoryPages.free(numPagesToGrow);
+			}
 			return false;
 		}
 
