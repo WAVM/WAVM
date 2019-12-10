@@ -153,21 +153,9 @@
   ;;  9.0 = 0x41100000, 3.0 = 0x40400000
   ;; test is:   [-1.0, NaN,  4.0, 9.0]
   ;; expect is: [ NaN, NaN,  2.0, 3.0]
-  (func $f32x4_sqrt_0 (result v128)
+  (func (export "f32x4_sqrt_0") (result v128)
     v128.const i32x4 0xbf800000 0xffc00000 0x40800000 0x41100000
     f32x4.sqrt)
-  (func (export "f32x4_sqrt_0_lane0") (result f32)
-    call $f32x4_sqrt_0
-    f32x4.extract_lane 0)
-  (func (export "f32x4_sqrt_0_lane1") (result f32)
-    call $f32x4_sqrt_0
-    f32x4.extract_lane 1)
-  (func (export "f32x4_sqrt_0_lane2") (result f32)
-    call $f32x4_sqrt_0
-    f32x4.extract_lane 2)
-  (func (export "f32x4_sqrt_0_lane3") (result f32)
-    call $f32x4_sqrt_0
-    f32x4.extract_lane 3)
 
   ;; f64x2 sqrt
   ;; For Double num:
@@ -177,15 +165,9 @@
   ;;  3.0 = 0x4008000000000000
   ;; tests are:   [-1.0, NaN],  [ 4.0, 9.0]
   ;; expects are: [ NaN, NaN],  [ 2.0, 3.0]
-  (func $f64x2_sqrt_0 (result v128)
+  (func (export "f64x2_sqrt_0") (result v128)
     v128.const i32x4 0x00000000 0xbff00000 0x00000000 0xfff80000
     f64x2.sqrt)
-  (func (export "f64x2_sqrt_0_lane0") (result f64)
-    call $f64x2_sqrt_0
-    f64x2.extract_lane 0)
-  (func (export "f64x2_sqrt_0_lane1") (result f64)
-    call $f64x2_sqrt_0
-    f64x2.extract_lane 1)
   (func (export "f64x2_sqrt_1") (result v128)
     v128.const i32x4 0x00000000 0x40100000 0x00000000 0x40220000
     f64x2.sqrt)
@@ -297,12 +279,8 @@
 (assert_return (invoke "f32x4_abs_0") (v128.const i32x4 0x00000000 0x7fc00000 0x449a5000 0x3f800000))
 (assert_return (invoke "f64x2_abs_0") (v128.const i32x4 0x00000000 0x00000000 0x00000000 0x7ff80000))
 (assert_return (invoke "f64x2_abs_1") (v128.const i32x4 0x00000000 0x40934a00 0x00000000 0x3ff00000))
-(assert_return_canonical_nan (invoke "f32x4_sqrt_0_lane0"))
-(assert_return_canonical_nan (invoke "f32x4_sqrt_0_lane1"))
-(assert_return (invoke "f32x4_sqrt_0_lane2") (f32.const 2.0))
-(assert_return (invoke "f32x4_sqrt_0_lane3") (f32.const 3.0))
-(assert_return_canonical_nan (invoke "f64x2_sqrt_0_lane0"))
-(assert_return_canonical_nan (invoke "f64x2_sqrt_0_lane1"))
+(assert_return (invoke "f32x4_sqrt_0") (v128.const f32x4 nan:canonical nan:canonical 2.0 3.0))
+(assert_return (invoke "f64x2_sqrt_0") (v128.const f64x2 nan:canonical nan:canonical))
 (assert_return (invoke "f64x2_sqrt_1") (v128.const i32x4 0x00000000 0x40000000 0x00000000 0x40080000))
 (assert_return (invoke "f32x4_convert_i32x4_s_0") (v128.const i32x4 0x3f800000 0xbf800000 0x00000000 0x40400000))
 (assert_return (invoke "f32x4_convert_i32x4_u_0") (v128.const i32x4 0x3f800000 0x40000000 0x00000000 0x40400000))

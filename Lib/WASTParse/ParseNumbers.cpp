@@ -536,32 +536,32 @@ V128 WAST::parseV128(CursorState* cursor)
 	case t_i8x16:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
-		{ result.i8[laneIndex] = parseI8(cursor); }
+		{ result.i8x16[laneIndex] = parseI8(cursor); }
 		break;
 	case t_i16x8:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
-		{ result.i16[laneIndex] = parseI16(cursor); }
+		{ result.i16x8[laneIndex] = parseI16(cursor); }
 		break;
 	case t_i32x4:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-		{ result.i32[laneIndex] = parseI32(cursor); }
+		{ result.i32x4[laneIndex] = parseI32(cursor); }
 		break;
 	case t_i64x2:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-		{ result.i64[laneIndex] = parseI64(cursor); }
+		{ result.i64x2[laneIndex] = parseI64(cursor); }
 		break;
 	case t_f32x4:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-		{ result.f32[laneIndex] = parseF32(cursor); }
+		{ result.f32x4[laneIndex] = parseF32(cursor); }
 		break;
 	case t_f64x2:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-		{ result.f64[laneIndex] = parseF64(cursor); }
+		{ result.f64x2[laneIndex] = parseF64(cursor); }
 		break;
 	default:
 		parseErrorf(cursor->parseState,

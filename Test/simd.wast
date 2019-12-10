@@ -811,21 +811,21 @@
   (func (export "f64x2.splat") (param $x f64) (result v128) (f64x2.splat (local.get $x)))
 )
 
-(assert_return_canonical_nan_f32x4  (invoke "f32x4.splat" (f32.const +nan:0x400000)))
-(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const +nan:0x400000)))
-(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const +nan:0x400001)))
+(assert_return (invoke "f32x4.splat" (f32.const +nan:0x400000)) (v128.const f32x4 nan:canonical nan:canonical nan:canonical nan:canonical))
+(assert_return (invoke "f32x4.splat" (f32.const +nan:0x400000)) (v128.const f32x4 nan:arithmetic nan:arithmetic nan:arithmetic nan:arithmetic))
+(assert_return (invoke "f32x4.splat" (f32.const +nan:0x400001)) (v128.const f32x4 nan:arithmetic nan:arithmetic nan:arithmetic nan:arithmetic))
 
-(assert_return_canonical_nan_f32x4  (invoke "f32x4.splat" (f32.const -nan:0x400000)))
-(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const -nan:0x400000)))
-(assert_return_arithmetic_nan_f32x4 (invoke "f32x4.splat" (f32.const -nan:0x400001)))
+(assert_return (invoke "f32x4.splat" (f32.const -nan:0x400000)) (v128.const f32x4 nan:canonical nan:canonical nan:canonical nan:canonical))
+(assert_return (invoke "f32x4.splat" (f32.const -nan:0x400000)) (v128.const f32x4 nan:arithmetic nan:arithmetic nan:arithmetic nan:arithmetic))
+(assert_return (invoke "f32x4.splat" (f32.const -nan:0x400001)) (v128.const f32x4 nan:arithmetic nan:arithmetic nan:arithmetic nan:arithmetic))
 
-(assert_return_canonical_nan_f64x2  (invoke "f64x2.splat" (f64.const +nan:0x8000000000000)))
-(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const +nan:0x8000000000000)))
-(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const +nan:0x8000000000001)))
+(assert_return (invoke "f64x2.splat" (f64.const +nan:0x8000000000000)) (v128.const f64x2 nan:canonical nan:canonical))
+(assert_return (invoke "f64x2.splat" (f64.const +nan:0x8000000000000)) (v128.const f64x2 nan:arithmetic nan:arithmetic))
+(assert_return (invoke "f64x2.splat" (f64.const +nan:0x8000000000001)) (v128.const f64x2 nan:arithmetic nan:arithmetic))
 
-(assert_return_canonical_nan_f64x2  (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)))
-(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)))
-(assert_return_arithmetic_nan_f64x2 (invoke "f64x2.splat" (f64.const -nan:0x8000000000001)))
+(assert_return (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)) (v128.const f64x2 nan:canonical nan:canonical))
+(assert_return (invoke "f64x2.splat" (f64.const -nan:0x8000000000000)) (v128.const f64x2 nan:arithmetic nan:arithmetic))
+(assert_return (invoke "f64x2.splat" (f64.const -nan:0x8000000000001)) (v128.const f64x2 nan:arithmetic nan:arithmetic))
 
 ;; Load and extend instructions
 

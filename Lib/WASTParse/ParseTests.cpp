@@ -125,6 +125,143 @@ static std::vector<IR::Value> parseConstExpressionTuple(CursorState* cursor)
 	return values;
 }
 
+template<typename Float> FloatResultSet<Float> parseFloatResultSet(CursorState* cursor)
+{
+	FloatResultSet<Float> result;
+	switch(cursor->nextToken->type)
+	{
+	case t_canonicalNaN:
+		++cursor->nextToken;
+		result.type = FloatResultSet<Float>::Type::canonicalNaN;
+		result.literal = Float(0);
+		break;
+	case t_arithmeticNaN:
+		++cursor->nextToken;
+		result.type = FloatResultSet<Float>::Type::arithmeticNaN;
+		result.literal = Float(0);
+		break;
+
+	default:
+		result.type = FloatResultSet<Float>::Type::literal;
+		result.literal = parseFloat<Float>(cursor);
+		break;
+	};
+	return result;
+}
+
+static ResultSet parseV128ResultSet(CursorState* cursor)
+{
+	ResultSet result;
+	switch(cursor->nextToken->type)
+	{
+	case t_i8x16:
+		++cursor->nextToken;
+		result.type = ResultSet::Type::i8x16;
+		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
+		{ result.i8x16[laneIndex] = parseI8(cursor); }
+		break;
+	case t_i16x8:
+		++cursor->nextToken;
+		result.type = ResultSet::Type::i16x8;
+		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
+		{ result.i16x8[laneIndex] = parseI16(cursor); }
+		break;
+	case t_i32x4:
+		++cursor->nextToken;
+		result.type = ResultSet::Type::i32x4;
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{ result.i32x4[laneIndex] = parseI32(cursor); }
+		break;
+	case t_i64x2:
+		++cursor->nextToken;
+		result.type = ResultSet::Type::i64x2;
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{ result.i64x2[laneIndex] = parseI64(cursor); }
+		break;
+	case t_f32x4:
+		++cursor->nextToken;
+		result.type = ResultSet::Type::f32x4;
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{ result.f32x4[laneIndex] = parseFloatResultSet<F32>(cursor); }
+		break;
+	case t_f64x2:
+		++cursor->nextToken;
+		result.type = ResultSet::Type::f64x2;
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{ result.f64x2[laneIndex] = parseFloatResultSet<F64>(cursor); }
+		break;
+	default:
+		parseErrorf(cursor->parseState,
+					cursor->nextToken,
+					"expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'");
+		throw RecoverParseException();
+	};
+
+	return result;
+}
+
+static ResultSet parseResultSet(CursorState* cursor)
+{
+	ResultSet result;
+	parseParenthesized(cursor, [&] {
+		switch(cursor->nextToken->type)
+		{
+		case t_i32_const: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::i32;
+			result.i32 = parseI32(cursor);
+			break;
+		}
+		case t_i64_const: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::i64;
+			result.i64 = parseI64(cursor);
+			break;
+		}
+		case t_f32_const: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::f32;
+			result.f32 = parseFloatResultSet<F32>(cursor);
+			break;
+		}
+		case t_f64_const: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::f64;
+			result.f64 = parseFloatResultSet<F64>(cursor);
+			break;
+		}
+		case t_v128_const: {
+			++cursor->nextToken;
+			result = parseV128ResultSet(cursor);
+			break;
+		}
+		case t_ref_host: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::funcref;
+			result.function = makeHostRef(parseU32(cursor));
+			break;
+		}
+		case t_ref_null: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::nullref;
+			break;
+		}
+		default:
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected const expression");
+			throw RecoverParseException();
+		};
+	});
+	return result;
+}
+
+static std::vector<ResultSet> parseResultSetTuple(CursorState* cursor)
+{
+	std::vector<ResultSet> results;
+	while(cursor->nextToken->type == t_leftParenthesis)
+	{ results.push_back(parseResultSet(cursor)); };
+	return results;
+}
+
 static std::string parseOptionalNameAsString(CursorState* cursor)
 {
 	Name name;
@@ -309,9 +446,9 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				++cursor->nextToken;
 
 				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
-				std::vector<IR::Value> expectedResults = parseConstExpressionTuple(cursor);
-				result = std::unique_ptr<Command>(
-					new AssertReturnCommand(std::move(locus), std::move(action), expectedResults));
+				std::vector<ResultSet> expectedResults = parseResultSetTuple(cursor);
+				result = std::unique_ptr<Command>(new AssertReturnCommand(
+					std::move(locus), std::move(action), std::move(expectedResults)));
 				break;
 			}
 			case t_assert_return_arithmetic_nan:

@@ -565,7 +565,7 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>(?&lt;=[\s=();])[+\-]?nan(\:0[xX][\da-fA-F]+(_[\da-fA-F]+)*)?(?=[\s=();])</string>
+			<string>(?&lt;=[\s=();])[+\-]?nan((\:0[xX][\da-fA-F]+(_[\da-fA-F]+)*)?(?=[\s=();])|canonical|arithmetic)</string>
 			<key>name</key>
 			<string>constant.numeric.wasm</string>
 		</dict>

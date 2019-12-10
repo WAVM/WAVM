@@ -70,7 +70,7 @@ namespace WAVM { namespace IR {
 			case Type::f32_const: return a.i32 == b.i32;
 			case Type::f64_const: return a.i64 == b.i64;
 			case Type::v128_const:
-				return a.v128.u64[0] == b.v128.u64[0] && a.v128.u64[1] == b.v128.u64[1];
+				return a.v128.u64x2[0] == b.v128.u64x2[0] && a.v128.u64x2[1] == b.v128.u64x2[1];
 			case Type::global_get: return a.ref == b.ref;
 			case Type::ref_null: return true;
 			case Type::ref_func: return a.ref == b.ref;

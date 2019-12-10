@@ -177,8 +177,8 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 	case ValueType::f64: return Value(value->f64);
 	case ValueType::v128: {
 		V128 v128;
-		v128.u64[0] = value->v128.u64[0];
-		v128.u64[1] = value->v128.u64[1];
+		v128.u64x2[0] = value->v128.u64x2[0];
+		v128.u64x2[1] = value->v128.u64x2[1];
 		return Value(v128);
 	}
 	case ValueType::anyref: return Value(value->ref);
@@ -201,8 +201,8 @@ static wasm_val_t as_val(const Value& value)
 	case ValueType::f32: result.f32 = value.f32; break;
 	case ValueType::f64: result.f64 = value.f64; break;
 	case ValueType::v128: {
-		result.v128.u64[0] = value.v128.u64[0];
-		result.v128.u64[1] = value.v128.u64[1];
+		result.v128.u64x2[0] = value.v128.u64x2[0];
+		result.v128.u64x2[1] = value.v128.u64x2[1];
 		break;
 	}
 	case ValueType::anyref: result.ref = value.object; break;

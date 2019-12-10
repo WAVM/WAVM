@@ -154,16 +154,69 @@ namespace WAVM { namespace WAST {
 		}
 	};
 
+	template<typename Float> struct FloatResultSet
+	{
+		enum class Type
+		{
+			literal,
+			canonicalNaN,
+			arithmeticNaN,
+		};
+
+		Type type;
+		Float literal;
+	};
+
+	struct ResultSet
+	{
+		enum class Type
+		{
+			i32,
+			i64,
+			i8x16,
+			i16x8,
+			i32x4,
+			i64x2,
+
+			f32,
+			f64,
+			f32x4,
+			f64x2,
+
+			funcref,
+			nullref
+		};
+
+		Type type;
+
+		union
+		{
+			I32 i32;
+			I64 i64;
+			I8 i8x16[16];
+			I16 i16x8[8];
+			I32 i32x4[4];
+			I64 i64x2[2];
+
+			FloatResultSet<F32> f32;
+			FloatResultSet<F64> f64;
+			FloatResultSet<F32> f32x4[4];
+			FloatResultSet<F64> f64x2[2];
+
+			Runtime::Function* function;
+		};
+	};
+
 	struct AssertReturnCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		std::vector<IR::Value> expectedResults;
+		std::vector<ResultSet> expectedResultSets;
 		AssertReturnCommand(TextFileLocus&& inLocus,
 							std::unique_ptr<Action>&& inAction,
-							std::vector<IR::Value> inExpectedResults)
+							std::vector<ResultSet>&& inExpectedResultSets)
 		: Command(Command::assert_return, std::move(inLocus))
 		, action(std::move(inAction))
-		, expectedResults(inExpectedResults)
+		, expectedResultSets(inExpectedResultSets)
 		{
 		}
 	};

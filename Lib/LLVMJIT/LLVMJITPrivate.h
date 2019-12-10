@@ -133,8 +133,8 @@ namespace WAVM { namespace LLVMJIT {
 	inline llvm::Constant* emitLiteral(llvm::LLVMContext& llvmContext, V128 value)
 	{
 		return llvm::ConstantVector::get(
-			{llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64[0], false)),
-			 llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64[1], false))});
+			{llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[0], false)),
+			 llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[1], false))});
 	}
 	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* intOrPointerType)
 	{

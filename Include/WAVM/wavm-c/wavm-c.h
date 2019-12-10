@@ -317,7 +317,7 @@ typedef struct wasm_export_t
 // NOTE: not 128-bit aligned
 typedef struct wasm_v128_t
 {
-	uint64_t u64[2];
+	uint64_t u64x2[2];
 } wasm_v128_t;
 
 typedef union wasm_val_t

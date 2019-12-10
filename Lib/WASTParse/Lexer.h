@@ -89,6 +89,8 @@
 	VISIT_TOKEN(hexInt, "hexadecimal int literal", _)                                              \
 	VISIT_TOKEN(floatNaN, "float NaN literal", _)                                                  \
 	VISIT_TOKEN(floatInf, "float infinity literal", _)                                             \
+	VISIT_TOKEN(canonicalNaN, "float canonical NaN literal", _)                                    \
+	VISIT_TOKEN(arithmeticNaN, "float arithmetic NaN literal", _)                                  \
 	VISIT_TOKEN(string, "string literal", _)                                                       \
 	VISIT_TOKEN(name, "name literal", _)                                                           \
 	VISIT_TOKEN(quotedName, "quoted name literal", _)                                              \

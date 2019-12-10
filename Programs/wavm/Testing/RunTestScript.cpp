@@ -412,6 +412,180 @@ template<typename Float> bool isCanonicalNaN(Float value)
 		   && components.bits.significand == FloatComponents<Float>::canonicalSignificand;
 }
 
+template<typename Float>
+bool isFloatResultInExpectedSet(Float result, const FloatResultSet<Float>& expectedResultSet)
+{
+	switch(expectedResultSet.type)
+	{
+	case FloatResultSet<Float>::Type::canonicalNaN: return isCanonicalNaN(result);
+	case FloatResultSet<Float>::Type::arithmeticNaN: return isArithmeticNaN(result);
+	case FloatResultSet<Float>::Type::literal:
+		return !memcmp(&result, &expectedResultSet.literal, sizeof(Float));
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static bool isResultInExpectedSet(const Value& result, const ResultSet& expectedResultSet)
+{
+	switch(expectedResultSet.type)
+	{
+	case ResultSet::Type::i32:
+		return result.type == ValueType::i32 && result.i32 == expectedResultSet.i32;
+	case ResultSet::Type::i64:
+		return result.type == ValueType::i64 && result.i64 == expectedResultSet.i64;
+
+	case ResultSet::Type::i8x16:
+	case ResultSet::Type::i16x8:
+	case ResultSet::Type::i32x4:
+	case ResultSet::Type::i64x2:
+		return result.type == ValueType::v128 && result.v128.i64x2[0] == expectedResultSet.i64x2[0]
+			   && result.v128.i64x2[1] == expectedResultSet.i64x2[1];
+
+	case ResultSet::Type::f32:
+		return result.type == ValueType::f32
+			   && isFloatResultInExpectedSet<F32>(result.f32, expectedResultSet.f32);
+	case ResultSet::Type::f64:
+		return result.type == ValueType::f64
+			   && isFloatResultInExpectedSet<F64>(result.f64, expectedResultSet.f64);
+	case ResultSet::Type::f32x4:
+		return result.type == ValueType::v128
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[0], expectedResultSet.f32x4[0])
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[1], expectedResultSet.f32x4[1])
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[2], expectedResultSet.f32x4[2])
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[3], expectedResultSet.f32x4[3]);
+	case ResultSet::Type::f64x2:
+		return result.type == ValueType::v128
+			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[0], expectedResultSet.f64x2[0])
+			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[1], expectedResultSet.f64x2[1]);
+
+	case ResultSet::Type::funcref:
+		return (result.type == ValueType::funcref || result.type == ValueType::anyref)
+			   && result.function == expectedResultSet.function;
+	case ResultSet::Type::nullref: return isReferenceType(result.type) && !result.object;
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+template<typename Float> std::string asString(const FloatResultSet<Float> resultSet)
+{
+	switch(resultSet.type)
+	{
+	case FloatResultSet<Float>::Type::canonicalNaN: return "nan:canonical";
+	case FloatResultSet<Float>::Type::arithmeticNaN: return "nan:arithmetic";
+	case FloatResultSet<Float>::Type::literal: return asString(resultSet.literal);
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static std::string asString(const ResultSet& resultSet)
+{
+	switch(resultSet.type)
+	{
+	case ResultSet::Type::i32: return "(i32.const " + asString(resultSet.i32) + ')';
+	case ResultSet::Type::i64: return "(i64.const " + asString(resultSet.i64) + ')';
+
+	case ResultSet::Type::i8x16: {
+		std::string string = "(v128.const i8x16";
+		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i8x16[laneIndex]);
+		}
+		return string;
+	}
+	case ResultSet::Type::i16x8: {
+		std::string string = "(v128.const i16x8";
+		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i16x8[laneIndex]);
+		}
+		return string;
+	}
+	case ResultSet::Type::i32x4: {
+		std::string string = "(v128.const i32x4";
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i32x4[laneIndex]);
+		}
+		return string;
+	}
+	case ResultSet::Type::i64x2: {
+		std::string string = "(v128.const i64x2";
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i64x2[laneIndex]);
+		}
+		return string;
+	}
+
+	case ResultSet::Type::f32: return "(f32.const " + asString(resultSet.f32) + ')';
+	case ResultSet::Type::f64: return "(f64.const " + asString(resultSet.f64) + ')';
+	case ResultSet::Type::f32x4: {
+		std::string string = "(v128.const f32x4";
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.f32x4[laneIndex]);
+		}
+		return string;
+	}
+	case ResultSet::Type::f64x2: {
+		std::string string = "(v128.const f64x2";
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.f64x2[laneIndex]);
+		}
+		return string;
+	}
+
+	case ResultSet::Type::funcref: {
+		// buffer needs 27 characters:
+		// funcref 0xHHHHHHHHHHHHHHHH\0
+		char buffer[27];
+		snprintf(buffer,
+				 sizeof(buffer),
+				 "funcref 0x%.16" WAVM_PRIxPTR,
+				 reinterpret_cast<Uptr>(resultSet.function));
+		return std::string(buffer);
+	}
+	case ResultSet::Type::nullref: return "(ref.null)";
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static bool areResultsInExpectedSet(const std::vector<Value>& results,
+									const std::vector<ResultSet>& expectedResultSets,
+									std::string& outMessage)
+{
+	if(results.size() != expectedResultSets.size())
+	{
+		outMessage = "expected " + std::to_string(expectedResultSets.size()) + " results, but got "
+					 + asString(results);
+		return false;
+	}
+
+	for(Uptr resultIndex = 0; resultIndex < results.size(); ++resultIndex)
+	{
+		if(!isResultInExpectedSet(results[resultIndex], expectedResultSets[resultIndex]))
+		{
+			outMessage = "expected " + asString(expectedResultSets[resultIndex]) + ", but got "
+						 + asString(results[resultIndex]);
+			if(results.size() != 1) { outMessage += " in result " + std::to_string(resultIndex); }
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static void processCommand(TestScriptState& state, const Command* command)
 {
 	switch(command->type)
@@ -434,15 +608,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 		auto assertCommand = (AssertReturnCommand*)command;
 		// Execute the action and do a bitwise comparison of the result to the expected result.
 		std::vector<Value> actionResults;
+		std::string errorMessage;
 		if(processAction(state, assertCommand->action.get(), actionResults)
-		   && actionResults != assertCommand->expectedResults)
-		{
-			testErrorf(state,
-					   assertCommand->locus,
-					   "expected %s but got %s",
-					   asString(assertCommand->expectedResults).c_str(),
-					   asString(actionResults).c_str());
-		}
+		   && !areResultsInExpectedSet(
+			   actionResults, assertCommand->expectedResultSets, errorMessage))
+		{ testErrorf(state, assertCommand->locus, "%s", errorMessage.c_str()); }
 		break;
 	}
 	case Command::assert_return_canonical_nan:
@@ -488,28 +658,28 @@ static void processCommand(TestScriptState& state, const Command* command)
 				else if(assertCommand->type == Command::assert_return_canonical_nan_f32x4)
 				{
 					requireCanonicalNaN = true;
-					isError = !isCanonicalNaN(actionResult.v128.f32[0])
-							  || !isCanonicalNaN(actionResult.v128.f32[1])
-							  || !isCanonicalNaN(actionResult.v128.f32[2])
-							  || !isCanonicalNaN(actionResult.v128.f32[3]);
+					isError = !isCanonicalNaN(actionResult.v128.f32x4[0])
+							  || !isCanonicalNaN(actionResult.v128.f32x4[1])
+							  || !isCanonicalNaN(actionResult.v128.f32x4[2])
+							  || !isCanonicalNaN(actionResult.v128.f32x4[3]);
 				}
 				else if(assertCommand->type == Command::assert_return_arithmetic_nan_f32x4)
 				{
-					isError = !isArithmeticNaN(actionResult.v128.f32[0])
-							  || !isArithmeticNaN(actionResult.v128.f32[1])
-							  || !isArithmeticNaN(actionResult.v128.f32[2])
-							  || !isArithmeticNaN(actionResult.v128.f32[3]);
+					isError = !isArithmeticNaN(actionResult.v128.f32x4[0])
+							  || !isArithmeticNaN(actionResult.v128.f32x4[1])
+							  || !isArithmeticNaN(actionResult.v128.f32x4[2])
+							  || !isArithmeticNaN(actionResult.v128.f32x4[3]);
 				}
 				else if(assertCommand->type == Command::assert_return_canonical_nan_f64x2)
 				{
 					requireCanonicalNaN = true;
-					isError = !isCanonicalNaN(actionResult.v128.f64[0])
-							  || !isCanonicalNaN(actionResult.v128.f64[1]);
+					isError = !isCanonicalNaN(actionResult.v128.f64x2[0])
+							  || !isCanonicalNaN(actionResult.v128.f64x2[1]);
 				}
 				else if(assertCommand->type == Command::assert_return_arithmetic_nan_f64x2)
 				{
-					isError = !isArithmeticNaN(actionResult.v128.f64[0])
-							  || !isArithmeticNaN(actionResult.v128.f64[1]);
+					isError = !isArithmeticNaN(actionResult.v128.f64x2[0])
+							  || !isArithmeticNaN(actionResult.v128.f64x2[1]);
 				}
 				else
 				{

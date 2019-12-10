@@ -169,8 +169,8 @@ static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<F64
 
 static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<V128>& outImm)
 {
-	outImm.value.u64[0] = random.get(UINT64_MAX);
-	outImm.value.u64[1] = random.get(UINT64_MAX);
+	outImm.value.u64x2[0] = random.get(UINT64_MAX);
+	outImm.value.u64x2[1] = random.get(UINT64_MAX);
 }
 
 template<Uptr naturalAlignmentLog2>
@@ -1023,8 +1023,8 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 	case ValueType::f64: return InitializerExpression(F64(random.get(UINT64_MAX)));
 	case ValueType::v128: {
 		V128 v128;
-		v128.u64[0] = random.get(UINT64_MAX);
-		v128.u64[1] = random.get(UINT64_MAX);
+		v128.u64x2[0] = random.get(UINT64_MAX);
+		v128.u64x2[1] = random.get(UINT64_MAX);
 		return InitializerExpression(v128);
 	}
 	break;

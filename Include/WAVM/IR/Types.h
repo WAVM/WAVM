@@ -170,10 +170,10 @@ namespace WAVM { namespace IR {
 		snprintf(buffer,
 				 sizeof(buffer),
 				 "i32x4 0x%.8x 0x%.8x 0x%.8x 0x%.8x",
-				 v128.u32[0],
-				 v128.u32[1],
-				 v128.u32[2],
-				 v128.u32[3]);
+				 v128.u32x4[0],
+				 v128.u32x4[1],
+				 v128.u32x4[2],
+				 v128.u32x4[3]);
 		return std::string(buffer);
 	}
 

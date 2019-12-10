@@ -135,6 +135,8 @@ static const std::tuple<TokenType, const char*, bool> literalTokenTuples[] = {
 	std::make_tuple(t_leftParenthesis, "(", true),
 	std::make_tuple(t_rightParenthesis, ")", true),
 	std::make_tuple(t_equals, "=", true),
+	std::make_tuple(t_canonicalNaN, "nan:canonical", false),
+	std::make_tuple(t_arithmeticNaN, "nan:arithmetic", false),
 
 	#define VISIT_TOKEN(name, _, literalString) std::make_tuple(t_##name, literalString, false),
 	ENUM_LITERAL_TOKENS()
