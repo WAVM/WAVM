@@ -170,9 +170,12 @@ Memory* Runtime::getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData
 	return compartment->memories[memoryId];
 }
 
-Foreign* Runtime::createForeign(Compartment* compartment, void* userData, void (*finalizer)(void*))
+Foreign* Runtime::createForeign(Compartment* compartment,
+								void* userData,
+								void (*finalizer)(void*),
+								std::string&& debugName)
 {
-	Foreign* foreign = new Foreign(compartment);
+	Foreign* foreign = new Foreign(compartment, std::move(debugName));
 	setUserData(foreign, userData, finalizer);
 
 	{

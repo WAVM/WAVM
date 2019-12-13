@@ -12,10 +12,10 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
-Context* Runtime::createContext(Compartment* compartment)
+Context* Runtime::createContext(Compartment* compartment, std::string&& debugName)
 {
 	WAVM_ASSERT(compartment);
-	Context* context = new Context(compartment);
+	Context* context = new Context(compartment, std::move(debugName));
 	{
 		Platform::RWMutex::ExclusiveLock lock(compartment->mutex);
 

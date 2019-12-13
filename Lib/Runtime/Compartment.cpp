@@ -14,8 +14,8 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
-Runtime::Compartment::Compartment()
-: GCObject(ObjectKind::compartment, this)
+Runtime::Compartment::Compartment(std::string&& inDebugName)
+: GCObject(ObjectKind::compartment, this, std::move(inDebugName))
 , unalignedRuntimeData(nullptr)
 , tables(0, maxTables - 1)
 , memories(0, maxMemories - 1)
@@ -58,13 +58,16 @@ Runtime::Compartment::~Compartment()
 	unalignedRuntimeData = nullptr;
 }
 
-Compartment* Runtime::createCompartment() { return new Compartment; }
+Compartment* Runtime::createCompartment(std::string&& debugName)
+{
+	return new Compartment(std::move(debugName));
+}
 
-Compartment* Runtime::cloneCompartment(const Compartment* compartment)
+Compartment* Runtime::cloneCompartment(const Compartment* compartment, std::string&& debugName)
 {
 	Timing::Timer timer;
 
-	Compartment* newCompartment = new Compartment;
+	Compartment* newCompartment = new Compartment(std::move(debugName));
 	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
 
 	// Clone tables.

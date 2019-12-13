@@ -502,9 +502,10 @@ namespace WAVM { namespace Runtime {
 	// Compartments
 	//
 
-	WAVM_API Compartment* createCompartment();
+	WAVM_API Compartment* createCompartment(std::string&& debugName = "");
 
-	WAVM_API Compartment* cloneCompartment(const Compartment* compartment);
+	WAVM_API Compartment* cloneCompartment(const Compartment* compartment,
+										   std::string&& debugName = "");
 
 	WAVM_API Object* remapToClonedCompartment(const Object* object,
 											  const Compartment* newCompartment);
@@ -528,7 +529,7 @@ namespace WAVM { namespace Runtime {
 	// Contexts
 	//
 
-	WAVM_API Context* createContext(Compartment* compartment);
+	WAVM_API Context* createContext(Compartment* compartment, std::string&& debugName = "");
 
 	WAVM_API struct ContextRuntimeData* getContextRuntimeData(const Context* context);
 	WAVM_API Context* getContextFromRuntimeData(struct ContextRuntimeData* contextRuntimeData);
@@ -546,7 +547,8 @@ namespace WAVM { namespace Runtime {
 
 	WAVM_API Foreign* createForeign(Compartment* compartment,
 									void* userData,
-									void (*finalizer)(void*));
+									void (*finalizer)(void*),
+									std::string&& debugName = "");
 
 	//
 	// Object caching

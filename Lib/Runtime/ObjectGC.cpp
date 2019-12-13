@@ -15,8 +15,14 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
-Runtime::GCObject::GCObject(ObjectKind inKind, Compartment* inCompartment)
-: Object{inKind}, compartment(inCompartment), userData(nullptr), finalizeUserData(nullptr)
+Runtime::GCObject::GCObject(ObjectKind inKind,
+							Compartment* inCompartment,
+							std::string&& inDebugName)
+: Object{inKind}
+, compartment(inCompartment)
+, userData(nullptr)
+, finalizeUserData(nullptr)
+, debugName(inDebugName)
 {
 }
 

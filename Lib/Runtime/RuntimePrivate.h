@@ -29,8 +29,9 @@ namespace WAVM { namespace Runtime {
 		mutable std::atomic<Uptr> numRootReferences{0};
 		void* userData{nullptr};
 		void (*finalizeUserData)(void*);
+		std::string debugName;
 
-		GCObject(ObjectKind inKind, Compartment* inCompartment);
+		GCObject(ObjectKind inKind, Compartment* inCompartment, std::string&& inDebugName);
 		virtual ~GCObject();
 	};
 
@@ -44,7 +45,6 @@ namespace WAVM { namespace Runtime {
 
 		Uptr id = UINTPTR_MAX;
 		const IR::TableType type;
-		std::string debugName;
 
 		Element* elements = nullptr;
 		Uptr numReservedBytes = 0;
@@ -59,9 +59,8 @@ namespace WAVM { namespace Runtime {
 			  const IR::TableType& inType,
 			  std::string&& inDebugName,
 			  ResourceQuotaRefParam inResourceQuota)
-		: GCObject(ObjectKind::table, inCompartment)
+		: GCObject(ObjectKind::table, inCompartment, std::move(inDebugName))
 		, type(inType)
-		, debugName(std::move(inDebugName))
 		, resourceQuota(inResourceQuota)
 		{
 		}
@@ -78,7 +77,6 @@ namespace WAVM { namespace Runtime {
 	{
 		Uptr id = UINTPTR_MAX;
 		IR::MemoryType type;
-		std::string debugName;
 
 		U8* baseAddress = nullptr;
 		Uptr numReservedBytes = 0;
@@ -92,9 +90,8 @@ namespace WAVM { namespace Runtime {
 			   const IR::MemoryType& inType,
 			   std::string&& inDebugName,
 			   ResourceQuotaRefParam inResourceQuota)
-		: GCObject(ObjectKind::memory, inCompartment)
+		: GCObject(ObjectKind::memory, inCompartment, std::move(inDebugName))
 		, type(inType)
-		, debugName(std::move(inDebugName))
 		, resourceQuota(inResourceQuota)
 		{
 		}
@@ -107,7 +104,6 @@ namespace WAVM { namespace Runtime {
 		Uptr id = UINTPTR_MAX;
 
 		const IR::GlobalType type;
-		std::string debugName;
 		const U32 mutableGlobalIndex;
 		IR::UntaggedValue initialValue;
 		bool hasBeenInitialized;
@@ -117,9 +113,8 @@ namespace WAVM { namespace Runtime {
 			   U32 inMutableGlobalId,
 			   std::string&& inDebugName,
 			   IR::UntaggedValue inInitialValue = IR::UntaggedValue())
-		: GCObject(ObjectKind::global, inCompartment)
+		: GCObject(ObjectKind::global, inCompartment, std::move(inDebugName))
 		, type(inType)
-		, debugName(std::move(inDebugName))
 		, mutableGlobalIndex(inMutableGlobalId)
 		, initialValue(inInitialValue)
 		, hasBeenInitialized(false)
@@ -134,14 +129,11 @@ namespace WAVM { namespace Runtime {
 		Uptr id = UINTPTR_MAX;
 
 		IR::ExceptionType sig;
-		std::string debugName;
 
 		ExceptionType(Compartment* inCompartment,
 					  IR::ExceptionType inSig,
 					  std::string&& inDebugName)
-		: GCObject(ObjectKind::exceptionType, inCompartment)
-		, sig(inSig)
-		, debugName(std::move(inDebugName))
+		: GCObject(ObjectKind::exceptionType, inCompartment, std::move(inDebugName)), sig(inSig)
 		{
 		}
 
@@ -167,7 +159,6 @@ namespace WAVM { namespace Runtime {
 	struct Instance : GCObject
 	{
 		const Uptr id;
-		const std::string debugName;
 
 		const HashMap<std::string, Object*> exportMap;
 		const std::vector<Object*> exports;
@@ -205,9 +196,8 @@ namespace WAVM { namespace Runtime {
 				 std::shared_ptr<LLVMJIT::Module>&& inJITModule,
 				 std::string&& inDebugName,
 				 ResourceQuotaRefParam inResourceQuota)
-		: GCObject(ObjectKind::instance, inCompartment)
+		: GCObject(ObjectKind::instance, inCompartment, std::move(inDebugName))
 		, id(inID)
-		, debugName(std::move(inDebugName))
 		, exportMap(std::move(inExportMap))
 		, exports(std::move(inExports))
 		, functions(std::move(inFunctions))
@@ -231,7 +221,10 @@ namespace WAVM { namespace Runtime {
 		Uptr id = UINTPTR_MAX;
 		struct ContextRuntimeData* runtimeData = nullptr;
 
-		Context(Compartment* inCompartment) : GCObject(ObjectKind::context, inCompartment) {}
+		Context(Compartment* inCompartment, std::string&& inDebugName)
+		: GCObject(ObjectKind::context, inCompartment, std::move(inDebugName))
+		{
+		}
 		~Context();
 	};
 
@@ -253,7 +246,7 @@ namespace WAVM { namespace Runtime {
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
 		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
 
-		Compartment();
+		Compartment(std::string&& inDebugName);
 		~Compartment();
 	};
 
@@ -261,7 +254,10 @@ namespace WAVM { namespace Runtime {
 	{
 		Uptr id = UINTPTR_MAX;
 
-		Foreign(Compartment* inCompartment) : GCObject(ObjectKind::foreign, inCompartment) {}
+		Foreign(Compartment* inCompartment, std::string&& inDebugName)
+		: GCObject(ObjectKind::foreign, inCompartment, std::move(inDebugName))
+		{
+		}
 	};
 
 	struct ResourceQuota
