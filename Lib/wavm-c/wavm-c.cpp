@@ -264,9 +264,9 @@ void wasm_compartment_delete(wasm_compartment_t* compartment)
 	removeGCRoot(compartment);
 	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartmentGCRef)));
 }
-wasm_compartment_t* wasm_compartment_new(wasm_engine_t*)
+wasm_compartment_t* wasm_compartment_new(wasm_engine_t*, const char* debug_name)
 {
-	Compartment* compartment = createCompartment();
+	Compartment* compartment = createCompartment(std::string(debug_name));
 	addGCRoot(compartment);
 	return compartment;
 }
@@ -281,9 +281,9 @@ bool wasm_compartment_contains(const wasm_compartment_t* compartment, const wasm
 
 // wasm_store_t
 void wasm_store_delete(wasm_store_t* store) { removeGCRoot(store); }
-wasm_store_t* wasm_store_new(wasm_compartment_t* compartment)
+wasm_store_t* wasm_store_new(wasm_compartment_t* compartment, const char* debug_name)
 {
-	Context* context = createContext(compartment);
+	Context* context = createContext(compartment, std::string(debug_name));
 	addGCRoot(context);
 	return context;
 }
@@ -568,7 +568,9 @@ const wasm_memorytype_t* wasm_externtype_as_memorytype_const(const wasm_externty
 		wasm_##name##_t* remappedRef = remapToClonedCompartment(ref, compartment);                 \
 		addGCRoot(remappedRef);                                                                    \
 		return remappedRef;                                                                        \
-	}
+	}                                                                                              \
+                                                                                                   \
+	const char* wasm_##name##_name(const wasm_##name##_t* ref) { return getDebugName(ref).c_str(); }
 
 #define IMPLEMENT_REF(name, Type)                                                                  \
 	IMPLEMENT_REF_BASE(name, Type)                                                                 \
@@ -685,9 +687,9 @@ void wasm_trap_stack_frame(const wasm_trap_t* trap, size_t index, wasm_frame_t* 
 
 IMPLEMENT_SHAREABLE_REF(foreign, Foreign)
 
-wasm_foreign_t* wasm_foreign_new(wasm_compartment_t* compartment)
+wasm_foreign_t* wasm_foreign_new(wasm_compartment_t* compartment, const char* debug_name)
 {
-	Foreign* foreign = createForeign(compartment, nullptr, nullptr);
+	Foreign* foreign = createForeign(compartment, nullptr, nullptr, std::string(debug_name));
 	addGCRoot(foreign);
 	return foreign;
 }
@@ -843,16 +845,16 @@ IMPLEMENT_SHAREABLE_REF(func, Function)
 
 wasm_func_t* wasm_func_new(wasm_compartment_t* compartment,
 						   const wasm_functype_t* type,
-						   wasm_func_callback_t callback)
+						   wasm_func_callback_t callback,
+						   const char* debug_name)
 {
 	FunctionType callbackType(
 		type->type.results(), type->type.params(), CallingConvention::cAPICallback);
 	Intrinsics::Module intrinsicModule;
 	Intrinsics::Function intrinsicFunction(
-		&intrinsicModule, "wasm_func_new", (void*)callback, callbackType);
-	Instance* instance
-		= Intrinsics::instantiateModule(compartment, {&intrinsicModule}, "wasm_func_new");
-	Function* function = getTypedInstanceExport(instance, "wasm_func_new", type->type);
+		&intrinsicModule, debug_name, (void*)callback, callbackType);
+	Instance* instance = Intrinsics::instantiateModule(compartment, {&intrinsicModule}, debug_name);
+	Function* function = getTypedInstanceExport(instance, debug_name, type->type);
 	addGCRoot(function);
 	return function;
 }
@@ -860,7 +862,8 @@ wasm_func_t* wasm_func_new_with_env(wasm_compartment_t*,
 									const wasm_functype_t* type,
 									wasm_func_callback_with_env_t,
 									void* env,
-									void (*finalizer)(void*))
+									void (*finalizer)(void*),
+									const char* debug_name)
 {
 	Errors::fatal("wasm_func_new_with_env is not yet supported");
 }
@@ -911,9 +914,10 @@ IMPLEMENT_REF(global, Global)
 
 wasm_global_t* wasm_global_new(wasm_compartment_t* compartment,
 							   const wasm_globaltype_t* type,
-							   const wasm_val_t* value)
+							   const wasm_val_t* value,
+							   const char* debug_name)
 {
-	Global* global = createGlobal(compartment, type->type, "wasm_global_new");
+	Global* global = createGlobal(compartment, type->type, std::string(debug_name));
 	addGCRoot(global);
 	initializeGlobal(global, asValue(type->type.valueType, value));
 	return global;
@@ -936,9 +940,10 @@ IMPLEMENT_SHAREABLE_REF(table, Table)
 
 wasm_table_t* wasm_table_new(wasm_compartment_t* compartment,
 							 const wasm_tabletype_t* type,
-							 wasm_ref_t* init)
+							 wasm_ref_t* init,
+							 const char* debug_name)
 {
-	Table* table = createTable(compartment, type->type, init, "wasm_table_new");
+	Table* table = createTable(compartment, type->type, init, std::string(debug_name));
 	addGCRoot(table);
 	return table;
 }
@@ -973,7 +978,7 @@ bool wasm_table_grow(wasm_table_t* table,
 					 wasm_table_size_t* out_previous_size)
 {
 	Uptr oldNumElements = 0;
-	if(!growTable(table, delta, &oldNumElements, init)) { return false; }
+	if(growTable(table, delta, &oldNumElements, init) != GrowResult::success) { return false; }
 	else
 	{
 		WAVM_ERROR_UNLESS(oldNumElements <= WASM_TABLE_SIZE_MAX);
@@ -985,9 +990,11 @@ bool wasm_table_grow(wasm_table_t* table,
 // wasm_memory_t
 IMPLEMENT_SHAREABLE_REF(memory, Memory)
 
-wasm_memory_t* wasm_memory_new(wasm_compartment_t* compartment, const wasm_memorytype_t* type)
+wasm_memory_t* wasm_memory_new(wasm_compartment_t* compartment,
+							   const wasm_memorytype_t* type,
+							   const char* debug_name)
 {
-	Memory* memory = createMemory(compartment, type->type, "wasm_memory_new");
+	Memory* memory = createMemory(compartment, type->type, std::string(debug_name));
 	addGCRoot(memory);
 	return memory;
 }
@@ -1070,7 +1077,8 @@ IMPLEMENT_EXTERN_SUBTYPE(memory, Memory)
 wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 								   const wasm_module_t* module,
 								   const wasm_extern_t* const imports[],
-								   wasm_trap_t** out_trap)
+								   wasm_trap_t** out_trap,
+								   const char* debug_name)
 {
 	const IR::Module& irModule = getModuleIR(module->module);
 
@@ -1082,11 +1090,11 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 
 	Instance* instance = nullptr;
 	catchRuntimeExceptions(
-		[store, module, &importBindings, &instance]() {
+		[store, module, &importBindings, &instance, debug_name]() {
 			instance = instantiateModule(getCompartment(store),
 										 module->module,
 										 std::move(importBindings),
-										 "wasm_instance_new");
+										 std::string(debug_name));
 
 			addGCRoot(instance);
 

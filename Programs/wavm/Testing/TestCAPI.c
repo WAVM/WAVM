@@ -18,8 +18,8 @@ int execCAPITest(int argc, char** argv)
 {
 	// Initialize.
 	wasm_engine_t* engine = wasm_engine_new();
-	wasm_compartment_t* compartment = wasm_compartment_new(engine);
-	wasm_store_t* store = wasm_store_new(compartment);
+	wasm_compartment_t* compartment = wasm_compartment_new(engine, "compartment");
+	wasm_store_t* store = wasm_store_new(compartment, "store");
 
 	// Load binary.
 	char hello_wasm[]
@@ -35,14 +35,15 @@ int execCAPITest(int argc, char** argv)
 
 	// Create external print functions.
 	own wasm_functype_t* hello_type = wasm_functype_new_0_0();
-	own wasm_func_t* hello_func = wasm_func_new(compartment, hello_type, hello_callback);
+	own wasm_func_t* hello_func
+		= wasm_func_new(compartment, hello_type, hello_callback, "hello_callback");
 
 	wasm_functype_delete(hello_type);
 
 	// Instantiate.
 	const wasm_extern_t* imports[1];
 	imports[0] = wasm_func_as_extern(hello_func);
-	own wasm_instance_t* instance = wasm_instance_new(store, module, imports, NULL);
+	own wasm_instance_t* instance = wasm_instance_new(store, module, imports, NULL, "instance");
 	if(!instance) { return 1; }
 
 	wasm_func_delete(hello_func);
