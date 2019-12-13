@@ -168,7 +168,7 @@ class FloatingPointSimpleOp(FloatingPointOp):
             if '-0x0p+0' in [p1, p2] and '0x0p+0' in [p1, p2]:
                 return '-0x0p+0'
             if hex_form:
-                result = min(f1, f2)
+                return min(f1, f2).hex()
             else:
                 return p1 if f1 <= f2 else p2
 
@@ -176,14 +176,12 @@ class FloatingPointSimpleOp(FloatingPointOp):
             if '-0x0p+0' in [p1, p2] and '0x0p+0' in [p1, p2]:
                 return '0x0p+0'
             if hex_form:
-                result = max(f1, f2)
+                return max(f1, f2).hex()
             else:
                 return p1 if f1 > f2 else p2
 
         else:
             raise Exception('Unknown binary operation: {}'.format(op))
-
-        return result.hex()
 
     def unary_op(self, op: str, p1: str, hex_form=True) -> str:
         """Unnary operation on p1 with the operation specified by op
