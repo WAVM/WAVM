@@ -39,7 +39,8 @@ using namespace WAVM::Runtime;
 		object->userData = userData;                                                               \
 		object->finalizeUserData = finalizer;                                                      \
 	}                                                                                              \
-	void* Runtime::getUserData(const Runtime::Type* object) { return object->userData; }
+	void* Runtime::getUserData(const Runtime::Type* object) { return object->userData; }           \
+	const std::string& Runtime::getDebugName(const Type* object) { return object->debugName; }
 
 DEFINE_GCOBJECT_TYPE(ObjectKind::table, Table, Table);
 DEFINE_GCOBJECT_TYPE(ObjectKind::memory, Memory, Memory);
@@ -59,6 +60,10 @@ void Runtime::setUserData(Runtime::Function* function, void* userData, void (*fi
 void* Runtime::getUserData(const Runtime::Function* function)
 {
 	return function->mutableData->userData;
+}
+const std::string& Runtime::getDebugName(const Runtime::Function* function)
+{
+	return function->mutableData->debugName;
 }
 
 void Runtime::setUserData(Runtime::Object* object, void* userData, void (*finalizer)(void*))
@@ -80,6 +85,16 @@ void* Runtime::getUserData(const Runtime::Object* object)
 	{
 		auto gcObject = (GCObject*)object;
 		return gcObject->userData;
+	}
+}
+
+const std::string& Runtime::getDebugName(const Runtime::Object* object)
+{
+	if(object->kind == ObjectKind::function) { return getDebugName(asFunction(object)); }
+	else
+	{
+		auto gcObject = (GCObject*)object;
+		return gcObject->debugName;
 	}
 }
 

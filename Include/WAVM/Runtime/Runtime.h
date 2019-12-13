@@ -43,7 +43,9 @@ namespace WAVM {
 	template<> inline const Runtime::Type* as<const Type>(const Object* object)                    \
 	{                                                                                              \
 		return as##kindName(object);                                                               \
-	}
+	}                                                                                              \
+                                                                                                   \
+	WAVM_API const std::string& getDebugName(const Type*);
 
 namespace WAVM { namespace Runtime {
 
@@ -56,6 +58,8 @@ namespace WAVM { namespace Runtime {
 
 	WAVM_API void setUserData(Object* object, void* userData, void (*finalizer)(void*) = nullptr);
 	WAVM_API void* getUserData(const Object* object);
+
+	WAVM_API const std::string& getDebugName(const Object*);
 
 	inline Object* asObject(Object* object) { return object; }
 	inline const Object* asObject(const Object* object) { return object; }
