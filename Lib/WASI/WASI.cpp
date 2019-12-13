@@ -221,23 +221,29 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 
 	if(fileSystem)
 	{
-		VFS::VFD* rootFD = nullptr;
-		const VFS::Result openResult = fileSystem->open(
-			"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD);
-		if(openResult != VFS::Result::success)
+		// Map the root directory as both / and ., which allows files to be opened from it using
+		// either "/file" or just "file".
+		const char* preopenedRootAliases[2] = {"/", "."};
+		for(Uptr aliasIndex = 0; aliasIndex < 2; ++aliasIndex)
 		{
-			Errors::fatalf("Error opening WASI root directory: %s",
-						   VFS::describeResult(openResult));
-		}
+			VFS::VFD* rootFD = nullptr;
+			VFS::Result openResult = fileSystem->open(
+				"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD);
+			if(openResult != VFS::Result::success)
+			{
+				Errors::fatalf("Error opening WASI root directory: %s",
+							   VFS::describeResult(openResult));
+			}
 
-		process->fdMap.insertOrFail(
-			3,
-			std::make_shared<FDE>(rootFD,
-								  DIRECTORY_RIGHTS,
-								  INHERITING_DIRECTORY_RIGHTS,
-								  "/",
-								  true,
-								  __wasi_preopentype_t(__WASI_PREOPENTYPE_DIR)));
+			process->fdMap.insertOrFail(
+				3 + __wasi_fd_t(aliasIndex),
+				std::make_shared<FDE>(rootFD,
+									  DIRECTORY_RIGHTS,
+									  INHERITING_DIRECTORY_RIGHTS,
+									  preopenedRootAliases[aliasIndex],
+									  true,
+									  __wasi_preopentype_t(__WASI_PREOPENTYPE_DIR)));
+		}
 	}
 
 	process->processClockOrigin = Platform::getClockTime(Platform::Clock::processCPUTime);
