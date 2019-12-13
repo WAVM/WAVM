@@ -132,7 +132,8 @@ WASM_C_API own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 
 WASM_DECLARE_OWN(compartment)
 
-WASM_C_API own wasm_compartment_t* wasm_compartment_new(wasm_engine_t* engine);
+WASM_C_API own wasm_compartment_t* wasm_compartment_new(wasm_engine_t* engine,
+														const char* debug_name);
 WASM_C_API own wasm_compartment_t* wasm_compartment_clone(const wasm_compartment_t*);
 
 WASM_C_API bool wasm_compartment_contains(const wasm_compartment_t*, const wasm_ref_t*);
@@ -141,7 +142,7 @@ WASM_C_API bool wasm_compartment_contains(const wasm_compartment_t*, const wasm_
 
 WASM_DECLARE_OWN(store)
 
-WASM_C_API own wasm_store_t* wasm_store_new(wasm_compartment_t*);
+WASM_C_API own wasm_store_t* wasm_store_new(wasm_compartment_t*, const char* debug_name);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Type Representations
@@ -347,7 +348,9 @@ WASM_C_API void wasm_val_copy(wasm_valkind_t kind, own wasm_val_t* out, const wa
 		wasm_##name##_t*, void*, void (*)(void*));                                                 \
                                                                                                    \
 	WASM_C_API own wasm_##name##_t* wasm_##name##_remap_to_cloned_compartment(                     \
-		const wasm_##name##_t*, const wasm_compartment_t*);
+		const wasm_##name##_t*, const wasm_compartment_t*);                                        \
+                                                                                                   \
+	WASM_C_API const char* wasm_##name##_name(const wasm_##name##_t*);
 
 #define WASM_DECLARE_REF(name)                                                                     \
 	WASM_DECLARE_REF_BASE(name)                                                                    \
@@ -395,7 +398,7 @@ WASM_C_API void wasm_trap_stack_frame(const wasm_trap_t*,
 
 WASM_DECLARE_SHAREABLE_REF(foreign)
 
-WASM_C_API own wasm_foreign_t* wasm_foreign_new(wasm_compartment_t*);
+WASM_C_API own wasm_foreign_t* wasm_foreign_new(wasm_compartment_t*, const char* debug_name);
 
 // Modules
 
@@ -431,12 +434,14 @@ typedef own wasm_trap_t* (*wasm_func_callback_with_env_t)(void* env,
 
 WASM_C_API own wasm_func_t* wasm_func_new(wasm_compartment_t*,
 										  const wasm_functype_t*,
-										  wasm_func_callback_t);
+										  wasm_func_callback_t,
+										  const char* debug_name);
 WASM_C_API own wasm_func_t* wasm_func_new_with_env(wasm_compartment_t*,
 												   const wasm_functype_t* type,
 												   wasm_func_callback_with_env_t,
 												   void* env,
-												   void (*finalizer)(void*));
+												   void (*finalizer)(void*),
+												   const char* debug_name);
 
 WASM_C_API own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 WASM_C_API size_t wasm_func_param_arity(const wasm_func_t*);
@@ -453,7 +458,8 @@ WASM_DECLARE_REF(global)
 
 WASM_C_API own wasm_global_t* wasm_global_new(wasm_compartment_t*,
 											  const wasm_globaltype_t*,
-											  const wasm_val_t*);
+											  const wasm_val_t*,
+											  const char* debug_name);
 
 WASM_C_API own wasm_globaltype_t* wasm_global_type(const wasm_global_t*);
 
@@ -470,7 +476,8 @@ static const wasm_table_size_t WASM_TABLE_SIZE_MAX = UINT32_MAX;
 
 WASM_C_API own wasm_table_t* wasm_table_new(wasm_compartment_t*,
 											const wasm_tabletype_t*,
-											wasm_ref_t* init);
+											wasm_ref_t* init,
+											const char* debug_name);
 
 WASM_C_API own wasm_tabletype_t* wasm_table_type(const wasm_table_t*);
 
@@ -493,7 +500,9 @@ static const wasm_memory_pages_t WASM_MEMORY_PAGES_MAX = UINT32_MAX;
 
 static const size_t MEMORY_PAGE_SIZE = 0x10000;
 
-WASM_C_API own wasm_memory_t* wasm_memory_new(wasm_compartment_t*, const wasm_memorytype_t*);
+WASM_C_API own wasm_memory_t* wasm_memory_new(wasm_compartment_t*,
+											  const wasm_memorytype_t*,
+											  const char* debug_name);
 
 WASM_C_API own wasm_memorytype_t* wasm_memory_type(const wasm_memory_t*);
 
@@ -539,7 +548,8 @@ WASM_DECLARE_REF(instance)
 WASM_C_API own wasm_instance_t* wasm_instance_new(wasm_store_t*,
 												  const wasm_module_t*,
 												  const wasm_extern_t* const imports[],
-												  own wasm_trap_t**);
+												  own wasm_trap_t**,
+												  const char* debug_name);
 
 WASM_C_API size_t wasm_instance_num_exports(const wasm_instance_t*);
 WASM_C_API wasm_extern_t* wasm_instance_export(const wasm_instance_t*, size_t index);
