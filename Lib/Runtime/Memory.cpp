@@ -58,7 +58,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	}
 
 	// Grow the memory to the type's minimum size.
-	if(!growMemory(memory, numPages))
+	if(growMemory(memory, numPages) != GrowResult::success)
 	{
 		delete memory;
 		return nullptr;
@@ -189,7 +189,7 @@ Uptr Runtime::getMemoryNumPages(const Memory* memory)
 }
 IR::MemoryType Runtime::getMemoryType(const Memory* memory) { return memory->type; }
 
-bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPages)
+GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPages)
 {
 	Uptr oldNumPages;
 	if(numPagesToGrow == 0) { oldNumPages = memory->numPages.load(std::memory_order_seq_cst); }
@@ -197,36 +197,36 @@ bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPag
 	{
 		// Check the memory page quota.
 		if(memory->resourceQuota && !memory->resourceQuota->memoryPages.allocate(numPagesToGrow))
-		{ return false; }
+		{ return GrowResult::outOfQuota; }
 
 		Platform::RWMutex::ExclusiveLock resizingLock(memory->resizingMutex);
 		oldNumPages = memory->numPages.load(std::memory_order_acquire);
 
 		// If the number of pages to grow would cause the memory's size to exceed its maximum,
-		// return -1.
+		// return GrowResult::outOfMaxSize.
 		if(numPagesToGrow > memory->type.size.max
 		   || oldNumPages > memory->type.size.max - numPagesToGrow
 		   || numPagesToGrow > IR::maxMemoryPages
 		   || oldNumPages > IR::maxMemoryPages - numPagesToGrow)
 		{
 			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
-			return false;
+			return GrowResult::outOfMaxSize;
 		}
 
-		// Try to commit the new pages, and return -1 if the commit fails.
+		// Try to commit the new pages, and return GrowResult::outOfMemory if the commit fails.
 		if(!Platform::commitVirtualPages(
 			   memory->baseAddress + oldNumPages * IR::numBytesPerPage,
 			   numPagesToGrow << getPlatformPagesPerWebAssemblyPageLog2()))
 		{
 			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
-			return false;
+			return GrowResult::outOfMemory;
 		}
 
 		memory->numPages.store(oldNumPages + numPagesToGrow, std::memory_order_release);
 	}
 
 	if(outOldNumPages) { *outOldNumPages = oldNumPages; }
-	return true;
+	return GrowResult::success;
 }
 
 void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
@@ -326,7 +326,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	Uptr oldNumPages = 0;
-	if(!growMemory(memory, (Uptr)deltaPages, &oldNumPages)) { return -1; }
+	if(growMemory(memory, (Uptr)deltaPages, &oldNumPages) != GrowResult::success) { return -1; }
 	WAVM_ASSERT(oldNumPages <= IR::maxMemoryPages);
 	WAVM_ASSERT(oldNumPages <= INT32_MAX);
 	return I32(oldNumPages);

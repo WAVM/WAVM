@@ -1014,7 +1014,7 @@ bool wasm_memory_grow(wasm_memory_t* memory,
 					  wasm_memory_pages_t* out_previous_size)
 {
 	Uptr oldNumPages = 0;
-	if(!growMemory(memory, delta, &oldNumPages)) { return false; }
+	if(growMemory(memory, delta, &oldNumPages) != GrowResult::success) { return false; }
 	else
 	{
 		WAVM_ERROR_UNLESS(oldNumPages <= WASM_MEMORY_PAGES_MAX);

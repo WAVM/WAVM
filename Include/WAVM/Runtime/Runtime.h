@@ -73,6 +73,15 @@ namespace WAVM { namespace Runtime {
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::foreign, Foreign, Foreign);
 
+	// The result of growing a table or memory.
+	enum class GrowResult
+	{
+		success,
+		outOfMemory,
+		outOfQuota,
+		outOfMaxSize
+	};
+
 	//
 	// Garbage collection
 	//
@@ -331,10 +340,10 @@ namespace WAVM { namespace Runtime {
 	WAVM_API IR::TableType getTableType(const Table* table);
 
 	// Grows or shrinks the size of a table by numElements. Returns the previous size of the table.
-	WAVM_API bool growTable(Table* table,
-							Uptr numElements,
-							Uptr* outOldNumElems = nullptr,
-							Object* initialElement = nullptr);
+	WAVM_API GrowResult growTable(Table* table,
+								  Uptr numElements,
+								  Uptr* outOldNumElems = nullptr,
+								  Object* initialElement = nullptr);
 
 	//
 	// Memories
@@ -356,7 +365,7 @@ namespace WAVM { namespace Runtime {
 	WAVM_API IR::MemoryType getMemoryType(const Memory* memory);
 
 	// Grows or shrinks the size of a memory by numPages. Returns the previous size of the memory.
-	WAVM_API bool growMemory(Memory* memory, Uptr numPages, Uptr* outOldNumPages = nullptr);
+	WAVM_API GrowResult growMemory(Memory* memory, Uptr numPages, Uptr* outOldNumPages = nullptr);
 
 	// Unmaps a range of memory pages within the memory's address-space.
 	WAVM_API void unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages);

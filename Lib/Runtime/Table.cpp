@@ -94,11 +94,11 @@ static Table* createTableImpl(Compartment* compartment,
 	return table;
 }
 
-static bool growTableImpl(Table* table,
-						  Uptr numElementsToGrow,
-						  Uptr* outOldNumElements,
-						  bool initializeNewElements,
-						  Runtime::Object* initializeToElement = getUninitializedElement())
+static GrowResult growTableImpl(Table* table,
+								Uptr numElementsToGrow,
+								Uptr* outOldNumElements,
+								bool initializeNewElements,
+								Runtime::Object* initializeToElement = getUninitializedElement())
 {
 	Uptr oldNumElements;
 	if(!numElementsToGrow) { oldNumElements = table->numElements.load(std::memory_order_acquire); }
@@ -106,23 +106,25 @@ static bool growTableImpl(Table* table,
 	{
 		// Check the table element quota.
 		if(table->resourceQuota && !table->resourceQuota->tableElems.allocate(numElementsToGrow))
-		{ return false; }
+		{ return GrowResult::outOfQuota; }
 
 		Platform::RWMutex::ExclusiveLock resizingLock(table->resizingMutex);
 
 		oldNumElements = table->numElements.load(std::memory_order_acquire);
 
-		// If the growth would cause the table's size to exceed its maximum, return -1.
+		// If the growth would cause the table's size to exceed its maximum, return
+		// GrowResult::outOfMaxSize.
 		if(numElementsToGrow > table->type.size.max
 		   || oldNumElements > table->type.size.max - numElementsToGrow
 		   || numElementsToGrow > IR::maxTableElems
 		   || oldNumElements > IR::maxTableElems - numElementsToGrow)
 		{
 			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
-			return false;
+			return GrowResult::outOfMaxSize;
 		}
 
-		// Try to commit pages for the new elements, and return -1 if the commit fails.
+		// Try to commit pages for the new elements, and return GrowResult::outOfMemory if the
+		// commit fails.
 		const Uptr newNumElements = oldNumElements + numElementsToGrow;
 		const Uptr previousNumPlatformPages
 			= getNumPlatformPages(oldNumElements * sizeof(Table::Element));
@@ -134,7 +136,7 @@ static bool growTableImpl(Table* table,
 			   newNumPlatformPages - previousNumPlatformPages))
 		{
 			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
-			return false;
+			return GrowResult::outOfMemory;
 		}
 
 		if(initializeNewElements)
@@ -153,7 +155,7 @@ static bool growTableImpl(Table* table,
 	}
 
 	if(outOldNumElements) { *outOldNumElements = oldNumElements; }
-	return true;
+	return GrowResult::success;
 }
 
 Table* Runtime::createTable(Compartment* compartment,
@@ -174,7 +176,7 @@ Table* Runtime::createTable(Compartment* compartment,
 	}
 
 	// Grow the table to the type's minimum size.
-	if(!growTableImpl(table, Uptr(type.size.min), nullptr, true, element))
+	if(growTableImpl(table, Uptr(type.size.min), nullptr, true, element) != GrowResult::success)
 	{
 		delete table;
 		return nullptr;
@@ -209,7 +211,7 @@ Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 
 	// Grow the table to the same size as the original, without initializing the new elements since
 	// they will be written immediately following this.
-	if(!growTableImpl(newTable, numElements, nullptr, false))
+	if(growTableImpl(newTable, numElements, nullptr, false) != GrowResult::success)
 	{
 		delete newTable;
 		return nullptr;
@@ -388,10 +390,10 @@ Uptr Runtime::getTableNumElements(const Table* table)
 
 IR::TableType Runtime::getTableType(const Table* table) { return table->type; }
 
-bool Runtime::growTable(Table* table,
-						Uptr numElementsToGrow,
-						Uptr* outOldNumElements,
-						Object* initialElement)
+GrowResult Runtime::growTable(Table* table,
+							  Uptr numElementsToGrow,
+							  Uptr* outOldNumElements,
+							  Object* initialElement)
 {
 	return growTableImpl(table, numElementsToGrow, outOldNumElements, true, initialElement);
 }
@@ -480,10 +482,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	Uptr oldNumElements = 0;
-	if(!growTable(table,
-				  deltaNumElements,
-				  &oldNumElements,
-				  initialValue ? initialValue : getUninitializedElement()))
+	if(growTable(table,
+				 deltaNumElements,
+				 &oldNumElements,
+				 initialValue ? initialValue : getUninitializedElement())
+	   != GrowResult::success)
 	{ return -1; }
 	WAVM_ASSERT(oldNumElements <= INT32_MAX);
 	return I32(oldNumElements);
