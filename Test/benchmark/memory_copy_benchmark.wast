@@ -8,6 +8,54 @@
     (local.get $numBytes)
     memory.copy
   )
+  
+  (func (export "memory.copy8")
+    (param $dest i32) (param $source i32)
+    (local.get $dest)
+    (local.get $source)
+    (i32.const 8)
+    memory.copy
+  )
+
+  (func (export "memory.copy16")
+    (param $dest i32) (param $source i32)
+    (local.get $dest)
+    (local.get $source)
+    (i32.const 16)
+    memory.copy
+  )
+  
+  (func (export "memory.copy32")
+    (param $dest i32) (param $source i32)
+    (local.get $dest)
+    (local.get $source)
+    (i32.const 32)
+    memory.copy
+  )
+  
+  (func (export "memory.copy64")
+    (param $dest i32) (param $source i32)
+    (local.get $dest)
+    (local.get $source)
+    (i32.const 64)
+    memory.copy
+  )
+  
+  (func (export "memory.copy128")
+    (param $dest i32) (param $source i32)
+    (local.get $dest)
+    (local.get $source)
+    (i32.const 128)
+    memory.copy
+  )
+  
+  (func (export "memory.copy256")
+    (param $dest i32) (param $source i32)
+    (local.get $dest)
+    (local.get $source)
+    (i32.const 256)
+    memory.copy
+  )
 
   (func (export "i64 copy loop")
     (param $dest i32) (param $source i32) (param $numBytes i32)
@@ -103,6 +151,20 @@
 (benchmark "memory.copy (reverse, 512KB)" (invoke "memory.copy" (i32.const 8) (i32.const 0) (i32.const 524288)))
 (benchmark "memory.copy (reverse, 1MB)" (invoke "memory.copy" (i32.const 8) (i32.const 0) (i32.const 1048576)))
 (benchmark "memory.copy (reverse, 2MB)" (invoke "memory.copy" (i32.const 8) (i32.const 0) (i32.const 2097152)))
+
+(benchmark "memory.copy constant size (forward, 8B)" (invoke "memory.copy8" (i32.const 0) (i32.const 8)))
+(benchmark "memory.copy constant size (forward, 16B)" (invoke "memory.copy16" (i32.const 0) (i32.const 8)))
+(benchmark "memory.copy constant size (forward, 32B)" (invoke "memory.copy32" (i32.const 0) (i32.const 8)))
+(benchmark "memory.copy constant size (forward, 64B)" (invoke "memory.copy64" (i32.const 0) (i32.const 8)))
+(benchmark "memory.copy constant size (forward, 128B)" (invoke "memory.copy128" (i32.const 0) (i32.const 8)))
+(benchmark "memory.copy constant size (forward, 256B)" (invoke "memory.copy256" (i32.const 0) (i32.const 8)))
+
+(benchmark "memory.copy constant size (reverse, 8B)" (invoke "memory.copy8" (i32.const 8) (i32.const 0)))
+(benchmark "memory.copy constant size (reverse, 16B)" (invoke "memory.copy16" (i32.const 8) (i32.const 0)))
+(benchmark "memory.copy constant size (reverse, 32B)" (invoke "memory.copy32" (i32.const 8) (i32.const 0)))
+(benchmark "memory.copy constant size (reverse, 64B)" (invoke "memory.copy64" (i32.const 8) (i32.const 0)))
+(benchmark "memory.copy constant size (reverse, 128B)" (invoke "memory.copy128" (i32.const 8) (i32.const 0)))
+(benchmark "memory.copy constant size (reverse, 256B)" (invoke "memory.copy256" (i32.const 8) (i32.const 0)))
 
 (benchmark "i64 copy loop (forward, 8B)" (invoke "i64 copy loop" (i32.const 0) (i32.const 8) (i32.const 8)))
 (benchmark "i64 copy loop (forward, 16B)" (invoke "i64 copy loop" (i32.const 0) (i32.const 8) (i32.const 16)))
