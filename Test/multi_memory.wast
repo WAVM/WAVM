@@ -314,17 +314,18 @@
 ;; Fill all of memory
 (invoke "a.fill" (i32.const 0) (i32.const 0) (i32.const 0x10000))
 
-;; Out-of-bounds writes trap, but all previous writes succeed.
+;; Out-of-bounds fills trap before executing any writes.
 (assert_trap (invoke "a.fill" (i32.const 0xff00) (i32.const 1) (i32.const 0x101))
     "out of bounds memory access")
-(assert_return (invoke "a.load8_u" (i32.const 0xff00)) (i32.const 1))
-(assert_return (invoke "a.load8_u" (i32.const 0xffff)) (i32.const 1))
+(assert_return (invoke "a.load8_u" (i32.const 0xff00)) (i32.const 0))
+(assert_return (invoke "a.load8_u" (i32.const 0xffff)) (i32.const 0))
 
 ;; Succeed when writing 0 bytes at the end of the region.
 (invoke "a.fill" (i32.const 0x10000) (i32.const 0) (i32.const 0))
 
-;; OK to write 0 bytes outside of memory.
-(invoke "a.fill" (i32.const 0x10001) (i32.const 0) (i32.const 0))
+;; Out-of-bounds zero-byte fills trap.
+(assert_trap (invoke "a.fill" (i32.const 0x10001) (i32.const 0) (i32.const 0))
+    "out of bounds memory access")
 
 ;; Basic fill test.
 (invoke "b.fill" (i32.const 1) (i32.const 0xff) (i32.const 3))
@@ -342,17 +343,18 @@
 ;; Fill all of memory
 (invoke "b.fill" (i32.const 0) (i32.const 0) (i32.const 0x10000))
 
-;; Out-of-bounds writes trap, but all previous writes succeed.
+;; Out-of-bounds fills trap before executing any writes.
 (assert_trap (invoke "b.fill" (i32.const 0xff00) (i32.const 1) (i32.const 0x101))
     "out of bounds memory access")
-(assert_return (invoke "b.load8_u" (i32.const 0xff00)) (i32.const 1))
-(assert_return (invoke "b.load8_u" (i32.const 0xffff)) (i32.const 1))
+(assert_return (invoke "b.load8_u" (i32.const 0xff00)) (i32.const 0))
+(assert_return (invoke "b.load8_u" (i32.const 0xffff)) (i32.const 0))
 
 ;; Succeed when writing 0 bytes at the end of the region.
 (invoke "b.fill" (i32.const 0x10000) (i32.const 0) (i32.const 0))
 
-;; OK to write 0 bytes outside of memory.
-(invoke "b.fill" (i32.const 0x10001) (i32.const 0) (i32.const 0))
+;; Out-of-bounds zero-byte fills trap.
+(assert_trap (invoke "b.fill" (i32.const 0x10001) (i32.const 0) (i32.const 0))
+    "out of bounds memory access")
 
 
 ;; memory.copy

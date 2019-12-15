@@ -390,45 +390,6 @@
   "zero flag expected"
 )
 
-;; memory.grow reserved byte equal to zero.
-(assert_malformed
-  (module binary
-    "\00asm" "\01\00\00\00"
-    "\01\04\01\60\00\00"       ;; Type section
-    "\03\02\01\00"             ;; Function section
-    "\05\03\01\00\00"          ;; Memory section
-    "\0a\09\01"                ;; Code section
-
-    ;; function 0
-    "\07\00"
-    "\41\00"                   ;; i32.const 0
-    "\40"                      ;; memory.grow
-    "\01"                      ;; memory.grow reserved byte is not equal to zero!
-    "\1a"                      ;; drop
-    "\0b"                      ;; end
-  )
-  "zero flag expected"
-)
-
-;; memory.size reserved byte equal to zero.
-(assert_malformed
-  (module binary
-    "\00asm" "\01\00\00\00"
-    "\01\04\01\60\00\00"       ;; Type section
-    "\03\02\01\00"             ;; Function section
-    "\05\03\01\00\00"          ;; Memory section
-    "\0a\07\01"                ;; Code section
-
-    ;; function 0
-    "\05\00"
-    "\3f"                      ;; memory.size
-    "\01"                      ;; memory.size reserved byte is not equal to zero!
-    "\1a"                      ;; drop
-    "\0b"                      ;; end
-  )
-  "zero flag expected"
-)
-
 ;; No more than 2^32 locals.
 (assert_malformed
   (module binary
@@ -897,7 +858,7 @@
     "\0a\04\01"                             ;; code section
     "\02\00\0b"                             ;; function body
   )
-  "unexpected end"
+  "invalid segment kind"
 )
 
 ;; 1 elem segment declared, 2 given
@@ -1038,7 +999,7 @@
     "\02"                                   ;; break depth for default
     "\0b\0b\0b"                             ;; end
   )
-  "unexpected end"
+  "invalid reference type"
 )
 
 ;; Start section
