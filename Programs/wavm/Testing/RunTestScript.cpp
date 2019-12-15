@@ -19,6 +19,7 @@
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
@@ -45,10 +46,12 @@ struct Config
 	bool strictAssertMalformed{false};
 	bool testCloning{false};
 	bool traceTests{false};
+	bool traceAssembly{false};
 };
 
 struct TestScriptState
 {
+	const char* scriptFilename;
 	const Config& config;
 
 	bool hasInstantiatedModule;
@@ -61,8 +64,9 @@ struct TestScriptState
 
 	std::vector<WAST::Error> errors;
 
-	TestScriptState(const Config& inConfig)
-	: config(inConfig)
+	TestScriptState(const char* inScriptFilename, const Config& inConfig)
+	: scriptFilename(inScriptFilename)
+	, config(inConfig)
 	, hasInstantiatedModule(false)
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
@@ -75,7 +79,9 @@ struct TestScriptState
 	}
 
 	TestScriptState(const TestScriptState& copyee)
-	: config(copyee.config), hasInstantiatedModule(copyee.hasInstantiatedModule)
+	: scriptFilename(copyee.scriptFilename)
+	, config(copyee.config)
+	, hasInstantiatedModule(copyee.hasInstantiatedModule)
 	{
 		compartment = Runtime::cloneCompartment(copyee.compartment);
 		context = Runtime::cloneContext(copyee.context, compartment);
@@ -258,6 +264,16 @@ static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
 	}
 }
 
+static void traceAssembly(const char* moduleName, ModuleConstRefParam compiledModule)
+{
+	const std::vector<U8> objectBytes = getObjectCode(compiledModule);
+	const std::string disassemblyString
+		= LLVMJIT::disassembleObject(LLVMJIT::getHostTargetSpec(), objectBytes);
+
+	Log::printf(
+		Log::output, "%s object code disassembly:\n%s\n", moduleName, disassemblyString.c_str());
+}
+
 static bool processAction(TestScriptState& state, Action* action, std::vector<Value>& outResults)
 {
 	outResults.clear();
@@ -276,11 +292,19 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		LinkResult linkResult = linkModule(*moduleAction->module, resolver);
 		if(linkResult.success)
 		{
+			std::string moduleDebugName
+				= std::string(state.scriptFilename) + ":" + action->locus.describe();
+
+			ModuleRef compiledModule = compileModule(*moduleAction->module);
+
+			if(state.config.traceAssembly)
+			{ traceAssembly(moduleDebugName.c_str(), compiledModule); }
+
 			state.hasInstantiatedModule = true;
 			state.lastInstance = instantiateModule(state.compartment,
-												   compileModule(*moduleAction->module),
+												   compiledModule,
 												   std::move(linkResult.resolvedImports),
-												   "test module");
+												   std::move(moduleDebugName));
 
 			// Call the module start function, if it has one.
 			Function* startFunction = getStartFunction(state.lastInstance);
@@ -1211,7 +1235,7 @@ static I64 threadMain(void* sharedStateVoid)
 		testScriptBytes.push_back(0);
 
 		// Process the test script.
-		TestScriptState testScriptState(sharedState->config);
+		TestScriptState testScriptState(filename, sharedState->config);
 		std::vector<std::unique_ptr<Command>> testCommands;
 
 		// Use a WebAssembly standard-compliant feature spec that includes all proposed extensions.
@@ -1279,7 +1303,9 @@ static void showHelp()
 		"  --test-cloning             Run each test command in the original compartment\n"
 		"                             and a clone of it, and compare the resulting state\n"
 		"  --trace                    Prints instructions to stdout as they are compiled.\n"
-		"  --trace-tests              Prints test commands to stdout as they are executed.\n");
+		"  --trace-tests              Prints test commands to stdout as they are executed.\n"
+		"  --trace-assembly           Prints the machine assembly for modules as they are\n"
+		"                             compiled.\n");
 }
 
 int execRunTestScript(int argc, char** argv)
@@ -1333,6 +1359,10 @@ int execRunTestScript(int argc, char** argv)
 		else if(!strcmp(argv[argIndex], "--trace-tests"))
 		{
 			config.traceTests = true;
+		}
+		else if(!strcmp(argv[argIndex], "--trace-assembly"))
+		{
+			config.traceAssembly = true;
 		}
 		else
 		{
