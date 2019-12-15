@@ -184,7 +184,11 @@ void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 		 emitLiteral(llvmContext, U64(imm.destMemoryIndex))});
 
 	// Use the LLVM memmove instruction to do the copy.
+#if LLVM_VERSION_MAJOR < 7
+	irBuilder.CreateMemMove(destPointer, sourcePointer, numBytesUptr, 1, true);
+#else
 	irBuilder.CreateMemMove(destPointer, 1, sourcePointer, 1, numBytesUptr, true);
+#endif
 }
 
 void EmitFunctionContext::memory_fill(MemoryImm imm)
