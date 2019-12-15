@@ -224,6 +224,23 @@
 	"\01\00"                             ;;   1 byte of data
 )
 
+;; Test using memory.fill to zero memory.
+
+(module
+  (memory 1 1)
+  (data (i32.const 0) "\01\02\03\04")
+  
+  (func (export "load") (param i32) (result i32) (i32.load8_u (local.get 0)))
+
+  (func (export "memory.fill") (param i32)
+    (memory.fill (i32.const 0) (i32.const 0) (local.get 0))))
+(assert_return (invoke "load" (i32.const 0)) (i32.const 1))
+(assert_return (invoke "load" (i32.const 1)) (i32.const 2))
+(invoke "memory.fill" (i32.const 1))
+(assert_return (invoke "load" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "load" (i32.const 1)) (i32.const 2))
+
+
 ;; passive elem segments
 
 (module (elem funcref (ref.func $f)) (func $f))
