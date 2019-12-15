@@ -34,10 +34,11 @@ namespace LLVMRuntimeSymbols {
 	// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 	extern "C" void __chkstk();
 	extern "C" void __CxxFrameHandler3();
-#elif defined(__APPLE__)
+#else
+#if defined(__APPLE__)
 	// LLVM's memset intrinsic lowers to calling __bzero on MacOS when writing a constant zero.
 	extern "C" void __bzero();
-#else
+#endif
 	extern "C" void wavm_probe_stack();
 	extern "C" int __gxx_personality_v0();
 	extern "C" void* __cxa_begin_catch(void*) throw();
@@ -50,9 +51,10 @@ namespace LLVMRuntimeSymbols {
 #ifdef _WIN32
 		{"__chkstk", (void*)&__chkstk},
 		{"__CxxFrameHandler3", (void*)&__CxxFrameHandler3},
-#elif defined(__APPLE__)
-		{"__bzero", (void*)&__bzero},
 #else
+#if defined(__APPLE__)
+		{"__bzero", (void*)&__bzero},
+#endif
 		{"wavm_probe_stack", (void*)&wavm_probe_stack},
 		{"__gxx_personality_v0", (void*)&__gxx_personality_v0},
 		{"__cxa_begin_catch", (void*)&__cxa_begin_catch},
