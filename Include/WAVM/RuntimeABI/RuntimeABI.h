@@ -59,7 +59,7 @@ namespace WAVM { namespace Runtime {
 	static constexpr Uptr maxMutableGlobals
 		= (4096 - maxThunkArgAndReturnBytes - sizeof(Context*)) / sizeof(IR::UntaggedValue);
 	static constexpr Uptr maxMemories = 255;
-	static constexpr Uptr maxTables = 128 * 1024 - maxMemories - 1;
+	static constexpr Uptr maxTables = 128 * 1024 - maxMemories * 2 - 1;
 	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
 	static constexpr Uptr contextRuntimeDataAlignment = 4096;
 
@@ -76,10 +76,16 @@ namespace WAVM { namespace Runtime {
 
 	static_assert(sizeof(ContextRuntimeData) == 4096, "");
 
+	struct MemoryRuntimeData
+	{
+		void* base;
+		std::atomic<Uptr> numPages;
+	};
+
 	struct CompartmentRuntimeData
 	{
 		Compartment* compartment;
-		void* memoryBases[maxMemories];
+		MemoryRuntimeData memories[maxMemories];
 		void* tableBases[maxTables];
 		ContextRuntimeData contexts[1]; // Actually [maxContexts], but at least MSVC doesn't allow
 										// declaring arrays that large.

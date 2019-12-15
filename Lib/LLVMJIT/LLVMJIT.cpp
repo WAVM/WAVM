@@ -41,6 +41,8 @@ namespace LLVMRuntimeSymbols {
 #endif
 
 	static HashMap<std::string, void*> map = {
+		{"memmove", (void*)&memmove},
+		{"memset", (void*)&memset},
 #ifdef _WIN32
 		// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 		{"__chkstk", (void*)&__chkstk},

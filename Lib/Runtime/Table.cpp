@@ -406,25 +406,42 @@ void Runtime::initElemSegment(Instance* instance,
 							  Uptr sourceOffset,
 							  Uptr numElems)
 {
-	Uptr numSourceIndices;
+	Uptr numSourceElems;
 	switch(contents->encoding)
 	{
-	case IR::ElemSegment::Encoding::expr: numSourceIndices = contents->elemExprs.size(); break;
-	case IR::ElemSegment::Encoding::index: numSourceIndices = contents->elemIndices.size(); break;
+	case IR::ElemSegment::Encoding::expr: numSourceElems = contents->elemExprs.size(); break;
+	case IR::ElemSegment::Encoding::index: numSourceElems = contents->elemIndices.size(); break;
 	default: WAVM_UNREACHABLE();
 	};
+
+	if(sourceOffset + numElems > numSourceElems || sourceOffset + numElems < sourceOffset)
+	{
+		throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+					   {instance,
+						U64(elemSegmentIndex),
+						U64(sourceOffset > numSourceElems ? sourceOffset : numSourceElems)});
+	}
+	else
+	{
+		const Uptr numTableElems = getTableNumElements(table);
+		if(destOffset + numElems > numTableElems || destOffset + numElems < destOffset)
+		{
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {table, U64(destOffset > numTableElems ? destOffset : numTableElems)});
+		}
+	}
 
 	for(Uptr index = 0; index < numElems; ++index)
 	{
 		Uptr sourceIndex = sourceOffset + index;
 		const Uptr destIndex = destOffset + index;
 
-		if(sourceIndex >= numSourceIndices || sourceIndex < sourceOffset)
+		if(sourceIndex >= numSourceElems || sourceIndex < sourceOffset)
 		{
 			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
 						   {asObject(instance), U64(elemSegmentIndex), sourceIndex});
 		}
-		sourceIndex = branchlessMin(sourceIndex, numSourceIndices);
+		sourceIndex = branchlessMin(sourceIndex, numSourceElems);
 
 		// Decode the element value.
 		Object* elemObject = nullptr;
@@ -539,7 +556,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 
 	Platform::RWMutex::ShareableLock elemSegmentsLock(instance->elemSegmentsMutex);
 	if(!instance->elemSegments[elemSegmentIndex])
-	{ throwException(ExceptionTypes::invalidArgument); }
+	{
+		if(sourceIndex != 0 || numElems != 0)
+		{
+			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+						   {instance, elemSegmentIndex, sourceIndex});
+		}
+	}
 	else
 	{
 		// Make a copy of the shared_ptr to the segment contents and unlock the elem segments mutex.
@@ -562,12 +585,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
 	Platform::RWMutex::ExclusiveLock elemSegmentsLock(instance->elemSegmentsMutex);
 
-	if(!instance->elemSegments[elemSegmentIndex])
-	{ throwException(ExceptionTypes::invalidArgument); }
-	else
-	{
-		instance->elemSegments[elemSegmentIndex].reset();
-	}
+	if(instance->elemSegments[elemSegmentIndex])
+	{ instance->elemSegments[elemSegmentIndex].reset(); }
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
@@ -583,6 +602,31 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	Runtime::unwindSignalsAsExceptions([=] {
 		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
 		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
+
+		const Uptr destOffsetUptr = Uptr(destOffset);
+		const Uptr sourceOffsetUptr = Uptr(sourceOffset);
+		const Uptr numElementsUptr = Uptr(numElements);
+
+		const Uptr sourceTableNumElements = getTableNumElements(sourceTable);
+		if(sourceOffsetUptr + numElementsUptr > sourceTableNumElements
+		   || sourceOffsetUptr + numElementsUptr < sourceOffsetUptr)
+		{
+			const Uptr outOfBoundsSourceOffset = sourceOffsetUptr > sourceTableNumElements
+													 ? sourceOffsetUptr
+													 : sourceTableNumElements;
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {sourceTable, outOfBoundsSourceOffset});
+		}
+
+		const Uptr destTableNumElements = getTableNumElements(destTable);
+		if(destOffsetUptr + numElementsUptr > destTableNumElements
+		   || destOffsetUptr + numElementsUptr < destOffsetUptr)
+		{
+			const Uptr outOfBoundsDestOffset
+				= destOffsetUptr > destTableNumElements ? destOffsetUptr : destTableNumElements;
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {destTable, outOfBoundsDestOffset});
+		}
 
 		if(sourceOffset < destOffset)
 		{
@@ -619,12 +663,25 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   U32 numElements,
 							   Uptr destTableId)
 {
-	Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
-
 	// If the value is null, write the uninitialized sentinel value instead.
 	if(!value) { value = getUninitializedElement(); }
 
 	Runtime::unwindSignalsAsExceptions([=] {
+		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
+
+		const Uptr destOffsetUptr = Uptr(destOffset);
+		const Uptr numElementsUptr = Uptr(numElements);
+
+		const Uptr destTableNumElements = getTableNumElements(destTable);
+		if(destOffsetUptr + numElementsUptr > destTableNumElements
+		   || destOffsetUptr + numElementsUptr < destOffsetUptr)
+		{
+			const Uptr outOfBoundsDestOffset
+				= destOffsetUptr > destTableNumElements ? destOffsetUptr : destTableNumElements;
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {destTable, outOfBoundsDestOffset});
+		}
+
 		for(Uptr index = 0; index < numElements; ++index)
 		{ setTableElementNonNull(destTable, U64(destOffset) + U64(index), value); }
 	});

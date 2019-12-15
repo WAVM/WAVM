@@ -668,9 +668,10 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// CompartmentRuntimeData to the memory's entry in CompartmentRuntimeData::memoryBases.
 	for(Uptr memoryIndex = 0; memoryIndex < memories.size(); ++memoryIndex)
 	{
-		importedSymbolMap.addOrFail(getExternalName("memoryOffset", memoryIndex),
-									offsetof(Runtime::CompartmentRuntimeData, memoryBases)
-										+ sizeof(void*) * memories[memoryIndex].id);
+		importedSymbolMap.addOrFail(
+			getExternalName("memoryOffset", memoryIndex),
+			offsetof(Runtime::CompartmentRuntimeData, memories)
+				+ sizeof(Runtime::MemoryRuntimeData) * memories[memoryIndex].id);
 	}
 
 	// Bind the globals symbols.

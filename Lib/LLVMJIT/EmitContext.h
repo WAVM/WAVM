@@ -31,9 +31,9 @@ namespace WAVM { namespace LLVMJIT {
 		{
 		}
 
-		llvm::Value* loadFromUntypedPointer(llvm::Value* pointer,
-											llvm::Type* valueType,
-											U32 alignment = 1)
+		llvm::LoadInst* loadFromUntypedPointer(llvm::Value* pointer,
+											   llvm::Type* valueType,
+											   U32 alignment = 1)
 		{
 			auto load = irBuilder.CreateLoad(
 				irBuilder.CreatePointerCast(pointer, valueType->getPointerTo()));
@@ -76,6 +76,23 @@ namespace WAVM { namespace LLVMJIT {
 						sizeof(U8*)),
 					memoryBasePointerVariable);
 			}
+		}
+
+		llvm::Value* getMemoryNumPages(llvm::Value* memoryOffset)
+		{
+			// Load the number of memory pages from the compartment runtime data.
+			llvm::LoadInst* memoryNumPagesLoad = loadFromUntypedPointer(
+				irBuilder.CreateInBoundsGEP(
+					getCompartmentAddress(),
+					{irBuilder.CreateAdd(
+						memoryOffset,
+						emitLiteral(llvmContext,
+									Uptr(offsetof(Runtime::MemoryRuntimeData, numPages))))}),
+				llvmContext.iptrType,
+				alignof(Uptr));
+			memoryNumPagesLoad->setAtomic(llvm::AtomicOrdering::Acquire);
+
+			return memoryNumPagesLoad;
 		}
 
 		void initContextVariables(llvm::Value* initialContextPointer)

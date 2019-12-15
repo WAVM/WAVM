@@ -269,8 +269,8 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::ConstantExpr::getSub(
 				memoryOffset,
 				emitLiteral(llvmContext,
-							Uptr(offsetof(Runtime::CompartmentRuntimeData, memoryBases)))),
-			emitLiteral(llvmContext, Uptr(sizeof(Uptr))));
+							Uptr(offsetof(Runtime::CompartmentRuntimeData, memories)))),
+			emitLiteral(llvmContext, Uptr(sizeof(Runtime::MemoryRuntimeData))));
 	}
 
 	inline llvm::Constant* getTableIdFromOffset(LLVMContext& llvmContext,

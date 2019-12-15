@@ -2,6 +2,7 @@
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
@@ -132,90 +133,6 @@ void EmitFunctionContext::data_drop(DataSegmentImm imm)
 		{moduleContext.instanceId, emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
-static void emitLoop(EmitFunctionContext& functionContext,
-					 llvm::BasicBlock* outgoingBlock,
-					 llvm::Value* beginIndex,
-					 llvm::Value* endIndex,
-					 bool reverse,
-					 std::function<void(llvm::Value*)>&& emitBody)
-{
-	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
-
-	// Create a loop head block.
-	llvm::BasicBlock* incomingBlock = irBuilder.GetInsertBlock();
-	llvm::BasicBlock* loopHeadBlock = llvm::BasicBlock::Create(
-		functionContext.llvmContext, "loopHead", functionContext.function);
-	irBuilder.CreateBr(loopHeadBlock);
-	irBuilder.SetInsertPoint(loopHeadBlock);
-
-	llvm::PHINode* indexPHI = irBuilder.CreatePHI(functionContext.llvmContext.iptrType, 2);
-
-	// Emit the loop condition.
-	llvm::BasicBlock* loopBodyBlock = llvm::BasicBlock::Create(
-		functionContext.llvmContext, "loopBody", functionContext.function);
-	if(reverse)
-	{
-		indexPHI->addIncoming(endIndex, incomingBlock);
-		llvm::Value* indexNotEqualBegin = irBuilder.CreateICmpNE(indexPHI, beginIndex);
-		irBuilder.CreateCondBr(indexNotEqualBegin, loopBodyBlock, outgoingBlock);
-	}
-	else
-	{
-		indexPHI->addIncoming(beginIndex, incomingBlock);
-		llvm::Value* indexLessThanEnd = irBuilder.CreateICmpULT(indexPHI, endIndex);
-		irBuilder.CreateCondBr(indexLessThanEnd, loopBodyBlock, outgoingBlock);
-	}
-
-	irBuilder.SetInsertPoint(loopBodyBlock);
-
-	// For reverse loops, update the index between checking the condition and the loop body.
-	llvm::Value* index = indexPHI;
-	if(reverse)
-	{
-		index = irBuilder.CreateSub(
-			indexPHI, llvm::ConstantInt::get(functionContext.llvmContext.iptrType, 1));
-		indexPHI->addIncoming(index, loopBodyBlock);
-	}
-
-	// Emit the loop body.
-	emitBody(index);
-
-	// For forward loops, update the index between the loop body and branching back to the loop head
-	// block where the condition is checked.
-	if(!reverse)
-	{
-		llvm::Value* indexPlusOne = irBuilder.CreateAdd(
-			indexPHI, llvm::ConstantInt::get(functionContext.llvmContext.iptrType, 1));
-		indexPHI->addIncoming(indexPlusOne, loopBodyBlock);
-	}
-	irBuilder.CreateBr(loopHeadBlock);
-}
-
-static void emitMemoryCopyLoop(EmitFunctionContext& functionContext,
-							   llvm::BasicBlock* outgoingBlock,
-							   llvm::Value* sourcePointer,
-							   llvm::Value* destPointer,
-							   llvm::Value* numBytesUptr,
-							   bool reverse)
-{
-	emitLoop(functionContext,
-			 outgoingBlock,
-			 llvm::ConstantInt::getNullValue(functionContext.llvmContext.iptrType),
-			 numBytesUptr,
-			 reverse,
-			 [&functionContext, sourcePointer, destPointer](llvm::Value* index) {
-				 llvm::LoadInst* load = functionContext.irBuilder.CreateLoad(
-					 functionContext.irBuilder.CreateInBoundsGEP(sourcePointer, {index}));
-				 load->setAlignment(1);
-				 load->setVolatile(true);
-
-				 llvm::StoreInst* store = functionContext.irBuilder.CreateStore(
-					 load, functionContext.irBuilder.CreateInBoundsGEP(destPointer, {index}));
-				 store->setAlignment(1);
-				 store->setVolatile(true);
-			 });
-}
-
 void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 {
 	llvm::Value* numBytes = pop();
@@ -232,52 +149,42 @@ void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 
 	llvm::Value* numBytesUptr = irBuilder.CreateZExt(numBytes, llvmContext.iptrType);
 
-	// Branch to a forward or reverse basic block depending on the order of the addresses
-	// (disregarding that they may be addressing to different memory objects).
-	llvm::BasicBlock* reverseBlock
-		= llvm::BasicBlock::Create(llvmContext, "memoryCopyReverse", function);
-	llvm::BasicBlock* forwardBlock
-		= llvm::BasicBlock::Create(llvmContext, "memoryCopyForward", function);
-	llvm::BasicBlock* joinBlock = llvm::BasicBlock::Create(llvmContext, "memoryCopyJoin", function);
-	llvm::Value* sourceAddressIsLessThanDestAddress
-		= irBuilder.CreateICmpULT(sourceBoundedAddress, destBoundedAddress);
-	irBuilder.CreateCondBr(sourceAddressIsLessThanDestAddress, reverseBlock, forwardBlock);
-	irBuilder.SetInsertPoint(reverseBlock);
+	// If the copy is outside the bounds of the source memory, trap.
+	llvm::Value* sourceMemoryNumPages
+		= getMemoryNumPages(moduleContext.memoryOffsets[imm.sourceMemoryIndex]);
+	llvm::Value* sourceMemoryNumBytes = irBuilder.CreateMul(
+		sourceMemoryNumPages, emitLiteral(llvmContext, Uptr(IR::numBytesPerPage)));
+	emitConditionalTrapIntrinsic(
+		irBuilder.CreateICmpUGT(irBuilder.CreateAdd(sourceBoundedAddress, numBytesUptr),
+								sourceMemoryNumBytes),
+		"memoryOutOfBoundsTrap",
+		FunctionType(TypeTuple{},
+					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64, ValueType::i64},
+					 IR::CallingConvention::intrinsic),
+		{sourceAddress,
+		 numBytes,
+		 sourceMemoryNumPages,
+		 emitLiteral(llvmContext, U64(imm.sourceMemoryIndex))});
 
-	// Emit the reverse case: a simple byte-wise copy loop.
-	// (on x86 this is faster than the "std; rep movsb; cld" variant of the forward case.
-	emitMemoryCopyLoop(*this, joinBlock, sourcePointer, destPointer, numBytesUptr, true);
+	// If the copy is outside the bounds of the dest memory, trap.
+	llvm::Value* destMemoryNumPages
+		= getMemoryNumPages(moduleContext.memoryOffsets[imm.destMemoryIndex]);
+	llvm::Value* destMemoryNumBytes = irBuilder.CreateMul(
+		destMemoryNumPages, emitLiteral(llvmContext, Uptr(IR::numBytesPerPage)));
+	emitConditionalTrapIntrinsic(
+		irBuilder.CreateICmpUGT(irBuilder.CreateAdd(destBoundedAddress, numBytesUptr),
+								destMemoryNumBytes),
+		"memoryOutOfBoundsTrap",
+		FunctionType(TypeTuple{},
+					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64, ValueType::i64},
+					 IR::CallingConvention::intrinsic),
+		{destAddress,
+		 numBytes,
+		 destMemoryNumPages,
+		 emitLiteral(llvmContext, U64(imm.destMemoryIndex))});
 
-	// Emit the forward case.
-	forwardBlock->moveAfter(irBuilder.GetInsertBlock());
-	irBuilder.SetInsertPoint(forwardBlock);
-
-	if(moduleContext.targetArch == llvm::Triple::x86
-	   || moduleContext.targetArch == llvm::Triple::x86_64)
-	{
-		// On x86, use "rep movsb" to do forward copies.
-		llvm::FunctionType* inlineAssemblySig = llvm::FunctionType::get(
-			llvm::StructType::get(
-				llvmContext, {llvmContext.i8PtrType, llvmContext.i8PtrType, llvmContext.iptrType}),
-			{llvmContext.i8PtrType, llvmContext.i8PtrType, llvmContext.iptrType},
-			false);
-		llvm::InlineAsm* forwardInlineAssembly
-			= llvm::InlineAsm::get(inlineAssemblySig,
-								   "rep movsb",
-								   "={di},={si},={cx},0,1,2,~{memory},~{dirflag},~{fpsr},~{flags}",
-								   true,
-								   false);
-		irBuilder.CreateCall(forwardInlineAssembly, {destPointer, sourcePointer, numBytesUptr});
-		irBuilder.CreateBr(joinBlock);
-	}
-	else
-	{
-		// Otherwise, emit a simple byte-wise copy loop.
-		emitMemoryCopyLoop(*this, joinBlock, sourcePointer, destPointer, numBytesUptr, false);
-	}
-
-	joinBlock->moveAfter(irBuilder.GetInsertBlock());
-	irBuilder.SetInsertPoint(joinBlock);
+	// Use the LLVM memmove instruction to do the copy.
+	irBuilder.CreateMemMove(destPointer, 1, sourcePointer, 1, numBytesUptr, true);
 }
 
 void EmitFunctionContext::memory_fill(MemoryImm imm)
@@ -292,48 +199,22 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 
 	llvm::Value* numBytesUptr = irBuilder.CreateZExt(numBytes, llvmContext.iptrType);
 
-	if(moduleContext.targetArch == llvm::Triple::x86
-	   || moduleContext.targetArch == llvm::Triple::x86_64)
-	{
-		// On x86, use "rep stosb".
-		llvm::FunctionType* inlineAssemblySig = llvm::FunctionType::get(
-			llvm::StructType::get(
-				llvmContext, {llvmContext.i8PtrType, llvmContext.i8Type, llvmContext.iptrType}),
-			{llvmContext.i8PtrType, llvmContext.i8Type, llvmContext.iptrType},
-			false);
-		llvm::InlineAsm* inlineAssembly
-			= llvm::InlineAsm::get(inlineAssemblySig,
-								   "rep stosb",
-								   "={di},={al},={cx},0,1,2,~{memory},~{dirflag},~{fpsr},~{flags}",
-								   true,
-								   false);
+	// If the fill is outside the bounds of the memory, trap.
+	llvm::Value* memoryNumPages = getMemoryNumPages(moduleContext.memoryOffsets[imm.memoryIndex]);
+	llvm::Value* memoryNumBytes
+		= irBuilder.CreateMul(memoryNumPages, emitLiteral(llvmContext, Uptr(IR::numBytesPerPage)));
+	emitConditionalTrapIntrinsic(
+		irBuilder.CreateICmpUGT(irBuilder.CreateAdd(destBoundedAddress, numBytesUptr),
+								memoryNumBytes),
+		"memoryOutOfBoundsTrap",
+		FunctionType(TypeTuple{},
+					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64, ValueType::i64},
+					 IR::CallingConvention::intrinsic),
+		{destAddress, numBytes, memoryNumPages, emitLiteral(llvmContext, U64(imm.memoryIndex))});
 
-		irBuilder.CreateCall(
-			inlineAssembly,
-			{destPointer, irBuilder.CreateTrunc(value, llvmContext.i8Type), numBytesUptr});
-	}
-	else
-	{
-		// On non-x86 architectures, just emit a simple byte-wise memory fill loop.
-		llvm::Value* valueI8 = irBuilder.CreateTrunc(value, llvmContext.i8Type);
-
-		llvm::BasicBlock* endBlock
-			= llvm::BasicBlock::Create(llvmContext, "memoryFillEnd", function);
-		emitLoop(*this,
-				 endBlock,
-				 llvm::ConstantInt::getNullValue(llvmContext.iptrType),
-				 numBytesUptr,
-				 false,
-				 [&](llvm::Value* index) {
-					 llvm::StoreInst* store = irBuilder.CreateStore(
-						 valueI8, irBuilder.CreateInBoundsGEP(destPointer, {index}));
-					 store->setAlignment(1);
-					 store->setVolatile(true);
-				 });
-
-		endBlock->moveAfter(irBuilder.GetInsertBlock());
-		irBuilder.SetInsertPoint(endBlock);
-	}
+	// Use the LLVM memset instruction to do the fill.
+	irBuilder.CreateMemSet(
+		destPointer, irBuilder.CreateTrunc(value, llvmContext.i8Type), numBytesUptr, 1, true);
 }
 
 //

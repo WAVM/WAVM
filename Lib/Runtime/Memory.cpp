@@ -93,7 +93,9 @@ Memory* Runtime::createMemory(Compartment* compartment,
 			delete memory;
 			return nullptr;
 		}
-		compartment->runtimeData->memoryBases[memory->id] = memory->baseAddress;
+		compartment->runtimeData->memories[memory->id].base = memory->baseAddress;
+		compartment->runtimeData->memories[memory->id].numPages.store(
+			memory->numPages.load(std::memory_order_acquire), std::memory_order_release);
 	}
 
 	return memory;
@@ -120,7 +122,9 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 
 		newMemory->id = memory->id;
 		newCompartment->memories.insertOrFail(newMemory->id, newMemory);
-		newCompartment->runtimeData->memoryBases[newMemory->id] = newMemory->baseAddress;
+		newCompartment->runtimeData->memories[newMemory->id].base = newMemory->baseAddress;
+		newCompartment->runtimeData->memories[newMemory->id].numPages.store(
+			newMemory->numPages, std::memory_order_release);
 	}
 
 	return newMemory;
@@ -135,8 +139,9 @@ Runtime::Memory::~Memory()
 		WAVM_ASSERT(compartment->memories[id] == this);
 		compartment->memories.removeOrFail(id);
 
-		WAVM_ASSERT(compartment->runtimeData->memoryBases[id] == baseAddress);
-		compartment->runtimeData->memoryBases[id] = nullptr;
+		WAVM_ASSERT(compartment->runtimeData->memories[id].base == baseAddress);
+		compartment->runtimeData->memories[id].base = nullptr;
+		compartment->runtimeData->memories[id].numPages.store(0, std::memory_order_release);
 	}
 
 	// Remove the memory from the global array.
@@ -222,7 +227,13 @@ GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOld
 			return GrowResult::outOfMemory;
 		}
 
-		memory->numPages.store(oldNumPages + numPagesToGrow, std::memory_order_release);
+		const Uptr newNumPages = oldNumPages + numPagesToGrow;
+		memory->numPages.store(newNumPages, std::memory_order_release);
+		if(memory->id != UINTPTR_MAX)
+		{
+			memory->compartment->runtimeData->memories[memory->id].numPages.store(
+				newNumPages, std::memory_order_release);
+		}
 	}
 
 	if(outOldNumPages) { *outOldNumPages = oldNumPages; }
@@ -290,30 +301,20 @@ void Runtime::initDataSegment(Instance* instance,
 							  Uptr sourceOffset,
 							  Uptr numBytes)
 {
-	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-	if(numBytes)
+	U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
+	if(sourceOffset + numBytes > dataVector->size() || sourceOffset + numBytes < sourceOffset)
 	{
-		if(sourceOffset + numBytes > dataVector->size() || sourceOffset + numBytes < sourceOffset)
-		{
-			// If the source range is outside the bounds of the data segment, copy the part
-			// that is in range, then trap.
-			if(sourceOffset < dataVector->size())
-			{
-				Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, dataVector] {
-					bytewiseMemCopy(destPointer,
-									dataVector->data() + sourceOffset,
-									dataVector->size() - sourceOffset);
-				});
-			}
-			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
-						   {asObject(instance), U64(dataSegmentIndex), U64(dataVector->size())});
-		}
-		else
-		{
-			Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, numBytes, dataVector] {
-				bytewiseMemCopy(destPointer, dataVector->data() + sourceOffset, numBytes);
-			});
-		}
+		throwException(
+			ExceptionTypes::outOfBoundsDataSegmentAccess,
+			{asObject(instance),
+			 U64(dataSegmentIndex),
+			 U64(sourceOffset > dataVector->size() ? sourceOffset : dataVector->size())});
+	}
+	else
+	{
+		Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, numBytes, dataVector] {
+			bytewiseMemCopy(destPointer, dataVector->data() + sourceOffset, numBytes);
+		});
 	}
 }
 
@@ -356,7 +357,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 
 	Platform::RWMutex::ShareableLock dataSegmentsLock(instance->dataSegmentsMutex);
 	if(!instance->dataSegments[dataSegmentIndex])
-	{ throwException(ExceptionTypes::invalidArgument); }
+	{
+		if(sourceOffset != 0 || numBytes != 0)
+		{
+			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
+						   {instance, dataSegmentIndex, sourceOffset});
+		}
+	}
 	else
 	{
 		// Make a copy of the shared_ptr to the data and unlock the data segments mutex.
@@ -383,10 +390,26 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
 	Platform::RWMutex::ExclusiveLock dataSegmentsLock(instance->dataSegmentsMutex);
 
-	if(!instance->dataSegments[dataSegmentIndex])
-	{ throwException(ExceptionTypes::invalidArgument); }
-	else
-	{
-		instance->dataSegments[dataSegmentIndex].reset();
-	}
+	if(instance->dataSegments[dataSegmentIndex])
+	{ instance->dataSegments[dataSegmentIndex].reset(); }
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "memoryOutOfBoundsTrap",
+							   void,
+							   outOfBoundsMemoryFillTrap,
+							   U32 address,
+							   U32 numBytes,
+							   U64 memoryNumPages,
+							   U64 memoryId)
+{
+	Compartment* compartment = getCompartmentFromContextRuntimeData(contextRuntimeData);
+	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
+	Memory* memory = compartment->memories[memoryId];
+	compartmentLock.unlock();
+
+	const U64 memoryNumBytes = memoryNumPages * IR::numBytesPerPage;
+	const U64 outOfBoundsAddress = U64(address) > memoryNumBytes ? U64(address) : memoryNumBytes;
+
+	throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, outOfBoundsAddress});
 }
