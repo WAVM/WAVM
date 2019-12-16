@@ -46,6 +46,7 @@ struct Config
 	bool strictAssertMalformed{false};
 	bool testCloning{false};
 	bool traceTests{false};
+	bool traceLLVMIR{false};
 	bool traceAssembly{false};
 };
 
@@ -264,6 +265,13 @@ static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
 	}
 }
 
+static void traceLLVMIR(const char* moduleName, const IR::Module& irModule)
+{
+	std::string llvmIR = LLVMJIT::emitLLVMIR(irModule, LLVMJIT::getHostTargetSpec(), true);
+
+	Log::printf(Log::output, "%s LLVM IR:\n%s\n", moduleName, llvmIR.c_str());
+}
+
 static void traceAssembly(const char* moduleName, ModuleConstRefParam compiledModule)
 {
 	const std::vector<U8> objectBytes = getObjectCode(compiledModule);
@@ -294,6 +302,9 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		{
 			std::string moduleDebugName
 				= std::string(state.scriptFilename) + ":" + action->locus.describe();
+
+			if(state.config.traceLLVMIR)
+			{ traceLLVMIR(moduleDebugName.c_str(), *moduleAction->module); }
 
 			ModuleRef compiledModule = compileModule(*moduleAction->module);
 
@@ -1304,6 +1315,7 @@ static void showHelp()
 		"                             and a clone of it, and compare the resulting state\n"
 		"  --trace                    Prints instructions to stdout as they are compiled.\n"
 		"  --trace-tests              Prints test commands to stdout as they are executed.\n"
+		"  --trace-llvmir             Prints the LLVM IR for modules as they are compiled.\n"
 		"  --trace-assembly           Prints the machine assembly for modules as they are\n"
 		"                             compiled.\n");
 }
@@ -1359,6 +1371,10 @@ int execRunTestScript(int argc, char** argv)
 		else if(!strcmp(argv[argIndex], "--trace-tests"))
 		{
 			config.traceTests = true;
+		}
+		else if(!strcmp(argv[argIndex], "--trace-llvmir"))
+		{
+			config.traceLLVMIR = true;
 		}
 		else if(!strcmp(argv[argIndex], "--trace-assembly"))
 		{
