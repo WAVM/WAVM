@@ -1159,6 +1159,154 @@
   (i32.const 0x0000aaaa)
 )
 
+;; i8x16 min/max
+
+(module
+  (func (export "i8x16.min_s") (param v128 v128) (result v128) (i8x16.min_s (local.get 0) (local.get 1)))
+  (func (export "i8x16.min_u") (param v128 v128) (result v128) (i8x16.min_u (local.get 0) (local.get 1)))
+  (func (export "i8x16.max_s") (param v128 v128) (result v128) (i8x16.max_s (local.get 0) (local.get 1)))
+  (func (export "i8x16.max_u") (param v128 v128) (result v128) (i8x16.max_u (local.get 0) (local.get 1)))
+)
+
+(assert_return
+  (invoke "i8x16.min_s"
+    (v128.const i8x16 -8 -7 -6 -5 -4 -3 -2 -1 +0 +1 +2 +3 +4 +5 +6 +7)
+    (v128.const i8x16 +7 +6 +5 +4 +3 +2 +1 +0 -1 -2 -3 -4 -5 -6 -7 -8))
+  (v128.const i8x16   -8 -7 -6 -5 -4 -3 -2 -1 -1 -2 -3 -4 -5 -6 -7 -8)
+)
+
+(assert_return
+  (invoke "i8x16.min_u"
+    (v128.const i8x16  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15)
+    (v128.const i8x16 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0))
+  (v128.const i8x16    0  1  2  3  4  5  6  7  7  6  5  4  3  2  1  0)
+)
+
+(assert_return
+  (invoke "i8x16.max_s"
+    (v128.const i8x16 -8 -7 -6 -5 -4 -3 -2 -1 +0 +1 +2 +3 +4 +5 +6 +7)
+    (v128.const i8x16 +7 +6 +5 +4 +3 +2 +1 +0 -1 -2 -3 -4 -5 -6 -7 -8))
+  (v128.const i8x16   +7 +6 +5 +4 +3 +2 +1 +0 +0 +1 +2 +3 +4 +5 +6 +7)
+)
+
+(assert_return
+  (invoke "i8x16.max_u"
+    (v128.const i8x16  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15)
+    (v128.const i8x16 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0))
+  (v128.const i8x16   15 14 13 12 11 10  9  8  8  9 10 11 12 13 14 15)
+)
+
+;; i16x8 min/max
+
+(module
+  (func (export "i16x8.min_s") (param v128 v128) (result v128) (i16x8.min_s (local.get 0) (local.get 1)))
+  (func (export "i16x8.min_u") (param v128 v128) (result v128) (i16x8.min_u (local.get 0) (local.get 1)))
+  (func (export "i16x8.max_s") (param v128 v128) (result v128) (i16x8.max_s (local.get 0) (local.get 1)))
+  (func (export "i16x8.max_u") (param v128 v128) (result v128) (i16x8.max_u (local.get 0) (local.get 1)))
+)
+
+(assert_return
+  (invoke "i16x8.min_s"
+    (v128.const i16x8 -4 -3 -2 -1 +0 +1 +2 +3)
+    (v128.const i16x8 +3 +2 +1 +0 -1 -2 -3 -4))
+  (v128.const i16x8   -4 -3 -2 -1 -1 -2 -3 -4)
+)
+
+(assert_return
+  (invoke "i16x8.min_u"
+    (v128.const i16x8 0 1 2 3 4 5 6 7)
+    (v128.const i16x8 7 6 5 4 3 2 1 0))
+  (v128.const i16x8   0 1 2 3 3 2 1 0)
+)
+
+(assert_return
+  (invoke "i16x8.max_s"
+    (v128.const i16x8 -4 -3 -2 -1 +0 +1 +2 +3)
+    (v128.const i16x8 +3 +2 +1 +0 -1 -2 -3 -4))
+  (v128.const i16x8   +3 +2 +1 +0 +0 +1 +2 +3)
+)
+
+(assert_return
+  (invoke "i16x8.max_u"
+    (v128.const i16x8 0 1 2 3 4 5 6 7)
+    (v128.const i16x8 7 6 5 4 3 2 1 0))
+  (v128.const i16x8   7 6 5 4 4 5 6 7)
+)
+
+;; i32x4 min/max
+
+(module
+  (func (export "i32x4.min_s") (param v128 v128) (result v128) (i32x4.min_s (local.get 0) (local.get 1)))
+  (func (export "i32x4.min_u") (param v128 v128) (result v128) (i32x4.min_u (local.get 0) (local.get 1)))
+  (func (export "i32x4.max_s") (param v128 v128) (result v128) (i32x4.max_s (local.get 0) (local.get 1)))
+  (func (export "i32x4.max_u") (param v128 v128) (result v128) (i32x4.max_u (local.get 0) (local.get 1)))
+)
+
+(assert_return
+  (invoke "i32x4.min_s"
+    (v128.const i32x4 -2 -1 +0 +1)
+    (v128.const i32x4 +1 +0 -1 -2))
+  (v128.const i32x4   -2 -1 -1 -2)
+)
+
+(assert_return
+  (invoke "i32x4.min_u"
+    (v128.const i32x4 0 1 2 3)
+    (v128.const i32x4 3 2 1 0))
+  (v128.const i32x4   0 1 1 0)
+)
+
+(assert_return
+  (invoke "i32x4.max_s"
+    (v128.const i32x4 -2 -1 +0 +1)
+    (v128.const i32x4 +1 +0 -1 -2))
+  (v128.const i32x4   +1 +0 +0 +1)
+)
+
+(assert_return
+  (invoke "i32x4.max_u"
+    (v128.const i32x4 0 1 2 3)
+    (v128.const i32x4 3 2 1 0))
+  (v128.const i32x4   3 2 2 3)
+)
+
+;; i64x2 min/max
+
+(module
+  (func (export "i64x2.min_s") (param v128 v128) (result v128) (i64x2.min_s (local.get 0) (local.get 1)))
+  (func (export "i64x2.min_u") (param v128 v128) (result v128) (i64x2.min_u (local.get 0) (local.get 1)))
+  (func (export "i64x2.max_s") (param v128 v128) (result v128) (i64x2.max_s (local.get 0) (local.get 1)))
+  (func (export "i64x2.max_u") (param v128 v128) (result v128) (i64x2.max_u (local.get 0) (local.get 1)))
+)
+
+(assert_return
+  (invoke "i64x2.min_s"
+    (v128.const i64x2 -1 +0)
+    (v128.const i64x2 +0 -1))
+  (v128.const i64x2   -1 -1)
+)
+
+(assert_return
+  (invoke "i64x2.min_u"
+    (v128.const i64x2 0 1)
+    (v128.const i64x2 1 0))
+  (v128.const i64x2   0 0)
+)
+
+(assert_return
+  (invoke "i64x2.max_s"
+    (v128.const i64x2 -1 +0)
+    (v128.const i64x2 +0 -1))
+  (v128.const i64x2   +0 +0)
+)
+
+(assert_return
+  (invoke "i64x2.max_u"
+    (v128.const i64x2 0 1)
+    (v128.const i64x2 1 0))
+  (v128.const i64x2   1 1)
+)
+
 ;; Test for LLVM bug found by fuzzing: https://bugs.llvm.org/show_bug.cgi?id=43750
 
 (module 

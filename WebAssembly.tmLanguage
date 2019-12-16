@@ -296,6 +296,22 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])i8x16\.sub_saturate_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i16x8\.sub_saturate_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i16x8\.sub_saturate_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i8x16\.min_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i16x8\.min_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.min_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.min_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i8x16\.min_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i16x8\.min_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.min_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.min_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i8x16\.max_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i16x8\.max_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.max_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.max_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i8x16\.max_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i16x8\.max_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.max_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.max_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i8x16\.shl(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i16x8\.shl(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.shl(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>

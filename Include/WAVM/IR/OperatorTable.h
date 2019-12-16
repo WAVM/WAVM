@@ -355,10 +355,10 @@
 	visitOp(0xfd5b, i8x16_sub_saturate_s      , "i8x16.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd5c, i8x16_sub_saturate_u      , "i8x16.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 /*	visitOp(0xfd5d, i8x16_mul                 , "i8x16.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/  \
-/*	visitOp(0xfd5e,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd5f,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd60,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd61,                           ,                             ,                           ,                           , simd                   )*/ \
+	visitOp(0xfd5e, i8x16_min_s               , "i8x16.min_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd5f, i8x16_min_u               , "i8x16.min_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd60, i8x16_max_s               , "i8x16.max_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd61, i8x16_max_u               , "i8x16.max_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd62, i16x8_neg                 , "i16x8.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd63, i16x8_any_true            , "i16x8.any_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd64, i16x8_all_true            , "i16x8.all_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -372,10 +372,10 @@
 	visitOp(0xfd6c, i16x8_sub_saturate_s      , "i16x8.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd6d, i16x8_sub_saturate_u      , "i16x8.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd6e, i16x8_mul                 , "i16x8.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/*	visitOp(0xfd6f,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd70,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd71,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd72,                           ,                             ,                           ,                           , simd                   )*/ \
+	visitOp(0xfd6f, i16x8_min_s               , "i16x8.min_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd70, i16x8_min_u               , "i16x8.min_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd71, i16x8_max_s               , "i16x8.max_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd72, i16x8_max_u               , "i16x8.max_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd73, i32x4_neg                 , "i32x4.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd74, i32x4_any_true            , "i32x4.any_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd75, i32x4_all_true            , "i32x4.all_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -389,10 +389,10 @@
 /*	visitOp(0xfd7d, i32x4_sub_saturate_s      , "i32x4.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd7e, i32x4_sub_saturate_u      , "i32x4.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 	visitOp(0xfd7f, i32x4_mul                 , "i32x4.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/*	visitOp(0xfd80,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd81,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd82,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd83,                           ,                             ,                           ,                           , simd                   )*/ \
+	visitOp(0xfd80, i32x4_min_s               , "i32x4.min_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd81, i32x4_min_u               , "i32x4.min_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd82, i32x4_max_s               , "i32x4.max_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd83, i32x4_max_u               , "i32x4.max_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd84, i64x2_neg                 , "i64x2.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd85, i64x2_any_true            , "i64x2.any_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd86, i64x2_all_true            , "i64x2.all_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -406,10 +406,10 @@
 /*	visitOp(0xfd8e, i64x2_sub_saturate_s      , "i64x2.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd8f, i64x2_sub_saturate_u      , "i64x2.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 	visitOp(0xfd90, i64x2_mul                 , "i64x2.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   ) \
-/*	visitOp(0xfd91,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd92,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd93,                           ,                             ,                           ,                           , simd                   )*/ \
-/*	visitOp(0xfd94,                           ,                             ,                           ,                           , simd                   )*/ \
+	visitOp(0xfd91, i64x2_min_s               , "i64x2.min_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd92, i64x2_min_u               , "i64x2.min_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd93, i64x2_max_s               , "i64x2.max_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd94, i64x2_max_u               , "i64x2.max_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 /* v128 floating-point arithmetic                                                                                                                        */ \
 	visitOp(0xfd95, f32x4_abs                 , "f32x4.abs"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd96, f32x4_neg                 , "f32x4.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
@@ -473,32 +473,32 @@
 /* v128 andnot instruction - should be renumbered to be with the other logical instructions                                                                   */ \
 	visitOp(0xfdd8, v128_andnot               , "v128.andnot"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 /* v128 interleaved load/store instructions                                                                                                                   */ \
-	visitOp(0xfdd9, v8x16_load_interleaved_2  , "v8x16.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfdda, v8x16_load_interleaved_3  , "v8x16.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfddb, v8x16_load_interleaved_4  , "v8x16.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfddc, v16x8_load_interleaved_2  , "v16x8.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfddd, v16x8_load_interleaved_3  , "v16x8.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfdde, v16x8_load_interleaved_4  , "v16x8.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfddf, v32x4_load_interleaved_2  , "v32x4.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde0, v32x4_load_interleaved_3  , "v32x4.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde1, v32x4_load_interleaved_4  , "v32x4.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde2, v64x2_load_interleaved_2  , "v64x2.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde3, v64x2_load_interleaved_3  , "v64x2.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde4, v64x2_load_interleaved_4  , "v64x2.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde5, v8x16_store_interleaved_2 , "v8x16.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfde6, v8x16_store_interleaved_3 , "v8x16.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfde7, v8x16_store_interleaved_4 , "v8x16.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfde8, v16x8_store_interleaved_2 , "v16x8.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfde9, v16x8_store_interleaved_3 , "v16x8.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdea, v16x8_store_interleaved_4 , "v16x8.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdeb, v32x4_store_interleaved_2 , "v32x4.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdec, v32x4_store_interleaved_3 , "v32x4.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfded, v32x4_store_interleaved_4 , "v32x4.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdee, v64x2_store_interleaved_2 , "v64x2.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdef, v64x2_store_interleaved_3 , "v64x2.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf0, v64x2_store_interleaved_4 , "v64x2.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfde0, v8x16_load_interleaved_2  , "v8x16.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde1, v8x16_load_interleaved_3  , "v8x16.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde2, v8x16_load_interleaved_4  , "v8x16.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde3, v16x8_load_interleaved_2  , "v16x8.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde4, v16x8_load_interleaved_3  , "v16x8.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde5, v16x8_load_interleaved_4  , "v16x8.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde6, v32x4_load_interleaved_2  , "v32x4.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde7, v32x4_load_interleaved_3  , "v32x4.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde8, v32x4_load_interleaved_4  , "v32x4.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde9, v64x2_load_interleaved_2  , "v64x2.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdea, v64x2_load_interleaved_3  , "v64x2.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdeb, v64x2_load_interleaved_4  , "v64x2.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdec, v8x16_store_interleaved_2 , "v8x16.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfded, v8x16_store_interleaved_3 , "v8x16.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdee, v8x16_store_interleaved_4 , "v8x16.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdef, v16x8_store_interleaved_2 , "v16x8.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf0, v16x8_store_interleaved_3 , "v16x8.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf1, v16x8_store_interleaved_4 , "v16x8.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf2, v32x4_store_interleaved_2 , "v32x4.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf3, v32x4_store_interleaved_3 , "v32x4.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf4, v32x4_store_interleaved_4 , "v32x4.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf5, v64x2_store_interleaved_2 , "v64x2.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf6, v64x2_store_interleaved_3 , "v64x2.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf7, v64x2_store_interleaved_4 , "v64x2.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
 /* v128 ltz_mask                                                                                                                                              */ \
-	visitOp(0xfdf1, i8x16_ltz_mask            , "i8x16.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
+	visitOp(0xfdf8, i8x16_ltz_mask            , "i8x16.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
 /* Atomic wait/wake                                                                                                                                           */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
