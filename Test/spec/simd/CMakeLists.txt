@@ -22,6 +22,9 @@ ADD_WAST_TESTS(
             simd_bitwise.wast
             simd_i8x16_sat_arith.wast
             simd_i16x8_sat_arith.wast
+            simd_i8x16.wast
+            simd_i16x8.wast
+            simd_i32x4.wast
             simd_f32x4.wast
             simd_f64x2.wast
             simd_conversions.wast
