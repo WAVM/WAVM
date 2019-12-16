@@ -854,3 +854,22 @@ void EmitFunctionContext::v128_bitselect(IR::NoImm)
 	auto trueValue = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
 	push(emitBitSelect(mask, trueValue, falseValue));
 }
+
+#define EMIT_SIMD_AVGR_OP(type, doubleWidthType)                                                   \
+	void EmitFunctionContext::type##_avgr_u(IR::NoImm)                                             \
+	{                                                                                              \
+		auto right = irBuilder.CreateBitCast(pop(), llvmContext.type##Type);                       \
+		auto left = irBuilder.CreateBitCast(pop(), llvmContext.type##Type);                        \
+		auto rightZExt = irBuilder.CreateZExt(right, llvmContext.doubleWidthType##Type);           \
+		auto leftZExt = irBuilder.CreateZExt(left, llvmContext.doubleWidthType##Type);             \
+		auto oneZExt = llvm::ConstantVector::getSplat(                                             \
+			llvmContext.type##Type->getVectorNumElements(),                                        \
+			llvm::ConstantInt::get(llvmContext.doubleWidthType##Type->getVectorElementType(), 1)); \
+		push(irBuilder.CreateTrunc(                                                                \
+			irBuilder.CreateLShr(                                                                  \
+				irBuilder.CreateAdd(irBuilder.CreateAdd(leftZExt, rightZExt), oneZExt), oneZExt),  \
+			llvmContext.type##Type));                                                              \
+	}
+
+EMIT_SIMD_AVGR_OP(i8x16, i16x16)
+EMIT_SIMD_AVGR_OP(i16x8, i32x8)

@@ -1307,6 +1307,28 @@
   (v128.const i64x2   1 1)
 )
 
+;; i8x16.avgr_u
+
+(module (func (export "i8x16.avgr_u") (param v128 v128) (result v128) (i8x16.avgr_u (local.get 0) (local.get 1))))
+
+(assert_return
+  (invoke "i8x16.avgr_u"
+    (v128.const i8x16 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215)
+    (v128.const i8x16 216 218 220 222 224 226 228 230 232 234 236 238 240 242 244 246))
+  (v128.const i8x16 208 210 211 213 214 216 217 219 220 222 223 225 226 228 229 231)
+)
+
+;; i16x8.avgr_u
+
+(module (func (export "i16x8.avgr_u") (param v128 v128) (result v128) (i16x8.avgr_u (local.get 0) (local.get 1))))
+
+(assert_return
+  (invoke "i16x8.avgr_u"
+    (v128.const i16x8 40000 40001 40002 40003 40004 40005 40006 40007)
+    (v128.const i16x8 40016 40018 40020 40022 40024 40026 40028 40030))
+  (v128.const i16x8 40008 40010 40011 40013 40014 40016 40017 40019)
+)
+
 ;; Test for LLVM bug found by fuzzing: https://bugs.llvm.org/show_bug.cgi?id=43750
 
 (module 

@@ -472,6 +472,9 @@
 	visitOp(0xfdd7, i64x2_load32x2_u          , "i64x2.load32x2_u"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 /* v128 andnot instruction - should be renumbered to be with the other logical instructions                                                                   */ \
 	visitOp(0xfdd8, v128_andnot               , "v128.andnot"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+/* v128 avgr instructions - should be renumbered to be with the other integer arithmetic instructions                                                         */ \
+	visitOp(0xfdd9, i8x16_avgr_u              , "i8x16.avgr_u"              , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdda, i16x8_avgr_u              , "i16x8.avgr_u"              , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 /* v128 interleaved load/store instructions                                                                                                                   */ \
 	visitOp(0xfde0, v8x16_load_interleaved_2  , "v8x16.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
 	visitOp(0xfde1, v8x16_load_interleaved_3  , "v8x16.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
