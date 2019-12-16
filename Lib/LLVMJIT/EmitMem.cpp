@@ -86,14 +86,8 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 }
 void EmitFunctionContext::memory_size(MemoryImm imm)
 {
-	ValueVector currentNumPages = emitRuntimeIntrinsic(
-		"memory.size",
-		FunctionType(TypeTuple(ValueType::i32),
-					 TypeTuple(inferValueType<Uptr>()),
-					 IR::CallingConvention::intrinsic),
-		{getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
-	WAVM_ASSERT(currentNumPages.size() == 1);
-	push(currentNumPages[0]);
+	push(irBuilder.CreateTrunc(getMemoryNumPages(moduleContext.memoryOffsets[imm.memoryIndex]),
+							   llvmContext.i32Type));
 }
 
 //

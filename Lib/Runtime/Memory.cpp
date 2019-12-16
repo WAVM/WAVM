@@ -333,14 +333,6 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	return I32(oldNumPages);
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory, "memory.size", U32, memory_size, I64 memoryId)
-{
-	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
-	Uptr numMemoryPages = getMemoryNumPages(memory);
-	WAVM_ASSERT(numMemoryPages <= UINT32_MAX);
-	return U32(numMemoryPages);
-}
-
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 							   "memory.init",
 							   void,

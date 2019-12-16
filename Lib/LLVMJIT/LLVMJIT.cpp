@@ -227,5 +227,5 @@ TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
 
 Version LLVMJIT::getVersion()
 {
-	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 1};
+	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 2};
 }
