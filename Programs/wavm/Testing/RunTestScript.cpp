@@ -680,6 +680,7 @@ static ResultSet asResultSet(const Value& value, ResultSet::Type expectedType)
 		case ValueType::nullref:
 			resultSet.type = ResultSet::Type::nullref;
 			resultSet.object = nullptr;
+			break;
 
 		case ValueType::none:
 		case ValueType::any:
