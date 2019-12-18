@@ -142,8 +142,7 @@ LLVMContext::LLVMContext()
 	i32x16Type = llvm::VectorType::get(i32Type, 16);
 	i64x8Type = llvm::VectorType::get(i64Type, 8);
 
-	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any]
-		= valueTypes[(Uptr)ValueType::nullref] = nullptr;
+	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any] = nullptr;
 	valueTypes[(Uptr)ValueType::i32] = i32Type;
 	valueTypes[(Uptr)ValueType::i64] = i64Type;
 	valueTypes[(Uptr)ValueType::f32] = f32Type;
@@ -151,6 +150,7 @@ LLVMContext::LLVMContext()
 	valueTypes[(Uptr)ValueType::v128] = i64x2Type;
 	valueTypes[(Uptr)ValueType::anyref] = anyrefType;
 	valueTypes[(Uptr)ValueType::funcref] = anyrefType;
+	valueTypes[(Uptr)ValueType::nullref] = anyrefType;
 
 	// Create zero constants of each type.
 	typedZeroConstants[(Uptr)ValueType::none] = nullptr;

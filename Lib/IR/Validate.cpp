@@ -48,11 +48,11 @@ static void validate(const IR::Module& module, IR::ValueType valueType)
 	case ValueType::f64: WAVM_ASSERT(module.featureSpec.mvp); break;
 	case ValueType::v128: VALIDATE_FEATURE("v128 value type", simd) break;
 	case ValueType::anyref:
-	case ValueType::funcref: VALIDATE_FEATURE(asString(valueType), referenceTypes) break;
+	case ValueType::funcref:
+	case ValueType::nullref: VALIDATE_FEATURE(asString(valueType), referenceTypes) break;
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default:
 		throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")");
 	};
@@ -70,9 +70,9 @@ static void validate(const IR::Module& module, ReferenceType type)
 	switch(type)
 	{
 	case ReferenceType::funcref: break;
-	case ReferenceType::anyref: VALIDATE_FEATURE(asString(type), referenceTypes); break;
+	case ReferenceType::anyref:
+	case ReferenceType::nullref: VALIDATE_FEATURE(asString(type), referenceTypes); break;
 
-	case ReferenceType::nullref:
 	case ReferenceType::none:
 	default:
 		throw ValidationException("invalid reference type (" + std::to_string((Uptr)type) + ")");

@@ -66,6 +66,7 @@ namespace WAVM { namespace IR {
 		case -5: return ValueType::v128;
 		case -16: return ValueType::funcref;
 		case -17: return ValueType::anyref;
+		case -18: return ValueType::nullref;
 		default: throw FatalSerializationException("invalid value type encoding");
 		};
 	}
@@ -80,10 +81,10 @@ namespace WAVM { namespace IR {
 		case ValueType::v128: return -5;
 		case ValueType::funcref: return -16;
 		case ValueType::anyref: return -17;
+		case ValueType::nullref: return -18;
 
 		case ValueType::none:
 		case ValueType::any:
-		case ValueType::nullref:
 		default: throw FatalSerializationException("invalid value type");
 		};
 	}
