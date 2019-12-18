@@ -144,6 +144,7 @@ namespace WAVM { namespace IR {
 			{
 			case 0x70: referenceType = ReferenceType::funcref; break;
 			case 0x6F: referenceType = ReferenceType::anyref; break;
+			case 0x6E: referenceType = ReferenceType::nullref; break;
 			default: throw FatalSerializationException("invalid reference type encoding");
 			}
 		}
@@ -154,8 +155,8 @@ namespace WAVM { namespace IR {
 			{
 			case ReferenceType::funcref: encodedReferenceType = 0x70; break;
 			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
+			case ReferenceType::nullref: encodedReferenceType = 0x6E; break;
 
-			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
 			}
