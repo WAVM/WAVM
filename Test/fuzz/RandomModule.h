@@ -1243,6 +1243,8 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 							random.get(module.exceptionTypes.size() - 1));
 					}
 					break;
+
+				case ExternKind::invalid:
 				default: WAVM_UNREACHABLE();
 				};
 			}
