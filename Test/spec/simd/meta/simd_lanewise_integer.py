@@ -165,6 +165,7 @@ class SimdLaneWiseInteger:
                                                 cnt=cnt)
                 cnt += 1
 
+        for op in self.BINARY_OPS:
             for param_1, param_2 in self.get_test_data_with_const:
                 funcs += func_with_param_and_const.format(lane_type=self.LANE_TYPE,
                                                           op=op,

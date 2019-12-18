@@ -19,45 +19,47 @@ class IntegerSimpleOp:
         :lane_width: bit number of each lane in SIMD v128
         :return:
         """
-        inputs = {}
+        if '0x' in p1:
+            base1 = 16
+        else:
+            base1 = 10
+        v1 = int(p1, base1)
 
         if '0x' in p2:
-            i2 = int(p2, 0)
-            inputs[i2] = p2
+            base2 = 16
         else:
-            i2 = int(p2)
-            inputs[i2] = p2
-
-        if '0x' in p1:
-            i1 = int(p1, 0)
-            inputs[i1] = p1
-        else:
-            i1 = int(p1)
-            inputs[i1] = p1
+            base2 = 10
+        v2 = int(p2, base2)
 
         if op in ['min_s', 'max_s']:
+            i1 = IntegerSimpleOp.get_valid_value(v1, lane_width)
+            i2 = IntegerSimpleOp.get_valid_value(v2, lane_width)
             if op == 'min_s':
-                result = inputs[min(i1, i2)]
+                return p1 if i1 <= i2 else p2
             else:
-                result = inputs[max(i1, i2)]
+                return p1 if i1 >= i2 else p2
 
         elif op in ['min_u', 'max_u']:
-            if i2 < 0:
-                i2_tmp = i2 & LaneValue(lane_width).mask
-                inputs[i2_tmp] = inputs[i2]
-                i2 = i2_tmp
-
-            if i1 < 0:
-                i1_tmp = i1 & LaneValue(lane_width).mask
-                inputs[i1_tmp] = inputs[i1]
-                i1 = i1_tmp
+            lane = LaneValue(lane_width)
+            i1 = v1 & lane.mask
+            i2 = v2 & lane.mask
 
             if op == 'min_u':
-                result = inputs[min(i1, i2)]
+                return p1 if i1 <= i2 else p2
             else:
-                result = inputs[max(i1, i2)]
+                return p1 if i1 >= i2 else p2
 
         else:
             raise Exception('Unknown binary operation')
 
-        return result
+    @staticmethod
+    def get_valid_value(value, lane_width):
+        """Get the valid integer value of value in the specified lane size.
+        """
+        lane = LaneValue(lane_width)
+        value &= lane.mask
+        if value > lane.max:
+            return value - lane.mod
+        if value < lane.min:
+            return value + lane.mod
+        return value

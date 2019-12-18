@@ -2,7 +2,7 @@
 
 
 class LaneValue:
-    """This class stands for the value of signed integer represented by a line in v128.
+    """This class stands for the value of signed integer represented by a lane in v128.
     Suppose a bit number of the lane is n, then:
     For signed integer:
         minimum = -pow(2, n - 1), maximum = pow(2, n - 1) - 1
