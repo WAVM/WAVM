@@ -2,7 +2,7 @@
 set(TestScriptSources "" CACHE INTERNAL "" FORCE)
 function(ADD_WAST_TESTS)
 	cmake_parse_arguments(TEST
-		""
+		"RUN_SERIAL"
 		""
 		"SOURCES;WAVM_ARGS"
 		${ARGN})
@@ -17,6 +17,9 @@ function(ADD_WAST_TESTS)
 			add_test(
 				NAME ${TEST_NAME}
 				COMMAND $<TARGET_FILE:wavm> test script ${TEST_SOURCE_ABSOLUTE} ${TEST_WAVM_ARGS})
+			if(TEST_RUN_SERIAL)
+				set_tests_properties(${TEST_NAME} PROPERTIES RUN_SERIAL TRUE)
+			endif()
 		endif()
 	endforeach()
 endfunction()

@@ -3,4 +3,5 @@ ADD_WAST_TESTS(
             memory_copy_benchmark.wast
             interleaved_load_store_benchmark.wast
     WAVM_ARGS "--trace-assembly"
+    RUN_SERIAL
 )
