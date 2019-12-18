@@ -494,6 +494,9 @@ static bool isResultInExpectedSet(const Value& result, const ResultSet& expected
 			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[0], expectedResultSet.f64x2[0])
 			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[1], expectedResultSet.f64x2[1]);
 
+	case ResultSet::Type::anyref:
+		return (result.type == ValueType::funcref || result.type == ValueType::anyref)
+			   && result.object == expectedResultSet.object;
 	case ResultSet::Type::funcref:
 		return (result.type == ValueType::funcref || result.type == ValueType::anyref)
 			   && result.function == expectedResultSet.function;
@@ -529,6 +532,7 @@ static std::string asString(const ResultSet& resultSet)
 			string += ' ';
 			string += asString(resultSet.i8x16[laneIndex]);
 		}
+		string += ')';
 		return string;
 	}
 	case ResultSet::Type::i16x8: {
@@ -538,6 +542,7 @@ static std::string asString(const ResultSet& resultSet)
 			string += ' ';
 			string += asString(resultSet.i16x8[laneIndex]);
 		}
+		string += ')';
 		return string;
 	}
 	case ResultSet::Type::i32x4: {
@@ -547,6 +552,7 @@ static std::string asString(const ResultSet& resultSet)
 			string += ' ';
 			string += asString(resultSet.i32x4[laneIndex]);
 		}
+		string += ')';
 		return string;
 	}
 	case ResultSet::Type::i64x2: {
@@ -556,6 +562,7 @@ static std::string asString(const ResultSet& resultSet)
 			string += ' ';
 			string += asString(resultSet.i64x2[laneIndex]);
 		}
+		string += ')';
 		return string;
 	}
 
@@ -568,6 +575,7 @@ static std::string asString(const ResultSet& resultSet)
 			string += ' ';
 			string += asString(resultSet.f32x4[laneIndex]);
 		}
+		string += ')';
 		return string;
 	}
 	case ResultSet::Type::f64x2: {
@@ -577,16 +585,27 @@ static std::string asString(const ResultSet& resultSet)
 			string += ' ';
 			string += asString(resultSet.f64x2[laneIndex]);
 		}
+		string += ')';
 		return string;
 	}
 
-	case ResultSet::Type::funcref: {
-		// buffer needs 27 characters:
-		// funcref 0xHHHHHHHHHHHHHHHH\0
-		char buffer[27];
+	case ResultSet::Type::anyref: {
+		// buffer needs 31 characters:
+		// (ref.any <0xHHHHHHHHHHHHHHHH>)\0
+		char buffer[32];
 		snprintf(buffer,
 				 sizeof(buffer),
-				 "funcref 0x%.16" WAVM_PRIxPTR,
+				 "(ref.any <0x%.16" WAVM_PRIxPTR ">)",
+				 reinterpret_cast<Uptr>(resultSet.object));
+		return std::string(buffer);
+	}
+	case ResultSet::Type::funcref: {
+		// buffer needs 32 characters:
+		// (ref.func <0xHHHHHHHHHHHHHHHH>)\0
+		char buffer[32];
+		snprintf(buffer,
+				 sizeof(buffer),
+				 "(ref.func <0x%.16" WAVM_PRIxPTR ">)",
 				 reinterpret_cast<Uptr>(resultSet.function));
 		return std::string(buffer);
 	}
@@ -594,6 +613,81 @@ static std::string asString(const ResultSet& resultSet)
 
 	default: WAVM_UNREACHABLE();
 	};
+}
+
+static ResultSet asResultSet(const Value& value, ResultSet::Type expectedType)
+{
+	ResultSet resultSet;
+	if(value.type == ValueType::v128
+	   && (expectedType == ResultSet::Type::i8x16 || expectedType == ResultSet::Type::i16x8
+		   || expectedType == ResultSet::Type::i32x4 || expectedType == ResultSet::Type::i64x2))
+	{
+		resultSet.type = expectedType;
+		memcpy(resultSet.i8x16, value.v128.i8x16, sizeof(V128));
+	}
+	else if(value.type == ValueType::v128 && expectedType == ResultSet::Type::f32x4)
+	{
+		resultSet.type = expectedType;
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{
+			resultSet.f32x4[laneIndex].type = FloatResultSet<F32>::Type::literal;
+			resultSet.f32x4[laneIndex].literal = value.v128.f32x4[laneIndex];
+		}
+	}
+	else if(value.type == ValueType::v128 && expectedType == ResultSet::Type::f64x2)
+	{
+		resultSet.type = expectedType;
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{
+			resultSet.f64x2[laneIndex].type = FloatResultSet<F64>::Type::literal;
+			resultSet.f64x2[laneIndex].literal = value.v128.f64x2[laneIndex];
+		}
+	}
+	else
+	{
+		switch(value.type)
+		{
+		case ValueType::i32:
+			resultSet.type = ResultSet::Type::i32;
+			resultSet.i32 = value.i32;
+			break;
+		case ValueType::i64:
+			resultSet.type = ResultSet::Type::i64;
+			resultSet.i64 = value.i64;
+			break;
+		case ValueType::f32:
+			resultSet.type = ResultSet::Type::f32;
+			resultSet.f32.type = FloatResultSet<F32>::Type::literal;
+			resultSet.f32.literal = value.f32;
+			break;
+		case ValueType::f64:
+			resultSet.type = ResultSet::Type::f64;
+			resultSet.f64.type = FloatResultSet<F64>::Type::literal;
+			resultSet.f64.literal = value.f64;
+			break;
+		case ValueType::v128:
+			resultSet.type = ResultSet::Type::i8x16;
+			memcpy(resultSet.i8x16, value.v128.i8x16, sizeof(V128));
+			break;
+		case ValueType::anyref:
+			resultSet.type = ResultSet::Type::anyref;
+			resultSet.object = value.object;
+			break;
+		case ValueType::funcref:
+			resultSet.type = ResultSet::Type::funcref;
+			resultSet.function = value.function;
+			break;
+		case ValueType::nullref:
+			resultSet.type = ResultSet::Type::nullref;
+			resultSet.object = nullptr;
+
+		case ValueType::none:
+		case ValueType::any:
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
+	return resultSet;
 }
 
 static bool areResultsInExpectedSet(const std::vector<Value>& results,
@@ -612,7 +706,8 @@ static bool areResultsInExpectedSet(const std::vector<Value>& results,
 		if(!isResultInExpectedSet(results[resultIndex], expectedResultSets[resultIndex]))
 		{
 			outMessage = "expected " + asString(expectedResultSets[resultIndex]) + ", but got "
-						 + asString(results[resultIndex]);
+						 + asString(asResultSet(results[resultIndex],
+												expectedResultSets[resultIndex].type));
 			if(results.size() != 1) { outMessage += " in result " + std::to_string(resultIndex); }
 			return false;
 		}

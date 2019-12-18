@@ -183,8 +183,9 @@ namespace WAVM { namespace WAST {
 			f32x4,
 			f64x2,
 
+			anyref,
 			funcref,
-			nullref
+			nullref,
 		};
 
 		Type type;
@@ -203,6 +204,7 @@ namespace WAVM { namespace WAST {
 			FloatResultSet<F32> f32x4[4];
 			FloatResultSet<F64> f64x2[2];
 
+			Runtime::Object* object;
 			Runtime::Function* function;
 		};
 	};
