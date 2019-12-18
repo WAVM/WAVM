@@ -232,11 +232,11 @@ namespace WAVM { namespace IR {
 		{
 			Encoding encoding;
 
-			// Only valid if encoding == elemExpr.
+			// Only valid if encoding == expr.
 			ReferenceType elemType;
 			std::vector<ElemExpr> elemExprs;
 
-			// Only valid if encoding == externIndex.
+			// Only valid if encoding == index.
 			ExternKind externKind;
 			std::vector<Uptr> elemIndices;
 		};

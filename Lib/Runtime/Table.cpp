@@ -431,6 +431,19 @@ void Runtime::initElemSegment(Instance* instance,
 		}
 	}
 
+	// Assert that the segment's elems are the right type for the table.
+	switch(contents->encoding)
+	{
+	case IR::ElemSegment::Encoding::expr:
+		WAVM_ASSERT(isSubtype(contents->elemType, table->type.elementType));
+		break;
+	case IR::ElemSegment::Encoding::index:
+		WAVM_ASSERT(isSubtype(asReferenceType(contents->externKind), table->type.elementType));
+		break;
+
+	default: WAVM_UNREACHABLE();
+	};
+
 	for(Uptr index = 0; index < numElems; ++index)
 	{
 		Uptr sourceIndex = sourceOffset + index;

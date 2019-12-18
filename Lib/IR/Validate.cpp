@@ -676,6 +676,23 @@ struct FunctionValidationContext
 	{
 		VALIDATE_INDEX(imm.elemSegmentIndex, module.elemSegments.size());
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+
+		// Validate that the elem type contained by the segment is compatible with the target table.
+		const TableType tableType = module.tables.getType(imm.tableIndex);
+		ElemSegment::Contents* contents = module.elemSegments[imm.elemSegmentIndex].contents.get();
+		switch(contents->encoding)
+		{
+		case IR::ElemSegment::Encoding::expr:
+			VALIDATE_UNLESS("table.init elem segment type is not a subtype of table element type",
+							!isSubtype(contents->elemType, tableType.elementType));
+			break;
+		case IR::ElemSegment::Encoding::index:
+			VALIDATE_UNLESS(
+				"table.init elem segment type is not a subtype of table element type",
+				!isSubtype(asReferenceType(contents->externKind), tableType.elementType));
+			break;
+		default: WAVM_UNREACHABLE();
+		};
 	}
 
 	void validateImm(ElemSegmentImm imm)

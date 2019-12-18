@@ -711,9 +711,9 @@ namespace WAVM { namespace IR {
 		};
 	}
 
-	inline ReferenceType asReferenceType(const ExternType& type)
+	inline ReferenceType asReferenceType(const ExternKind kind)
 	{
-		switch(type.kind)
+		switch(kind)
 		{
 		case ExternKind::function: return ReferenceType::funcref;
 
@@ -724,6 +724,11 @@ namespace WAVM { namespace IR {
 		case ExternKind::invalid:
 		default: return ReferenceType::anyref;
 		}
+	}
+
+	inline ReferenceType asReferenceType(const ExternType& type)
+	{
+		return asReferenceType(type.kind);
 	}
 }}
 

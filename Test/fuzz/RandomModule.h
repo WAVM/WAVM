@@ -308,7 +308,7 @@ static constexpr Uptr numNonParametricOps = sizeof(operatorInfos) / sizeof(Opera
 
 static ValueType generateValueType(RandomStream& random)
 {
-	switch(random.get(6))
+	switch(random.get(7))
 	{
 	case 0: return ValueType::i32;
 	case 1: return ValueType::i64;
@@ -317,6 +317,7 @@ static ValueType generateValueType(RandomStream& random)
 	case 4: return ValueType::v128;
 	case 5: return ValueType::anyref;
 	case 6: return ValueType::funcref;
+	case 7: return ValueType::nullref;
 	default: WAVM_UNREACHABLE();
 	}
 }
@@ -338,25 +339,30 @@ static FunctionType generateFunctionType(RandomStream& random)
 
 static ReferenceType generateRefType(RandomStream& random)
 {
-	switch(random.get(1))
+	switch(random.get(2))
 	{
 	case 0: return ReferenceType::anyref;
 	case 1: return ReferenceType::funcref;
+	case 2: return ReferenceType::nullref;
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static ExternKind generateExternKind(RandomStream& random)
+{
+	switch(random.get(4))
+	{
+	case 0: return ExternKind::function;
+	case 1: return ExternKind::table;
+	case 2: return ExternKind::memory;
+	case 3: return ExternKind::global;
+	case 4: return ExternKind::exceptionType;
 	default: WAVM_UNREACHABLE();
 	};
 }
 
 FunctionType generateBlockSig(RandomStream& random, TypeTuple params)
 {
-	// Generalize the params to map internal type subsets (e.g. nullref) to a canonical type.
-	ValueType* remappedParamsVector = (ValueType*)alloca(sizeof(ValueType*) * params.size());
-	for(Uptr index = 0; index < params.size(); ++index)
-	{
-		remappedParamsVector[index]
-			= params[index] == ValueType::nullref ? ValueType::anyref : params[index];
-	}
-	params = TypeTuple(remappedParamsVector, params.size());
-
 	const Uptr maxResults = 4;
 	ValueType results[maxResults];
 	const Uptr numResults = random.get(4);
@@ -902,9 +908,10 @@ static void generateFunction(RandomStream& random,
 				// Typed select
 				if(joinType == ValueType::nullref)
 				{
-					// If selecting between two nullrefs, both:
-					//     select (result anyref)
-					// and select (result funcref) are valid.
+					// If selecting between two nullrefs, any of:
+					//    select (result anyref)
+					// or select (result funcref) are valid.
+					// or select (result nullref) are valid.
 					validOpEmitters.push_back(
 						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
 							stack.resize(stack.size() - 3);
@@ -916,6 +923,12 @@ static void generateFunction(RandomStream& random,
 							stack.resize(stack.size() - 3);
 							stack.push_back(ValueType::funcref);
 							codeStream.select({ValueType::funcref});
+						});
+					validOpEmitters.push_back(
+						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+							stack.resize(stack.size() - 3);
+							stack.push_back(ValueType::nullref);
+							codeStream.select({ValueType::nullref});
 						});
 				}
 				else
@@ -1027,7 +1040,6 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 		v128.u64x2[1] = random.get(UINT64_MAX);
 		return InitializerExpression(v128);
 	}
-	break;
 	case ValueType::anyref:
 	case ValueType::funcref: {
 		const Uptr functionIndex = random.get(module.functions.size());
@@ -1035,10 +1047,10 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 				   ? InitializerExpression(nullptr)
 				   : InitializerExpression(InitializerExpression::Type::ref_func, functionIndex);
 	}
+	case ValueType::nullref: return InitializerExpression(nullptr);
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	}
 }
@@ -1077,7 +1089,7 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 	for(Uptr tableIndex = 0; tableIndex < numTables; ++tableIndex)
 	{
 		TableType type;
-		type.elementType = random.get(1) ? ReferenceType::funcref : ReferenceType::anyref;
+		type.elementType = generateRefType(random);
 		type.isShared = !!random.get(1);
 		type.size.min = random.get<U64>(100);
 		type.size.max = IR::maxTableElems;
@@ -1171,45 +1183,94 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 		contents->encoding
 			= random.get(1) ? ElemSegment::Encoding::expr : ElemSegment::Encoding::index;
 
+		ReferenceType segmentElemType;
 		const Uptr numSegmentElements = random.get(100);
 		switch(contents->encoding)
 		{
 		case ElemSegment::Encoding::expr: {
-			contents->elemType = generateRefType(random);
+			segmentElemType = contents->elemType = generateRefType(random);
 			for(Uptr index = 0; index < numSegmentElements; ++index)
 			{
-				const Uptr functionIndex = random.get(module.functions.size());
-				if(functionIndex == module.functions.size())
-				{ contents->elemExprs.push_back(ElemExpr()); }
-				else
+				switch(contents->elemType)
 				{
-					contents->elemExprs.push_back(
-						ElemExpr(ElemExpr::Type::ref_func, functionIndex));
+				case ReferenceType::funcref:
+				case ReferenceType::anyref: {
+					const Uptr functionIndex = random.get(module.functions.size());
+					if(functionIndex == module.functions.size())
+					{ contents->elemExprs.push_back(ElemExpr()); }
+					else
+					{
+						contents->elemExprs.push_back(
+							ElemExpr(ElemExpr::Type::ref_func, functionIndex));
+					}
+					break;
 				}
+				case ReferenceType::nullref: contents->elemExprs.push_back(ElemExpr()); break;
+
+				case ReferenceType::none:
+				default: WAVM_UNREACHABLE();
+				};
 			}
 			break;
 		}
 		case ElemSegment::Encoding::index: {
+			contents->externKind = generateExternKind(random);
+			segmentElemType = asReferenceType(contents->externKind);
 			for(Uptr index = 0; index < numSegmentElements; ++index)
 			{
-				const Uptr functionIndex = random.get(module.functions.size() - 1);
-				contents->elemIndices.push_back(functionIndex);
+				switch(contents->externKind)
+				{
+				case ExternKind::function:
+					if(module.functions.size())
+					{ contents->elemIndices.push_back(random.get(module.functions.size() - 1)); }
+					break;
+				case ExternKind::table:
+					if(module.tables.size())
+					{ contents->elemIndices.push_back(random.get(module.tables.size() - 1)); }
+					break;
+				case ExternKind::memory:
+					if(module.memories.size())
+					{ contents->elemIndices.push_back(random.get(module.memories.size() - 1)); }
+					break;
+				case ExternKind::global:
+					if(module.globals.size())
+					{ contents->elemIndices.push_back(random.get(module.globals.size() - 1)); }
+					break;
+				case ExternKind::exceptionType:
+					if(module.exceptionTypes.size())
+					{
+						contents->elemIndices.push_back(
+							random.get(module.exceptionTypes.size() - 1));
+					}
+					break;
+				default: WAVM_UNREACHABLE();
+				};
 			}
 			break;
 		}
 		default: WAVM_UNREACHABLE();
 		};
 
-		if(!module.tables.size() || random.get(1))
+		std::vector<Uptr> validTableIndices;
+		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		{
+			const ReferenceType tableElemType = module.tables.getType(tableIndex).elementType;
+			if(isSubtype(segmentElemType, tableElemType))
+			{ validTableIndices.push_back(tableIndex); }
+		}
+
+		if(!validTableIndices.size() || random.get(1))
 		{
 			module.elemSegments.push_back(
 				{ElemSegment::Type::passive, UINTPTR_MAX, InitializerExpression(), contents});
 		}
 		else
 		{
+			Uptr validTableIndex = random.get(validTableIndices.size() - 1);
+
 			module.elemSegments.push_back(
 				{ElemSegment::Type::passive,
-				 random.get(module.tables.size() - 1),
+				 validTableIndices[validTableIndex],
 				 generateInitializerExpression(module, random, ValueType::i32),
 				 std::move(contents)});
 		}
