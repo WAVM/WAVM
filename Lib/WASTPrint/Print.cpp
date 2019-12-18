@@ -213,8 +213,8 @@ static void print(std::string& string, ReferenceType type)
 	{
 	case ReferenceType::funcref: string += "funcref"; break;
 	case ReferenceType::anyref: string += "anyref"; break;
+	case ReferenceType::nullref: string += "nullref"; break;
 
-	case ReferenceType::nullref:
 	case ReferenceType::none:
 	default: WAVM_UNREACHABLE();
 	}
@@ -1048,8 +1048,8 @@ void ModulePrintContext::printModule()
 			{
 			case ReferenceType::anyref: string += " anyref"; break;
 			case ReferenceType::funcref: string += " funcref"; break;
+			case ReferenceType::nullref: string += " nullref"; break;
 
-			case ReferenceType::nullref:
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
 			};
