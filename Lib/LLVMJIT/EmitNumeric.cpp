@@ -562,14 +562,27 @@ EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
 					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_w, {left, right}))
 #endif
 
-EMIT_SIMD_INT_BINARY_OP(min_s,
-						irBuilder.CreateSelect(irBuilder.CreateICmpSLT(left, right), left, right))
-EMIT_SIMD_INT_BINARY_OP(min_u,
-						irBuilder.CreateSelect(irBuilder.CreateICmpULT(left, right), left, right))
-EMIT_SIMD_INT_BINARY_OP(max_s,
-						irBuilder.CreateSelect(irBuilder.CreateICmpSLT(left, right), right, left))
-EMIT_SIMD_INT_BINARY_OP(max_u,
-						irBuilder.CreateSelect(irBuilder.CreateICmpULT(left, right), right, left))
+#define EMIT_SIMD_INT_BINARY_OP_NO64(name, emitCode)                                               \
+	EMIT_SIMD_BINARY_OP(i8x16##_##name, llvmContext.i8x16Type, emitCode)                           \
+	EMIT_SIMD_BINARY_OP(i16x8##_##name, llvmContext.i16x8Type, emitCode)                           \
+	EMIT_SIMD_BINARY_OP(i32x4##_##name, llvmContext.i32x4Type, emitCode)
+
+EMIT_SIMD_INT_BINARY_OP_NO64(min_s,
+							 irBuilder.CreateSelect(irBuilder.CreateICmpSLT(left, right),
+													left,
+													right))
+EMIT_SIMD_INT_BINARY_OP_NO64(min_u,
+							 irBuilder.CreateSelect(irBuilder.CreateICmpULT(left, right),
+													left,
+													right))
+EMIT_SIMD_INT_BINARY_OP_NO64(max_s,
+							 irBuilder.CreateSelect(irBuilder.CreateICmpSLT(left, right),
+													right,
+													left))
+EMIT_SIMD_INT_BINARY_OP_NO64(max_u,
+							 irBuilder.CreateSelect(irBuilder.CreateICmpULT(left, right),
+													right,
+													left))
 
 llvm::Value* EmitFunctionContext::emitBitSelect(llvm::Value* mask,
 												llvm::Value* trueValue,

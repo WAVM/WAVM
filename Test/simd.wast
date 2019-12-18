@@ -1270,43 +1270,6 @@
   (v128.const i32x4   3 2 2 3)
 )
 
-;; i64x2 min/max
-
-(module
-  (func (export "i64x2.min_s") (param v128 v128) (result v128) (i64x2.min_s (local.get 0) (local.get 1)))
-  (func (export "i64x2.min_u") (param v128 v128) (result v128) (i64x2.min_u (local.get 0) (local.get 1)))
-  (func (export "i64x2.max_s") (param v128 v128) (result v128) (i64x2.max_s (local.get 0) (local.get 1)))
-  (func (export "i64x2.max_u") (param v128 v128) (result v128) (i64x2.max_u (local.get 0) (local.get 1)))
-)
-
-(assert_return
-  (invoke "i64x2.min_s"
-    (v128.const i64x2 -1 +0)
-    (v128.const i64x2 +0 -1))
-  (v128.const i64x2   -1 -1)
-)
-
-(assert_return
-  (invoke "i64x2.min_u"
-    (v128.const i64x2 0 1)
-    (v128.const i64x2 1 0))
-  (v128.const i64x2   0 0)
-)
-
-(assert_return
-  (invoke "i64x2.max_s"
-    (v128.const i64x2 -1 +0)
-    (v128.const i64x2 +0 -1))
-  (v128.const i64x2   +0 +0)
-)
-
-(assert_return
-  (invoke "i64x2.max_u"
-    (v128.const i64x2 0 1)
-    (v128.const i64x2 1 0))
-  (v128.const i64x2   1 1)
-)
-
 ;; i8x16.avgr_u
 
 (module (func (export "i8x16.avgr_u") (param v128 v128) (result v128) (i8x16.avgr_u (local.get 0) (local.get 1))))
