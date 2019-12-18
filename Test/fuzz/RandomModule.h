@@ -257,16 +257,41 @@ static void generateImm(RandomStream& random, IR::Module& module, DataSegmentImm
 	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
 }
 
+static std::vector<ElemSegmentAndTableImm> getValidElemSegmentAndTableImms(const IR::Module& module)
+{
+	std::vector<ElemSegmentAndTableImm> validImms;
+	for(Uptr elemSegmentIndex = 0; elemSegmentIndex < module.elemSegments.size();
+		++elemSegmentIndex)
+	{
+		const ElemSegment& elemSegment = module.elemSegments[elemSegmentIndex];
+		ReferenceType segmentElemType;
+		switch(elemSegment.contents->encoding)
+		{
+		case ElemSegment::Encoding::expr: segmentElemType = elemSegment.contents->elemType; break;
+		case ElemSegment::Encoding::index:
+			segmentElemType = asReferenceType(elemSegment.contents->externKind);
+			break;
+		default: WAVM_UNREACHABLE();
+		};
+
+		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		{
+			if(isSubtype(segmentElemType, module.tables.getType(tableIndex).elementType))
+			{ validImms.push_back(ElemSegmentAndTableImm{elemSegmentIndex, tableIndex}); }
+		}
+	}
+	return validImms;
+}
+
 static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentAndTableImm>)
 {
-	return module.elemSegments.size() && module.tables.size();
+	return getValidElemSegmentAndTableImms(module).size() != 0;
 }
 static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentAndTableImm& outImm)
 {
-	WAVM_ASSERT(module.elemSegments.size());
-	WAVM_ASSERT(module.tables.size());
-	outImm.elemSegmentIndex = random.get(module.elemSegments.size() - 1);
-	outImm.tableIndex = random.get(module.tables.size() - 1);
+	std::vector<ElemSegmentAndTableImm> validImms = getValidElemSegmentAndTableImms(module);
+	WAVM_ASSERT(validImms.size());
+	outImm = validImms[random.get(validImms.size() - 1)];
 }
 
 static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentImm>)
