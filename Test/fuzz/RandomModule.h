@@ -192,11 +192,7 @@ template<Uptr naturalAlignmentLog2>
 bool isImmAllowed(const IR::Module& module,
 				  ImmTypeAsValue<AtomicLoadOrStoreImm<naturalAlignmentLog2>>)
 {
-	for(Uptr memoryIndex = 0; memoryIndex < module.memories.size(); ++memoryIndex)
-	{
-		if(module.memories.getType(memoryIndex).isShared) { return true; }
-	}
-	return false;
+	return module.memories.size() != 0;
 }
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
@@ -205,16 +201,7 @@ static void generateImm(RandomStream& random,
 {
 	outImm.alignmentLog2 = naturalAlignmentLog2;
 	outImm.offset = random.get(UINT32_MAX);
-
-	Uptr numSharedMemories = 0;
-	Uptr* sharedMemoryIndices = (Uptr*)alloca(sizeof(Uptr) * module.memories.size());
-	for(Uptr memoryIndex = 0; memoryIndex < module.memories.size(); ++memoryIndex)
-	{
-		if(module.memories.getType(memoryIndex).isShared)
-		{ sharedMemoryIndices[numSharedMemories++] = memoryIndex; }
-	}
-	WAVM_ASSERT(numSharedMemories > 0);
-	outImm.memoryIndex = sharedMemoryIndices[random.get(numSharedMemories - 1)];
+	outImm.memoryIndex = random.get(module.memories.size() - 1);
 }
 
 static void generateImm(RandomStream& random, IR::Module& module, AtomicFenceImm& outImm)

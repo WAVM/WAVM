@@ -652,8 +652,6 @@ struct FunctionValidationContext
 						imm.alignmentLog2 != naturalAlignmentLog2);
 
 		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
-		VALIDATE_UNLESS("atomic memory operators require a memory with the shared flag: ",
-						!module.memories.getType(imm.memoryIndex).isShared);
 	}
 
 	void validateImm(AtomicFenceImm imm)
