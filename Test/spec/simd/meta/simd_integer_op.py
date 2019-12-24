@@ -14,8 +14,8 @@ class IntegerSimpleOp:
         """Binary operation on p1 and p2 with the operation specified by op
 
         :param op: min_s, min_u, max_s, max_u
-        :param p1: integer value in hex
-        :param p2: integer value in hex
+        :param p1: a hex or decimal integer literal string
+        :param p2: a hex or decimal integer literal string
         :lane_width: bit number of each lane in SIMD v128
         :return:
         """
@@ -40,10 +40,8 @@ class IntegerSimpleOp:
                 return p1 if i1 >= i2 else p2
 
         elif op in ['min_u', 'max_u']:
-            lane = LaneValue(lane_width)
-            i1 = v1 & lane.mask
-            i2 = v2 & lane.mask
-
+            i1 = IntegerSimpleOp.get_valid_value(v1, lane_width, signed=False)
+            i2 = IntegerSimpleOp.get_valid_value(v2, lane_width, signed=False)
             if op == 'min_u':
                 return p1 if i1 <= i2 else p2
             else:
@@ -53,13 +51,16 @@ class IntegerSimpleOp:
             raise Exception('Unknown binary operation')
 
     @staticmethod
-    def get_valid_value(value, lane_width):
+    def get_valid_value(value, lane_width, signed=True):
         """Get the valid integer value of value in the specified lane size.
         """
         lane = LaneValue(lane_width)
         value &= lane.mask
-        if value > lane.max:
-            return value - lane.mod
-        if value < lane.min:
-            return value + lane.mod
+
+        if signed:
+            if value > lane.max:
+                return value - lane.mod
+            if value < lane.min:
+                return value + lane.mod
+
         return value

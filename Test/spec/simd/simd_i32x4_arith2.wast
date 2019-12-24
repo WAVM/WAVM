@@ -253,6 +253,7 @@
 (assert_invalid (module (func (result v128) (i32x4.max_u (i32.const 0) (f32.const 0.0)))) "type mismatch")
 
 ;; Test operation with empty argument
+
 (assert_invalid
   (module
     (func $i32x4.min_s-1st-arg-empty (result v128)
@@ -260,49 +261,56 @@
     )
   )
   "type mismatch"
-)(assert_invalid
+)
+(assert_invalid
   (module
     (func $i32x4.min_s-all-args-empty (result v128)
       (i32x4.min_s)
     )
   )
   "type mismatch"
-)(assert_invalid
+)
+(assert_invalid
   (module
     (func $i32x4.min_u-1st-arg-empty (result v128)
       (i32x4.min_u (v128.const i32x4 0 0 0 0))
     )
   )
   "type mismatch"
-)(assert_invalid
+)
+(assert_invalid
   (module
     (func $i32x4.min_u-all-args-empty (result v128)
       (i32x4.min_u)
     )
   )
   "type mismatch"
-)(assert_invalid
+)
+(assert_invalid
   (module
     (func $i32x4.max_s-1st-arg-empty (result v128)
       (i32x4.max_s (v128.const i32x4 0 0 0 0))
     )
   )
   "type mismatch"
-)(assert_invalid
+)
+(assert_invalid
   (module
     (func $i32x4.max_s-all-args-empty (result v128)
       (i32x4.max_s)
     )
   )
   "type mismatch"
-)(assert_invalid
+)
+(assert_invalid
   (module
     (func $i32x4.max_u-1st-arg-empty (result v128)
       (i32x4.max_u (v128.const i32x4 0 0 0 0))
     )
   )
   "type mismatch"
-)(assert_invalid
+)
+(assert_invalid
   (module
     (func $i32x4.max_u-all-args-empty (result v128)
       (i32x4.max_u)
@@ -313,22 +321,22 @@
 
 ;; Combination
 (module
-  (func (export "i32x4.min_s-i32x4.max_u") (param v128 v128 v128) (result v128)  (i32x4.min_s (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.min_s-i32x4.max_s") (param v128 v128 v128) (result v128)  (i32x4.min_s (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.min_s-i32x4.min_u") (param v128 v128 v128) (result v128)  (i32x4.min_s (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.min_s-i32x4.min_s") (param v128 v128 v128) (result v128)  (i32x4.min_s (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.min_u-i32x4.max_u") (param v128 v128 v128) (result v128)  (i32x4.min_u (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.min_u-i32x4.max_s") (param v128 v128 v128) (result v128)  (i32x4.min_u (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.min_u-i32x4.min_u") (param v128 v128 v128) (result v128)  (i32x4.min_u (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.min_u-i32x4.min_s") (param v128 v128 v128) (result v128)  (i32x4.min_u (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_s-i32x4.max_u") (param v128 v128 v128) (result v128)  (i32x4.max_s (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_s-i32x4.max_s") (param v128 v128 v128) (result v128)  (i32x4.max_s (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_s-i32x4.min_u") (param v128 v128 v128) (result v128)  (i32x4.max_s (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_s-i32x4.min_s") (param v128 v128 v128) (result v128)  (i32x4.max_s (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_u-i32x4.max_u") (param v128 v128 v128) (result v128)  (i32x4.max_u (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_u-i32x4.max_s") (param v128 v128 v128) (result v128)  (i32x4.max_u (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_u-i32x4.min_u") (param v128 v128 v128) (result v128)  (i32x4.max_u (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
-  (func (export "i32x4.max_u-i32x4.min_s") (param v128 v128 v128) (result v128)  (i32x4.max_u (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_s-i32x4.max_u") (param v128 v128 v128) (result v128) (i32x4.min_s (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_s-i32x4.max_s") (param v128 v128 v128) (result v128) (i32x4.min_s (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_s-i32x4.min_u") (param v128 v128 v128) (result v128) (i32x4.min_s (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_s-i32x4.min_s") (param v128 v128 v128) (result v128) (i32x4.min_s (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_u-i32x4.max_u") (param v128 v128 v128) (result v128) (i32x4.min_u (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_u-i32x4.max_s") (param v128 v128 v128) (result v128) (i32x4.min_u (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_u-i32x4.min_u") (param v128 v128 v128) (result v128) (i32x4.min_u (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.min_u-i32x4.min_s") (param v128 v128 v128) (result v128) (i32x4.min_u (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_s-i32x4.max_u") (param v128 v128 v128) (result v128) (i32x4.max_s (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_s-i32x4.max_s") (param v128 v128 v128) (result v128) (i32x4.max_s (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_s-i32x4.min_u") (param v128 v128 v128) (result v128) (i32x4.max_s (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_s-i32x4.min_s") (param v128 v128 v128) (result v128) (i32x4.max_s (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_u-i32x4.max_u") (param v128 v128 v128) (result v128) (i32x4.max_u (i32x4.max_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_u-i32x4.max_s") (param v128 v128 v128) (result v128) (i32x4.max_u (i32x4.max_s (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_u-i32x4.min_u") (param v128 v128 v128) (result v128) (i32x4.max_u (i32x4.min_u (local.get 0) (local.get 1))(local.get 2)))
+  (func (export "i32x4.max_u-i32x4.min_s") (param v128 v128 v128) (result v128) (i32x4.max_u (i32x4.min_s (local.get 0) (local.get 1))(local.get 2)))
 )
 
 (assert_return (invoke "i32x4.min_s-i32x4.max_u" (v128.const i32x4 0 0 0 0)
