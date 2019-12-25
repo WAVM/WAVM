@@ -278,8 +278,8 @@ class SimdLaneWiseInteger:
         funcs = '\n\n;; Combination'
         funcs += '\n(module'
 
-        assert_template = '  (func (export "{lane_type}.{op1}-{lane_type}.{op2}") (param v128 v128 v128) (result v128)' \
-                          '  ({lane_type}.{op1} ({lane_type}.{op2} (local.get 0) (local.get 1))(local.get 2))' \
+        assert_template = '  (func (export "{lane_type}.{op1}-{lane_type}.{op2}") (param v128 v128 v128) (result v128) ' \
+                          '({lane_type}.{op1} ({lane_type}.{op2} (local.get 0) (local.get 1))(local.get 2))' \
                           ')'
 
         binary_ops = list(self.BINARY_OPS)
@@ -319,7 +319,7 @@ class SimdLaneWiseInteger:
     def gen_test_case_empty_argument(self):
         """generate empty argument test cases"""
 
-        assert_1st_empyt_template = '(assert_invalid' \
+        assert_1st_empyt_template = '\n(assert_invalid' \
                                     '\n  (module' \
                                     '\n    (func ${lane_type}.{op}-1st-arg-empty (result v128)' \
                                     '\n      ({lane_type}.{op} {param_1})' \
@@ -327,7 +327,7 @@ class SimdLaneWiseInteger:
                                     '\n  )' \
                                     '\n  "type mismatch"' \
                                     '\n)'
-        assert_all_empty_template = '(assert_invalid' \
+        assert_all_empty_template = '\n(assert_invalid' \
                                     '\n  (module' \
                                     '\n    (func ${lane_type}.{op}-all-args-empty (result v128)' \
                                     '\n      ({lane_type}.{op})' \
@@ -368,7 +368,7 @@ class SimdLaneWiseInteger:
 
     def gen_test_cases(self):
         """generate case file"""
-        wast_filename = '../simd_{lane_type}.wast'.format(lane_type=self.LANE_TYPE)
+        wast_filename = '../simd_{lane_type}_arith2.wast'.format(lane_type=self.LANE_TYPE)
         with open(wast_filename, 'w') as fp:
             fp.write(self.get_all_cases())
 
