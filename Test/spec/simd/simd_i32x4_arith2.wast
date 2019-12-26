@@ -252,7 +252,7 @@
 (assert_invalid (module (func (result v128) (i32x4.max_s (i32.const 0) (f32.const 0.0)))) "type mismatch")
 (assert_invalid (module (func (result v128) (i32x4.max_u (i32.const 0) (f32.const 0.0)))) "type mismatch")
 
-;; Test operation with empty argument
+;; Argument empty
 
 (assert_invalid
   (module
@@ -264,7 +264,7 @@
 )
 (assert_invalid
   (module
-    (func $i32x4.min_s-all-args-empty (result v128)
+    (func $i32x4.min_s-arg-empty (result v128)
       (i32x4.min_s)
     )
   )
@@ -280,7 +280,7 @@
 )
 (assert_invalid
   (module
-    (func $i32x4.min_u-all-args-empty (result v128)
+    (func $i32x4.min_u-arg-empty (result v128)
       (i32x4.min_u)
     )
   )
@@ -296,7 +296,7 @@
 )
 (assert_invalid
   (module
-    (func $i32x4.max_s-all-args-empty (result v128)
+    (func $i32x4.max_s-arg-empty (result v128)
       (i32x4.max_s)
     )
   )
@@ -312,7 +312,7 @@
 )
 (assert_invalid
   (module
-    (func $i32x4.max_u-all-args-empty (result v128)
+    (func $i32x4.max_u-arg-empty (result v128)
       (i32x4.max_u)
     )
   )
