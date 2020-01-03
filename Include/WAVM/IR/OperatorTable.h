@@ -354,7 +354,7 @@
 	visitOp(0xfd5a, i8x16_sub                 , "i8x16.sub"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd5b, i8x16_sub_saturate_s      , "i8x16.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd5c, i8x16_sub_saturate_u      , "i8x16.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/*	visitOp(0xfd5d, i8x16_mul                 , "i8x16.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/  \
+	visitOp(0xfd5d, i8x16_mul                 , "i8x16.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd5e, i8x16_min_s               , "i8x16.min_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd5f, i8x16_min_u               , "i8x16.min_u"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd60, i8x16_max_s               , "i8x16.max_s"               , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
