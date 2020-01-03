@@ -4,6 +4,7 @@ set(Sources
 	Context.cpp
 	Exception.cpp
 	Global.cpp
+	Instance.cpp
 	Intrinsics.cpp
 	Invoke.cpp
 	Linker.cpp

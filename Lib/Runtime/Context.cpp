@@ -4,21 +4,20 @@
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Memory.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
-Context* Runtime::createContext(Compartment* compartment)
+Context* Runtime::createContext(Compartment* compartment, std::string&& debugName)
 {
 	WAVM_ASSERT(compartment);
-	Context* context = new Context(compartment);
+	Context* context = new Context(compartment, std::move(debugName));
 	{
-		Lock<Platform::Mutex> lock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock lock(compartment->mutex);
 
 		// Allocate an ID for the context in the compartment.
 		context->id = compartment->contexts.add(UINTPTR_MAX, context);
@@ -47,7 +46,7 @@ Context* Runtime::createContext(Compartment* compartment)
 
 Runtime::Context::~Context()
 {
-	WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+	WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 	compartment->contexts.removeOrFail(id);
 }
 

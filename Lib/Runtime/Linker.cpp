@@ -71,11 +71,11 @@ bool Runtime::generateStub(const std::string& moduleName,
 				case IR::ValueType::f64: encoder.f64_const({0.0}); break;
 				case IR::ValueType::v128: encoder.v128_const({V128{{0, 0}}}); break;
 				case IR::ValueType::anyref:
-				case IR::ValueType::funcref: encoder.ref_null(); break;
+				case IR::ValueType::funcref:
+				case IR::ValueType::nullref: encoder.ref_null(); break;
 
 				case IR::ValueType::none:
 				case IR::ValueType::any:
-				case IR::ValueType::nullref:
 				default: WAVM_UNREACHABLE();
 				};
 			}
@@ -83,7 +83,7 @@ bool Runtime::generateStub(const std::string& moduleName,
 		encoder.end();
 
 		// Generate a module for the stub function.
-		IR::Module stubIRModule(FeatureSpec(true));
+		IR::Module stubIRModule(FeatureLevel::wavm);
 		DisassemblyNames stubModuleNames;
 		stubIRModule.types.push_back(asFunctionType(type));
 		stubIRModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
@@ -91,22 +91,27 @@ bool Runtime::generateStub(const std::string& moduleName,
 		stubModuleNames.functions.push_back(
 			{"importStub: " + exportName + " (" + asString(asFunctionType(type)) + ")"});
 		IR::setDisassemblyNames(stubIRModule, stubModuleNames);
-		try
+
+		if(WAVM_ENABLE_ASSERTS)
 		{
-			IR::validatePreCodeSections(stubIRModule);
-			IR::validatePostCodeSections(stubIRModule);
-		}
-		catch(const ValidationException& exception)
-		{
-			Errors::fatalf("Stub module failed validation: %s", exception.message.c_str());
+			try
+			{
+				IR::validatePreCodeSections(stubIRModule);
+				IR::validateCodeSection(stubIRModule);
+				IR::validatePostCodeSections(stubIRModule);
+			}
+			catch(const ValidationException& exception)
+			{
+				Errors::fatalf("Stub module failed validation: %s", exception.message.c_str());
+			}
 		}
 
 		// Instantiate the module and return the stub function instance.
 		auto stubModule = compileModule(stubIRModule);
-		auto stubModuleInstance
+		auto stubInstance
 			= instantiateModule(compartment, stubModule, {}, "importStub", resourceQuota);
-		if(!stubModuleInstance) { return false; }
-		outObject = getInstanceExport(stubModuleInstance, "importStub");
+		if(!stubInstance) { return false; }
+		outObject = getInstanceExport(stubInstance, "importStub");
 		WAVM_ASSERT(outObject);
 		return true;
 	}
@@ -121,7 +126,8 @@ bool Runtime::generateStub(const std::string& moduleName,
 		return outObject != nullptr;
 	}
 	case IR::ExternKind::global: {
-		outObject = asObject(Runtime::createGlobal(compartment, asGlobalType(type), resourceQuota));
+		outObject = asObject(Runtime::createGlobal(
+			compartment, asGlobalType(type), std::string(exportName), resourceQuota));
 		return outObject != nullptr;
 	}
 	case IR::ExternKind::exceptionType: {

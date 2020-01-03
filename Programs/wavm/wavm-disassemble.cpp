@@ -4,7 +4,6 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/WASM/WASM.h"
@@ -19,9 +18,9 @@ static bool loadBinaryModuleFromFile(const char* filename,
 {
 	std::vector<U8> wasmBytes;
 	if(!loadFile(filename, wasmBytes)) { return false; }
-	Serialization::MemoryInputStream inputStream(wasmBytes.data(), wasmBytes.size());
 	WASM::LoadError loadError;
-	if(WASM::loadBinaryModule(inputStream, outModule, &loadError)) { return true; }
+	if(WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), outModule, &loadError))
+	{ return true; }
 	else
 	{
 		Log::printf(Log::error, "%s\n", loadError.message.c_str());
@@ -31,7 +30,15 @@ static bool loadBinaryModuleFromFile(const char* filename,
 
 void showDisassembleHelp(Log::Category outputCategory)
 {
-	Log::printf(Log::error, "Usage: wavm disassemble in.wasm [out.wast] [--enable-quoted-names]\n");
+	Log::printf(Log::error,
+				"Usage: wavm disassemble [options] in.wasm [out.wast]\n"
+				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
+				"                        features below.\n"
+				"\n"
+				"Features:\n"
+				"%s"
+				"\n",
+				getFeatureListHelpText().c_str());
 }
 
 int execDisassembleCommand(int argc, char** argv)
@@ -39,43 +46,53 @@ int execDisassembleCommand(int argc, char** argv)
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
 
-	bool showHelp = false;
-	bool enableQuotedNames = false;
-	if(argc < 1) { showHelp = true; }
-	else
+	IR::FeatureSpec featureSpec;
+	for(int argIndex = 0; argIndex < argc; ++argIndex)
 	{
-		for(int argIndex = 0; argIndex < argc; ++argIndex)
+		if(!strcmp(argv[argIndex], "--enable"))
 		{
-			if(!strcmp(argv[argIndex], "--help")) { showHelp = true; }
-			else if(!strcmp(argv[argIndex], "--enable-quoted-names"))
+			++argIndex;
+			if(!argv[argIndex])
 			{
-				enableQuotedNames = true;
+				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+				return false;
 			}
-			else if(!inputFilename)
+
+			if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
 			{
-				inputFilename = argv[argIndex];
+				Log::printf(Log::error,
+							"Unknown feature '%s'. Supported features:\n"
+							"%s"
+							"\n",
+							argv[argIndex],
+							getFeatureListHelpText().c_str());
+				return false;
 			}
-			else if(!outputFilename)
-			{
-				outputFilename = argv[argIndex];
-			}
-			else
-			{
-				showHelp = true;
-				break;
-			}
+		}
+		else if(!inputFilename)
+		{
+			inputFilename = argv[argIndex];
+		}
+		else if(!outputFilename)
+		{
+			outputFilename = argv[argIndex];
+		}
+		else
+		{
+			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
+			showDisassembleHelp(Log::error);
+			return EXIT_FAILURE;
 		}
 	}
 
-	if(showHelp)
+	if(!inputFilename)
 	{
 		showDisassembleHelp(Log::error);
 		return EXIT_FAILURE;
 	}
 
 	// Load the WASM file.
-	IR::Module module(IR::FeatureSpec(true));
-	module.featureSpec.quotedNamesInTextFormat = enableQuotedNames;
+	IR::Module module(featureSpec);
 	if(!loadBinaryModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// Print the module to WAST.

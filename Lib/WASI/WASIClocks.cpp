@@ -1,10 +1,11 @@
 #include "./WASIPrivate.h"
-#include "./WASITypes.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/WASI/WASI.h"
+#include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
 using namespace WAVM::WASI;

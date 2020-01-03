@@ -18,6 +18,7 @@
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/File.h"
+#include "WAVM/Platform/Mutex.h"
 #include "WAVM/VFS/VFS.h"
 
 #define FILE_OFFSET_IS_64BIT (sizeof(off_t) == 8)
@@ -72,6 +73,7 @@ static Result asVFSResult(int error)
 	case EBUSY: return Result::busy;
 	case ENOTEMPTY: return Result::isNotEmpty;
 	case EMLINK: return Result::outOfLinksToParentDir;
+	case ENOTSUP: return Result::notSupported;
 
 	case EINVAL:
 		// This probably needs to be handled differently for each API entry point.
@@ -182,6 +184,7 @@ struct POSIXDirEntStream : DirEntStream
 
 	virtual bool getNext(DirEnt& outEntry) override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		errno = 0;
 		struct dirent* dirent = readdir(dir);
 		if(dirent)
@@ -213,12 +216,14 @@ struct POSIXDirEntStream : DirEntStream
 
 	virtual void restart() override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		rewinddir(dir);
 		maxValidOffset = 0;
 	}
 
 	virtual U64 tell() override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		const long offset = telldir(dir);
 		WAVM_ERROR_UNLESS(offset >= 0
 						  && (LONG_MAX <= UINT64_MAX || (unsigned long)offset <= UINT64_MAX));
@@ -228,6 +233,7 @@ struct POSIXDirEntStream : DirEntStream
 
 	virtual bool seek(U64 offset) override
 	{
+		Platform::Mutex::Lock lock(mutex);
 		// Don't allow seeking to higher offsets than have been returned by tell since the last
 		// rewind.
 		if(offset > maxValidOffset) { return false; };
@@ -238,6 +244,7 @@ struct POSIXDirEntStream : DirEntStream
 	}
 
 private:
+	Platform::Mutex mutex;
 	DIR* dir;
 	U64 maxValidOffset{0};
 };
@@ -251,16 +258,18 @@ struct POSIXFD : VFD
 	virtual Result close() override
 	{
 		WAVM_ASSERT(fd >= 0);
+		VFS::Result result = VFS::Result::success;
 		if(::close(fd))
 		{
-			// POSIX close says that the fd is in an undefined state after close returns EINTR.
-			// This risks leaking the fd, but assume that the close completed despite the EINTR
-			// error and return success.
-			// https://www.daemonology.net/blog/2011-12-17-POSIX-close-is-broken.html
-			if(errno != EINTR) { return asVFSResult(errno); }
+			// close is specified by POSIX to leave the file descriptor in an unspecified state when
+			// an error occurs: https://pubs.opengroup.org/onlinepubs/009695399/functions/close.html
+			// The Linux man page for close also says that close should not be retried after an
+			// error: http://man7.org/linux/man-pages/man2/close.2.html#NOTES
+			// Assume that even though an error was returned, that the file descriptor was closed.
+			// Report the error to caller, but delete the VFD.
 		}
 		delete this;
-		return Result::success;
+		return result;
 	}
 
 	virtual Result seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr) override

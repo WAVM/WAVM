@@ -217,11 +217,30 @@ static void parseAndValidateRedundantBranchTargetName(CursorState* cursor,
 }
 
 static void parseImm(CursorState* cursor, NoImm&) {}
-static void parseImm(CursorState* cursor, MemoryImm& outImm) { outImm.memoryIndex = 0; }
+static void parseImm(CursorState* cursor, MemoryImm& outImm)
+{
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->memoryNameToIndexMap,
+										 cursor->moduleState->module.memories.size(),
+										 "memory",
+										 outImm.memoryIndex))
+	{ outImm.memoryIndex = 0; }
+}
 static void parseImm(CursorState* cursor, MemoryCopyImm& outImm)
 {
-	outImm.sourceMemoryIndex = 0;
-	outImm.destMemoryIndex = 0;
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->memoryNameToIndexMap,
+										 cursor->moduleState->module.memories.size(),
+										 "memory",
+										 outImm.destMemoryIndex))
+	{ outImm.destMemoryIndex = 0; }
+
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->memoryNameToIndexMap,
+										 cursor->moduleState->module.memories.size(),
+										 "memory",
+										 outImm.sourceMemoryIndex))
+	{ outImm.sourceMemoryIndex = outImm.destMemoryIndex; }
 }
 static void parseImm(CursorState* cursor, TableImm& outImm)
 {
@@ -238,15 +257,15 @@ static void parseImm(CursorState* cursor, TableCopyImm& outImm)
 										 cursor->moduleState->tableNameToIndexMap,
 										 cursor->moduleState->module.tables.size(),
 										 "table",
-										 outImm.sourceTableIndex))
-	{ outImm.sourceTableIndex = 0; }
+										 outImm.destTableIndex))
+	{ outImm.destTableIndex = 0; }
 
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
 										 cursor->moduleState->tableNameToIndexMap,
 										 cursor->moduleState->module.tables.size(),
 										 "table",
-										 outImm.destTableIndex))
-	{ outImm.destTableIndex = outImm.sourceTableIndex; }
+										 outImm.sourceTableIndex))
+	{ outImm.sourceTableIndex = outImm.destTableIndex; }
 }
 
 static void parseImm(CursorState* cursor, SelectImm& outImm)
@@ -388,6 +407,13 @@ static void parseImm(CursorState* cursor, CallIndirectImm& outImm)
 template<Uptr naturalAlignmentLog2>
 static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->memoryNameToIndexMap,
+										 cursor->moduleState->module.memories.size(),
+										 "memory",
+										 outImm.memoryIndex))
+	{ outImm.memoryIndex = 0; }
+
 	outImm.offset = 0;
 	if(cursor->nextToken->type == t_offset)
 	{
@@ -458,6 +484,7 @@ static void parseImm(CursorState* cursor, AtomicLoadOrStoreImm<naturalAlignmentL
 {
 	LoadOrStoreImm<naturalAlignmentLog2> loadOrStoreImm;
 	parseImm(cursor, loadOrStoreImm);
+	outImm.memoryIndex = loadOrStoreImm.memoryIndex;
 	outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
 	outImm.offset = loadOrStoreImm.offset;
 }
@@ -773,10 +800,12 @@ static WAVM_FORCENOINLINE void parseExprSequence(CursorState* cursor, Uptr depth
 	static WAVM_FORCENOINLINE void parseOp_##name(                                                 \
 		CursorState* cursor, bool isExpression, Uptr depth)                                        \
 	{                                                                                              \
+		const Token* opcodeToken = cursor->nextToken;                                              \
 		++cursor->nextToken;                                                                       \
 		Imm imm;                                                                                   \
 		parseImm(cursor, imm);                                                                     \
 		if(isExpression) { parseExprSequence(cursor, depth); }                                     \
+		cursor->functionState->validatingCodeStream.validationErrorToken = opcodeToken;            \
 		cursor->functionState->validatingCodeStream.name(imm);                                     \
 	}
 WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)

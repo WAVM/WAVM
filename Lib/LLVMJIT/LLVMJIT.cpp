@@ -31,21 +31,30 @@ using namespace WAVM::LLVMJIT;
 
 namespace LLVMRuntimeSymbols {
 #ifdef _WIN32
+	// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 	extern "C" void __chkstk();
 	extern "C" void __CxxFrameHandler3();
 #else
+#if defined(__APPLE__)
+	// LLVM's memset intrinsic lowers to calling __bzero on MacOS when writing a constant zero.
+	extern "C" void __bzero();
+#endif
 	extern "C" void wavm_probe_stack();
-	extern "C" void __gxx_personality_v0();
+	extern "C" int __gxx_personality_v0();
 	extern "C" void* __cxa_begin_catch(void*) throw();
 	extern "C" void __cxa_end_catch();
 #endif
 
 	static HashMap<std::string, void*> map = {
+		{"memmove", (void*)&memmove},
+		{"memset", (void*)&memset},
 #ifdef _WIN32
-		// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 		{"__chkstk", (void*)&__chkstk},
 		{"__CxxFrameHandler3", (void*)&__CxxFrameHandler3},
 #else
+#if defined(__APPLE__)
+		{"__bzero", (void*)&__bzero},
+#endif
 		{"wavm_probe_stack", (void*)&wavm_probe_stack},
 		{"__gxx_personality_v0", (void*)&__gxx_personality_v0},
 		{"__cxa_begin_catch", (void*)&__cxa_begin_catch},
@@ -74,6 +83,7 @@ static bool globalInitLLVM()
 	llvm::InitializeAllTargets();
 	llvm::InitializeAllTargetMCs();
 	llvm::InitializeAllAsmPrinters();
+	llvm::InitializeAllAsmParsers();
 	llvm::InitializeAllDisassemblers();
 	llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 	return true;
@@ -117,8 +127,22 @@ LLVMContext::LLVMContext()
 	f32x4Type = llvm::VectorType::get(f32Type, 4);
 	f64x2Type = llvm::VectorType::get(f64Type, 2);
 
-	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any]
-		= valueTypes[(Uptr)ValueType::nullref] = nullptr;
+	i8x32Type = llvm::VectorType::get(i8Type, 32);
+	i16x16Type = llvm::VectorType::get(i16Type, 16);
+	i32x8Type = llvm::VectorType::get(i32Type, 8);
+	i64x4Type = llvm::VectorType::get(i64Type, 4);
+
+	i8x48Type = llvm::VectorType::get(i8Type, 48);
+	i16x24Type = llvm::VectorType::get(i16Type, 24);
+	i32x12Type = llvm::VectorType::get(i32Type, 12);
+	i64x6Type = llvm::VectorType::get(i64Type, 6);
+
+	i8x64Type = llvm::VectorType::get(i8Type, 64);
+	i16x32Type = llvm::VectorType::get(i16Type, 32);
+	i32x16Type = llvm::VectorType::get(i32Type, 16);
+	i64x8Type = llvm::VectorType::get(i64Type, 8);
+
+	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any] = nullptr;
 	valueTypes[(Uptr)ValueType::i32] = i32Type;
 	valueTypes[(Uptr)ValueType::i64] = i64Type;
 	valueTypes[(Uptr)ValueType::f32] = f32Type;
@@ -126,6 +150,7 @@ LLVMContext::LLVMContext()
 	valueTypes[(Uptr)ValueType::v128] = i64x2Type;
 	valueTypes[(Uptr)ValueType::anyref] = anyrefType;
 	valueTypes[(Uptr)ValueType::funcref] = anyrefType;
+	valueTypes[(Uptr)ValueType::nullref] = anyrefType;
 
 	// Create zero constants of each type.
 	typedZeroConstants[(Uptr)ValueType::none] = nullptr;
@@ -151,8 +176,18 @@ std::unique_ptr<llvm::TargetMachine> LLVMJIT::getTargetMachine(const TargetSpec&
 {
 	globalInitLLVMOnce();
 
-	return std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
-		llvm::Triple(targetSpec.triple), "", targetSpec.cpu, llvm::SmallVector<std::string, 0>{}));
+	llvm::Triple triple(targetSpec.triple);
+	llvm::SmallVector<std::string, 1> targetAttributes;
+
+	if(triple.getArch() == llvm::Triple::x86 || triple.getArch() == llvm::Triple::x86_64)
+	{
+		// Disable AVX-512 on X86 targets to workaround a LLVM backend bug:
+		// https://bugs.llvm.org/show_bug.cgi?id=43750
+		targetAttributes.push_back("-avx512f");
+	}
+
+	return std::unique_ptr<llvm::TargetMachine>(
+		llvm::EngineBuilder().selectTarget(triple, "", targetSpec.cpu, targetAttributes));
 }
 
 TargetValidationResult LLVMJIT::validateTargetMachine(
@@ -192,5 +227,5 @@ TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
 
 Version LLVMJIT::getVersion()
 {
-	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH};
+	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 2};
 }

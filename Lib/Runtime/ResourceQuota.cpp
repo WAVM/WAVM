@@ -1,6 +1,5 @@
 #include <memory>
 #include "RuntimePrivate.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
 

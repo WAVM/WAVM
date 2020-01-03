@@ -24,11 +24,14 @@ $SCRIPT_DIR/run-fuzz-compile-model.sh
 
 # Translate the compile model corpus to WASM files
 mkdir -p corpora/compile-model
-rm -rf translated-compile-model-corpus
-mkdir -p translated-compile-model-corpus
+rm -rf translated-compile-model-corpus-wasm
+rm -rf translated-compile-model-corpus-wast
+mkdir -p translated-compile-model-corpus-wasm
+mkdir -p translated-compile-model-corpus-wast
 bin/translate-compile-model-corpus \
 	corpora/compile-model \
-	translated-compile-model-corpus
+	translated-compile-model-corpus-wasm \
+	translated-compile-model-corpus-wast
 
 # Run the instantiate fuzzer.
 $SCRIPT_DIR/run-fuzz-instantiate.sh

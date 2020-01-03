@@ -33,32 +33,26 @@ using namespace WAVM::IR;
 
 #define VALIDATE_FEATURE(context, feature)                                                         \
 	if(!module.featureSpec.feature)                                                                \
-	{ throw ValidationException(context " requires " #feature " feature"); }
+	{                                                                                              \
+		throw ValidationException(std::string(context) + " requires "                              \
+								  + getFeatureName(Feature::feature) + " feature");                \
+	}
 
-static void validate(const IR::FeatureSpec& featureSpec, IR::ValueType valueType)
+static void validate(const IR::Module& module, IR::ValueType valueType)
 {
 	switch(valueType)
 	{
 	case ValueType::i32:
 	case ValueType::i64:
 	case ValueType::f32:
-	case ValueType::f64: WAVM_ASSERT(featureSpec.mvp); break;
-	case ValueType::v128:
-		if(!featureSpec.simd)
-		{ throw ValidationException("v128 value type requires simd feature"); }
-		break;
+	case ValueType::f64: WAVM_ASSERT(module.featureSpec.mvp); break;
+	case ValueType::v128: VALIDATE_FEATURE("v128 value type", simd) break;
 	case ValueType::anyref:
 	case ValueType::funcref:
-		if(!featureSpec.referenceTypes)
-		{
-			throw ValidationException(std::string(asString(valueType))
-									  + " value type requires reference types feature");
-		}
-		break;
+	case ValueType::nullref: VALIDATE_FEATURE(asString(valueType), referenceTypes) break;
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default:
 		throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")");
 	};
@@ -71,26 +65,23 @@ static void validate(SizeConstraints size, U64 maxMax)
 	VALIDATE_UNLESS("maximum size exceeds limit: ", max > maxMax);
 }
 
-static void validate(const IR::FeatureSpec& featureSpec, ReferenceType type)
+static void validate(const IR::Module& module, ReferenceType type)
 {
-	bool isValid;
 	switch(type)
 	{
-	case ReferenceType::funcref: isValid = featureSpec.mvp; break;
-	case ReferenceType::anyref: isValid = featureSpec.referenceTypes; break;
+	case ReferenceType::funcref: break;
+	case ReferenceType::anyref:
+	case ReferenceType::nullref: VALIDATE_FEATURE(asString(type), referenceTypes); break;
 
-	case ReferenceType::nullref:
 	case ReferenceType::none:
-	default: isValid = false;
+	default:
+		throw ValidationException("invalid reference type (" + std::to_string((Uptr)type) + ")");
 	}
-
-	if(!isValid)
-	{ throw ValidationException("invalid reference type (" + std::to_string((Uptr)type) + ")"); }
 }
 
 static void validate(const Module& module, TableType type)
 {
-	validate(module.featureSpec, type.elementType);
+	validate(module, type.elementType);
 	validate(type.size, IR::maxTableElems);
 	if(type.isShared)
 	{
@@ -109,14 +100,11 @@ static void validate(const Module& module, MemoryType type)
 	}
 }
 
-static void validate(const IR::FeatureSpec& featureSpec, GlobalType type)
-{
-	validate(featureSpec, type.valueType);
-}
+static void validate(const Module& module, GlobalType type) { validate(module, type.valueType); }
 
-static void validate(const IR::FeatureSpec& featureSpec, TypeTuple typeTuple)
+static void validate(const Module& module, TypeTuple typeTuple)
 {
-	for(ValueType valueType : typeTuple) { validate(featureSpec, valueType); }
+	for(ValueType valueType : typeTuple) { validate(module, valueType); }
 }
 
 template<typename Type> void validateType(Type expectedType, Type actualType, const char* context)
@@ -126,6 +114,25 @@ template<typename Type> void validateType(Type expectedType, Type actualType, co
 		throw ValidationException(std::string("type mismatch: expected ") + asString(expectedType)
 								  + " but got " + asString(actualType) + " in " + context);
 	}
+}
+
+static void validateExternKind(const Module& module, ExternKind externKind)
+{
+	switch(externKind)
+	{
+	case ExternKind::function:
+	case ExternKind::table:
+	case ExternKind::memory:
+	case ExternKind::global: break;
+
+	case ExternKind::exceptionType:
+		VALIDATE_FEATURE("exception type extern", exceptionHandling);
+		break;
+
+	case ExternKind::invalid:
+	default:
+		throw ValidationException("invalid extern kind (" + std::to_string(Uptr(externKind)) + ")");
+	};
 }
 
 static ValueType validateGlobalIndex(const Module& module,
@@ -164,20 +171,20 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 	{
 	case IndexedBlockType::noParametersOrResult: return FunctionType();
 	case IndexedBlockType::oneResult:
-		validate(module.featureSpec, type.resultType);
+		validate(module, type.resultType);
 		return FunctionType(TypeTuple(type.resultType));
 	case IndexedBlockType::functionType: {
 		VALIDATE_INDEX(type.index, module.types.size());
 		FunctionType functionType = module.types[type.index];
-		if(functionType.params().size() > 0 && !module.featureSpec.multipleResultsAndBlockParams)
+		if(functionType.params().size() > 0)
+		{ VALIDATE_FEATURE("block with params", multipleResultsAndBlockParams); }
+		else if(functionType.results().size() > 1)
 		{
-			throw ValidationException("block has params, but \"multivalue\" extension is disabled");
+			VALIDATE_FEATURE("block with multiple results", multipleResultsAndBlockParams);
 		}
-		else if(functionType.results().size() > 1
-				&& !module.featureSpec.multipleResultsAndBlockParams)
+		else if(functionType.callingConvention() != CallingConvention::wasm)
 		{
-			throw ValidationException(
-				"block has multiple results, but \"multivalue\" extension is disabled");
+			throw ValidationException("invalid calling convention for block");
 		}
 		return functionType;
 	}
@@ -246,8 +253,7 @@ struct FunctionValidationContext
 	, functionType(inModule.types[inFunctionDef.type.index])
 	{
 		// Validate the function's local types.
-		for(auto localType : functionDef.nonParameterLocalTypes)
-		{ validate(module.featureSpec, localType); }
+		for(auto localType : functionDef.nonParameterLocalTypes) { validate(module, localType); }
 
 		// Initialize the local types.
 		locals.reserve(functionType.params().size() + functionDef.nonParameterLocalTypes.size());
@@ -496,7 +502,7 @@ struct FunctionValidationContext
 		{
 			VALIDATE_FEATURE("typed select instruction (0x1c)", referenceTypes);
 
-			validate(module.featureSpec, imm.type);
+			validate(module, imm.type);
 			popAndValidateOperand("select false value", imm.type);
 			popAndValidateOperand("select true value", imm.type);
 			pushOperand(imm.type);
@@ -602,8 +608,7 @@ struct FunctionValidationContext
 	{
 		VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",
 						imm.alignmentLog2 > naturalAlignmentLog2);
-		VALIDATE_UNLESS("load or store in module without default memory: ",
-						module.memories.size() == 0);
+		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
 	}
 
 	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
@@ -643,15 +648,10 @@ struct FunctionValidationContext
 	template<Uptr naturalAlignmentLog2>
 	void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 	{
-		VALIDATE_UNLESS("atomic memory operator in module without default memory: ",
-						module.memories.size() == 0);
-		if(module.featureSpec.requireSharedFlagForAtomicOperators)
-		{
-			VALIDATE_UNLESS("atomic memory operators require a memory with the shared flag: ",
-							!module.memories.getType(0).isShared);
-		}
 		VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",
 						imm.alignmentLog2 != naturalAlignmentLog2);
+
+		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
 	}
 
 	void validateImm(AtomicFenceImm imm)
@@ -674,6 +674,23 @@ struct FunctionValidationContext
 	{
 		VALIDATE_INDEX(imm.elemSegmentIndex, module.elemSegments.size());
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+
+		// Validate that the elem type contained by the segment is compatible with the target table.
+		const TableType tableType = module.tables.getType(imm.tableIndex);
+		ElemSegment::Contents* contents = module.elemSegments[imm.elemSegmentIndex].contents.get();
+		switch(contents->encoding)
+		{
+		case IR::ElemSegment::Encoding::expr:
+			VALIDATE_UNLESS("table.init elem segment type is not a subtype of table element type",
+							!isSubtype(contents->elemType, tableType.elementType));
+			break;
+		case IR::ElemSegment::Encoding::index:
+			VALIDATE_UNLESS(
+				"table.init elem segment type is not a subtype of table element type",
+				!isSubtype(asReferenceType(contents->externKind), tableType.elementType));
+			break;
+		default: WAVM_UNREACHABLE();
+		};
 	}
 
 	void validateImm(ElemSegmentImm imm)
@@ -874,15 +891,16 @@ void IR::validateTypes(const Module& module)
 		// number of return values here, since they don't apply to block types that are also stored
 		// here. Instead, uses of a function type from the types array must call
 		// validateFunctionType to validate its use as a function type.
-		validate(module.featureSpec, functionType.params());
-		validate(module.featureSpec, functionType.results());
+		validate(module, functionType.params());
+		validate(module, functionType.results());
 
-		if(functionType.results().size() > 1 && !module.featureSpec.multipleResultsAndBlockParams)
+		if(functionType.results().size() > 1)
 		{
-			throw ValidationException(
-				"function/block has multiple return values, but \"multivalue\" extension is "
-				"disabled");
+			VALIDATE_FEATURE("function type with multiple results", multipleResultsAndBlockParams);
 		}
+
+		if(functionType.callingConvention() != CallingConvention::wasm)
+		{ VALIDATE_FEATURE("non-WASM function type", nonWASMFunctionTypes); }
 	}
 }
 
@@ -899,16 +917,15 @@ void IR::validateImports(const Module& module)
 	for(auto& memoryImport : module.memories.imports) { validate(module, memoryImport.type); }
 	for(auto& globalImport : module.globals.imports)
 	{
-		validate(module.featureSpec, globalImport.type);
-		if(!module.featureSpec.importExportMutableGlobals)
-		{ VALIDATE_UNLESS("mutable globals cannot be imported: ", globalImport.type.isMutable); }
+		validate(module, globalImport.type);
+		if(globalImport.type.isMutable)
+		{ VALIDATE_FEATURE("mutable imported global", importExportMutableGlobals); }
 	}
 	for(auto& exceptionTypeImport : module.exceptionTypes.imports)
-	{ validate(module.featureSpec, exceptionTypeImport.type.params); }
+	{ validate(module, exceptionTypeImport.type.params); }
 
-	VALIDATE_UNLESS("too many tables: ",
-					!module.featureSpec.referenceTypes && module.tables.size() > 1);
-	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
+	if(module.tables.size() > 1) { VALIDATE_FEATURE("multiple tables", referenceTypes); }
+	if(module.memories.size() > 1) { VALIDATE_FEATURE("multiple memories", multipleMemories); }
 }
 
 void IR::validateFunctionDeclarations(const Module& module)
@@ -917,7 +934,10 @@ void IR::validateFunctionDeclarations(const Module& module)
 		++functionDefIndex)
 	{
 		const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
-		validateFunctionType(module, functionDef.type);
+		const FunctionType functionType = validateFunctionType(module, functionDef.type);
+
+		if(functionType.callingConvention() != CallingConvention::wasm)
+		{ throw ValidationException("Function definitions must have WASM calling convention"); }
 	}
 }
 
@@ -925,7 +945,7 @@ void IR::validateGlobalDefs(const Module& module)
 {
 	for(auto& globalDef : module.globals.defs)
 	{
-		validate(module.featureSpec, globalDef.type);
+		validate(module, globalDef.type);
 		validateInitializer(module,
 							globalDef.initializer,
 							globalDef.type.valueType,
@@ -936,20 +956,19 @@ void IR::validateGlobalDefs(const Module& module)
 void IR::validateExceptionTypeDefs(const Module& module)
 {
 	for(auto& exceptionTypeDef : module.exceptionTypes.defs)
-	{ validate(module.featureSpec, exceptionTypeDef.type.params); }
+	{ validate(module, exceptionTypeDef.type.params); }
 }
 
 void IR::validateTableDefs(const Module& module)
 {
 	for(auto& tableDef : module.tables.defs) { validate(module, tableDef.type); }
-	VALIDATE_UNLESS("too many tables: ",
-					!module.featureSpec.referenceTypes && module.tables.size() > 1);
+	if(module.tables.size() > 1) { VALIDATE_FEATURE("multiple tables", referenceTypes); }
 }
 
 void IR::validateMemoryDefs(const Module& module)
 {
 	for(auto& memoryDef : module.memories.defs) { validate(module, memoryDef.type); }
-	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
+	if(module.memories.size() > 1) { VALIDATE_FEATURE("multiple memories", multipleMemories); }
 }
 
 void IR::validateExports(const Module& module)
@@ -957,6 +976,7 @@ void IR::validateExports(const Module& module)
 	HashSet<std::string> exportNameSet;
 	for(auto& exportIt : module.exports)
 	{
+		validateExternKind(module, exportIt.kind);
 		switch(exportIt.kind)
 		{
 		case ExternKind::function: VALIDATE_INDEX(exportIt.index, module.functions.size()); break;
@@ -975,7 +995,7 @@ void IR::validateExports(const Module& module)
 			break;
 
 		case ExternKind::invalid:
-		default: throw ValidationException("unknown export kind");
+		default: WAVM_UNREACHABLE();
 		};
 
 		VALIDATE_UNLESS("duplicate export: ", exportNameSet.contains(exportIt.name));
@@ -999,13 +1019,15 @@ void IR::validateElemSegments(const Module& module)
 {
 	for(auto& elemSegment : module.elemSegments)
 	{
-		if(elemSegment.contents->encoding == ElemSegment::Encoding::index
-		   && elemSegment.contents->externKind != ExternKind::function
-		   && !module.featureSpec.allowAnyExternKindElemSegments)
+		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)
 		{
-			throw ValidationException(
-				"elem segment referencing non-function externs requires"
-				" allowAnyExternKindElemSegments feature");
+			validateExternKind(module, elemSegment.contents->externKind);
+
+			if(elemSegment.contents->externKind != ExternKind::function)
+			{
+				VALIDATE_FEATURE("elem segment reference non-function externs",
+								 allowAnyExternKindElemSegments);
+			}
 		}
 
 		switch(elemSegment.type)
@@ -1106,6 +1128,16 @@ void IR::validateDataSegments(const Module& module)
 			validateInitializer(
 				module, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
 		}
+	}
+}
+
+void IR::validateCodeSection(const Module& module)
+{
+	for(const auto& functionDef : module.functions.defs)
+	{
+		CodeValidationStream validationStream(module, functionDef);
+		OperatorDecoderStream operatorDecoderStream(functionDef.code);
+		while(operatorDecoderStream) { operatorDecoderStream.decodeOp(validationStream); }
 	}
 }
 

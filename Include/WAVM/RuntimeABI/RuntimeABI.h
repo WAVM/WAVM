@@ -36,7 +36,7 @@ namespace WAVM { namespace Runtime {
 		exceptionType = (U8)IR::ExternKind::exceptionType,
 
 		// Runtime-specific object kinds that are only used by transient runtime objects.
-		moduleInstance = 5,
+		instance = 5,
 		context = 6,
 		compartment = 7,
 		foreign = 8,
@@ -59,7 +59,7 @@ namespace WAVM { namespace Runtime {
 	static constexpr Uptr maxMutableGlobals
 		= (4096 - maxThunkArgAndReturnBytes - sizeof(Context*)) / sizeof(IR::UntaggedValue);
 	static constexpr Uptr maxMemories = 255;
-	static constexpr Uptr maxTables = 128 * 1024 - maxMemories - 1;
+	static constexpr Uptr maxTables = 128 * 1024 - maxMemories * 2 - 1;
 	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
 	static constexpr Uptr contextRuntimeDataAlignment = 4096;
 
@@ -76,10 +76,16 @@ namespace WAVM { namespace Runtime {
 
 	static_assert(sizeof(ContextRuntimeData) == 4096, "");
 
+	struct MemoryRuntimeData
+	{
+		void* base;
+		std::atomic<Uptr> numPages;
+	};
+
 	struct CompartmentRuntimeData
 	{
 		Compartment* compartment;
-		void* memoryBases[maxMemories];
+		MemoryRuntimeData memories[maxMemories];
 		void* tableBases[maxTables];
 		ContextRuntimeData contexts[1]; // Actually [maxContexts], but at least MSVC doesn't allow
 										// declaring arrays that large.
@@ -156,23 +162,27 @@ namespace WAVM { namespace Runtime {
 		{
 		}
 
-		~FunctionMutableData();
+		~FunctionMutableData()
+		{
+			WAVM_ASSERT(numRootReferences.load(std::memory_order_acquire) == 0);
+			if(finalizeUserData) { (*finalizeUserData)(userData); }
+		}
 	};
 
 	struct Function
 	{
 		Object object;
 		FunctionMutableData* mutableData;
-		const Uptr moduleInstanceId;
+		const Uptr instanceId;
 		const IR::FunctionType::Encoding encodedType;
 		const U8 code[1];
 
 		Function(FunctionMutableData* inMutableData,
-				 Uptr inModuleInstanceId,
+				 Uptr inInstanceId,
 				 IR::FunctionType::Encoding inEncodedType)
 		: object{ObjectKind::function}
 		, mutableData(inMutableData)
-		, moduleInstanceId(inModuleInstanceId)
+		, instanceId(inInstanceId)
 		, encodedType(inEncodedType)
 		, code{0xcc} // int3
 		{

@@ -9,10 +9,9 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IndexMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
@@ -30,8 +29,9 @@ namespace WAVM { namespace Runtime {
 		mutable std::atomic<Uptr> numRootReferences{0};
 		void* userData{nullptr};
 		void (*finalizeUserData)(void*);
+		std::string debugName;
 
-		GCObject(ObjectKind inKind, Compartment* inCompartment);
+		GCObject(ObjectKind inKind, Compartment* inCompartment, std::string&& inDebugName);
 		virtual ~GCObject();
 	};
 
@@ -45,13 +45,12 @@ namespace WAVM { namespace Runtime {
 
 		Uptr id = UINTPTR_MAX;
 		const IR::TableType type;
-		std::string debugName;
 
 		Element* elements = nullptr;
 		Uptr numReservedBytes = 0;
 		Uptr numReservedElements = 0;
 
-		mutable Platform::Mutex resizingMutex;
+		mutable Platform::RWMutex resizingMutex;
 		std::atomic<Uptr> numElements{0};
 
 		ResourceQuotaRef resourceQuota;
@@ -60,9 +59,8 @@ namespace WAVM { namespace Runtime {
 			  const IR::TableType& inType,
 			  std::string&& inDebugName,
 			  ResourceQuotaRefParam inResourceQuota)
-		: GCObject(ObjectKind::table, inCompartment)
+		: GCObject(ObjectKind::table, inCompartment, std::move(inDebugName))
 		, type(inType)
-		, debugName(std::move(inDebugName))
 		, resourceQuota(inResourceQuota)
 		{
 		}
@@ -79,12 +77,11 @@ namespace WAVM { namespace Runtime {
 	{
 		Uptr id = UINTPTR_MAX;
 		IR::MemoryType type;
-		std::string debugName;
 
 		U8* baseAddress = nullptr;
 		Uptr numReservedBytes = 0;
 
-		mutable Platform::Mutex resizingMutex;
+		mutable Platform::RWMutex resizingMutex;
 		std::atomic<Uptr> numPages{0};
 
 		ResourceQuotaRef resourceQuota;
@@ -93,9 +90,8 @@ namespace WAVM { namespace Runtime {
 			   const IR::MemoryType& inType,
 			   std::string&& inDebugName,
 			   ResourceQuotaRefParam inResourceQuota)
-		: GCObject(ObjectKind::memory, inCompartment)
+		: GCObject(ObjectKind::memory, inCompartment, std::move(inDebugName))
 		, type(inType)
-		, debugName(std::move(inDebugName))
 		, resourceQuota(inResourceQuota)
 		{
 		}
@@ -115,8 +111,9 @@ namespace WAVM { namespace Runtime {
 		Global(Compartment* inCompartment,
 			   IR::GlobalType inType,
 			   U32 inMutableGlobalId,
+			   std::string&& inDebugName,
 			   IR::UntaggedValue inInitialValue = IR::UntaggedValue())
-		: GCObject(ObjectKind::global, inCompartment)
+		: GCObject(ObjectKind::global, inCompartment, std::move(inDebugName))
 		, type(inType)
 		, mutableGlobalIndex(inMutableGlobalId)
 		, initialValue(inInitialValue)
@@ -132,14 +129,11 @@ namespace WAVM { namespace Runtime {
 		Uptr id = UINTPTR_MAX;
 
 		IR::ExceptionType sig;
-		std::string debugName;
 
 		ExceptionType(Compartment* inCompartment,
 					  IR::ExceptionType inSig,
 					  std::string&& inDebugName)
-		: GCObject(ObjectKind::exceptionType, inCompartment)
-		, sig(inSig)
-		, debugName(std::move(inDebugName))
+		: GCObject(ObjectKind::exceptionType, inCompartment, std::move(inDebugName)), sig(inSig)
 		{
 		}
 
@@ -162,10 +156,9 @@ namespace WAVM { namespace Runtime {
 	};
 
 	// An instance of a WebAssembly module.
-	struct ModuleInstance : GCObject
+	struct Instance : GCObject
 	{
 		const Uptr id;
-		const std::string debugName;
 
 		const HashMap<std::string, Object*> exportMap;
 		const std::vector<Object*> exports;
@@ -178,34 +171,33 @@ namespace WAVM { namespace Runtime {
 
 		Function* const startFunction;
 
-		mutable Platform::Mutex dataSegmentsMutex;
+		mutable Platform::RWMutex dataSegmentsMutex;
 		DataSegmentVector dataSegments;
 
-		mutable Platform::Mutex elemSegmentsMutex;
+		mutable Platform::RWMutex elemSegmentsMutex;
 		ElemSegmentVector elemSegments;
 
 		const std::shared_ptr<LLVMJIT::Module> jitModule;
 
 		ResourceQuotaRef resourceQuota;
 
-		ModuleInstance(Compartment* inCompartment,
-					   Uptr inID,
-					   HashMap<std::string, Object*>&& inExportMap,
-					   std::vector<Object*>&& inExports,
-					   std::vector<Function*>&& inFunctions,
-					   std::vector<Table*>&& inTables,
-					   std::vector<Memory*>&& inMemories,
-					   std::vector<Global*>&& inGlobals,
-					   std::vector<ExceptionType*>&& inExceptionTypes,
-					   Function* inStartFunction,
-					   DataSegmentVector&& inPassiveDataSegments,
-					   ElemSegmentVector&& inPassiveElemSegments,
-					   std::shared_ptr<LLVMJIT::Module>&& inJITModule,
-					   std::string&& inDebugName,
-					   ResourceQuotaRefParam inResourceQuota)
-		: GCObject(ObjectKind::moduleInstance, inCompartment)
+		Instance(Compartment* inCompartment,
+				 Uptr inID,
+				 HashMap<std::string, Object*>&& inExportMap,
+				 std::vector<Object*>&& inExports,
+				 std::vector<Function*>&& inFunctions,
+				 std::vector<Table*>&& inTables,
+				 std::vector<Memory*>&& inMemories,
+				 std::vector<Global*>&& inGlobals,
+				 std::vector<ExceptionType*>&& inExceptionTypes,
+				 Function* inStartFunction,
+				 DataSegmentVector&& inPassiveDataSegments,
+				 ElemSegmentVector&& inPassiveElemSegments,
+				 std::shared_ptr<LLVMJIT::Module>&& inJITModule,
+				 std::string&& inDebugName,
+				 ResourceQuotaRefParam inResourceQuota)
+		: GCObject(ObjectKind::instance, inCompartment, std::move(inDebugName))
 		, id(inID)
-		, debugName(std::move(inDebugName))
 		, exportMap(std::move(inExportMap))
 		, exports(std::move(inExports))
 		, functions(std::move(inFunctions))
@@ -221,7 +213,7 @@ namespace WAVM { namespace Runtime {
 		{
 		}
 
-		virtual ~ModuleInstance() override;
+		virtual ~Instance() override;
 	};
 
 	struct Context : GCObject
@@ -229,13 +221,16 @@ namespace WAVM { namespace Runtime {
 		Uptr id = UINTPTR_MAX;
 		struct ContextRuntimeData* runtimeData = nullptr;
 
-		Context(Compartment* inCompartment) : GCObject(ObjectKind::context, inCompartment) {}
+		Context(Compartment* inCompartment, std::string&& inDebugName)
+		: GCObject(ObjectKind::context, inCompartment, std::move(inDebugName))
+		{
+		}
 		~Context();
 	};
 
 	struct Compartment : GCObject
 	{
-		mutable Platform::Mutex mutex;
+		mutable Platform::RWMutex mutex;
 
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;
@@ -244,19 +239,25 @@ namespace WAVM { namespace Runtime {
 		IndexMap<Uptr, Memory*> memories;
 		IndexMap<Uptr, Global*> globals;
 		IndexMap<Uptr, ExceptionType*> exceptionTypes;
-		IndexMap<Uptr, ModuleInstance*> moduleInstances;
+		IndexMap<Uptr, Instance*> instances;
 		IndexMap<Uptr, Context*> contexts;
+		IndexMap<Uptr, Foreign*> foreigns;
 
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
 		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
 
-		Compartment();
+		Compartment(std::string&& inDebugName);
 		~Compartment();
 	};
 
 	struct Foreign : GCObject
 	{
-		Foreign(Compartment* inCompartment) : GCObject(ObjectKind::foreign, inCompartment) {}
+		Uptr id = UINTPTR_MAX;
+
+		Foreign(Compartment* inCompartment, std::string&& inDebugName)
+		: GCObject(ObjectKind::foreign, inCompartment, std::move(inDebugName))
+		{
+		}
 	};
 
 	struct ResourceQuota
@@ -267,7 +268,7 @@ namespace WAVM { namespace Runtime {
 
 			bool allocate(Value delta)
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ExclusiveLock lock(mutex);
 
 				// Make sure the delta doesn't make current overflow.
 				if(current + delta < current) { return false; }
@@ -280,29 +281,29 @@ namespace WAVM { namespace Runtime {
 
 			void free(Value delta)
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ExclusiveLock lock(mutex);
 				WAVM_ASSERT(current - delta <= current);
 				current -= delta;
 			}
 
 			Value getCurrent() const
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ShareableLock lock(mutex);
 				return current;
 			}
 			Value getMax() const
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ShareableLock lock(mutex);
 				return max;
 			}
 			void setMax(Value newMax)
 			{
-				Lock<Platform::Mutex> lock(mutex);
+				Platform::RWMutex::ExclusiveLock lock(mutex);
 				max = newMax;
 			}
 
 		private:
-			mutable Platform::Mutex mutex;
+			mutable Platform::RWMutex mutex;
 			Value current;
 			Value max;
 		};
@@ -325,19 +326,17 @@ namespace WAVM { namespace Runtime {
 	Table* cloneTable(Table* memory, Compartment* newCompartment);
 	Memory* cloneMemory(Memory* memory, Compartment* newCompartment);
 	ExceptionType* cloneExceptionType(ExceptionType* exceptionType, Compartment* newCompartment);
-	ModuleInstance* cloneModuleInstance(ModuleInstance* moduleInstance,
-										Compartment* newCompartment);
+	Instance* cloneInstance(Instance* instance, Compartment* newCompartment);
 
 	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
 	Global* cloneGlobal(Global* global, Compartment* newCompartment);
 
-	ModuleInstance* getModuleInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
-													 Uptr moduleInstanceId);
+	Instance* getInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr instanceId);
 	Table* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId);
 	Memory* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId);
 
 	// Initialize a data segment (equivalent to executing a memory.init instruction).
-	void initDataSegment(ModuleInstance* moduleInstance,
+	void initDataSegment(Instance* instance,
 						 Uptr dataSegmentIndex,
 						 const std::vector<U8>* dataVector,
 						 Memory* memory,
@@ -346,13 +345,39 @@ namespace WAVM { namespace Runtime {
 						 Uptr numBytes);
 
 	// Initialize a table segment (equivalent to executing a table.init instruction).
-	void initElemSegment(ModuleInstance* moduleInstance,
+	void initElemSegment(Instance* instance,
 						 Uptr elemSegmentIndex,
 						 const IR::ElemSegment::Contents* contents,
 						 Table* table,
 						 Uptr destOffset,
 						 Uptr sourceOffset,
 						 Uptr numElems);
+
+	// This function is like Runtime::instantiateModule, but allows binding function imports
+	// directly to native code. The interpretation of each FunctionImportBinding is determined by
+	// the import's calling convention:
+	// An import with CallingConvention::wasm reads FunctionImportBinding::wasmFunction,
+	// but all other imports read FunctionImportBinding::nativeFunction.
+	struct FunctionImportBinding
+	{
+		union
+		{
+			Function* wasmFunction;
+			const void* nativeFunction;
+		};
+
+		FunctionImportBinding(Function* inWASMFunction) : wasmFunction(inWASMFunction) {}
+		FunctionImportBinding(void* inNativeFunction) : nativeFunction(inNativeFunction) {}
+	};
+	Instance* instantiateModuleInternal(Compartment* compartment,
+										ModuleConstRefParam module,
+										std::vector<FunctionImportBinding>&& functionImports,
+										std::vector<Table*>&& tableImports,
+										std::vector<Memory*>&& memoryImports,
+										std::vector<Global*>&& globalImports,
+										std::vector<ExceptionType*>&& exceptionTypeImports,
+										std::string&& debugName,
+										ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 }}
 
 namespace WAVM { namespace Intrinsics {

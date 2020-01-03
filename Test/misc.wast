@@ -489,3 +489,36 @@
 (assert_return (invoke "if-else" (f64.const +1) (i32.const 1)) (v128.const f64x2 -1 -1))
 (assert_return (invoke "if-else" (f64.const -1) (i32.const 0)) (v128.const f64x2 +1 +1))
 (assert_return (invoke "if-else" (f64.const -1) (i32.const 1)) (v128.const f64x2 +1 +1))
+
+;; Test that this LLVM bug isn't triggered: https://bugs.llvm.org/show_bug.cgi?id=43514
+(module
+	(memory 1 1 shared)
+
+	(func (param $2 i64)
+		loop $loop
+			(local.set $2 (i64.rem_s
+				(local.get $2)
+				(i64.load8_u offset=0 (i32.const 0))))
+			(br_if $loop (i32.const 0))
+			return
+		end ;; $loop
+		unreachable
+	)
+)
+
+;; Test that this LLVM bug isn't triggered: https://bugs.llvm.org/show_bug.cgi?id=43510
+(module
+	(func $8 (result v128)
+		(result v128)
+		(local $0 i32)
+		(local $1 v128)
+		v128.const i32x4 0xadbc5ab3 0x03c8f2fd 0x84d96029 0xf065dbc1
+		v128.const i32x4 0x9a8f38a3 0x09c641b2 0xc66a89ad 0x9be68049
+		f64x2.max
+		local.set $1
+		loop $loop
+			br $loop
+		end ;; $loop
+		unreachable
+	)
+)

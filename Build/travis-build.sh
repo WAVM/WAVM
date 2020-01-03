@@ -11,15 +11,9 @@ $CXX --version
 
 cmake --version
 
-if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-  export LLVM_URL="http://releases.llvm.org/6.0.0/clang+llvm-6.0.0-x86_64-apple-darwin.tar.xz";
-else
-  export LLVM_URL="http://releases.llvm.org/6.0.1/clang+llvm-6.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz";
-fi
-
-# Download a binary build of LLVM6 (also not available in Travis's whitelisted apt sources)
-mkdir llvm6
-cd llvm6
+# Download a binary build of LLVM (not available in Travis's whitelisted apt sources)
+mkdir llvm
+cd llvm
 wget --no-check-certificate --quiet -O ./llvm.tar.xz ${LLVM_URL}
 tar --strip-components=1 -xf ./llvm.tar.xz
 export LLVM_DIR=`pwd`/lib/cmake/llvm
@@ -42,6 +36,11 @@ cd release
            -DWAVM_ENABLE_UNWIND=${ENABLE_UNWIND}
   make -j2
   ctest -V -j2
+  
+  if [ "$ENABLE_RUNTIME" = "YES" ]; then
+    bin/wavm test benchmark
+  fi
+
   cd ..
 fi
 

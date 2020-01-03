@@ -85,6 +85,14 @@ ADD_WAST_TESTS(
 			utf8-invalid-encoding.wast
 			utf8-custom-section-id.wast
 			utf8-import-field.wast
-			utf8-import-module.wast)
+			utf8-import-module.wast
+	WAVM_ARGS "--test-cloning")
 
 add_subdirectory(simd)
+
+if(WAVM_ENABLE_RUNTIME)
+	if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+		# Can't use WILL_FAIL, since it doesn't expect tests that crash.
+		set_tests_properties(skip-stack-guard-page.wast PROPERTIES DISABLED true)
+	endif()
+endif()

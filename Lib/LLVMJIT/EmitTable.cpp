@@ -50,7 +50,9 @@ void EmitFunctionContext::table_get(TableImm imm)
 	llvm::Value* index = pop();
 	llvm::Value* result = emitRuntimeIntrinsic(
 		"table.get",
-		FunctionType({ValueType::anyref}, TypeTuple({ValueType::i32, inferValueType<Uptr>()})),
+		FunctionType({ValueType::anyref},
+					 TypeTuple({ValueType::i32, inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{index, getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])})[0];
 	push(result);
 }
@@ -61,7 +63,9 @@ void EmitFunctionContext::table_set(TableImm imm)
 	llvm::Value* index = pop();
 	emitRuntimeIntrinsic(
 		"table.set",
-		FunctionType({}, TypeTuple({ValueType::i32, ValueType::anyref, inferValueType<Uptr>()})),
+		FunctionType({},
+					 TypeTuple({ValueType::i32, ValueType::anyref, inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{index,
 		 value,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
@@ -80,11 +84,12 @@ void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
 								ValueType::i32,
 								inferValueType<Uptr>(),
 								inferValueType<Uptr>(),
-								inferValueType<Uptr>()})),
+								inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{destOffset,
 		 sourceOffset,
 		 numElements,
-		 moduleContext.moduleInstanceId,
+		 moduleContext.instanceId,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
 		 emitLiteral(llvmContext, imm.elemSegmentIndex)});
 }
@@ -93,8 +98,10 @@ void EmitFunctionContext::elem_drop(ElemSegmentImm imm)
 {
 	emitRuntimeIntrinsic(
 		"elem.drop",
-		FunctionType({}, TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()})),
-		{moduleContext.moduleInstanceId, emitLiteral(llvmContext, imm.elemSegmentIndex)});
+		FunctionType({},
+					 TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
+		{moduleContext.instanceId, emitLiteral(llvmContext, imm.elemSegmentIndex)});
 }
 
 void EmitFunctionContext::table_copy(TableCopyImm imm)
@@ -110,12 +117,13 @@ void EmitFunctionContext::table_copy(TableCopyImm imm)
 								ValueType::i32,
 								ValueType::i32,
 								inferValueType<Uptr>(),
-								inferValueType<Uptr>()})),
+								inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{destOffset,
 		 sourceOffset,
 		 numElements,
-		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.sourceTableIndex]),
-		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.destTableIndex])});
+		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.destTableIndex]),
+		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.sourceTableIndex])});
 }
 
 void EmitFunctionContext::table_fill(TableImm imm)
@@ -128,7 +136,8 @@ void EmitFunctionContext::table_fill(TableImm imm)
 		"table.fill",
 		FunctionType(
 			{},
-			TypeTuple({ValueType::i32, ValueType::anyref, ValueType::i32, inferValueType<Uptr>()})),
+			TypeTuple({ValueType::i32, ValueType::anyref, ValueType::i32, inferValueType<Uptr>()}),
+			IR::CallingConvention::intrinsic),
 		{destOffset,
 		 value,
 		 numElements,
@@ -142,7 +151,8 @@ void EmitFunctionContext::table_grow(TableImm imm)
 	ValueVector previousNumElements = emitRuntimeIntrinsic(
 		"table.grow",
 		FunctionType(TypeTuple(ValueType::i32),
-					 TypeTuple({ValueType::anyref, ValueType::i32, inferValueType<Uptr>()})),
+					 TypeTuple({ValueType::anyref, ValueType::i32, inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
 		{value,
 		 deltaNumElements,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
@@ -153,7 +163,9 @@ void EmitFunctionContext::table_size(TableImm imm)
 {
 	ValueVector currentNumElements = emitRuntimeIntrinsic(
 		"table.size",
-		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
+		FunctionType(TypeTuple(ValueType::i32),
+					 TypeTuple(inferValueType<Uptr>()),
+					 IR::CallingConvention::intrinsic),
 		{getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
 	WAVM_ASSERT(currentNumElements.size() == 1);
 	push(currentNumElements[0]);

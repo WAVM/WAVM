@@ -2,6 +2,7 @@
 
 """
 This script is used for generating WebAssembly SIMD test cases.
+It requires Python 3.6+.
 """
 import sys
 import argparse
@@ -13,11 +14,18 @@ SUBMODULES = (
     'simd_i16x8_cmp',
     'simd_i32x4_cmp',
     'simd_f32x4_cmp',
+    'simd_f64x2_cmp',
     'simd_i8x16_arith',
     'simd_i16x8_arith',
     'simd_i32x4_arith',
     'simd_f32x4_arith',
+    'simd_i64x2_arith',
+    'simd_f64x2_arith',
+    'simd_sat_arith',
     'simd_bitwise',
+    'simd_f32x4',
+    'simd_f64x2',
+    'simd_int_arith2',
 )
 
 

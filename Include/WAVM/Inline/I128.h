@@ -19,6 +19,7 @@ namespace WAVM {
 		constexpr I128(U32 value) : lowU64(value), highU64(0) {}
 		constexpr I128(I64 value) : lowI64(value), highI64(value >= 0 ? 0 : -1) {}
 		constexpr I128(U64 value) : lowU64(value), highU64(0) {}
+		constexpr I128(const I128& copyee) : lowU64(copyee.lowU64), highU64(copyee.highU64) {}
 
 		static constexpr I128 nan() { return I128(U64(0), INT64_MIN); }
 		static constexpr I128 min() { return I128(U64(1), INT64_MIN); }
@@ -90,7 +91,7 @@ namespace WAVM {
 
 		// Assignment operators
 
-		I128& operator=(I128 copyee);
+		I128& operator=(const I128& copyee);
 
 		I128& operator+=(I128 b) { return *this = *this + b; }
 		I128& operator-=(I128 b) { return *this = *this - b; }

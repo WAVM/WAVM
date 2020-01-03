@@ -76,6 +76,20 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* f32x4Type;
 		llvm::Type* f64x2Type;
 
+		llvm::Type* i8x32Type;
+		llvm::Type* i16x16Type;
+		llvm::Type* i32x8Type;
+		llvm::Type* i64x4Type;
+
+		llvm::Type* i8x48Type;
+		llvm::Type* i16x24Type;
+		llvm::Type* i32x12Type;
+		llvm::Type* i64x6Type;
+
+		llvm::Type* i8x64Type;
+		llvm::Type* i16x32Type;
+		llvm::Type* i32x16Type;
+		llvm::Type* i64x8Type;
 		llvm::Type* anyrefType;
 
 		// Zero constants of each type.
@@ -119,8 +133,8 @@ namespace WAVM { namespace LLVMJIT {
 	inline llvm::Constant* emitLiteral(llvm::LLVMContext& llvmContext, V128 value)
 	{
 		return llvm::ConstantVector::get(
-			{llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64[0], false)),
-			 llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64[1], false))});
+			{llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[0], false)),
+			 llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[1], false))});
 	}
 	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* intOrPointerType)
 	{
@@ -176,10 +190,10 @@ namespace WAVM { namespace LLVMJIT {
 	}
 
 	// Converts a WebAssembly function type to a LLVM type.
-	inline llvm::FunctionType* asLLVMType(LLVMContext& llvmContext,
-										  IR::FunctionType functionType,
-										  IR::CallingConvention callingConvention)
+	inline llvm::FunctionType* asLLVMType(LLVMContext& llvmContext, IR::FunctionType functionType)
 	{
+		const IR::CallingConvention callingConvention = functionType.callingConvention();
+
 		Uptr numParameters;
 		llvm::Type** llvmArgTypes;
 		if(callingConvention == IR::CallingConvention::cAPICallback)
@@ -255,8 +269,8 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::ConstantExpr::getSub(
 				memoryOffset,
 				emitLiteral(llvmContext,
-							Uptr(offsetof(Runtime::CompartmentRuntimeData, memoryBases)))),
-			emitLiteral(llvmContext, Uptr(sizeof(Uptr))));
+							Uptr(offsetof(Runtime::CompartmentRuntimeData, memories)))),
+			emitLiteral(llvmContext, Uptr(sizeof(Runtime::MemoryRuntimeData))));
 	}
 
 	inline llvm::Constant* getTableIdFromOffset(LLVMContext& llvmContext,
@@ -273,20 +287,20 @@ namespace WAVM { namespace LLVMJIT {
 	inline void setRuntimeFunctionPrefix(LLVMContext& llvmContext,
 										 llvm::Function* function,
 										 llvm::Constant* mutableData,
-										 llvm::Constant* moduleInstanceId,
+										 llvm::Constant* instanceId,
 										 llvm::Constant* typeId)
 	{
 		function->setPrefixData(
 			llvm::ConstantArray::get(llvm::ArrayType::get(llvmContext.iptrType, 4),
 									 {emitLiteral(llvmContext, Uptr(Runtime::ObjectKind::function)),
 									  mutableData,
-									  moduleInstanceId,
+									  instanceId,
 									  typeId}));
 		static_assert(offsetof(Runtime::Function, object) == sizeof(Uptr) * 0,
 					  "Function prefix must match Runtime::Function layout");
 		static_assert(offsetof(Runtime::Function, mutableData) == sizeof(Uptr) * 1,
 					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, moduleInstanceId) == sizeof(Uptr) * 2,
+		static_assert(offsetof(Runtime::Function, instanceId) == sizeof(Uptr) * 2,
 					  "Function prefix must match Runtime::Function layout");
 		static_assert(offsetof(Runtime::Function, encodedType) == sizeof(Uptr) * 3,
 					  "Function prefix must match Runtime::Function layout");
@@ -356,6 +370,7 @@ namespace WAVM { namespace LLVMJIT {
 	llvm::JITEvaluatedSymbol resolveJITImport(llvm::StringRef name);
 
 	struct ModuleMemoryManager;
+	struct GlobalModuleState;
 
 	// Encapsulates a loaded module.
 	struct Module
@@ -375,6 +390,10 @@ namespace WAVM { namespace LLVMJIT {
 
 	private:
 		ModuleMemoryManager* memoryManager;
+
+		// Module holds a shared pointer to GlobalModuleState to ensure that on exit it is not
+		// destructed until after all Modules have been destructed.
+		std::shared_ptr<GlobalModuleState> globalModuleState;
 
 		// Have to keep copies of these around because until LLVM 8, GDB registration listener uses
 		// their pointers as keys for deregistration.

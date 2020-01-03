@@ -7,7 +7,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/IR/Validate.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -16,8 +18,8 @@
 #include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
@@ -43,24 +45,29 @@ struct Config
 	bool strictAssertInvalid{false};
 	bool strictAssertMalformed{false};
 	bool testCloning{false};
+	bool traceTests{false};
+	bool traceLLVMIR{false};
+	bool traceAssembly{false};
 };
 
 struct TestScriptState
 {
+	const char* scriptFilename;
 	const Config& config;
 
 	bool hasInstantiatedModule;
-	GCPointer<ModuleInstance> lastModuleInstance;
+	GCPointer<Instance> lastInstance;
 	GCPointer<Compartment> compartment;
 	GCPointer<Context> context;
 
-	HashMap<std::string, GCPointer<ModuleInstance>> moduleInternalNameToInstanceMap;
-	HashMap<std::string, GCPointer<ModuleInstance>> moduleNameToInstanceMap;
+	HashMap<std::string, GCPointer<Instance>> moduleInternalNameToInstanceMap;
+	HashMap<std::string, GCPointer<Instance>> moduleNameToInstanceMap;
 
 	std::vector<WAST::Error> errors;
 
-	TestScriptState(const Config& inConfig)
-	: config(inConfig)
+	TestScriptState(const char* inScriptFilename, const Config& inConfig)
+	: scriptFilename(inScriptFilename)
+	, config(inConfig)
 	, hasInstantiatedModule(false)
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
@@ -73,13 +80,14 @@ struct TestScriptState
 	}
 
 	TestScriptState(const TestScriptState& copyee)
-	: config(copyee.config), hasInstantiatedModule(copyee.hasInstantiatedModule)
+	: scriptFilename(copyee.scriptFilename)
+	, config(copyee.config)
+	, hasInstantiatedModule(copyee.hasInstantiatedModule)
 	{
 		compartment = Runtime::cloneCompartment(copyee.compartment);
 		context = Runtime::cloneContext(copyee.context, compartment);
 
-		lastModuleInstance
-			= Runtime::remapToClonedCompartment(copyee.lastModuleInstance, compartment);
+		lastInstance = Runtime::remapToClonedCompartment(copyee.lastInstance, compartment);
 
 		for(const auto& pair : copyee.moduleInternalNameToInstanceMap)
 		{
@@ -100,7 +108,7 @@ struct TestScriptState
 	{
 		// Ensure that the compartment is garbage-collected after clearing all the references held
 		// by the script state.
-		lastModuleInstance = nullptr;
+		lastInstance = nullptr;
 		context = nullptr;
 		moduleInternalNameToInstanceMap.clear();
 		moduleNameToInstanceMap.clear();
@@ -161,10 +169,10 @@ static void testErrorf(TestScriptState& state,
 	state.errors.push_back({locus, std::move(formattedMessage)});
 }
 
-static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
-													  const TextFileLocus& locus,
-													  const char* context,
-													  const std::string& internalName)
+static Instance* getModuleContextByInternalName(TestScriptState& state,
+												const TextFileLocus& locus,
+												const char* context,
+												const std::string& internalName)
 {
 	// Look up the module this invoke uses.
 	if(!state.hasInstantiatedModule)
@@ -172,7 +180,7 @@ static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
 		testErrorf(state, locus, "no module to use in %s", context);
 		return nullptr;
 	}
-	ModuleInstance* moduleInstance = state.lastModuleInstance;
+	Instance* instance = state.lastInstance;
 	if(internalName.size())
 	{
 		auto namedModule = state.moduleInternalNameToInstanceMap.get(internalName);
@@ -181,9 +189,9 @@ static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
 			testErrorf(state, locus, "unknown %s module name: %s", context, internalName.c_str());
 			return nullptr;
 		}
-		moduleInstance = *namedModule;
+		instance = *namedModule;
 	}
-	return moduleInstance;
+	return instance;
 }
 
 static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expectedType)
@@ -257,6 +265,23 @@ static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
 	}
 }
 
+static void traceLLVMIR(const char* moduleName, const IR::Module& irModule)
+{
+	std::string llvmIR = LLVMJIT::emitLLVMIR(irModule, LLVMJIT::getHostTargetSpec(), true);
+
+	Log::printf(Log::output, "%s LLVM IR:\n%s\n", moduleName, llvmIR.c_str());
+}
+
+static void traceAssembly(const char* moduleName, ModuleConstRefParam compiledModule)
+{
+	const std::vector<U8> objectBytes = getObjectCode(compiledModule);
+	const std::string disassemblyString
+		= LLVMJIT::disassembleObject(LLVMJIT::getHostTargetSpec(), objectBytes);
+
+	Log::printf(
+		Log::output, "%s object code disassembly:\n%s\n", moduleName, disassemblyString.c_str());
+}
+
 static bool processAction(TestScriptState& state, Action* action, std::vector<Value>& outResults)
 {
 	outResults.clear();
@@ -267,7 +292,7 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		auto moduleAction = (ModuleAction*)action;
 
 		// Clear the previous module.
-		state.lastModuleInstance = nullptr;
+		state.lastInstance = nullptr;
 		collectCompartmentGarbage(state.compartment);
 
 		// Link and instantiate the module.
@@ -275,14 +300,25 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		LinkResult linkResult = linkModule(*moduleAction->module, resolver);
 		if(linkResult.success)
 		{
+			std::string moduleDebugName
+				= std::string(state.scriptFilename) + ":" + action->locus.describe();
+
+			if(state.config.traceLLVMIR)
+			{ traceLLVMIR(moduleDebugName.c_str(), *moduleAction->module); }
+
+			ModuleRef compiledModule = compileModule(*moduleAction->module);
+
+			if(state.config.traceAssembly)
+			{ traceAssembly(moduleDebugName.c_str(), compiledModule); }
+
 			state.hasInstantiatedModule = true;
-			state.lastModuleInstance = instantiateModule(state.compartment,
-														 compileModule(*moduleAction->module),
-														 std::move(linkResult.resolvedImports),
-														 "test module");
+			state.lastInstance = instantiateModule(state.compartment,
+												   compiledModule,
+												   std::move(linkResult.resolvedImports),
+												   std::move(moduleDebugName));
 
 			// Call the module start function, if it has one.
-			Function* startFunction = getStartFunction(state.lastModuleInstance);
+			Function* startFunction = getStartFunction(state.lastInstance);
 			if(startFunction) { invokeFunction(state.context, startFunction); }
 		}
 		else
@@ -303,7 +339,7 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		if(moduleAction->internalModuleName.size())
 		{
 			state.moduleInternalNameToInstanceMap.set(moduleAction->internalModuleName,
-													  state.lastModuleInstance);
+													  state.lastInstance);
 		}
 
 		return true;
@@ -312,16 +348,15 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		auto invokeAction = (InvokeAction*)action;
 
 		// Look up the module this invoke uses.
-		ModuleInstance* moduleInstance = getModuleContextByInternalName(
+		Instance* instance = getModuleContextByInternalName(
 			state, invokeAction->locus, "invoke", invokeAction->internalModuleName);
 
-		// A null module instance at this point indicates a module that failed to link or
-		// instantiate, so don't produce further errors.
-		if(!moduleInstance) { return false; }
+		// A null instance at this point indicates a module that failed to link or instantiate, so
+		// don't produce further errors.
+		if(!instance) { return false; }
 
-		// Find the named export in the module instance.
-		auto function
-			= asFunctionNullable(getInstanceExport(moduleInstance, invokeAction->exportName));
+		// Find the named export in the instance.
+		auto function = asFunctionNullable(getInstanceExport(instance, invokeAction->exportName));
 		if(!function)
 		{
 			testErrorf(state,
@@ -367,15 +402,15 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 		auto getAction = (GetAction*)action;
 
 		// Look up the module this get uses.
-		ModuleInstance* moduleInstance = getModuleContextByInternalName(
+		Instance* instance = getModuleContextByInternalName(
 			state, getAction->locus, "get", getAction->internalModuleName);
 
-		// A null module instance at this point indicates a module that failed to link or
-		// instantiate, so just return without further errors.
-		if(!moduleInstance) { return false; }
+		// A null instance at this point indicates a module that failed to link or instantiate, so
+		// just return without further errors.
+		if(!instance) { return false; }
 
-		// Find the named export in the module instance.
-		auto global = asGlobalNullable(getInstanceExport(moduleInstance, getAction->exportName));
+		// Find the named export in the instance.
+		auto global = asGlobalNullable(getInstanceExport(instance, getAction->exportName));
 		if(!global)
 		{
 			testErrorf(state,
@@ -412,6 +447,276 @@ template<typename Float> bool isCanonicalNaN(Float value)
 		   && components.bits.significand == FloatComponents<Float>::canonicalSignificand;
 }
 
+template<typename Float>
+bool isFloatResultInExpectedSet(Float result, const FloatResultSet<Float>& expectedResultSet)
+{
+	switch(expectedResultSet.type)
+	{
+	case FloatResultSet<Float>::Type::canonicalNaN: return isCanonicalNaN(result);
+	case FloatResultSet<Float>::Type::arithmeticNaN: return isArithmeticNaN(result);
+	case FloatResultSet<Float>::Type::literal:
+		return !memcmp(&result, &expectedResultSet.literal, sizeof(Float));
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static bool isResultInExpectedSet(const Value& result, const ResultSet& expectedResultSet)
+{
+	switch(expectedResultSet.type)
+	{
+	case ResultSet::Type::i32:
+		return result.type == ValueType::i32 && result.i32 == expectedResultSet.i32;
+	case ResultSet::Type::i64:
+		return result.type == ValueType::i64 && result.i64 == expectedResultSet.i64;
+
+	case ResultSet::Type::i8x16:
+	case ResultSet::Type::i16x8:
+	case ResultSet::Type::i32x4:
+	case ResultSet::Type::i64x2:
+		return result.type == ValueType::v128 && result.v128.i64x2[0] == expectedResultSet.i64x2[0]
+			   && result.v128.i64x2[1] == expectedResultSet.i64x2[1];
+
+	case ResultSet::Type::f32:
+		return result.type == ValueType::f32
+			   && isFloatResultInExpectedSet<F32>(result.f32, expectedResultSet.f32);
+	case ResultSet::Type::f64:
+		return result.type == ValueType::f64
+			   && isFloatResultInExpectedSet<F64>(result.f64, expectedResultSet.f64);
+	case ResultSet::Type::f32x4:
+		return result.type == ValueType::v128
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[0], expectedResultSet.f32x4[0])
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[1], expectedResultSet.f32x4[1])
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[2], expectedResultSet.f32x4[2])
+			   && isFloatResultInExpectedSet<F32>(result.v128.f32x4[3], expectedResultSet.f32x4[3]);
+	case ResultSet::Type::f64x2:
+		return result.type == ValueType::v128
+			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[0], expectedResultSet.f64x2[0])
+			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[1], expectedResultSet.f64x2[1]);
+
+	case ResultSet::Type::anyref:
+		return (result.type == ValueType::funcref || result.type == ValueType::anyref)
+			   && result.object == expectedResultSet.object;
+	case ResultSet::Type::funcref:
+		return (result.type == ValueType::funcref || result.type == ValueType::anyref)
+			   && result.function == expectedResultSet.function;
+	case ResultSet::Type::nullref: return isReferenceType(result.type) && !result.object;
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+template<typename Float> std::string asString(const FloatResultSet<Float> resultSet)
+{
+	switch(resultSet.type)
+	{
+	case FloatResultSet<Float>::Type::canonicalNaN: return "nan:canonical";
+	case FloatResultSet<Float>::Type::arithmeticNaN: return "nan:arithmetic";
+	case FloatResultSet<Float>::Type::literal: return asString(resultSet.literal);
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static std::string asString(const ResultSet& resultSet)
+{
+	switch(resultSet.type)
+	{
+	case ResultSet::Type::i32: return "(i32.const " + asString(resultSet.i32) + ')';
+	case ResultSet::Type::i64: return "(i64.const " + asString(resultSet.i64) + ')';
+
+	case ResultSet::Type::i8x16: {
+		std::string string = "(v128.const i8x16";
+		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i8x16[laneIndex]);
+		}
+		string += ')';
+		return string;
+	}
+	case ResultSet::Type::i16x8: {
+		std::string string = "(v128.const i16x8";
+		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i16x8[laneIndex]);
+		}
+		string += ')';
+		return string;
+	}
+	case ResultSet::Type::i32x4: {
+		std::string string = "(v128.const i32x4";
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i32x4[laneIndex]);
+		}
+		string += ')';
+		return string;
+	}
+	case ResultSet::Type::i64x2: {
+		std::string string = "(v128.const i64x2";
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.i64x2[laneIndex]);
+		}
+		string += ')';
+		return string;
+	}
+
+	case ResultSet::Type::f32: return "(f32.const " + asString(resultSet.f32) + ')';
+	case ResultSet::Type::f64: return "(f64.const " + asString(resultSet.f64) + ')';
+	case ResultSet::Type::f32x4: {
+		std::string string = "(v128.const f32x4";
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.f32x4[laneIndex]);
+		}
+		string += ')';
+		return string;
+	}
+	case ResultSet::Type::f64x2: {
+		std::string string = "(v128.const f64x2";
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{
+			string += ' ';
+			string += asString(resultSet.f64x2[laneIndex]);
+		}
+		string += ')';
+		return string;
+	}
+
+	case ResultSet::Type::anyref: {
+		// buffer needs 31 characters:
+		// (ref.any <0xHHHHHHHHHHHHHHHH>)\0
+		char buffer[32];
+		snprintf(buffer,
+				 sizeof(buffer),
+				 "(ref.any <0x%.16" WAVM_PRIxPTR ">)",
+				 reinterpret_cast<Uptr>(resultSet.object));
+		return std::string(buffer);
+	}
+	case ResultSet::Type::funcref: {
+		// buffer needs 32 characters:
+		// (ref.func <0xHHHHHHHHHHHHHHHH>)\0
+		char buffer[32];
+		snprintf(buffer,
+				 sizeof(buffer),
+				 "(ref.func <0x%.16" WAVM_PRIxPTR ">)",
+				 reinterpret_cast<Uptr>(resultSet.function));
+		return std::string(buffer);
+	}
+	case ResultSet::Type::nullref: return "(ref.null)";
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static ResultSet asResultSet(const Value& value, ResultSet::Type expectedType)
+{
+	ResultSet resultSet;
+	if(value.type == ValueType::v128
+	   && (expectedType == ResultSet::Type::i8x16 || expectedType == ResultSet::Type::i16x8
+		   || expectedType == ResultSet::Type::i32x4 || expectedType == ResultSet::Type::i64x2))
+	{
+		resultSet.type = expectedType;
+		memcpy(resultSet.i8x16, value.v128.i8x16, sizeof(V128));
+	}
+	else if(value.type == ValueType::v128 && expectedType == ResultSet::Type::f32x4)
+	{
+		resultSet.type = expectedType;
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{
+			resultSet.f32x4[laneIndex].type = FloatResultSet<F32>::Type::literal;
+			resultSet.f32x4[laneIndex].literal = value.v128.f32x4[laneIndex];
+		}
+	}
+	else if(value.type == ValueType::v128 && expectedType == ResultSet::Type::f64x2)
+	{
+		resultSet.type = expectedType;
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{
+			resultSet.f64x2[laneIndex].type = FloatResultSet<F64>::Type::literal;
+			resultSet.f64x2[laneIndex].literal = value.v128.f64x2[laneIndex];
+		}
+	}
+	else
+	{
+		switch(value.type)
+		{
+		case ValueType::i32:
+			resultSet.type = ResultSet::Type::i32;
+			resultSet.i32 = value.i32;
+			break;
+		case ValueType::i64:
+			resultSet.type = ResultSet::Type::i64;
+			resultSet.i64 = value.i64;
+			break;
+		case ValueType::f32:
+			resultSet.type = ResultSet::Type::f32;
+			resultSet.f32.type = FloatResultSet<F32>::Type::literal;
+			resultSet.f32.literal = value.f32;
+			break;
+		case ValueType::f64:
+			resultSet.type = ResultSet::Type::f64;
+			resultSet.f64.type = FloatResultSet<F64>::Type::literal;
+			resultSet.f64.literal = value.f64;
+			break;
+		case ValueType::v128:
+			resultSet.type = ResultSet::Type::i8x16;
+			memcpy(resultSet.i8x16, value.v128.i8x16, sizeof(V128));
+			break;
+		case ValueType::anyref:
+			resultSet.type = ResultSet::Type::anyref;
+			resultSet.object = value.object;
+			break;
+		case ValueType::funcref:
+			resultSet.type = ResultSet::Type::funcref;
+			resultSet.function = value.function;
+			break;
+		case ValueType::nullref:
+			resultSet.type = ResultSet::Type::nullref;
+			resultSet.object = nullptr;
+			break;
+
+		case ValueType::none:
+		case ValueType::any:
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
+	return resultSet;
+}
+
+static bool areResultsInExpectedSet(const std::vector<Value>& results,
+									const std::vector<ResultSet>& expectedResultSets,
+									std::string& outMessage)
+{
+	if(results.size() != expectedResultSets.size())
+	{
+		outMessage = "expected " + std::to_string(expectedResultSets.size()) + " results, but got "
+					 + asString(results);
+		return false;
+	}
+
+	for(Uptr resultIndex = 0; resultIndex < results.size(); ++resultIndex)
+	{
+		if(!isResultInExpectedSet(results[resultIndex], expectedResultSets[resultIndex]))
+		{
+			outMessage = "expected " + asString(expectedResultSets[resultIndex]) + ", but got "
+						 + asString(asResultSet(results[resultIndex],
+												expectedResultSets[resultIndex].type));
+			if(results.size() != 1) { outMessage += " in result " + std::to_string(resultIndex); }
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static void processCommand(TestScriptState& state, const Command* command)
 {
 	switch(command->type)
@@ -420,9 +725,9 @@ static void processCommand(TestScriptState& state, const Command* command)
 		auto registerCommand = (RegisterCommand*)command;
 
 		// Look up a module by internal name, and bind the result to the public name.
-		ModuleInstance* moduleInstance = getModuleContextByInternalName(
+		Instance* instance = getModuleContextByInternalName(
 			state, registerCommand->locus, "register", registerCommand->internalModuleName);
-		state.moduleNameToInstanceMap.set(registerCommand->moduleName, moduleInstance);
+		state.moduleNameToInstanceMap.set(registerCommand->moduleName, instance);
 		break;
 	}
 	case Command::action: {
@@ -434,15 +739,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 		auto assertCommand = (AssertReturnCommand*)command;
 		// Execute the action and do a bitwise comparison of the result to the expected result.
 		std::vector<Value> actionResults;
+		std::string errorMessage;
 		if(processAction(state, assertCommand->action.get(), actionResults)
-		   && actionResults != assertCommand->expectedResults)
-		{
-			testErrorf(state,
-					   assertCommand->locus,
-					   "expected %s but got %s",
-					   asString(assertCommand->expectedResults).c_str(),
-					   asString(actionResults).c_str());
-		}
+		   && !areResultsInExpectedSet(
+			   actionResults, assertCommand->expectedResultSets, errorMessage))
+		{ testErrorf(state, assertCommand->locus, "%s", errorMessage.c_str()); }
 		break;
 	}
 	case Command::assert_return_canonical_nan:
@@ -488,28 +789,28 @@ static void processCommand(TestScriptState& state, const Command* command)
 				else if(assertCommand->type == Command::assert_return_canonical_nan_f32x4)
 				{
 					requireCanonicalNaN = true;
-					isError = !isCanonicalNaN(actionResult.v128.f32[0])
-							  || !isCanonicalNaN(actionResult.v128.f32[1])
-							  || !isCanonicalNaN(actionResult.v128.f32[2])
-							  || !isCanonicalNaN(actionResult.v128.f32[3]);
+					isError = !isCanonicalNaN(actionResult.v128.f32x4[0])
+							  || !isCanonicalNaN(actionResult.v128.f32x4[1])
+							  || !isCanonicalNaN(actionResult.v128.f32x4[2])
+							  || !isCanonicalNaN(actionResult.v128.f32x4[3]);
 				}
 				else if(assertCommand->type == Command::assert_return_arithmetic_nan_f32x4)
 				{
-					isError = !isArithmeticNaN(actionResult.v128.f32[0])
-							  || !isArithmeticNaN(actionResult.v128.f32[1])
-							  || !isArithmeticNaN(actionResult.v128.f32[2])
-							  || !isArithmeticNaN(actionResult.v128.f32[3]);
+					isError = !isArithmeticNaN(actionResult.v128.f32x4[0])
+							  || !isArithmeticNaN(actionResult.v128.f32x4[1])
+							  || !isArithmeticNaN(actionResult.v128.f32x4[2])
+							  || !isArithmeticNaN(actionResult.v128.f32x4[3]);
 				}
 				else if(assertCommand->type == Command::assert_return_canonical_nan_f64x2)
 				{
 					requireCanonicalNaN = true;
-					isError = !isCanonicalNaN(actionResult.v128.f64[0])
-							  || !isCanonicalNaN(actionResult.v128.f64[1]);
+					isError = !isCanonicalNaN(actionResult.v128.f64x2[0])
+							  || !isCanonicalNaN(actionResult.v128.f64x2[1]);
 				}
 				else if(assertCommand->type == Command::assert_return_arithmetic_nan_f64x2)
 				{
-					isError = !isArithmeticNaN(actionResult.v128.f64[0])
-							  || !isArithmeticNaN(actionResult.v128.f64[1]);
+					isError = !isArithmeticNaN(actionResult.v128.f64x2[0])
+							  || !isArithmeticNaN(actionResult.v128.f64x2[1]);
 				}
 				else
 				{
@@ -575,19 +876,19 @@ static void processCommand(TestScriptState& state, const Command* command)
 		auto assertCommand = (AssertThrowsCommand*)command;
 
 		// Look up the module containing the expected exception type.
-		ModuleInstance* moduleInstance
+		Instance* instance
 			= getModuleContextByInternalName(state,
 											 assertCommand->locus,
 											 "assert_throws",
 											 assertCommand->exceptionTypeInternalModuleName);
 
-		// A null module instance at this point indicates a module that failed to link or
-		// instantiate, so don't produce further errors.
-		if(!moduleInstance) { break; }
+		// A null instance at this point indicates a module that failed to link or instantiate, so
+		// don't produce further errors.
+		if(!instance) { break; }
 
-		// Find the named export in the module instance.
+		// Find the named export in the instance.
 		auto expectedExceptionType = asExceptionTypeNullable(
-			getInstanceExport(moduleInstance, assertCommand->exceptionTypeExportName));
+			getInstanceExport(instance, assertCommand->exceptionTypeExportName));
 		if(!expectedExceptionType)
 		{
 			testErrorf(state,
@@ -686,14 +987,14 @@ static void processCommand(TestScriptState& state, const Command* command)
 				LinkResult linkResult = linkModule(*assertCommand->moduleAction->module, resolver);
 				if(linkResult.success)
 				{
-					auto moduleInstance
+					auto instance
 						= instantiateModule(state.compartment,
 											compileModule(*assertCommand->moduleAction->module),
 											std::move(linkResult.resolvedImports),
 											"test module");
 
 					// Call the module start function, if it has one.
-					Function* startFunction = getStartFunction(moduleInstance);
+					Function* startFunction = getStartFunction(instance);
 					if(startFunction) { invokeFunction(state.context, startFunction); }
 
 					testErrorf(state, assertCommand->locus, "module was linkable");
@@ -703,6 +1004,154 @@ static void processCommand(TestScriptState& state, const Command* command)
 				destroyException(exception);
 				// If the instantiation throws an exception, the assert_unlinkable succeeds.
 			});
+		break;
+	}
+	case Command::benchmark: {
+		auto benchmarkCommand = (BenchmarkCommand*)command;
+		InvokeAction* invokeAction = benchmarkCommand->invokeAction.get();
+
+		// Look up the module this invoke uses.
+		Instance* invokeInstance = getModuleContextByInternalName(
+			state, invokeAction->locus, "invoke", invokeAction->internalModuleName);
+
+		// A null instance at this point indicates a module that failed to link or instantiate, so
+		// don't produce further errors.
+		if(!invokeInstance) { break; }
+
+		// Find the named export in the instance.
+		auto invokeFunction
+			= asFunctionNullable(getInstanceExport(invokeInstance, invokeAction->exportName));
+		if(!invokeFunction)
+		{
+			testErrorf(state,
+					   invokeAction->locus,
+					   "couldn't find exported function with name: %s",
+					   invokeAction->exportName.c_str());
+			break;
+		}
+
+		// Infer the expected type of the function from the number and type of the invoke's
+		// arguments and the function's actual result types.
+		std::vector<ValueType> argTypes;
+		for(const Value& arg : invokeAction->arguments) { argTypes.push_back(arg.type); }
+		const FunctionType invokeFunctionSig(getFunctionType(invokeFunction).results(),
+											 TypeTuple(argTypes));
+
+		// Generate a WASM module that imports the function being invoked.
+		const FunctionType benchmarkFunctionSig({}, {ValueType::i32});
+		IR::Module benchmarkModule(IR::FeatureLevel::wavm);
+		benchmarkModule.types.push_back(invokeFunctionSig);
+		benchmarkModule.types.push_back(benchmarkFunctionSig);
+		benchmarkModule.functions.imports.push_back({{0}, "", ""});
+		benchmarkModule.imports.push_back({ExternKind::function, 0});
+
+		// Generate a function that calls the imported function a variable number of times.
+		Serialization::ArrayOutputStream codeByteStream;
+		OperatorEncoderStream encoder(codeByteStream);
+
+		encoder.loop({{IndexedBlockType::noParametersOrResult}});
+
+		// Exit the loop once the number of iterations remaining reaches zero.
+		encoder.local_get({0});
+		encoder.i32_eqz();
+		encoder.br_if({1});
+
+		// Decrement the number of iterations remaining.
+		encoder.local_get({0});
+		encoder.i32_const({1});
+		encoder.i32_sub();
+		encoder.local_set({0});
+
+		// Translate the invoke arguments to XXX.const instructions.
+		for(const Value& arg : invokeAction->arguments)
+		{
+			switch(arg.type)
+			{
+			case ValueType::i32: encoder.i32_const({arg.i32}); break;
+			case ValueType::i64: encoder.i64_const({arg.i64}); break;
+			case ValueType::f32: encoder.f32_const({arg.f32}); break;
+			case ValueType::f64: encoder.f64_const({arg.f64}); break;
+			case ValueType::v128: encoder.v128_const({arg.v128}); break;
+
+			case ValueType::anyref:
+			case ValueType::funcref: Errors::unimplemented("Benchmark invoke reference arguments");
+
+			case ValueType::nullref:
+			case ValueType::any:
+			case ValueType::none:
+			default: WAVM_UNREACHABLE();
+			};
+		}
+
+		// Call the imported invoke function.
+		encoder.call({0});
+
+		// Drop all the invoked functions' results.
+		for(const ValueType result : invokeFunctionSig.results())
+		{
+			WAVM_SUPPRESS_UNUSED(result);
+			encoder.drop();
+		}
+
+		// Branch to the beginning of the loop.
+		encoder.br({0});
+
+		// End the loop and the function body.
+		encoder.end();
+		encoder.end();
+
+		benchmarkModule.functions.defs.push_back({{1}, {}, codeByteStream.getBytes(), {}});
+		benchmarkModule.exports.push_back({"benchmark", ExternKind::function, 1});
+
+		// Validate the generated module in builds with assertions enabled.
+		if(WAVM_ENABLE_ASSERTS)
+		{
+			IR::validatePreCodeSections(benchmarkModule);
+			IR::validateCodeSection(benchmarkModule);
+			IR::validatePostCodeSections(benchmarkModule);
+		}
+
+		// Compile and instantiate the generated module.
+		Instance* benchmarkInstance = instantiateModule(state.compartment,
+														compileModule(benchmarkModule),
+														{asObject(invokeFunction)},
+														"benchmark");
+		Function* benchmarkFunction = getTypedInstanceExport(
+			benchmarkInstance, "benchmark", FunctionType({}, {ValueType::i32}));
+
+		// Run the benchmark once to warm up caches (not just CPU, also the cached invoke thunk).
+		UntaggedValue benchmarkArgs[1];
+		benchmarkArgs[0].u32 = 10;
+		Runtime::invokeFunction(
+			state.context, benchmarkFunction, benchmarkFunctionSig, benchmarkArgs);
+
+		// Sample the benchmark until 20ms or 1 million samples have been collected.
+		static constexpr F64 minSamplingNS = 20000000.0;
+		static constexpr Uptr maxSamples = 1000000;
+		U32 numIterationsPerSample = 10;
+		F64 totalNS = 0.0;
+		Uptr numSamples = 0;
+		Uptr numIterations = 0;
+		while(numSamples < maxSamples && totalNS < minSamplingNS)
+		{
+			benchmarkArgs[0].u32 = numIterationsPerSample;
+			Timing::Timer timer;
+			Runtime::invokeFunction(
+				state.context, benchmarkFunction, benchmarkFunctionSig, benchmarkArgs);
+			timer.stop();
+			totalNS += timer.getNanoseconds();
+			++numSamples;
+			numIterations += numIterationsPerSample;
+			numIterationsPerSample = numIterationsPerSample * 3 / 2;
+		};
+		const F64 nsPerIteration = totalNS / numIterations;
+
+		Log::printf(Log::output,
+					"%s benchmark: %.1fns (%" WAVM_PRIuPTR " iterations)\n",
+					benchmarkCommand->name.c_str(),
+					nsPerIteration,
+					numIterations);
+
 		break;
 	}
 
@@ -743,12 +1192,12 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 	}
 
 	// Check that the original and cloned memory are the same after processing the command.
-	if(state.lastModuleInstance && clonedState.lastModuleInstance)
+	if(state.lastInstance && clonedState.lastInstance)
 	{
-		WAVM_ASSERT(state.lastModuleInstance != clonedState.lastModuleInstance);
+		WAVM_ASSERT(state.lastInstance != clonedState.lastInstance);
 
-		Memory* memory = getDefaultMemory(state.lastModuleInstance);
-		Memory* clonedMemory = getDefaultMemory(clonedState.lastModuleInstance);
+		Memory* memory = getDefaultMemory(state.lastInstance);
+		Memory* clonedMemory = getDefaultMemory(clonedState.lastInstance);
 		if(memory && clonedMemory)
 		{
 			WAVM_ASSERT(memory != clonedMemory);
@@ -875,7 +1324,7 @@ static I64 threadMain(void* sharedStateVoid)
 	{
 		const char* filename;
 		{
-			Lock<Platform::Mutex> sharedStateLock(sharedState->mutex);
+			Platform::Mutex::Lock sharedStateLock(sharedState->mutex);
 			if(!sharedState->pendingFilenames.size()) { break; }
 			filename = sharedState->pendingFilenames.back();
 			sharedState->pendingFilenames.pop_back();
@@ -893,12 +1342,14 @@ static I64 threadMain(void* sharedStateVoid)
 		testScriptBytes.push_back(0);
 
 		// Process the test script.
-		TestScriptState testScriptState(sharedState->config);
+		TestScriptState testScriptState(filename, sharedState->config);
 		std::vector<std::unique_ptr<Command>> testCommands;
 
 		// Use a WebAssembly standard-compliant feature spec that includes all proposed extensions.
-		FeatureSpec featureSpec(true);
-		featureSpec.requireSharedFlagForAtomicOperators = true;
+		FeatureSpec featureSpec(FeatureLevel::proposed);
+		featureSpec.customSectionsInTextFormat = true;
+		featureSpec.interleavedLoadStore = true;
+		featureSpec.ltzMask = true;
 
 		// Parse the test script.
 		WAST::parseTestCommands((const char*)testScriptBytes.data(),
@@ -911,10 +1362,13 @@ static I64 threadMain(void* sharedStateVoid)
 			// Process the test script commands.
 			for(auto& command : testCommands)
 			{
-				Log::printf(Log::debug,
-							"Evaluating test command at %s(%s)\n",
-							filename,
-							command->locus.describe().c_str());
+				if(sharedState->config.traceTests)
+				{
+					Log::printf(Log::output,
+								"Evaluating test command at %s(%s)\n",
+								filename,
+								command->locus.describe().c_str());
+				}
 				catchRuntimeExceptions(
 					[&testScriptState, &command] {
 						if(testScriptState.config.testCloning)
@@ -955,7 +1409,11 @@ static void showHelp()
 		"                             module was invalid\n"
 		"  --test-cloning             Run each test command in the original compartment\n"
 		"                             and a clone of it, and compare the resulting state\n"
-		"  --trace                    Prints instructions to stdout as they are compiled.\n");
+		"  --trace                    Prints instructions to stdout as they are compiled.\n"
+		"  --trace-tests              Prints test commands to stdout as they are executed.\n"
+		"  --trace-llvmir             Prints the LLVM IR for modules as they are compiled.\n"
+		"  --trace-assembly           Prints the machine assembly for modules as they are\n"
+		"                             compiled.\n");
 }
 
 int execRunTestScript(int argc, char** argv)
@@ -1005,6 +1463,18 @@ int execRunTestScript(int argc, char** argv)
 		{
 			Log::setCategoryEnabled(Log::traceValidation, true);
 			Log::setCategoryEnabled(Log::traceCompilation, true);
+		}
+		else if(!strcmp(argv[argIndex], "--trace-tests"))
+		{
+			config.traceTests = true;
+		}
+		else if(!strcmp(argv[argIndex], "--trace-llvmir"))
+		{
+			config.traceLLVMIR = true;
+		}
+		else if(!strcmp(argv[argIndex], "--trace-assembly"))
+		{
+			config.traceAssembly = true;
 		}
 		else
 		{

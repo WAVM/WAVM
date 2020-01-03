@@ -40,11 +40,13 @@ jobs:
             buildConfig: Release
             llvmConfig: LTO
             cmakeArgs: -DWAVM_ENABLE_LTO=Thin
+            testFuzzCorpora: true
           StaticLTO:
             configName: StaticLTO
             buildConfig: Release
             llvmConfig: LTO
             cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON -DWAVM_ENABLE_LTO=Thin -DWAVM_ENABLE_FUZZ_TARGETS=OFF'
+            testFuzzCorpora: false
 
         # GCC 5.4 doesn't produce a usable binary when compiling with LTO for some reason.
         #${{ if eq(parameters.compiler, 'gcc') }}:
@@ -58,24 +60,28 @@ jobs:
           buildConfig: Release
           llvmConfig: Release
           cmakeArgs: ''
+          testFuzzCorpora: false
 
         Debug:
           configName: Debug
           buildConfig: Debug
           llvmConfig: Checked
           cmakeArgs: ''
+          testFuzzCorpora: false
 
         Checked:
           configName: Checked
           buildConfig: RelWithDebInfo
           llvmConfig: Checked
           cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
+          testFuzzCorpora: true
 
         Static:
           configName: Static
           buildConfig: Release
           llvmConfig: Release
           cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
+          testFuzzCorpora: false
 
         # UBSAN produces an error in the libstdc++ 4.8.5 code in the CentOS 7.0 builder:
         # UndefinedBehaviorSanitizer: undefined-behavior /usr/lib/gcc/x86_64-redhat-linux/4.8.5/../../../../include/c++/4.8.5/bits/stl_iterator.h:739:16 in
@@ -94,6 +100,7 @@ jobs:
               cmakeArgs: -DWAVM_ENABLE_ASAN=ON -DWAVM_ENABLE_UBSAN=ON -DWAVM_ENABLE_LIBFUZZER=ON
             ${{ if eq(parameters.compiler, 'appleClang') }}:
               cmakeArgs: -DWAVM_ENABLE_ASAN=ON -DWAVM_ENABLE_UBSAN=ON
+            testFuzzCorpora: false
 
         # Old versions of GCC produce a TSAN warning about calling malloc inside a signal handler,
         # with a nonsense callstack. It looks like it doesn't correctly handle how WAVM uses
@@ -104,18 +111,21 @@ jobs:
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: -DWAVM_ENABLE_TSAN=ON
+            testFuzzCorpora: false
 
         NoRuntime:
           configName: NoRuntime
           buildConfig: Debug
           llvmConfig: Release
           cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
+          testFuzzCorpora: false
 
         NoUnwind:
           configName: NoUnwind
           buildConfig: Debug
           llvmConfig: Release
           cmakeArgs: -DWAVM_ENABLE_UNWIND=NO
+          testFuzzCorpora: false
 
     steps:
     - checkout: self
@@ -148,6 +158,28 @@ jobs:
     - template: test-step-template.yml
       parameters:
         ctestArgs: '-C $(buildConfig)'
+
+    # Clone the WAVM fuzz corpora repo and run the fuzz targets on them.
+    - script: git clone git://github.com/WAVM/wavm-fuzz-corpora.git $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora
+      displayName: Clone fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)/bin/fuzz-assemble $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/assemble
+      displayName: Test assemble fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)/bin/fuzz-disassemble $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/disassemble
+      displayName: Test disassemble fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)/bin/fuzz-compile-model $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/compile-model
+      displayName: Test compile-model fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)/bin/fuzz-instantiate $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/instantiate
+      displayName: Test instantiate fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
 
     # Create the WAVM packages.
     - script: ninja -v -C $(Build.ArtifactStagingDirectory) package

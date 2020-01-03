@@ -26,6 +26,15 @@ namespace WAVM { namespace WAST {
 	{
 		U32* lineStarts;
 		U32 numLineStarts;
+
+		mutable Uptr lastQueryCharOffset{0};
+		mutable U32 lastQueryTabs{0};
+		mutable U32 lastQueryCharactersAndTabs{0};
+
+		LineInfo(U32* inLineStarts, U32 inNumLineStarts)
+		: lineStarts(inLineStarts), numLineStarts(inNumLineStarts)
+		{
+		}
 	};
 }}
 
@@ -126,6 +135,8 @@ static const std::tuple<TokenType, const char*, bool> literalTokenTuples[] = {
 	std::make_tuple(t_leftParenthesis, "(", true),
 	std::make_tuple(t_rightParenthesis, ")", true),
 	std::make_tuple(t_equals, "=", true),
+	std::make_tuple(t_canonicalNaN, "nan:canonical", false),
+	std::make_tuple(t_arithmeticNaN, "nan:arithmetic", false),
 
 	#define VISIT_TOKEN(name, _, literalString) std::make_tuple(t_##name, literalString, false),
 	ENUM_LITERAL_TOKENS()
@@ -456,19 +467,37 @@ TextFileLocus WAST::calcLocusFromOffset(const char* string,
 	TextFileLocus result;
 	result.newlines = (U32)minLineIndex;
 
-	// Count tabs and and spaces from the beginning of the line to charIndex.
-	for(U32 index = lineInfo->lineStarts[result.newlines]; index < charOffset; ++index)
-	{
-		if(string[index] == '\t') { ++result.tabs; }
-		else
-		{
-			++result.characters;
-		}
-	}
-
-	// Copy the full source line into the TextFileLocus for context.
+	// Calculate the offsets to the start and end of the line containing the locus.
 	result.lineStartOffset = getLineOffset(lineInfo, result.newlines);
 	result.lineEndOffset = getLineOffset(lineInfo, result.newlines + 1) - 1;
+	WAVM_ASSERT(charOffset >= result.lineStartOffset);
+	WAVM_ASSERT(charOffset <= result.lineEndOffset);
+
+	// Try to reuse work done by the last query counting characters on this line. Without this
+	// reuse, it's possible to craft an input that takes O(numChars^2) time to parse: an input with
+	// a single line with O(numChars) errors will take O(numChars) time to count the tabs+characters
+	// preceding the error on the line *for each error*.
+	const char* nextChar = string + result.lineStartOffset;
+	if(lineInfo->lastQueryCharOffset < charOffset
+	   && lineInfo->lastQueryCharOffset > result.lineStartOffset)
+	{
+		nextChar = string + lineInfo->lastQueryCharOffset;
+		result.tabs = lineInfo->lastQueryTabs;
+	}
+
+	// Count tabs from the beginning of the line to locus.
+	while(nextChar < string + charOffset)
+	{
+		result.tabs += *nextChar == '\t' ? 1 : 0;
+		++nextChar;
+	}
+
+	// Derive the number of non-tab characters from the offset within the line and the number of
+	// tabs preceding this locus in the line.
+	result.characters = U32(charOffset - result.lineStartOffset - result.tabs);
+
+	lineInfo->lastQueryCharOffset = charOffset;
+	lineInfo->lastQueryTabs = result.tabs;
 
 	return result;
 }

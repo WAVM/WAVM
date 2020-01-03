@@ -15,17 +15,16 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Platform/Signal.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include <llvm-c/Disassembler.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/DebugInfo/DIContext.h>
 #include <llvm/DebugInfo/DWARF/DWARFContext.h>
@@ -56,13 +55,33 @@ namespace WAVM { namespace Runtime {
 }}
 
 #define KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED 0
-#define PRINT_DISASSEMBLY 0
 
 using namespace WAVM;
 using namespace WAVM::LLVMJIT;
 
-static Platform::Mutex gdbRegistrationListenerMutex;
-static llvm::JITEventListener* gdbRegistrationListener = nullptr;
+struct LLVMJIT::GlobalModuleState
+{
+	Platform::Mutex gdbRegistrationListenerMutex;
+	llvm::JITEventListener* gdbRegistrationListener = nullptr;
+
+	// A map from address to loaded JIT symbols.
+	Platform::RWMutex addressToModuleMapMutex;
+	std::map<Uptr, LLVMJIT::Module*> addressToModuleMap;
+
+	static const std::shared_ptr<GlobalModuleState>& get()
+	{
+		static std::shared_ptr<GlobalModuleState> singleton = std::make_shared<GlobalModuleState>();
+		return singleton;
+	}
+
+	// These constructor and destructor should not be called directly, but must be public in order
+	// to be accessible by std::make_shared.
+	GlobalModuleState()
+	{
+		gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
+	}
+	~GlobalModuleState() { delete gdbRegistrationListener; }
+};
 
 #ifdef WAVM_PERF_EVENTS
 static llvm::JITEventListener* perfRegistrationListener = nullptr;
@@ -272,8 +291,12 @@ private:
 		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
 		{ Errors::fatal("didn't reserve enough space in section"); }
 
-		// Drop the '.' prefix on section names.
+		// Drop the '.' or '__' prefix on section names.
 		if(sectionName.size() && sectionName[0] == '.') { sectionName = sectionName.drop_front(1); }
+		else if(sectionName.size() > 2 && sectionName[0] == '_' && sectionName[1] == '_')
+		{
+			sectionName = sectionName.drop_front(2);
+		}
 
 		// Record the address the section was allocated at.
 		sectionNameToContentsMap.insert(std::make_pair(
@@ -297,40 +320,11 @@ private:
 	void operator=(const ModuleMemoryManager&) = delete;
 };
 
-static void disassembleFunction(U8* bytes, Uptr numBytes)
-{
-	LLVMDisasmContextRef disasmRef
-		= LLVMCreateDisasm(llvm::sys::getProcessTriple().c_str(), nullptr, 0, nullptr, nullptr);
-
-	U8* nextByte = bytes;
-	Uptr numBytesRemaining = numBytes;
-	while(numBytesRemaining)
-	{
-		char instructionBuffer[256];
-		Uptr numInstructionBytes = LLVMDisasmInstruction(disasmRef,
-														 nextByte,
-														 numBytesRemaining,
-														 reinterpret_cast<Uptr>(nextByte),
-														 instructionBuffer,
-														 sizeof(instructionBuffer));
-		if(numInstructionBytes == 0) { numInstructionBytes = 1; }
-		WAVM_ASSERT(numInstructionBytes <= numBytesRemaining);
-		numBytesRemaining -= numInstructionBytes;
-		nextByte += numInstructionBytes;
-
-		Log::printf(Log::output,
-					"\t\t0x%04" WAVM_PRIxPTR " %s\n",
-					(nextByte - bytes - numInstructionBytes),
-					instructionBuffer);
-	};
-
-	LLVMDisasmDispose(disasmRef);
-}
-
 Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
 			   bool shouldLogMetrics)
 : memoryManager(new ModuleMemoryManager())
+, globalModuleState(GlobalModuleState::get())
 #if LLVM_VERSION_MAJOR < 8
 , objectBytes(objectBytes)
 #endif
@@ -512,14 +506,12 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Notify GDB of the new object.
 	{
-		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
-		if(!gdbRegistrationListener)
-		{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
+		Platform::Mutex::Lock lock(globalModuleState->gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
-		gdbRegistrationListener->notifyObjectLoaded(
+		globalModuleState->gdbRegistrationListener->notifyObjectLoaded(
 			reinterpret_cast<Uptr>(this), *object, *loadedObject);
 #else
-		gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
+		globalModuleState->gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
 #endif
 
 #ifdef WAVM_PERF_EVENTS
@@ -533,7 +525,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Create a DWARF context to interpret the debug information in this compilation unit.
 #if LAZY_PARSE_DWARF_LINE_INFO
-	Lock<Platform::Mutex> dwarfContextLock(dwarfContextMutex);
+	Platform::Mutex::Lock dwarfContextLock(dwarfContextMutex);
 	dwarfContext
 		= llvm::DWARFContext::create(memoryManager->getSectionNameToContentsMap(), sizeof(Uptr));
 #else
@@ -582,12 +574,6 @@ Module::Module(const std::vector<U8>& objectBytes,
 		{ offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
 #endif
 
-		if(PRINT_DISASSEMBLY && shouldLogMetrics)
-		{
-			Log::printf(Log::output, "Disassembly for function %s\n", name.get().data());
-			disassembleFunction(reinterpret_cast<U8*>(loadedAddress), Uptr(symbolSizePair.second));
-		}
-
 		// Add the function to the module's name and address to function maps.
 		WAVM_ASSERT(symbolSizePair.second <= UINTPTR_MAX);
 		Runtime::Function* function
@@ -606,8 +592,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 	const Uptr moduleEndAddress = reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
 														 + memoryManager->getNumImageBytes());
 	{
-		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
-		addressToModuleMap.emplace(moduleEndAddress, this);
+		Platform::RWMutex::ExclusiveLock addressToModuleMapLock(
+			globalModuleState->addressToModuleMapMutex);
+		globalModuleState->addressToModuleMap.emplace(moduleEndAddress, this);
 	}
 
 	if(shouldLogMetrics)
@@ -621,11 +608,12 @@ Module::~Module()
 {
 	// Notify GDB that the object is being unloaded.
 	{
-		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
+		Platform::Mutex::Lock lock(globalModuleState->gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
-		gdbRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
+		globalModuleState->gdbRegistrationListener->notifyFreeingObject(
+			reinterpret_cast<Uptr>(this));
 #else
-		gdbRegistrationListener->NotifyFreeingObject(*object);
+		globalModuleState->gdbRegistrationListener->NotifyFreeingObject(*object);
 #endif
 
 #ifdef WAVM_PERF_EVENTS
@@ -634,9 +622,13 @@ Module::~Module()
 	}
 
 	// Remove the module from the global address to module map.
-	Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
-	addressToModuleMap.erase(addressToModuleMap.find(reinterpret_cast<Uptr>(
-		memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
+	{
+		Platform::RWMutex::ExclusiveLock addressToModuleMapLock(
+			globalModuleState->addressToModuleMapMutex);
+		globalModuleState->addressToModuleMap.erase(
+			globalModuleState->addressToModuleMap.find(reinterpret_cast<Uptr>(
+				memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
+	}
 
 	// Free the FunctionMutableData objects.
 	for(const auto& pair : addressToFunctionMap) { delete pair.second->mutableData; }
@@ -654,7 +646,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	std::vector<MemoryBinding>&& memories,
 	std::vector<GlobalBinding>&& globals,
 	std::vector<ExceptionTypeBinding>&& exceptionTypes,
-	ModuleInstanceBinding moduleInstance,
+	InstanceBinding instance,
 	Uptr tableReferenceBias,
 	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas)
 {
@@ -665,7 +657,6 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// calling convention, so no thunking is necessary.
 	for(auto exportMapPair : wavmIntrinsicsExportMap)
 	{
-		WAVM_ASSERT(exportMapPair.value.callingConvention == IR::CallingConvention::intrinsic);
 		importedSymbolMap.addOrFail(exportMapPair.key,
 									reinterpret_cast<Uptr>(exportMapPair.value.code));
 	}
@@ -697,9 +688,10 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// CompartmentRuntimeData to the memory's entry in CompartmentRuntimeData::memoryBases.
 	for(Uptr memoryIndex = 0; memoryIndex < memories.size(); ++memoryIndex)
 	{
-		importedSymbolMap.addOrFail(getExternalName("memoryOffset", memoryIndex),
-									offsetof(Runtime::CompartmentRuntimeData, memoryBases)
-										+ sizeof(void*) * memories[memoryIndex].id);
+		importedSymbolMap.addOrFail(
+			getExternalName("memoryOffset", memoryIndex),
+			offsetof(Runtime::CompartmentRuntimeData, memories)
+				+ sizeof(Runtime::MemoryRuntimeData) * memories[memoryIndex].id);
 	}
 
 	// Bind the globals symbols.
@@ -741,9 +733,9 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 									reinterpret_cast<Uptr>(functionMutableData));
 	}
 
-	// Bind the moduleInstance symbol to point to the ModuleInstance.
-	WAVM_ASSERT(moduleInstance.id != UINTPTR_MAX);
-	importedSymbolMap.addOrFail("biasedModuleInstanceId", moduleInstance.id + 1);
+	// Bind the instance symbol to point to the Instance.
+	WAVM_ASSERT(instance.id != UINTPTR_MAX);
+	importedSymbolMap.addOrFail("biasedInstanceId", instance.id + 1);
 
 	// Bind the tableReferenceBias symbol to the tableReferenceBias.
 	importedSymbolMap.addOrFail("tableReferenceBias", tableReferenceBias);
@@ -770,37 +762,40 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true);
 }
 
-InstructionSource LLVMJIT::getInstructionSourceByAddress(Uptr address)
+bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& outSource)
 {
 	Module* jitModule;
 	{
-		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
-		auto moduleIt = addressToModuleMap.upper_bound(address);
-		if(moduleIt == addressToModuleMap.end()) { return InstructionSource{nullptr, UINTPTR_MAX}; }
+		auto globalModuleState = GlobalModuleState::get();
+		Platform::RWMutex::ShareableLock addressToModuleMapLock(
+			globalModuleState->addressToModuleMapMutex);
+		auto moduleIt = globalModuleState->addressToModuleMap.upper_bound(address);
+		if(moduleIt == globalModuleState->addressToModuleMap.end()) { return false; }
 		jitModule = moduleIt->second;
 	}
 
 	auto functionIt = jitModule->addressToFunctionMap.upper_bound(address);
-	if(functionIt == jitModule->addressToFunctionMap.end())
-	{ return InstructionSource{nullptr, UINTPTR_MAX}; }
-	Runtime::Function* function = functionIt->second;
-	const Uptr codeAddress = reinterpret_cast<Uptr>(function->code);
-	if(address < codeAddress || address >= codeAddress + function->mutableData->numCodeBytes)
-	{ return InstructionSource{nullptr, UINTPTR_MAX}; }
+	if(functionIt == jitModule->addressToFunctionMap.end()) { return false; }
+	outSource.function = functionIt->second;
+	const Uptr codeAddress = reinterpret_cast<Uptr>(outSource.function->code);
+	if(address < codeAddress
+	   || address >= codeAddress + outSource.function->mutableData->numCodeBytes)
+	{ return false; }
 
 #if LAZY_PARSE_DWARF_LINE_INFO
-	Lock<Platform::Mutex> dwarfContextLock(jitModule->dwarfContextMutex);
+	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
 		llvm::object::SectionedAddress(address, llvm::object::SectionedAddress::UndefSection),
 		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
 								  llvm::DINameKind::None));
 
-	return InstructionSource{function, Uptr(lineInfo.Line)};
+	outSource.instructionIndex = Uptr(lineInfo.Line);
+	return true;
 #else
 	// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
 	U32 ipOffset = (U32)(address - codeAddress);
 	Iptr opIndex = -1;
-	for(auto offsetMapIt : function->mutableData->offsetToOpIndexMap)
+	for(auto offsetMapIt : outSource.function->mutableData->offsetToOpIndexMap)
 	{
 		if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
 		else
@@ -809,6 +804,7 @@ InstructionSource LLVMJIT::getInstructionSourceByAddress(Uptr address)
 		}
 	}
 
-	return InstructionSource{function, opIndex > 0 ? Uptr(opIndex) : 0};
+	outSource.instructionIndex = opIndex > 0 ? Uptr(opIndex) : 0;
+	return true;
 #endif
 }

@@ -6,4 +6,4 @@ set(PublicHeaders
 WAVM_ADD_LIB_COMPONENT(ObjectCache
 	SOURCES ${Sources} ${PublicHeaders}
 	PRIVATE_LIB_COMPONENTS Platform Logging Runtime
-	PRIVATE_LIBS WAVMlmdb)
+	PRIVATE_LIBS WAVMlmdb WAVMBLAKE2)

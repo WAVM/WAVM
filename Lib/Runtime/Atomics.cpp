@@ -10,7 +10,6 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 #include "WAVM/Platform/Mutex.h"
@@ -49,7 +48,7 @@ static HashMap<Uptr, WaitList*> addressToWaitListMap;
 // A call to openWaitList should be followed by a call to closeWaitList to avoid leaks.
 static WaitList* openWaitList(Uptr address)
 {
-	Lock<Platform::Mutex> mapLock(addressToWaitListMapMutex);
+	Platform::Mutex::Lock mapLock(addressToWaitListMapMutex);
 	auto waitListPtr = addressToWaitListMap.get(address);
 	if(waitListPtr)
 	{
@@ -69,7 +68,7 @@ static void closeWaitList(Uptr address, WaitList* waitList)
 {
 	if(--waitList->numReferences == 0)
 	{
-		Lock<Platform::Mutex> mapLock(addressToWaitListMapMutex);
+		Platform::Mutex::Lock mapLock(addressToWaitListMapMutex);
 		if(!waitList->numReferences)
 		{
 			WAVM_ASSERT(!waitList->wakeEvents.size());
@@ -106,7 +105,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 
 	// Lock the wait list, and check that *valuePointer is still what the caller expected it to be.
 	{
-		Lock<Platform::Mutex> waitListLock(waitList->mutex);
+		Platform::Mutex::Lock waitListLock(waitList->mutex);
 
 		// Use unwindSignalsAsExceptions to ensure that an access violation signal produced by the
 		// load will be thrown as a Runtime::Exception and unwind the stack (e.g. the locks).
@@ -139,7 +138,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 	{
 		// If the wait timed out, lock the wait list and check if the thread's wake event is still
 		// in the wait list.
-		Lock<Platform::Mutex> waitListLock(waitList->mutex);
+		Platform::Mutex::Lock waitListLock(waitList->mutex);
 		auto wakeEventIt = std::find(
 			waitList->wakeEvents.begin(), waitList->wakeEvents.end(), threadWakeEvent.get());
 		if(wakeEventIt != waitList->wakeEvents.end())
@@ -172,7 +171,7 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 	WaitList* waitList = openWaitList(address);
 	Uptr actualNumToWake = numToWake;
 	{
-		Lock<Platform::Mutex> waitListLock(waitList->mutex);
+		Platform::Mutex::Lock waitListLock(waitList->mutex);
 
 		// Determine how many threads to wake.
 		// numToWake==UINT32_MAX means wake all waiting threads.
@@ -235,6 +234,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
+	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
+	if(!memory->type.isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
+
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 3));
 
@@ -253,6 +255,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+
+	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
+	if(!memory->type.isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
 
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 7));

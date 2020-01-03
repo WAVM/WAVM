@@ -156,7 +156,8 @@ namespace WAVM { namespace VFS {
 		v(isNotEmpty, "Directory isn't empty") \
 		v(brokenPipe, "Pipe is broken") \
 		v(missingDevice, "Device is missing") \
-		v(busy, "Device or resource busy")
+		v(busy, "Device or resource busy") \
+		v(notSupported, "Operation not supported")
 
 	enum class Result : I32
 	{
@@ -182,7 +183,7 @@ namespace WAVM { namespace VFS {
 
 	struct VFD
 	{
-		// Closes the FD. If CloseResult::success is returned, also deletes this FD.
+		// Closes the FD. Deletes the VFD regardless of whether an error code is returned.
 		virtual Result close() = 0;
 
 		virtual Result seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr) = 0;

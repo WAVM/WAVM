@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "Inline/I128.h"
+// IWYU pragma: private, include "WAVM/Inline/I128.h"
 // You should only include this file indirectly by including I128.h.
 #pragma once
 
@@ -390,10 +390,13 @@ namespace WAVM {
 		return a.highI64 != b.highI64 || a.lowU64 != b.lowU64;
 	}
 
-	inline I128& I128::operator=(I128 copyee)
+	inline I128& I128::operator=(const I128& copyee)
 	{
-		lowU64 = copyee.lowU64;
-		highU64 = copyee.highU64;
+		if(this != &copyee)
+		{
+			lowU64 = copyee.lowU64;
+			highU64 = copyee.highU64;
+		}
 		return *this;
 	}
 

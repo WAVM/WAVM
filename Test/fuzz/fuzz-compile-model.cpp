@@ -34,7 +34,7 @@ static void compileModule(const IR::Module& module, RandomStream& random)
 
 	const LLVMJIT::TargetSpec& targetSpec = possibleTargetSpecs[random.get(numPossibleTargets - 1)];
 
-	WAVM_ERROR_UNLESS(LLVMJIT::validateTarget(targetSpec, FeatureSpec(true))
+	WAVM_ERROR_UNLESS(LLVMJIT::validateTarget(targetSpec, FeatureLevel::proposed)
 					  == LLVMJIT::TargetValidationResult::valid);
 
 	std::vector<U8> objectCode = LLVMJIT::compileModule(module, targetSpec);
@@ -44,8 +44,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	RandomStream random(data, numBytes);
 
-	IR::Module module(FeatureSpec(true));
-	module.featureSpec.sharedTables = true;
+	IR::Module module(FeatureLevel::wavm);
 	generateValidModule(module, random);
 
 #if !WAVM_ENABLE_LIBFUZZER

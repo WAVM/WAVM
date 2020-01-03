@@ -42,6 +42,7 @@ WAVM fully supports WebAssembly 1.0, plus many proposed extensions to it:
 * [Sign-extension instructions](https://github.com/WebAssembly/sign-extension-ops)
 * [Exception handling](https://github.com/WebAssembly/exception-handling)
 * [Extended name section](https://github.com/WebAssembly/extended-name-section)
+* [Multiple memories](https://github.com/WebAssembly/multi-memory)
 
 ### Portable
 

@@ -6,7 +6,6 @@
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
@@ -28,9 +27,9 @@ bool loadTextOrBinaryModule(const char* filename, IR::Module& outModule)
 	if(fileBytes.size() >= sizeof(WASM::magicNumber)
 	   && !memcmp(fileBytes.data(), WASM::magicNumber, sizeof(WASM::magicNumber)))
 	{
-		Serialization::MemoryInputStream inputStream(fileBytes.data(), fileBytes.size());
 		WASM::LoadError loadError;
-		if(WASM::loadBinaryModule(inputStream, outModule, &loadError)) { return true; }
+		if(WASM::loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule, &loadError))
+		{ return true; }
 		else
 		{
 			Log::printf(Log::error, "%s\n", loadError.message.c_str());
@@ -61,6 +60,7 @@ static const char* getOutputFormatHelpText()
 	return "  unoptimized-llvmir          Unoptimized LLVM IR for the input module.\n"
 		   "  optimized-llvmir            Optimized LLVM IR for the input module.\n"
 		   "  object                      The target platform's native object file format.\n"
+		   "  assembly                    The target platform's native assembly format.\n"
 		   "  precompiled-wasm (default)  The original WebAssembly module with object code\n"
 		   "                              embedded in the wavm.precompiled_object section.\n";
 }
@@ -87,7 +87,7 @@ void showCompileHelp(Log::Category outputCategory)
 				hostTargetSpec.triple.c_str(),
 				hostTargetSpec.cpu.c_str(),
 				getOutputFormatHelpText(),
-				getFeatureListHelpText());
+				getFeatureListHelpText().c_str());
 }
 
 template<Uptr numPrefixChars>
@@ -103,13 +103,15 @@ enum class OutputFormat
 	unoptimizedLLVMIR,
 	optimizedLLVMIR,
 	object,
+	assembly,
 };
 
 int execCompileCommand(int argc, char** argv)
 {
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
-	LLVMJIT::TargetSpec targetSpec = LLVMJIT::getHostTargetSpec();
+	bool useHostTargetSpec = true;
+	LLVMJIT::TargetSpec targetSpec;
 	IR::FeatureSpec featureSpec;
 	OutputFormat outputFormat = OutputFormat::unspecified;
 	for(int argIndex = 0; argIndex < argc; ++argIndex)
@@ -123,6 +125,7 @@ int execCompileCommand(int argc, char** argv)
 			}
 			++argIndex;
 			targetSpec.triple = argv[argIndex];
+			useHostTargetSpec = false;
 		}
 		else if(!strcmp(argv[argIndex], "--target-cpu"))
 		{
@@ -133,6 +136,7 @@ int execCompileCommand(int argc, char** argv)
 			}
 			++argIndex;
 			targetSpec.cpu = argv[argIndex];
+			useHostTargetSpec = false;
 		}
 		else if(!strcmp(argv[argIndex], "--enable"))
 		{
@@ -172,6 +176,10 @@ int execCompileCommand(int argc, char** argv)
 			{
 				outputFormat = OutputFormat::object;
 			}
+			else if(!strcmp(formatString, "assembly"))
+			{
+				outputFormat = OutputFormat::assembly;
+			}
 			else
 			{
 				Log::printf(Log::error,
@@ -193,6 +201,7 @@ int execCompileCommand(int argc, char** argv)
 		}
 		else
 		{
+			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
 			showCompileHelp(Log::error);
 			return EXIT_FAILURE;
 		}
@@ -203,6 +212,8 @@ int execCompileCommand(int argc, char** argv)
 		showCompileHelp(Log::error);
 		return EXIT_FAILURE;
 	}
+
+	if(useHostTargetSpec) { targetSpec = LLVMJIT::getHostTargetSpec(); }
 
 	// Validate the target.
 	switch(LLVMJIT::validateTarget(targetSpec, featureSpec))
@@ -245,14 +256,12 @@ int execCompileCommand(int argc, char** argv)
 		std::vector<U8> objectCode = LLVMJIT::compileModule(irModule, targetSpec);
 
 		// Extract the compiled object code and add it to the IR module as a user section.
-		irModule.userSections.push_back({"wavm.precompiled_object", objectCode});
+		irModule.customSections.push_back(CustomSection{
+			OrderedSectionID::moduleBeginning, "wavm.precompiled_object", std::move(objectCode)});
 
 		// Serialize the WASM module.
 		Timing::Timer saveTimer;
-
-		Serialization::ArrayOutputStream stream;
-		WASM::saveBinaryModule(stream, irModule);
-		std::vector<U8> wasmBytes = stream.getBytes();
+		std::vector<U8> wasmBytes = WASM::saveBinaryModule(irModule);
 
 		Timing::logRatePerSecond(
 			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");
@@ -268,6 +277,17 @@ int execCompileCommand(int argc, char** argv)
 		// Write the object code to the output file.
 		return saveFile(outputFilename, objectCode.data(), objectCode.size()) ? EXIT_SUCCESS
 																			  : EXIT_FAILURE;
+	}
+	case OutputFormat::assembly: {
+		// Compile the module to object code.
+		std::vector<U8> objectCode = LLVMJIT::compileModule(irModule, targetSpec);
+
+		// Disassemble the object code.
+		std::string disassembly = LLVMJIT::disassembleObject(targetSpec, objectCode);
+
+		// Write the disassembly to the output file.
+		return saveFile(outputFilename, disassembly.data(), disassembly.size()) ? EXIT_SUCCESS
+																				: EXIT_FAILURE;
 	}
 	case OutputFormat::optimizedLLVMIR:
 	case OutputFormat::unoptimizedLLVMIR: {

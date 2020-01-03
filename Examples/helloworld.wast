@@ -1,23 +1,29 @@
 ;; WebAssembly WASM AST Hello World! program
 
 (module
-  (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
-  (import "env" "_stdout" (global $stdoutPtr i32))
-  (import "env" "memory" (memory 1))
-  (export "main" (func $main))
+  (import "wasi_unstable" "fd_write" (func $wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_unstable" "proc_exit" (func $wasi_proc_exit (param i32)))
 
-  (data (i32.const 8) "Hello World!\n")
+  (memory (export "memory") 1)
+  
+  ;; The iovec that is passed to fd_write.
+  (data (i32.const 8)
+    "\10\00\00\00" ;; buf = 16
+    "\0d\00\00\00" ;; buf_len = 13
+  )
 
-  (func (export "establishStackSpace") (param i32 i32) (nop))
+  ;; The string that the iovec points to.
+  (data (i32.const 16) "Hello World!\n")
 
-  (func $main (result i32)
-    (local $stdout i32)
-    (local.set $stdout (i32.load align=4 (global.get $stdoutPtr)))
+  (func $main (export "_start")
+    ;; Print "Hello World!\n" to stdout.
+    (call $wasi_fd_write
+      (i32.const 1)   ;; fd 1 (stdout)
+      (i32.const 8)   ;; (iovec*)8
+      (i32.const 1)   ;; 1 iovec
+      (i32.const 12)) ;; write the number of written bytes back to iovec.buf_len
 
-	(i32.ne (i32.const 13) (call $__fwrite
-       (i32.const 8)         ;; void *ptr    => Address of our string
-       (i32.const 1)         ;; size_t size  => Data size
-       (i32.const 13)        ;; size_t nmemb => Length of our string
-       (local.get $stdout))) ;; stream
+    ;; Pass the result of wasi_fd_write to wasi_proc_exit
+    (call $wasi_proc_exit)
   )
 )

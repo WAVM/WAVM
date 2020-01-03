@@ -11,7 +11,6 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Inline/IntrusiveSharedPtr.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -71,7 +70,7 @@ static thread_local IntrusiveSharedPtr<Thread> currentThread = nullptr;
 // array.
 WAVM_FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
 {
-	Lock<Platform::Mutex> threadsLock(threadsMutex);
+	Platform::Mutex::Lock threadsLock(threadsMutex);
 	thread->id = threads.add(0, thread);
 	WAVM_ERROR_UNLESS(thread->id != 0);
 	return thread->id;
@@ -116,11 +115,11 @@ static I64 threadEntry(void* threadVoid)
 				result = exitThreadException.code;
 			}
 
-			Lock<Platform::Mutex> resultLock(currentThread->resultMutex);
+			Platform::Mutex::Lock resultLock(currentThread->resultMutex);
 			currentThread->result = result;
 		},
 		[](Exception* exception) {
-			Lock<Platform::Mutex> resultLock(currentThread->resultMutex);
+			Platform::Mutex::Lock resultLock(currentThread->resultMutex);
 			if(currentThread->numRefs == 1)
 			{
 				// If the thread has already been detached, the exception is fatal.
@@ -179,7 +178,7 @@ static IntrusiveSharedPtr<Thread> removeThreadById(Uptr threadId)
 {
 	IntrusiveSharedPtr<Thread> thread;
 
-	Lock<Platform::Mutex> threadsLock(threadsMutex);
+	Platform::Mutex::Lock threadsLock(threadsMutex);
 	validateThreadId(threadId);
 	thread = std::move(threads[threadId]);
 	threads.removeOrFail(threadId);
@@ -196,7 +195,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, U64 th
 	Platform::joinThread(thread->platformThread);
 	thread->platformThread = nullptr;
 
-	Lock<Platform::Mutex> resultLock(thread->resultMutex);
+	Platform::Mutex::Lock resultLock(thread->resultMutex);
 	if(thread->threwException) { throwException(thread->exception); }
 	else
 	{
@@ -212,7 +211,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U
 	thread->platformThread = nullptr;
 
 	// If the thread threw an exception, turn it into a fatal error.
-	Lock<Platform::Mutex> resultLock(thread->resultMutex);
+	Platform::Mutex::Lock resultLock(thread->resultMutex);
 	if(thread->threwException)
 	{
 		Errors::fatalf("Runtime exception in detached thread: %s",
@@ -220,7 +219,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U
 	}
 }
 
-ModuleInstance* ThreadTest::instantiate(Compartment* compartment)
+Instance* ThreadTest::instantiate(Compartment* compartment)
 {
 	return Intrinsics::instantiateModule(
 		compartment, {WAVM_INTRINSIC_MODULE_REF(threadTest)}, "threadTest");

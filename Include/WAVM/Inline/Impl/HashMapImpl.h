@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "Inline/HashMap.h"
+// IWYU pragma: private, include "WAVM/Inline/HashMap.h"
 // You should only include this file indirectly by including HashMap.h.
 
 // Use these macros to compress the boilerplate template declarations in a non-inline member

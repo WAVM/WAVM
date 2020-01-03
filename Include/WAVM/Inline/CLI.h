@@ -17,6 +17,16 @@ namespace WAVM {
 				filename, VFS::FileAccessMode::readOnly, VFS::FileCreateMode::openExisting, vfd);
 			if(result != VFS::Result::success) { goto printAndReturnError; }
 
+			// Ensure that we didn't open a directory.
+			VFS::FileInfo fileInfo;
+			result = vfd->getFileInfo(fileInfo);
+			if(result != VFS::Result::success) { goto printAndReturnError; }
+			else if(fileInfo.type == VFS::FileType::directory)
+			{
+				result = VFS::Result::isDirectory;
+				goto printAndReturnError;
+			}
+
 			U64 numFileBytes64 = 0;
 			result = vfd->seek(0, VFS::SeekOrigin::end, &numFileBytes64);
 			if(result != VFS::Result::success) { goto printAndReturnError; }
@@ -37,11 +47,8 @@ namespace WAVM {
 			if(result != VFS::Result::success) { goto printAndReturnError; }
 
 			result = vfd->close();
-			if(result != VFS::Result::success)
-			{
-				vfd = nullptr;
-				goto printAndReturnError;
-			}
+			vfd = nullptr;
+			if(result != VFS::Result::success) { goto printAndReturnError; }
 
 			return true;
 		}

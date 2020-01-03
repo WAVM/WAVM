@@ -21,20 +21,19 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::IRBuilder<> irBuilder;
 
 		llvm::Value* contextPointerVariable;
-		llvm::Value* memoryBasePointerVariable;
+		std::vector<llvm::Value*> memoryBasePointerVariables;
 
-		EmitContext(LLVMContext& inLLVMContext, llvm::Constant* inDefaultMemoryOffset)
+		EmitContext(LLVMContext& inLLVMContext, const std::vector<llvm::Constant*>& inMemoryOffsets)
 		: llvmContext(inLLVMContext)
 		, irBuilder(inLLVMContext)
 		, contextPointerVariable(nullptr)
-		, memoryBasePointerVariable(nullptr)
-		, defaultMemoryOffset(inDefaultMemoryOffset)
+		, memoryOffsets(inMemoryOffsets)
 		{
 		}
 
-		llvm::Value* loadFromUntypedPointer(llvm::Value* pointer,
-											llvm::Type* valueType,
-											U32 alignment = 1)
+		llvm::LoadInst* loadFromUntypedPointer(llvm::Value* pointer,
+											   llvm::Type* valueType,
+											   U32 alignment = 1)
 		{
 			auto load = irBuilder.CreateLoad(
 				irBuilder.CreatePointerCast(pointer, valueType->getPointerTo()));
@@ -61,41 +60,63 @@ namespace WAVM { namespace LLVMJIT {
 				llvmContext.i8PtrType);
 		}
 
-		void reloadMemoryBase()
+		void reloadMemoryBases()
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
 
-			// Load the defaultMemoryBase and defaultTableBase values from the runtime data for this
-			// module instance.
-
-			if(defaultMemoryOffset)
+			// Load the memory base pointer values from the CompartmentRuntimeData.
+			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
+				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
+				llvm::Value* memoryBasePointerVariable = memoryBasePointerVariables[memoryIndex];
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(compartmentAddress, {defaultMemoryOffset}),
+						irBuilder.CreateInBoundsGEP(compartmentAddress, {memoryOffset}),
 						llvmContext.i8PtrType,
 						sizeof(U8*)),
 					memoryBasePointerVariable);
 			}
 		}
 
+		llvm::Value* getMemoryNumPages(llvm::Value* memoryOffset)
+		{
+			// Load the number of memory pages from the compartment runtime data.
+			llvm::LoadInst* memoryNumPagesLoad = loadFromUntypedPointer(
+				irBuilder.CreateInBoundsGEP(
+					getCompartmentAddress(),
+					{irBuilder.CreateAdd(
+						memoryOffset,
+						emitLiteral(llvmContext,
+									Uptr(offsetof(Runtime::MemoryRuntimeData, numPages))))}),
+				llvmContext.iptrType,
+				alignof(Uptr));
+			memoryNumPagesLoad->setAtomic(llvm::AtomicOrdering::Acquire);
+
+			return memoryNumPagesLoad;
+		}
+
 		void initContextVariables(llvm::Value* initialContextPointer)
 		{
-			memoryBasePointerVariable
-				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "memoryBase");
+			memoryBasePointerVariables.resize(memoryOffsets.size());
+			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
+			{
+				memoryBasePointerVariables[memoryIndex] = irBuilder.CreateAlloca(
+					llvmContext.i8PtrType, nullptr, "memoryBase" + llvm::Twine(memoryIndex));
+			}
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");
 			irBuilder.CreateStore(initialContextPointer, contextPointerVariable);
-			reloadMemoryBase();
+			reloadMemoryBases();
 		}
 
 		// Creates either a call or an invoke if the call occurs inside a try.
 		ValueVector emitCallOrInvoke(llvm::Value* callee,
 									 llvm::ArrayRef<llvm::Value*> args,
 									 IR::FunctionType calleeType,
-									 IR::CallingConvention callingConvention,
 									 llvm::BasicBlock* unwindToBlock = nullptr)
 		{
+			const IR::CallingConvention callingConvention = calleeType.callingConvention();
+
 			llvm::ArrayRef<llvm::Value*> callArgs = args;
 
 			llvm::Value* resultsArray = nullptr;
@@ -163,7 +184,7 @@ namespace WAVM { namespace LLVMJIT {
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
 
 				// Reload the memory/table base pointers.
-				reloadMemoryBase();
+				reloadMemoryBases();
 
 				if(areResultsReturnedDirectly(calleeType.results()))
 				{
@@ -205,7 +226,7 @@ namespace WAVM { namespace LLVMJIT {
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
 
 				// Reload the memory/table base pointers.
-				reloadMemoryBase();
+				reloadMemoryBases();
 
 				// Load the call result from the returned context.
 				WAVM_ASSERT(calleeType.results().size() <= 1);
@@ -305,6 +326,6 @@ namespace WAVM { namespace LLVMJIT {
 		}
 
 	private:
-		llvm::Constant* defaultMemoryOffset;
+		std::vector<llvm::Constant*> memoryOffsets;
 	};
 }}

@@ -38,6 +38,7 @@
 	VISIT_LITERAL_TOKEN(assert_unlinkable)                                                         \
 	VISIT_LITERAL_TOKEN(assert_malformed)                                                          \
 	VISIT_LITERAL_TOKEN(assert_exhaustion)                                                         \
+	VISIT_LITERAL_TOKEN(benchmark)                                                                 \
 	VISIT_LITERAL_TOKEN(invoke)                                                                    \
 	VISIT_LITERAL_TOKEN(get)                                                                       \
 	VISIT_LITERAL_TOKEN(align)                                                                     \
@@ -63,6 +64,16 @@
 	VISIT_LITERAL_TOKEN(binary)                                                                    \
 	VISIT_LITERAL_TOKEN(v128)                                                                      \
 	VISIT_LITERAL_TOKEN(exception_type)                                                            \
+	VISIT_LITERAL_TOKEN(custom_section)                                                            \
+	VISIT_LITERAL_TOKEN(after)                                                                     \
+	VISIT_LITERAL_TOKEN(before)                                                                    \
+	VISIT_LITERAL_TOKEN(data_count)                                                                \
+	VISIT_LITERAL_TOKEN(code)                                                                      \
+	VISIT_LITERAL_TOKEN(calling_conv)                                                              \
+	VISIT_LITERAL_TOKEN(intrinsic)                                                                 \
+	VISIT_LITERAL_TOKEN(intrinsic_with_context_switch)                                             \
+	VISIT_LITERAL_TOKEN(c)                                                                         \
+	VISIT_LITERAL_TOKEN(c_api_callback)                                                            \
 	VISIT_TOKEN(ref_host, "'ref.host'", "ref.host")
 
 #define ENUM_TOKENS()                                                                              \
@@ -78,6 +89,8 @@
 	VISIT_TOKEN(hexInt, "hexadecimal int literal", _)                                              \
 	VISIT_TOKEN(floatNaN, "float NaN literal", _)                                                  \
 	VISIT_TOKEN(floatInf, "float infinity literal", _)                                             \
+	VISIT_TOKEN(canonicalNaN, "float canonical NaN literal", _)                                    \
+	VISIT_TOKEN(arithmeticNaN, "float arithmetic NaN literal", _)                                  \
 	VISIT_TOKEN(string, "string literal", _)                                                       \
 	VISIT_TOKEN(name, "name literal", _)                                                           \
 	VISIT_TOKEN(quotedName, "quoted name literal", _)                                              \

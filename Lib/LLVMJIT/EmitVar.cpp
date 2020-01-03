@@ -16,6 +16,7 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
+using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 

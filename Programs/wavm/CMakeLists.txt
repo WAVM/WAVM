@@ -5,14 +5,13 @@ set(NonRuntimeSources Testing/DumpTestModules.cpp
 					  Testing/TestI128.cpp
 					  Testing/wavm-test.cpp
 					  Testing/wavm-test.h
-					  FeatureSpec.cpp
 					  wavm.cpp
 					  wavm.h
 					  wavm-assemble.cpp
 					  wavm-disassemble.cpp)
 
 set(RuntimeOnlySources
-			Testing/InvokeBench.cpp
+			Testing/Benchmark.cpp
 			Testing/RunTestScript.cpp
 			Testing/TestCAPI.c
 			wavm-compile.cpp

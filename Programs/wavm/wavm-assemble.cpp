@@ -7,7 +7,6 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/WASM/WASM.h"
@@ -38,55 +37,83 @@ static bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
 void showAssembleHelp(Log::Category outputCategory)
 {
 	Log::printf(outputCategory,
-				"Usage: wavm assemble in.wast out.wasm [switches]\n"
-				"  -n|--omit-names           Omits WAST names from the output\n"
-				"     --omit-extended-names  Omits only the non-standard WAVM extended\n"
-				"                              names from the output\n");
+				"Usage: wavm assemble [options] in.wast out.wasm\n"
+				"  -n|--omit-names       Omits WAST names from the output\n"
+				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
+				"                        features below.\n"
+				"\n"
+				"Features:\n"
+				"%s"
+				"\n",
+				getFeatureListHelpText().c_str());
 }
 
 int execAssembleCommand(int argc, char** argv)
 {
-	if(argc < 2)
+	const char* inputFilename = nullptr;
+	const char* outputFilename = nullptr;
+	bool omitNames = false;
+	IR::FeatureSpec featureSpec;
+	for(Iptr argIndex = 0; argIndex < argc; ++argIndex)
+	{
+		if(!strcmp(argv[argIndex], "-n") || !strcmp(argv[argIndex], "--omit-names"))
+		{ omitNames = true; }
+		else if(!strcmp(argv[argIndex], "--enable"))
+		{
+			++argIndex;
+			if(!argv[argIndex])
+			{
+				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+				return false;
+			}
+
+			if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
+			{
+				Log::printf(Log::error,
+							"Unknown feature '%s'. Supported features:\n"
+							"%s"
+							"\n",
+							argv[argIndex],
+							getFeatureListHelpText().c_str());
+				return false;
+			}
+		}
+		else if(!inputFilename)
+		{
+			inputFilename = argv[argIndex];
+		}
+		else if(!outputFilename)
+		{
+			outputFilename = argv[argIndex];
+		}
+		else
+		{
+			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
+			showDisassembleHelp(Log::error);
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(!inputFilename || !outputFilename)
 	{
 		showAssembleHelp(Log::error);
 		return EXIT_FAILURE;
 	}
-	const char* inputFilename = argv[0];
-	const char* outputFilename = argv[1];
-	bool omitNames = false;
-	bool omitExtendedNames = false;
-	if(argc > 2)
-	{
-		for(Iptr argumentIndex = 2; argumentIndex < argc; ++argumentIndex)
-		{
-			if(!strcmp(argv[argumentIndex], "-n") || !strcmp(argv[argumentIndex], "--omit-names"))
-			{ omitNames = true; }
-			else if(!strcmp(argv[argumentIndex], "--omit-extended-names"))
-			{
-				omitExtendedNames = true;
-			}
-			else
-			{
-				Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
-				return EXIT_FAILURE;
-			}
-		}
-	}
 
 	// Load the WAST module.
-	IR::Module module(IR::FeatureSpec(true));
-	module.featureSpec.extendedNamesSection = !omitExtendedNames;
+	IR::Module module(featureSpec);
 	if(!loadTextModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// If the command-line switch to omit names was specified, strip the name section.
 	if(omitNames)
 	{
-		for(auto sectionIt = module.userSections.begin(); sectionIt != module.userSections.end();
+		for(auto sectionIt = module.customSections.begin();
+			sectionIt != module.customSections.end();
 			++sectionIt)
 		{
 			if(sectionIt->name == "name")
 			{
-				module.userSections.erase(sectionIt);
+				module.customSections.erase(sectionIt);
 				break;
 			}
 		}
@@ -95,10 +122,7 @@ int execAssembleCommand(int argc, char** argv)
 	// Serialize the WASM module.
 
 	Timing::Timer saveTimer;
-
-	Serialization::ArrayOutputStream stream;
-	WASM::saveBinaryModule(stream, module);
-	std::vector<U8> wasmBytes = stream.getBytes();
+	std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
 
 	Timing::logRatePerSecond(
 		"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");

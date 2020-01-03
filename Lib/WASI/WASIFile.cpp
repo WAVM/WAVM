@@ -1,11 +1,12 @@
 #include "./WASIPrivate.h"
-#include "./WASITypes.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
+#include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
 using namespace WAVM::WASI;
@@ -54,27 +55,51 @@ static __wasi_errno_t asWASIErrNo(VFS::Result result)
 	case Result::brokenPipe: return __WASI_EPIPE;
 	case Result::missingDevice: return __WASI_ENXIO;
 	case Result::busy: return __WASI_EBUSY;
+	case Result::notSupported: return __WASI_ENOTSUP;
 
 	default: WAVM_UNREACHABLE();
 	};
 }
 
-static __wasi_errno_t validateFD(Process* process,
-								 __wasi_fd_t fd,
-								 __wasi_rights_t requiredRights,
-								 __wasi_rights_t requiredInheritingRights,
-								 WASI::FDE*& outFDE)
+struct LockedFDE
 {
-	if(fd < process->fds.getMinIndex() || fd > process->fds.getMaxIndex()) { return __WASI_EBADF; }
-	WASI::FDE* fde = process->fds.get(fd);
-	if(!fde) { return __WASI_EBADF; }
+	__wasi_errno_t error;
 
-	if((fde->rights & requiredRights) != requiredRights
-	   || (fde->inheritingRights & requiredInheritingRights) != requiredInheritingRights)
-	{ return __WASI_ENOTCAPABLE; }
+	// Only set if result==_WASI_ESUCCESS:
+	Platform::RWMutex::Lock fdeLock;
+	std::shared_ptr<FDE> fde;
 
-	outFDE = fde;
-	return __WASI_ESUCCESS;
+	LockedFDE(__wasi_errno_t inError) : error(inError) {}
+	LockedFDE(const std::shared_ptr<FDE>& inFDE,
+			  Platform::RWMutex::LockShareability lockShareability)
+	: error(__WASI_ESUCCESS), fdeLock(inFDE->mutex, lockShareability), fde(inFDE)
+	{
+	}
+};
+
+static LockedFDE getLockedFDE(Process* process,
+							  __wasi_fd_t fd,
+							  __wasi_rights_t requiredRights,
+							  __wasi_rights_t requiredInheritingRights,
+							  Platform::RWMutex::LockShareability lockShareability
+							  = Platform::RWMutex::shareable)
+{
+	// Shareably lock the fdMap mutex.
+	Platform::RWMutex::ShareableLock fdsLock(process->fdMapMutex);
+
+	// Check that the fdMap contains a FDE for the given FD.
+	if(fd < process->fdMap.getMinIndex() || fd > process->fdMap.getMaxIndex())
+	{ return LockedFDE(__WASI_EBADF); }
+	std::shared_ptr<FDE>* fde = process->fdMap.get(fd);
+	if(!fde) { return LockedFDE(__WASI_EBADF); }
+
+	// Check that the FDE has the required rights.
+	if(((*fde)->rights & requiredRights) != requiredRights
+	   || ((*fde)->inheritingRights & requiredInheritingRights) != requiredInheritingRights)
+	{ return LockedFDE(__WASI_ENOTCAPABLE); }
+
+	// Lock the FDE and return a reference to it.
+	return LockedFDE(*fde, lockShareability);
 }
 
 static __wasi_filetype_t asWASIFileType(FileType type)
@@ -184,16 +209,15 @@ static __wasi_errno_t validatePath(Process* process,
 {
 	if(!process->fileSystem) { return __WASI_ENOTCAPABLE; }
 
-	WASI::FDE* dirFDE = nullptr;
-	const __wasi_errno_t fdError
-		= validateFD(process, dirFD, requiredDirRights, requiredDirInheritingRights, dirFDE);
-	if(fdError != __WASI_ESUCCESS) { return fdError; }
+	LockedFDE lockedDirFDE
+		= getLockedFDE(process, dirFD, requiredDirRights, requiredDirInheritingRights);
+	if(lockedDirFDE.error != __WASI_ESUCCESS) { return lockedDirFDE.error; }
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
 	{ return __WASI_EFAULT; }
 
-	if(!getCanonicalPath(dirFDE->originalPath, relativePath, outCanonicalPath))
+	if(!getCanonicalPath(lockedDirFDE.fde->originalPath, relativePath, outCanonicalPath))
 	{ return __WASI_ENOTCAPABLE; }
 
 	return __WASI_ESUCCESS;
@@ -221,10 +245,25 @@ static VFDFlags translateWASIVFDFlags(__wasi_fdflags_t fdFlags, __wasi_rights_t&
 	return result;
 }
 
-Result WASI::FDE::close() const
+WASI::FDE::~FDE()
 {
+	// The FDE should have been closed before it is destroyed.
+	WAVM_ERROR_UNLESS(!vfd);
+}
+
+Result WASI::FDE::close()
+{
+	WAVM_ASSERT(vfd);
+
 	Result result = vfd->close();
-	if(result == VFS::Result::success && dirEntStream) { dirEntStream->close(); }
+	vfd = nullptr;
+
+	if(dirEntStream)
+	{
+		dirEntStream->close();
+		dirEntStream = nullptr;
+	}
+
 	return result;
 }
 
@@ -239,16 +278,16 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, 0, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, 0, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
-	if(fde->originalPath.size() > UINT32_MAX) { return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
+	if(lockedFDE.fde->originalPath.size() > UINT32_MAX)
+	{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 
 	__wasi_prestat_t& prestat = memoryRef<__wasi_prestat_t>(process->memory, prestatAddress);
-	prestat.pr_type = fde->preopenedType;
-	WAVM_ASSERT(fde->preopenedType == __WASI_PREOPENTYPE_DIR);
-	prestat.u.dir.pr_name_len = U32(fde->originalPath.size());
+	prestat.pr_type = lockedFDE.fde->preopenedType;
+	WAVM_ASSERT(lockedFDE.fde->preopenedType == __WASI_PREOPENTYPE_DIR);
+	prestat.u.dir.pr_name_len = U32(lockedFDE.fde->originalPath.size());
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
@@ -266,16 +305,16 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, 0, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, 0, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
-	if(!fde->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!lockedFDE.fde->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
-	if(bufferLength != fde->originalPath.size()) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+	if(bufferLength != lockedFDE.fde->originalPath.size())
+	{ return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
 	char* buffer = memoryArrayPtr<char>(process->memory, bufferAddress, bufferLength);
-	memcpy(buffer, fde->originalPath.c_str(), bufferLength);
+	memcpy(buffer, lockedFDE.fde->originalPath.c_str(), bufferLength);
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
@@ -290,19 +329,30 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, 0, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	// Exclusively lock the fds mutex, and look up the FDE corresponding to the FD.
+	Platform::RWMutex::ExclusiveLock fdsLock(process->fdMapMutex);
+	if(fd < process->fdMap.getMinIndex() || fd > process->fdMap.getMaxIndex())
+	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	std::shared_ptr<FDE>* fdePointer = process->fdMap.get(fd);
+	if(!fdePointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	std::shared_ptr<FDE> fde = *fdePointer;
 
+	// Exclusively lock the FDE.
+	Platform::RWMutex::ExclusiveLock fdeLock(fde->mutex);
+
+	// Remove this FDE from the FD table, and unlock the fds mutex.
+	process->fdMap.removeOrFail(fd);
+	fdsLock.unlock();
+
+	// Don't allow closing preopened FDs for now.
 	if(fde->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
+	// Close the FDE's underlying VFD+DirEntStream. This can return an error code, but closes the
+	// VFD+DirEntStream even if there was an error.
 	const VFS::Result result = fde->close();
 
-	if(result == VFS::Result::success)
-	{
-		// If the close succeeded, remove the fd from the fds map.
-		process->fds.removeOrFail(fd);
-	}
+	// Remove the fd from the fds map.
+	process->fdMap.removeOrFail(fd);
 
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
@@ -317,11 +367,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, __WASI_RIGHT_FD_DATASYNC, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_DATASYNC, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
-	return TRACE_SYSCALL_RETURN(asWASIErrNo(fde->vfd->sync(SyncType::contents)));
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(lockedFDE.fde->vfd->sync(SyncType::contents)));
 }
 
 static __wasi_errno_t readImpl(Process* process,
@@ -331,11 +380,10 @@ static __wasi_errno_t readImpl(Process* process,
 							   const __wasi_filesize_t* offset,
 							   Uptr& outNumBytesRead)
 {
-	WASI::FDE* fde = nullptr;
 	const __wasi_rights_t requiredRights
 		= __WASI_RIGHT_FD_READ | (offset ? __WASI_RIGHT_FD_SEEK : 0);
-	const __wasi_errno_t fdError = validateFD(process, fd, requiredRights, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return fdError; }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, requiredRights, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return lockedFDE.error; }
 
 	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
 
@@ -363,7 +411,7 @@ static __wasi_errno_t readImpl(Process* process,
 			{
 				// Do the read.
 				result = asWASIErrNo(
-					fde->vfd->readv(vfsReadBuffers, numIOVs, &outNumBytesRead, offset));
+					lockedFDE.fde->vfd->readv(vfsReadBuffers, numIOVs, &outNumBytesRead, offset));
 			}
 		},
 		[&](Exception* exception) {
@@ -390,11 +438,10 @@ static __wasi_errno_t writeImpl(Process* process,
 								const __wasi_filesize_t* offset,
 								Uptr& outNumBytesWritten)
 {
-	WASI::FDE* fde = nullptr;
 	const __wasi_rights_t requiredRights
 		= __WASI_RIGHT_FD_WRITE | (offset ? __WASI_RIGHT_FD_SEEK : 0);
-	const __wasi_errno_t fdError = validateFD(process, fd, requiredRights, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return fdError; }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, requiredRights, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return lockedFDE.error; }
 
 	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
 
@@ -421,8 +468,8 @@ static __wasi_errno_t writeImpl(Process* process,
 			else
 			{
 				// Do the writes.
-				result = asWASIErrNo(
-					fde->vfd->writev(vfsWriteBuffers, numIOVs, &outNumBytesWritten, offset));
+				result = asWASIErrNo(lockedFDE.fde->vfd->writev(
+					vfsWriteBuffers, numIOVs, &outNumBytesWritten, offset));
 			}
 		},
 		[&](Exception* exception) {
@@ -573,23 +620,38 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fromFDE = nullptr;
-	WASI::FDE* toFDE = nullptr;
-	__wasi_errno_t fdError = validateFD(process, fromFD, 0, 0, fromFDE);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
-	fdError = validateFD(process, toFD, 0, 0, toFDE);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	// Exclusively lock the fds mutex.
+	Platform::RWMutex::ExclusiveLock fdsLock(process->fdMapMutex);
 
+	// Look up the FDE for the source FD.
+	if(fromFD < process->fdMap.getMinIndex() || fromFD > process->fdMap.getMaxIndex())
+	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	std::shared_ptr<FDE>* fromFDEPointer = process->fdMap.get(fromFD);
+	if(!fromFDEPointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	std::shared_ptr<FDE> fromFDE = *fromFDEPointer;
+
+	// Look up the FDE for the destination FD.
+	if(toFD < process->fdMap.getMinIndex() || toFD > process->fdMap.getMaxIndex())
+	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	std::shared_ptr<FDE>* toFDEPointer = process->fdMap.get(toFD);
+	if(!toFDEPointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	std::shared_ptr<FDE> toFDE = *toFDEPointer;
+
+	// Don't allow renumbering preopened files.
 	if(fromFDE->isPreopened || toFDE->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_ENOTSUP); }
 
+	// Exclusively lock the FDE being replaced at the destination FD.
+	Platform::RWMutex::ExclusiveLock fromFDELock(fromFDE->mutex);
+
+	// Close the FDE being replaced. This can return an error code, but closes the VFD+DirEntStream
+	// even if there was an error.
 	Result result = toFDE->close();
-	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
-	process->fds.insertOrFail(toFD, std::move(*fromFDE));
-	process->fds.removeOrFail(toFD);
-	process->fds.removeOrFail(fromFD);
+	// Move the FDE from fromFD to toFD in the fds map.
+	process->fdMap[toFD] = std::move(fromFDE);
+	process->fdMap.removeOrFail(fromFD);
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -610,9 +672,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, __WASI_RIGHT_FD_SEEK, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_SEEK, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	SeekOrigin origin;
 	switch(whence)
@@ -624,7 +685,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	};
 
 	U64 newOffset;
-	const VFS::Result result = fde->vfd->seek(offset, origin, &newOffset);
+	const VFS::Result result = lockedFDE.fde->vfd->seek(offset, origin, &newOffset);
 	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	memoryRef<__wasi_filesize_t>(process->memory, newOffsetAddress) = newOffset;
@@ -642,12 +703,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, __WASI_RIGHT_FD_TELL, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_TELL, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	U64 currentOffset;
-	const VFS::Result result = fde->vfd->seek(0, SeekOrigin::cur, &currentOffset);
+	const VFS::Result result = lockedFDE.fde->vfd->seek(0, SeekOrigin::cur, &currentOffset);
 	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	memoryRef<__wasi_filesize_t>(process->memory, offsetAddress) = currentOffset;
@@ -665,12 +725,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, 0, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, 0, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	VFDInfo fdInfo;
-	const VFS::Result result = fde->vfd->getVFDInfo(fdInfo);
+	const VFS::Result result = lockedFDE.fde->vfd->getVFDInfo(fdInfo);
 	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
@@ -694,8 +753,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	default: WAVM_UNREACHABLE();
 	}
 
-	fdstat.fs_rights_base = fde->rights;
-	fdstat.fs_rights_inheriting = fde->inheritingRights;
+	fdstat.fs_rights_base = lockedFDE.fde->rights;
+	fdstat.fs_rights_inheriting = lockedFDE.fde->inheritingRights;
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
@@ -714,12 +773,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	__wasi_rights_t requiredRights = 0;
 	VFDFlags vfsVFDFlags = translateWASIVFDFlags(flags, requiredRights);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError
-		= validateFD(process, fd, __WASI_RIGHT_FD_FDSTAT_SET_FLAGS | requiredRights, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE
+		= getLockedFDE(process, fd, __WASI_RIGHT_FD_FDSTAT_SET_FLAGS | requiredRights, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
-	const VFS::Result result = fde->vfd->setVFDFlags(vfsVFDFlags);
+	const VFS::Result result = lockedFDE.fde->vfd->setVFDFlags(vfsVFDFlags);
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
@@ -739,13 +797,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, rights, inheritingRights, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE
+		= getLockedFDE(process, fd, rights, inheritingRights, Platform::RWMutex::exclusive);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	// Narrow the FD's rights.
-	fde->rights = rights;
-	fde->inheritingRights = inheritingRights;
+	lockedFDE.fde->rights = rights;
+	lockedFDE.fde->inheritingRights = inheritingRights;
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
@@ -760,11 +818,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, __WASI_RIGHT_FD_SYNC, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_SYNC, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
-	const VFS::Result result = fde->vfd->sync(SyncType::contentsAndMetadata);
+	const VFS::Result result = lockedFDE.fde->vfd->sync(SyncType::contentsAndMetadata);
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
@@ -782,9 +839,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, __WASI_RIGHT_FD_ADVISE, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_ADVISE, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	switch(advice)
 	{
@@ -914,16 +970,24 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(pathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(pathError); }
 
 	VFD* openedVFD = nullptr;
-	const VFS::Result result
+	VFS::Result result
 		= process->fileSystem->open(canonicalPath, accessMode, createMode, openedVFD, vfsVFDFlags);
 	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
-	__wasi_fd_t fd = process->fds.add(
+	Platform::RWMutex::ExclusiveLock fdsLock(process->fdMapMutex);
+	__wasi_fd_t fd = process->fdMap.add(
 		UINT32_MAX,
-		FDE(openedVFD, requestedRights, requestedInheritingRights, std::move(canonicalPath)));
+		std::make_shared<FDE>(
+			openedVFD, requestedRights, requestedInheritingRights, std::move(canonicalPath)));
 	if(fd == UINT32_MAX)
 	{
-		WAVM_ERROR_UNLESS(openedVFD->close() == VFS::Result::success);
+		result = openedVFD->close();
+		if(result != VFS::Result::success)
+		{
+			Log::printf(Log::Category::debug,
+						"Error when closing newly opened VFD due to full FD table: %s\n",
+						VFS::describeResult(result));
+		}
 		return TRACE_SYSCALL_RETURN(__WASI_EMFILE);
 	}
 
@@ -960,21 +1024,22 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* dirFDE = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, dirFD, __WASI_RIGHT_FD_READDIR, 0, dirFDE);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE
+		= getLockedFDE(process, dirFD, __WASI_RIGHT_FD_READDIR, 0, Platform::RWMutex::exclusive);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	// If this is the first time readdir was called, open a DirEntStream for the FD.
-	if(!dirFDE->dirEntStream)
+	if(!lockedFDE.fde->dirEntStream)
 	{
 		if(firstCookie != __WASI_DIRCOOKIE_START) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
-		const VFS::Result result = dirFDE->vfd->openDir(dirFDE->dirEntStream);
+		const VFS::Result result = lockedFDE.fde->vfd->openDir(lockedFDE.fde->dirEntStream);
 		if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 	}
-	else if(dirFDE->dirEntStream->tell() != firstCookie)
+	else if(lockedFDE.fde->dirEntStream->tell() != firstCookie)
 	{
-		if(!dirFDE->dirEntStream->seek(firstCookie)) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+		if(!lockedFDE.fde->dirEntStream->seek(firstCookie))
+		{ return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 	}
 
 	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
@@ -983,12 +1048,12 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	while(numBufferBytesUsed < numBufferBytes)
 	{
 		DirEnt dirEnt;
-		if(!dirFDE->dirEntStream->getNext(dirEnt)) { break; }
+		if(!lockedFDE.fde->dirEntStream->getNext(dirEnt)) { break; }
 
 		WAVM_ERROR_UNLESS(dirEnt.name.size() <= UINT32_MAX);
 
 		__wasi_dirent_t wasiDirEnt;
-		wasiDirEnt.d_next = dirFDE->dirEntStream->tell();
+		wasiDirEnt.d_next = lockedFDE.fde->dirEntStream->tell();
 		wasiDirEnt.d_ino = dirEnt.fileNumber;
 		wasiDirEnt.d_namlen = U32(dirEnt.name.size());
 		wasiDirEnt.d_type = asWASIFileType(dirEnt.type);
@@ -1066,12 +1131,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError = validateFD(process, fd, __WASI_RIGHT_FD_FILESTAT_GET, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_FILESTAT_GET, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	FileInfo fileInfo;
-	const VFS::Result result = fde->vfd->getFileInfo(fileInfo);
+	const VFS::Result result = lockedFDE.fde->vfd->getFileInfo(fileInfo);
 	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);
@@ -1106,10 +1170,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError
-		= validateFD(process, fd, __WASI_RIGHT_FD_FILESTAT_SET_TIMES, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_FILESTAT_SET_TIMES, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	Time now = Platform::getClockTime(Platform::Clock::realtime);
 
@@ -1139,7 +1201,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		setLastWriteTime = true;
 	}
 
-	const VFS::Result result = fde->vfd->setFileTimes(
+	const VFS::Result result = lockedFDE.fde->vfd->setFileTimes(
 		setLastAccessTime, lastAccessTime, setLastWriteTime, lastWriteTime);
 
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
@@ -1156,12 +1218,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FDE* fde = nullptr;
-	const __wasi_errno_t fdError
-		= validateFD(process, fd, __WASI_RIGHT_FD_FILESTAT_SET_SIZE, 0, fde);
-	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
+	LockedFDE lockedFDE = getLockedFDE(process, fd, __WASI_RIGHT_FD_FILESTAT_SET_SIZE, 0);
+	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
-	return TRACE_SYSCALL_RETURN(asWASIErrNo(fde->vfd->setFileSize(numBytes)));
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(lockedFDE.fde->vfd->setFileSize(numBytes)));
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,

@@ -14,8 +14,11 @@ namespace WAVM { namespace LLVMJIT {
 
 		LLVMContext& llvmContext;
 		llvm::Module* llvmModule;
+
 		llvm::TargetMachine* targetMachine;
+		llvm::Triple::ArchType targetArch;
 		bool useWindowsSEH;
+
 		std::vector<llvm::Constant*> typeIds;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;
@@ -23,10 +26,9 @@ namespace WAVM { namespace LLVMJIT {
 		std::vector<llvm::Constant*> globals;
 		std::vector<llvm::Constant*> exceptionTypeIds;
 
-		llvm::Constant* defaultMemoryOffset;
 		llvm::Constant* defaultTableOffset;
 
-		llvm::Constant* moduleInstanceId;
+		llvm::Constant* instanceId;
 		llvm::Constant* tableReferenceBias;
 
 		llvm::DIBuilder diBuilder;

@@ -85,7 +85,7 @@ void EmitFunctionContext::endTryCatch()
 	irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
 	emitRuntimeIntrinsic(
 		"throwException",
-		FunctionType(TypeTuple{}, TypeTuple{inferValueType<Iptr>()}),
+		FunctionType(TypeTuple{}, TypeTuple{inferValueType<Iptr>()}, CallingConvention::intrinsic),
 		{irBuilder.CreatePtrToInt(catchContext.exceptionPointer, llvmContext.iptrType)});
 	irBuilder.CreateUnreachable();
 	irBuilder.SetInsertPoint(savedInsertionPoint);
@@ -106,7 +106,8 @@ void EmitFunctionContext::exitCatch()
 		// Destroy the exception caught by the previous catch clause.
 		emitRuntimeIntrinsic(
 			"destroyException",
-			FunctionType(TypeTuple{}, TypeTuple{inferValueType<Iptr>()}),
+			FunctionType(
+				TypeTuple{}, TypeTuple{inferValueType<Iptr>()}, CallingConvention::intrinsic),
 			{irBuilder.CreatePtrToInt(catchContext.exceptionPointer, llvmContext.iptrType)});
 	}
 }
@@ -340,12 +341,15 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 	llvm::Value* exceptionPointer = emitRuntimeIntrinsic(
 		"createException",
 		FunctionType(TypeTuple{inferValueType<Iptr>()},
-					 TypeTuple{inferValueType<Iptr>(), inferValueType<Iptr>(), ValueType::i32}),
+					 TypeTuple{inferValueType<Iptr>(), inferValueType<Iptr>(), ValueType::i32},
+					 IR::CallingConvention::intrinsic),
 		{exceptionTypeId, argsPointerAsInt, emitLiteral(llvmContext, I32(1))})[0];
 
-	emitRuntimeIntrinsic("throwException",
-						 FunctionType(TypeTuple{}, TypeTuple{inferValueType<Iptr>()}),
-						 {irBuilder.CreatePtrToInt(exceptionPointer, llvmContext.iptrType)});
+	emitRuntimeIntrinsic(
+		"throwException",
+		FunctionType(
+			TypeTuple{}, TypeTuple{inferValueType<Iptr>()}, IR::CallingConvention::intrinsic),
+		{irBuilder.CreatePtrToInt(exceptionPointer, llvmContext.iptrType)});
 
 	irBuilder.CreateUnreachable();
 	enterUnreachable();
@@ -356,7 +360,8 @@ void EmitFunctionContext::rethrow(RethrowImm imm)
 	CatchContext& catchContext = catchStack[catchStack.size() - imm.catchDepth - 1];
 	emitRuntimeIntrinsic(
 		"throwException",
-		FunctionType(TypeTuple{}, TypeTuple{inferValueType<Iptr>()}),
+		FunctionType(
+			TypeTuple{}, TypeTuple{inferValueType<Iptr>()}, IR::CallingConvention::intrinsic),
 		{irBuilder.CreatePtrToInt(catchContext.exceptionPointer, llvmContext.iptrType)});
 
 	irBuilder.CreateUnreachable();

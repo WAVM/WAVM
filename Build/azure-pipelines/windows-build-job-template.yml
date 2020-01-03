@@ -26,6 +26,7 @@ jobs:
           buildConfig: Release
           llvmConfig: Release
           cmakeArgs: -DWAVM_ENABLE_RUNTIME=NO
+          testFuzzCorpora: false
         # Disable all the configs but NoRuntimeRelease on non-x64 platforms (i.e. Win32).
         ${{if eq(parameters.platform, 'x64')}}:
           LTO:
@@ -33,26 +34,31 @@ jobs:
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: -DWAVM_ENABLE_LTO=ON
+            testFuzzCorpora: true
           Release:
             configName: Release
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: ''
+            testFuzzCorpora: false
           Debug:
             configName: Debug
             buildConfig: Debug
             llvmConfig: Debug
             cmakeArgs: ''
+            testFuzzCorpora: false
           Checked:
             configName: Checked
             buildConfig: RelWithDebInfo
             llvmConfig: Release
             cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
+            testFuzzCorpora: true
           Static:
             configName: Static
             buildConfig: Release
             llvmConfig: Release
             cmakeArgs: '-DWAVM_ENABLE_STATIC_LINKING=ON'
+            testFuzzCorpora: false
 
     steps:
     - checkout: self
@@ -100,6 +106,27 @@ jobs:
     - template: test-step-template.yml
       parameters:
         ctestArgs: '-C $(buildConfig)'
+
+    # Clone the WAVM fuzz corpora repo and run the fuzz targets on them.
+    - script: git clone git://github.com/WAVM/wavm-fuzz-corpora.git $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora
+      displayName: Clone fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)\bin\$(buildConfig)\fuzz-assemble $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/assemble
+      displayName: Test assemble fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)\bin\$(buildConfig)\fuzz-disassemble $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/disassemble
+      displayName: Test disassemble fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)\bin\$(buildConfig)\fuzz-compile-model $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/compile-model
+      displayName: Test compile-model fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
+
+    - script: $(Build.ArtifactStagingDirectory)\bin\$(buildConfig)\fuzz-instantiate $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora/instantiate
+      displayName: Test instantiate fuzz corpora
+      condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
 
     # Create the WAVM packages.
     - task: MSBuild@1

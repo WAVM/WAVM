@@ -3,7 +3,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
@@ -39,13 +39,14 @@ using namespace WAVM::Runtime;
 		object->userData = userData;                                                               \
 		object->finalizeUserData = finalizer;                                                      \
 	}                                                                                              \
-	void* Runtime::getUserData(const Runtime::Type* object) { return object->userData; }
+	void* Runtime::getUserData(const Runtime::Type* object) { return object->userData; }           \
+	const std::string& Runtime::getDebugName(const Type* object) { return object->debugName; }
 
 DEFINE_GCOBJECT_TYPE(ObjectKind::table, Table, Table);
 DEFINE_GCOBJECT_TYPE(ObjectKind::memory, Memory, Memory);
 DEFINE_GCOBJECT_TYPE(ObjectKind::global, Global, Global);
 DEFINE_GCOBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionType);
-DEFINE_GCOBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
+DEFINE_GCOBJECT_TYPE(ObjectKind::instance, Instance, Instance);
 DEFINE_GCOBJECT_TYPE(ObjectKind::context, Context, Context);
 DEFINE_GCOBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
 DEFINE_GCOBJECT_TYPE(ObjectKind::foreign, Foreign, Foreign);
@@ -59,6 +60,10 @@ void Runtime::setUserData(Runtime::Function* function, void* userData, void (*fi
 void* Runtime::getUserData(const Runtime::Function* function)
 {
 	return function->mutableData->userData;
+}
+const std::string& Runtime::getDebugName(const Runtime::Function* function)
+{
+	return function->mutableData->debugName;
 }
 
 void Runtime::setUserData(Runtime::Object* object, void* userData, void (*finalizer)(void*))
@@ -83,13 +88,17 @@ void* Runtime::getUserData(const Runtime::Object* object)
 	}
 }
 
-Runtime::GCObject::~GCObject()
+const std::string& Runtime::getDebugName(const Runtime::Object* object)
 {
-	WAVM_ASSERT(numRootReferences.load(std::memory_order_acquire) == 0);
-	if(finalizeUserData) { (*finalizeUserData)(userData); }
+	if(object->kind == ObjectKind::function) { return getDebugName(asFunction(object)); }
+	else
+	{
+		auto gcObject = (GCObject*)object;
+		return gcObject->debugName;
+	}
 }
 
-Runtime::FunctionMutableData::~FunctionMutableData()
+Runtime::GCObject::~GCObject()
 {
 	WAVM_ASSERT(numRootReferences.load(std::memory_order_acquire) == 0);
 	if(finalizeUserData) { (*finalizeUserData)(userData); }
@@ -123,7 +132,7 @@ ExternType Runtime::getExternType(const Object* object)
 	case ObjectKind::memory: return asMemory(object)->type;
 	case ObjectKind::exceptionType: return asExceptionType(object)->sig;
 
-	case ObjectKind::moduleInstance:
+	case ObjectKind::instance:
 	case ObjectKind::context:
 	case ObjectKind::compartment:
 	case ObjectKind::foreign:
@@ -154,19 +163,19 @@ ContextRuntimeData* Runtime::getContextRuntimeData(const Context* context)
 	return context->runtimeData;
 }
 
-ModuleInstance* Runtime::getModuleInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
-														  Uptr moduleInstanceId)
+Instance* Runtime::getInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
+											  Uptr instanceId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	WAVM_ASSERT(compartment->moduleInstances.contains(moduleInstanceId));
-	return compartment->moduleInstances[moduleInstanceId];
+	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
+	WAVM_ASSERT(compartment->instances.contains(instanceId));
+	return compartment->instances[instanceId];
 }
 
 Table* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
 	WAVM_ASSERT(compartment->tables.contains(tableId));
 	return compartment->tables[tableId];
 }
@@ -174,13 +183,27 @@ Table* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, 
 Memory* Runtime::getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
 	return compartment->memories[memoryId];
 }
 
-Foreign* Runtime::createForeign(Compartment* compartment, void* userData, void (*finalizer)(void*))
+Foreign* Runtime::createForeign(Compartment* compartment,
+								void* userData,
+								void (*finalizer)(void*),
+								std::string&& debugName)
 {
-	Foreign* foreign = new Foreign(compartment);
+	Foreign* foreign = new Foreign(compartment, std::move(debugName));
 	setUserData(foreign, userData, finalizer);
+
+	{
+		Platform::RWMutex::ExclusiveLock lock(compartment->mutex);
+		foreign->id = compartment->foreigns.add(UINTPTR_MAX, foreign);
+		if(foreign->id == UINTPTR_MAX)
+		{
+			delete foreign;
+			return nullptr;
+		}
+	}
+
 	return foreign;
 }

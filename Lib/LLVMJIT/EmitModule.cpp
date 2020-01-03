@@ -40,14 +40,31 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 , llvmContext(inLLVMContext)
 , llvmModule(inLLVMModule)
 , targetMachine(inTargetMachine)
-, defaultMemoryOffset(nullptr)
 , defaultTableOffset(nullptr)
 , diBuilder(*inLLVMModule)
 {
+	targetArch = targetMachine->getTargetTriple().getArch();
 	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
 
 	diModuleScope = diBuilder.createFile("unknown", "unknown");
+#if LLVM_VERSION_MAJOR >= 9
+	diCompileUnit
+		= diBuilder.createCompileUnit(0xffff,
+									  diModuleScope,
+									  "WAVM",
+									  true,
+									  "",
+									  0,
+									  llvm::StringRef(),
+									  llvm::DICompileUnit::DebugEmissionKind::LineTablesOnly,
+									  0,
+									  true,
+									  false,
+									  llvm::DICompileUnit::DebugNameTableKind::None,
+									  false);
+#else
 	diCompileUnit = diBuilder.createCompileUnit(0xffff, diModuleScope, "WAVM", true, "", 0);
+#endif
 
 	diValueTypes[(Uptr)ValueType::any] = nullptr;
 	diValueTypes[(Uptr)ValueType::i32]
@@ -138,8 +155,6 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 			createImportedConstant(outLLVMModule, getExternalName("memoryOffset", memoryIndex)),
 			llvmContext.iptrType));
 	}
-	if(moduleContext.memoryOffsets.size())
-	{ moduleContext.defaultMemoryOffset = moduleContext.memoryOffsets[0]; }
 
 	// Create LLVM external globals for the module's globals.
 	for(Uptr globalIndex = 0; globalIndex < irModule.globals.size(); ++globalIndex)
@@ -162,13 +177,13 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		moduleContext.exceptionTypeIds.push_back(exceptionTypeId);
 	}
 
-	// Create a LLVM external global that will point to the ModuleInstance.
-	llvm::Constant* biasedModuleInstanceIdAsPointer
-		= createImportedConstant(outLLVMModule, "biasedModuleInstanceId");
-	llvm::Constant* biasedModuleInstanceId
-		= llvm::ConstantExpr::getPtrToInt(biasedModuleInstanceIdAsPointer, llvmContext.iptrType);
-	moduleContext.moduleInstanceId
-		= llvm::ConstantExpr::getSub(biasedModuleInstanceId, emitLiteral(llvmContext, Uptr(1)));
+	// Create a LLVM external global that will point to the Instance.
+	llvm::Constant* biasedInstanceIdAsPointer
+		= createImportedConstant(outLLVMModule, "biasedInstanceId");
+	llvm::Constant* biasedInstanceId
+		= llvm::ConstantExpr::getPtrToInt(biasedInstanceIdAsPointer, llvmContext.iptrType);
+	moduleContext.instanceId
+		= llvm::ConstantExpr::getSub(biasedInstanceId, emitLiteral(llvmContext, Uptr(1)));
 
 	// Create a LLVM external global that will be a bias applied to all references in a table.
 	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
@@ -216,13 +231,13 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		FunctionType functionType = irModule.types[irModule.functions.getType(functionIndex).index];
 
 		llvm::Function* function = llvm::Function::Create(
-			asLLVMType(llvmContext, functionType, CallingConvention::wasm),
+			asLLVMType(llvmContext, functionType),
 			llvm::Function::ExternalLinkage,
 			functionIndex >= irModule.functions.imports.size()
 				? getExternalName("functionDef", functionIndex - irModule.functions.imports.size())
 				: getExternalName("functionImport", functionIndex),
 			&outLLVMModule);
-		function->setCallingConv(asLLVMCallingConv(CallingConvention::wasm));
+		function->setCallingConv(asLLVMCallingConv(functionType.callingConvention()));
 		moduleContext.functions[functionIndex] = function;
 	}
 
@@ -244,7 +259,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		setRuntimeFunctionPrefix(llvmContext,
 								 function,
 								 functionDefMutableDataAsIptr,
-								 moduleContext.moduleInstanceId,
+								 moduleContext.instanceId,
 								 moduleContext.typeIds[functionDef.type.index]);
 		setFunctionAttributes(targetMachine, function);
 

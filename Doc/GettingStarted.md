@@ -40,18 +40,13 @@ Or:
   sudo yum remove wavm
   ```
 
-You may extract a `.tar.gz` build anywhere in your filesystem, but a few things are smoother if
-you extract the archive to `/usr/local`.
+You may extract a `.tar.gz` build anywhere in your filesystem.
 
-If you are not using the `deb` package, there are a few external dependencies you might not have
-installed. On Ubuntu, this command installs the necessary dependencies:
-
-  ```
-  sudo apt install libtinfo5 zlib1g
-  ```
-
-The Linux binaries are built on Ubuntu 16.04, and should work on compatible distributions,
-including newer versions of Ubuntu.
+The Linux binaries in the `.tar.gz` package are built on Ubuntu 16.04, but should work on any
+up-to-date glibc-based Linux distribution. They are tested on:
+* CentOS 7.0, 7.7, and 8.0
+* Ubuntu 16.04, 18.04, and 19.04
+* Debian 8, 9, and 10
 
 ### MacOS
 
@@ -93,7 +88,7 @@ The `wavm` executable provides command-line access to WAVM. It has several sub-c
   wavm run examples/trap.wast
   wavm run examples/echo.wast "Hello, world!"
   wavm run examples/helloworld.wast | wavm run examples/tee.wast
-  wavm run --enable prestd-simd examples/blake2b.wast
+  wavm run --enable simd examples/blake2b.wast
   ```
 
 ## Disassemble a WebAssembly module

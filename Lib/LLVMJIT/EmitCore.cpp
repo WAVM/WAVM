@@ -312,7 +312,8 @@ void EmitFunctionContext::return_(NoImm)
 void EmitFunctionContext::unreachable(NoImm)
 {
 	// Call an intrinsic that causes a trap, and insert the LLVM unreachable terminator.
-	emitRuntimeIntrinsic("unreachableTrap", FunctionType(), {});
+	emitRuntimeIntrinsic(
+		"unreachableTrap", FunctionType({}, {}, IR::CallingConvention::intrinsic), {});
 	irBuilder.CreateUnreachable();
 
 	enterUnreachable();
@@ -343,7 +344,6 @@ void EmitFunctionContext::call(FunctionImm imm)
 	ValueVector results = emitCallOrInvoke(callee,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
 										   calleeType,
-										   CallingConvention::wasm,
 										   getInnermostUnwindToBlock());
 
 	// Push the results on the operand stack.
@@ -384,42 +384,37 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	auto runtimeFunction = irBuilder.CreateIntToPtr(
 		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
 		llvmContext.i8PtrType);
-
-	// 24/04/2019 - Some code in CPython is a bit sloppy in its casting of function pointers, so
-	// causes type mismatches at runtime. As a temporary hack I'm removing the type check on
-	// call_indirect in the generated code.
-
-    //	auto elementTypeId = loadFromUntypedPointer(
-    //		irBuilder.CreateInBoundsGEP(
-    //			runtimeFunction,
-    //			emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, encodedType)))),
-    //		llvmContext.iptrType,
-    //		sizeof(Uptr));
-    //	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
+	auto elementTypeId = loadFromUntypedPointer(
+		irBuilder.CreateInBoundsGEP(
+			runtimeFunction,
+			emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, encodedType)))),
+		llvmContext.iptrType,
+		sizeof(Uptr));
+	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
 
 	// If the function type doesn't match, trap.
-    //	emitConditionalTrapIntrinsic(
-    //		irBuilder.CreateICmpNE(calleeTypeId, elementTypeId),
-    //		"callIndirectFail",
-    //		FunctionType(TypeTuple(),
-    //					 TypeTuple({ValueType::i32,
-    //								inferValueType<Uptr>(),
-    //								ValueType::funcref,
-    //								inferValueType<Uptr>()})),
-    //		{tableElementIndex,
-    //		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
-    //		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.anyrefType),
-    //		 calleeTypeId});
+	emitConditionalTrapIntrinsic(
+		irBuilder.CreateICmpNE(calleeTypeId, elementTypeId),
+		"callIndirectFail",
+		FunctionType(TypeTuple(),
+					 TypeTuple({ValueType::i32,
+								inferValueType<Uptr>(),
+								ValueType::funcref,
+								inferValueType<Uptr>()}),
+					 IR::CallingConvention::intrinsic),
+		{tableElementIndex,
+		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
+		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.anyrefType),
+		 calleeTypeId});
 
 	// Call the function loaded from the table.
 	auto functionPointer = irBuilder.CreatePointerCast(
 		irBuilder.CreateInBoundsGEP(
 			runtimeFunction, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code)))),
-		asLLVMType(llvmContext, calleeType, CallingConvention::wasm)->getPointerTo());
+		asLLVMType(llvmContext, calleeType)->getPointerTo());
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
 										   calleeType,
-										   CallingConvention::wasm,
 										   getInnermostUnwindToBlock());
 
 	// Push the results on the operand stack.

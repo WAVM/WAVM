@@ -19,13 +19,6 @@
 	(table $t 0 anyref)
 )
 
-
-;; nullref tables
-(assert_malformed
-	(module quote "(table $t 0 nullref)")
-	"expected reference type"
-)
-
 ;; reference typed values
 
 (module (func (param anyref)))

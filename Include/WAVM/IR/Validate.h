@@ -18,6 +18,8 @@ namespace WAVM { namespace IR {
 
 	struct CodeValidationStream
 	{
+		typedef void Result;
+
 		WAVM_API CodeValidationStream(const Module& module, const FunctionDef& function);
 		WAVM_API ~CodeValidationStream();
 
@@ -81,6 +83,8 @@ namespace WAVM { namespace IR {
 		validateStartFunction(module);
 		validateElemSegments(module);
 	}
+
+	WAVM_API void validateCodeSection(const IR::Module& module);
 
 	inline void validatePostCodeSections(const IR::Module& module) { validateDataSegments(module); }
 }}

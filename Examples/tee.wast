@@ -3,31 +3,59 @@
 
 (module
 
-  (import "env" "memory" (memory 1))
-  (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
-  (import "env" "_fread" (func $__fread (param i32 i32 i32 i32) (result i32)))
-  (import "env" "_stdin" (global $stdinPtr i32))
-  (import "env" "_stdout" (global $stdoutPtr i32))
-  (import "env" "_stderr" (global $stderrPtr i32))
-  (export "main" (func $main))
+  (import "wasi_unstable" "fd_read" (func $wasi_fd_read (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_unstable" "fd_write" (func $wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_unstable" "proc_exit" (func $wasi_proc_exit (param i32)))
 
-  (func $main
-    (local $stdin i32)
-    (local $stdout i32)
-    (local $stderr i32)
-    (local $nmemb i32)
-    (local.set $stdin (i32.load align=4 (global.get $stdinPtr)))
-    (local.set $stdout (i32.load align=4 (global.get $stdoutPtr)))
-    (local.set $stderr (i32.load align=4 (global.get $stderrPtr)))
+  (memory (export "memory") 1)
 
+  (global $ioVecAddress i32 (i32.const 0))
+  (global $ioBufferAddress i32 (i32.const 8))
+  (global $ioBufferNumBytes i32 (i32.const 1024))
+  
+  (func $main (export "_start")
+    (local $result i32)
     (loop $loop
       (block $done
-        (local.set $nmemb (call $__fread (i32.const 0) (i32.const 1) (i32.const 32) (local.get $stdin)))
-        (br_if $done (i32.eq (i32.const 0) (local.get $nmemb)))
-        (drop (call $__fwrite (i32.const 0) (i32.const 1) (local.get $nmemb) (local.get $stdout)))
-        (drop (call $__fwrite (i32.const 0) (i32.const 1) (local.get $nmemb) (local.get $stderr)))
+        (i32.store offset=0 (global.get $ioVecAddress) (global.get $ioBufferAddress))
+        (i32.store offset=4 (global.get $ioVecAddress) (global.get $ioBufferNumBytes))
+
+        ;; Read up to $ioBufferNumBytes from stdin.
+        (local.set $result (call $wasi_fd_read
+          (i32.const 0)                                      ;; fd = stdin
+          (global.get $ioVecAddress)                         ;; iovec = $ioVecAddress
+          (i32.const 1)                                      ;; 1 iovec
+          (i32.add (global.get $ioVecAddress) (i32.const 4)) ;; store the number of bytes read back to iovec.buf_len
+        ))
+
+        ;; Break out of the loop if fd_read returned an error, or 0 bytes were read.
+        (br_if $done (i32.or
+          (i32.ne (i32.const 0) (local.get $result))
+          (i32.eq (i32.const 0) (i32.load offset=4 (global.get $ioVecAddress)))
+        ))
+
+        ;; Write the bytes read from stdin to stdout.
+        (local.set $result (call $wasi_fd_write
+          (i32.const 1)                                      ;; fd = stdout
+          (global.get $ioVecAddress)                         ;; iovec = $ioVecAddress
+          (i32.const 1)                                      ;; 1 iovec
+          (i32.add (global.get $ioVecAddress) (i32.const 4)) ;; store the number of bytes written back to iovec.buf_len
+        ))
+        (br_if $done (i32.ne (i32.const 0) (local.get $result)))
+
+        ;; Write the bytes read from stdin to stderr.
+        (local.set $result (call $wasi_fd_write
+          (i32.const 1)                                      ;; fd = stdout
+          (global.get $ioVecAddress)                         ;; iovec = $ioVecAddress
+          (i32.const 1)                                      ;; 1 iovec
+          (i32.add (global.get $ioVecAddress) (i32.const 4)) ;; store the number of bytes written back to iovec.buf_len
+        ))
+        (br_if $done (i32.ne (i32.const 0) (local.get $result)))
+
         (br $loop)
       )
     )
+
+    (call $wasi_proc_exit (local.get $result))
   )
 )

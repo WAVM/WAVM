@@ -94,29 +94,63 @@
 
 
 (module $Mref_ex
-  (global (export "g-const") funcref (ref.null))
-  (global (export "g-var") (mut funcref) (ref.null))
+  (global (export "g-const-null") nullref (ref.null))
+  (global (export "g-var-null") (mut nullref) (ref.null))
+  (global (export "g-const-func") funcref (ref.null))
+  (global (export "g-var-func") (mut funcref) (ref.null))
+  (global (export "g-const-any") anyref (ref.null))
+  (global (export "g-var-any") (mut anyref) (ref.null))
 )
 (register "Mref_ex" $Mref_ex)
 
 (module $Mref_im
-  (global (import "Mref_ex" "g-const") anyref)
+  (global (import "Mref_ex" "g-const-null") nullref)
+  (global (import "Mref_ex" "g-const-null") funcref)
+  (global (import "Mref_ex" "g-const-null") anyref)
+  (global (import "Mref_ex" "g-const-func") funcref)
+  (global (import "Mref_ex" "g-const-func") anyref)
+  (global (import "Mref_ex" "g-const-any") anyref)
+
+  (global (import "Mref_ex" "g-var-null") (mut nullref))
+  (global (import "Mref_ex" "g-var-func") (mut funcref))
+  (global (import "Mref_ex" "g-var-any") (mut anyref))
 )
 
 (assert_unlinkable
-  (module (global (import "Mref_ex" "g-var") (mut anyref)))
+  (module (global (import "Mref_ex" "g-const-func") nullref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-const-any") nullref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-const-any") funcref))
   "incompatible import type"
 )
 
-
-(module $Mglobal_ex
-  (func $f)
-  (global (export "g") anyref (ref.func $f))
-)
-(register "Mglobal_ex" $Mglobal_ex)
-
 (assert_unlinkable
-  (module (global (import "Mglobal_ex" "g") funcref))
+  (module (global (import "Mref_ex" "g-var-null") (mut funcref)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-null") (mut anyref)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-func") (mut nullref)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-func") (mut anyref)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-any") (mut nullref)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-any") (mut funcref)))
   "incompatible import type"
 )
 
@@ -232,13 +266,13 @@
 )
 (assert_return (get $G2 "g") (i32.const 5))
 
-(assert_unlinkable
+(assert_trap
   (module
     (table (import "Mt" "tab") 0 funcref)
     (elem (i32.const 10) $f)
     (func $f)
   )
-  "elements segment does not fit"
+  "out of bounds"
 )
 
 (assert_unlinkable
@@ -255,39 +289,65 @@
 
 ;; Unlike in the v1 spec, the elements stored before an out-of-bounds access
 ;; persist after the instantiation failure.
-(assert_unlinkable
+(assert_trap
   (module
     (table (import "Mt" "tab") 10 funcref)
     (func $f (result i32) (i32.const 0))
     (elem (i32.const 7) $f)
     (elem (i32.const 12) $f)  ;; out of bounds
   )
-  "elements segment does not fit"
+  "out of bounds"
 )
 (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
 
-(assert_unlinkable
+(assert_trap
   (module
     (table (import "Mt" "tab") 10 funcref)
     (func $f (result i32) (i32.const 0))
     (elem (i32.const 7) $f)
     (memory 1)
-    (data (i32.const 0x10000) "d") ;; out of bounds
+    (data (i32.const 0x10000) "d")  ;; out of bounds
   )
-  "data segment does not fit"
+  "out of bounds"
 )
 (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
 
 
 (module $Mtable_ex
-  (func $f)
-  (table $t (export "t") 1 anyref)
-  (elem (i32.const 0) $f)
+  (table $t1 (export "t-null") 1 nullref)
+  (table $t2 (export "t-func") 1 funcref)
+  (table $t3 (export "t-any") 1 anyref)
 )
 (register "Mtable_ex" $Mtable_ex)
 
+(module
+  (table (import "Mtable_ex" "t-null") 1 nullref)
+  (table (import "Mtable_ex" "t-func") 1 funcref)
+  (table (import "Mtable_ex" "t-any") 1 anyref)
+)
+
 (assert_unlinkable
-  (module (table (import "Mtable_ex" "t") 1 funcref))
+  (module (table (import "Mtable_ex" "t-null") 1 funcref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (table (import "Mtable_ex" "t-null") 1 anyref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (table (import "Mtable_ex" "t-func") 1 nullref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (table (import "Mtable_ex" "t-func") 1 anyref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (table (import "Mtable_ex" "t-any") 1 nullref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (table (import "Mtable_ex" "t-any") 1 funcref))
   "incompatible import type"
 )
 
@@ -339,12 +399,12 @@
   (data (i32.const 0xffff) "a")
 )
 
-(assert_unlinkable
+(assert_trap
   (module
     (memory (import "Mm" "mem") 0)
     (data (i32.const 0x10000) "a")
   )
-  "data segment does not fit"
+  "out of bounds"
 )
 
 (module $Pm
@@ -377,25 +437,25 @@
 
 ;; Unlike in v1 spec, bytes written before an out-of-bounds access persist
 ;; after the instantiation failure.
-(assert_unlinkable
+(assert_trap
   (module
     (memory (import "Mm" "mem") 1)
     (data (i32.const 0) "abc")
     (data (i32.const 0x50000) "d") ;; out of bounds
   )
-  "data segment does not fit"
+  "out of bounds"
 )
 (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 97))
 
-(assert_unlinkable
+(assert_trap
   (module
     (memory (import "Mm" "mem") 1)
     (data (i32.const 0) "abc")
     (table 0 funcref)
     (func)
-    (elem (i32.const 0) 0) ;; out of bounds
+    (elem (i32.const 0) 0)  ;; out of bounds
   )
-  "elements segment does not fit"
+  "out of bounds"
 )
 (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 97))
 

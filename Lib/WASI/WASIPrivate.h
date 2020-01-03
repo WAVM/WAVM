@@ -1,13 +1,16 @@
-#include "./WASITypes.h"
+#include <memory.h>
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Inline/Time.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/WASI/WASI.h"
+#include "WAVM/WASI/WASIABI.h"
 
 // Macros for tracing syscalls
 #define TRACE_SYSCALL(syscallName, argFormat, ...)                                                 \
@@ -53,6 +56,8 @@ namespace WAVM { namespace VFS {
 namespace WAVM { namespace WASI {
 	struct FDE
 	{
+		mutable Platform::RWMutex mutex;
+
 		VFS::VFD* vfd;
 		__wasi_rights_t rights;
 		__wasi_rights_t inheritingRights;
@@ -79,12 +84,14 @@ namespace WAVM { namespace WASI {
 		{
 		}
 
-		VFS::Result close() const;
+		~FDE();
+
+		VFS::Result close();
 	};
 
 	struct ProcessResolver : Runtime::Resolver
 	{
-		HashMap<std::string, Runtime::GCPointer<Runtime::ModuleInstance>> moduleNameToInstanceMap;
+		HashMap<std::string, Runtime::GCPointer<Runtime::Instance>> moduleNameToInstanceMap;
 
 		bool resolve(const std::string& moduleName,
 					 const std::string& exportName,
@@ -99,7 +106,9 @@ namespace WAVM { namespace WASI {
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
 
-		IndexMap<__wasi_fd_t, WASI::FDE> fds{0, INT32_MAX};
+		Platform::RWMutex fdMapMutex;
+		IndexMap<__wasi_fd_t, std::shared_ptr<WASI::FDE>> fdMap{0, INT32_MAX};
+
 		VFS::FileSystem* fileSystem = nullptr;
 
 		ProcessResolver resolver;
@@ -121,13 +130,6 @@ namespace WAVM { namespace WASI {
 	// __wasi_errno_t is actually 16-bits but since WebAssembly doesn't have an I16 type, we need to
 	// return an I32 from the intrinsic functions.
 	typedef uint32_t __wasi_errno_return_t;
-
-	inline Process* getProcessFromContextRuntimeData(
-		Runtime::ContextRuntimeData* contextRuntimeData)
-	{
-		return (Process*)Runtime::getUserData(
-			Runtime::getCompartmentFromContextRuntimeData(contextRuntimeData));
-	}
 
 	WAVM_VALIDATE_AS_PRINTF(2, 3)
 	void traceSyscallf(const char* syscallName, const char* argFormat, ...);

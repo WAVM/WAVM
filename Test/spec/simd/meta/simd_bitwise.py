@@ -24,6 +24,7 @@ class SimdBitWise(SIMD):
   (func (export "bitselect") (param $0 v128) (param $1 v128) (param $2 v128) (result v128)
     (v128.bitselect (local.get $0) (local.get $1) (local.get $2))
   )
+  (func (export "andnot") (param $0 v128) (param $1 v128) (result v128) (v128.andnot (local.get $0) (local.get $1)))
 )
 {normal_case}"""
 
@@ -116,13 +117,18 @@ class SimdBitWise(SIMD):
             ['#', 'bitselect'],
             ["v128.bitselect", ['0', '0', '0'], [], ['i32', 'i32x4', 'i32x4']],
             ["v128.bitselect", ['0', '0', '0'], [], ['i32x4', 'i32x4', 'i32']],
-            ["v128.bitselect", ['0', '0', '0'], [], ['i32', 'i32', 'i32']]
+            ["v128.bitselect", ['0', '0', '0'], [], ['i32', 'i32', 'i32']],
+
+            ['#', 'andnot'],
+            ["v128.andnot", ['0', '0'], [], ['i32', 'i32x4']],
+            ["v128.andnot", ['0', '0'], [], ['i32x4', 'i32']],
+            ["v128.andnot", ['0', '0'], [], ['i32', 'i32']]
         ]
 
         lst_ipr = self.init_case_data(case_data)
 
         str_invalid_case_func_tpl = '\n(assert_invalid (module (func (result v128)' \
-                                    ' ({} {}))) "type mismatch")'
+                                    ' ({op} {operand}))) "type mismatch")'
 
         lst_invalid_case_func = []
 
@@ -133,7 +139,7 @@ class SimdBitWise(SIMD):
                 continue
             else:
                 lst_invalid_case_func.append(
-                    str_invalid_case_func_tpl.format(ipr[0], ' '.join(ipr[1]))
+                    str_invalid_case_func_tpl.format(op=ipr[0], operand=' '.join(ipr[1]))
                 )
 
         return '\n{}\n'.format(''.join(lst_invalid_case_func))
@@ -143,21 +149,21 @@ class SimdBitWise(SIMD):
         Generate combination case with test data
         """
 
-        str_in_block_case_func_tpl = '\n  (func (export "{}-in-block")' \
+        str_in_block_case_func_tpl = '\n  (func (export "{op}-in-block")' \
                                      '\n    (block' \
                                      '\n      (drop' \
                                      '\n        (block (result v128)' \
-                                     '\n          ({}' \
-                                     '{}' \
+                                     '\n          ({op}' \
+                                     '{block_with_result}' \
                                      '\n          )' \
                                      '\n        )' \
                                      '\n      )' \
                                      '\n    )' \
                                      '\n  )'
-        str_nested_case_func_tpl = '\n  (func (export "nested-{}")' \
+        str_nested_case_func_tpl = '\n  (func (export "nested-{op}")' \
                                    '\n    (drop' \
-                                   '\n      ({}' \
-                                   '{}' \
+                                   '\n      ({op}' \
+                                   '{block_with_result}' \
                                    '\n      )' \
                                    '\n    )' \
                                    '\n  )'
@@ -168,6 +174,7 @@ class SimdBitWise(SIMD):
             ["v128.or", ['0', '1'], [], ['i32', 'i32']],
             ["v128.xor", ['0', '1'], [], ['i32', 'i32']],
             ["v128.bitselect", ['0', '1', '2'], [], ['i32', 'i32', 'i32']],
+            ["v128.andnot", ['0', '1'], [], ['i32', 'i32']],
         ]
         lst_ipr = self.init_case_data(case_data)
 
@@ -180,23 +187,23 @@ class SimdBitWise(SIMD):
 
             lst_block = ['\n            (block (result v128) (v128.load {}))'.format(x) for x in ipr[1]]
             lst_in_block_case_func.append(
-                str_in_block_case_func_tpl.format(ipr[0], ipr[0], ''.join(lst_block))
+                str_in_block_case_func_tpl.format(op=ipr[0], block_with_result=''.join(lst_block))
             )
 
-            tpl_1 = '\n        ({}' \
-                    '{}' \
+            tpl_1 = '\n        ({op}' \
+                    '{combined_operation}' \
                     '\n        )'
-            tpl_2 = '\n          ({}' \
-                    '{}' \
+            tpl_2 = '\n          ({op}' \
+                    '{combined_operation}' \
                     '\n          )'
-            tpl_3 = '\n            (v128.load {})'
+            tpl_3 = '\n            (v128.load {value})'
 
-            lst_tpl_3 = [tpl_3.format(x) for x in ipr[1]]
-            lst_tpl_2 = [tpl_2.format(ipr[0], ''.join(lst_tpl_3))] * len(ipr[1])
-            lst_tpl_1 = [tpl_1.format(ipr[0], ''.join(lst_tpl_2))] * len(ipr[1])
+            lst_tpl_3 = [tpl_3.format(value=x) for x in ipr[1]]
+            lst_tpl_2 = [tpl_2.format(op=ipr[0], combined_operation=''.join(lst_tpl_3))] * len(ipr[1])
+            lst_tpl_1 = [tpl_1.format(op=ipr[0], combined_operation=''.join(lst_tpl_2))] * len(ipr[1])
 
             lst_nested_case_func.append(
-                str_nested_case_func_tpl.format(ipr[0], ipr[0], ''.join(lst_tpl_1))
+                str_nested_case_func_tpl.format(op=ipr[0], block_with_result=''.join(lst_tpl_1))
             )
 
             lst_in_block_case_assert.append('\n(assert_return (invoke "{}-in-block"))'.format(ipr[0]))
@@ -204,8 +211,8 @@ class SimdBitWise(SIMD):
 
         return '\n;; Combination\n' \
                '\n(module (memory 1)' \
-               '{}' \
-               '{}' \
+               '{in_block_cases}' \
+               '{nested_cases}' \
                '\n  (func (export "as-param")' \
                '\n    (drop' \
                '\n      (v128.or' \
@@ -223,22 +230,21 @@ class SimdBitWise(SIMD):
                '\n            (v128.load (i32.const 1))' \
                '\n            (v128.load (i32.const 2))' \
                '\n          )' \
-               '\n          (v128.bitselect' \
+               '\n          (v128.andnot' \
                '\n            (v128.load (i32.const 0))' \
                '\n            (v128.load (i32.const 1))' \
-               '\n            (v128.load (i32.const 2))' \
                '\n          )' \
                '\n        )' \
                '\n      )' \
                '\n    )' \
                '\n  )' \
                '\n)' \
-               '{}' \
-               '{}' \
-               '\n(assert_return (invoke "as-param"))\n'.format(''.join(lst_in_block_case_func),
-                                                                ''.join(lst_nested_case_func),
-                                                                ''.join(lst_in_block_case_assert),
-                                                                ''.join(lst_nested_case_assert))
+               '{assert_in_block_cases}' \
+               '{assert_of_nested_cases}' \
+               '\n(assert_return (invoke "as-param"))\n'.format(in_block_cases=''.join(lst_in_block_case_func),
+                                                                nested_cases=''.join(lst_nested_case_func),
+                                                                assert_in_block_cases=''.join(lst_in_block_case_assert),
+                                                                assert_of_nested_cases=''.join(lst_nested_case_assert))
 
     def get_all_cases(self):
         """
@@ -263,6 +269,8 @@ class SimdBitWise(SIMD):
             ["not", [['0', '-1', '0', '-1']], [['-1', '0', '-1', '0']], ['i32x4', 'i32x4']],
             ["not", ['0x55555555'], ['0xAAAAAAAA'], ['i32x4', 'i32x4']],
             ["not", ['3435973836'], ['858993459'], ['i32x4', 'i32x4']],
+            ['not', ['01_234_567_890'], ['3060399405'], ['i32x4', 'i32x4']],
+            ['not', ['0x0_1234_5678'], ['0xedcba987'], ['i32x4', 'i32x4']],
             ["and", [['0', '-1'], ['0', '-1', '0', '-1']], [['0', '0', '0', '-1']], ['i32x4', 'i32x4', 'i32x4']],
             ["and", ['0', '0'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
             ["and", ['0', '-1'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
@@ -277,6 +285,8 @@ class SimdBitWise(SIMD):
             ["and", ['0xFFFFFFFF', '0x0'], ['0x0'], ['i32x4', 'i32x4', 'i32x4']],
             ["and", ['0x55555555', ['0x5555', '0xFFFF', '0x55FF', '0x5FFF']], ['0x5555'],
                     ['i32x4', 'i32x4', 'i32x4']],
+            ['and', ['01_234_567_890', '01_234_567_890'], ['1234567890'], ['i32x4', 'i32x4', 'i32x4']],
+            ['and', ['0x0_1234_5678', '0x0_90AB_cdef'], ['0x10204468'], ['i32x4', 'i32x4', 'i32x4']],
             ["or", [['0', '0', '-1', '-1'], ['0', '-1', '0', '-1']], [['0', '-1', '-1', '-1']],
                    ['i32x4', 'i32x4', 'i32x4']],
             ["or", ['0', '0'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
@@ -293,6 +303,8 @@ class SimdBitWise(SIMD):
             ["or", ['0x55555555', ['0x5555', '0xFFFF', '0x55FF', '0x5FFF']],
                    [['0x55555555', '0x5555ffff', '0x555555ff', '0x55555fff']],
                    ['i32x4', 'i32x4', 'i32x4']],
+            ['or', ['01_234_567_890', '01_234_567_890'], ['1234567890'], ['i32x4', 'i32x4', 'i32x4']],
+            ['or', ['0x0_1234_5678', '0x0_90AB_cdef'], ['0x92bfdfff'], ['i32x4', 'i32x4', 'i32x4']],
             ["xor", [['0', '0', '-1', '-1'], ['0', '-1', '0', '-1']], [['0', '-1', '-1', '0']],
                     ['i32x4', 'i32x4', 'i32x4']],
             ["xor", ['0', '0'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
@@ -310,6 +322,8 @@ class SimdBitWise(SIMD):
             ["xor", ['0x55555555', ['0x5555', '0xFFFF', '0x55FF', '0x5FFF']],
                     [['0x55550000', '0x5555AAAA', '0x555500AA', '0x55550AAA']],
                     ['i32x4', 'i32x4', 'i32x4']],
+            ['xor', ['01_234_567_890', '01_234_567_890'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
+            ['xor', ['0x0_1234_5678', '0x0_90AB_cdef'], ['0x829f9b97'], ['i32x4', 'i32x4', 'i32x4']],
             ["bitselect", ['0xAAAAAAAA', '0xBBBBBBBB',
                            ['0x00112345', '0xF00FFFFF', '0x10112021', '0xBBAABBAA']],
                           [['0xBBAABABA', '0xABBAAAAA', '0xABAABBBA', '0xAABBAABB']],
@@ -330,6 +344,26 @@ class SimdBitWise(SIMD):
                            ['0x55555555', '0xAAAAAAAA', '0x00000000', '0xFFFFFFFF']],
                           [['0x00000000', '0xFFFFFFFF', '0x55555555', '0xAAAAAAAA']],
                           ['i32x4', 'i32x4', 'i32x4', 'i32x4']],
+            ['bitselect', ['01_234_567_890', '03_060_399_406', '0xcdefcdef'], ['2072391874'],
+                          ['i32x4', 'i32x4', 'i32x4', 'i32x4']],
+            ['bitselect', ['0x0_1234_5678', '0x0_90AB_cdef', '0xcdefcdef'], ['0x10244468'],
+                          ['i32x4', 'i32x4', 'i32x4', 'i32x4']],
+            ["andnot", [['0', '-1'], ['0', '-1', '0', '-1']], [['0', '0', '-1', '0']], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['0', '0'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['0', '-1'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['0', '0xFFFFFFFF'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['1', '1'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['255', '85'], ['170'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['255', '128'], ['127'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['2863311530', ['10', '128', '5', '165']], [['2863311520', '2863311402', '2863311530', '2863311370']],
+                       ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['0xFFFFFFFF', '0x55555555'], ['0xAAAAAAAA'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['0xFFFFFFFF', '0xAAAAAAAA'], ['0x55555555'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['0xFFFFFFFF', '0x0'], ['0xFFFFFFFF'], ['i32x4', 'i32x4', 'i32x4']],
+            ["andnot", ['0x55555555', ['0x5555', '0xFFFF', '0x55FF', '0x5FFF']], ['0x55550000'],
+                       ['i32x4', 'i32x4', 'i32x4']],
+            ['andnot', ['01_234_567_890', '01_234_567_890'], ['0'], ['i32x4', 'i32x4', 'i32x4']],
+            ['andnot', ['0x0_1234_5678', '0x0_90AB_cdef'], ['0x02141210'], ['i32x4', 'i32x4', 'i32x4']],
 
             ['#', 'for float special data [e.g. -nan nan -inf inf]'],
             ["not", ['-nan'], ['5.87747e-39'], ['f32x4', 'f32x4']],
@@ -379,7 +413,18 @@ class SimdBitWise(SIMD):
             ["bitselect", ['nan', 'inf','0xA5A5A5A5'], ['inf'], ['f32x4', 'f32x4', 'f32x4', 'f32x4']],
             ["bitselect", ['-inf', '-inf','0xA5A5A5A5'], ['-inf'], ['f32x4', 'f32x4', 'f32x4', 'f32x4']],
             ["bitselect", ['-inf', 'inf','0xA5A5A5A5'], ['inf'], ['f32x4', 'f32x4', 'f32x4', 'f32x4']],
-            ["bitselect", ['inf', 'inf','0xA5A5A5A5'], ['inf'], ['f32x4', 'f32x4', 'f32x4', 'f32x4']]
+            ["bitselect", ['inf', 'inf','0xA5A5A5A5'], ['inf'], ['f32x4', 'f32x4', 'f32x4', 'f32x4']],
+
+            ["andnot", ['-nan', '-nan'], ['0x00000000'], ['f32x4', 'f32x4', 'i32x4']],
+            ["andnot", ['-nan', 'nan'], ['-0'], ['f32x4', 'f32x4', 'f32x4']],
+            ["andnot", ['-nan', '-inf'], ['0x00400000'], ['f32x4', 'f32x4', 'i32x4']],
+            ["andnot", ['-nan', 'inf'], ['0x80400000'], ['f32x4', 'f32x4', 'i32x4']],
+            ["andnot", ['nan', 'nan'], ['0x00000000'], ['f32x4', 'f32x4', 'f32x4']],
+            ["andnot", ['nan', '-inf'], ['0x00400000'], ['f32x4', 'f32x4', 'i32x4']],
+            ["andnot", ['nan', 'inf'], ['0x00400000'], ['f32x4', 'f32x4', 'i32x4']],
+            ["andnot", ['-inf', '-inf'], ['0x00000000'], ['f32x4', 'f32x4', 'f32x4']],
+            ["andnot", ['-inf', 'inf'], ['0x80000000'], ['f32x4', 'f32x4', 'i32x4']],
+            ["andnot", ['inf', 'inf'], ['0x00000000'], ['f32x4', 'f32x4', 'i32x4']]
         ]
 
     def gen_test_cases(self):

@@ -83,16 +83,6 @@
     v128.const i32x4 0x00020001 0x00fe0002 0x00000003 0x00000004
     i64x2.sub)
 
-  ;; i8x16 mul
-  (func (export "i8x16_mul_0") (result v128)
-    v128.const i32x4 0x00000001 0x00000002 0x00000003 0x00000004
-    v128.const i32x4 0x00000001 0x00000002 0x00000003 0x00000004
-    i8x16.mul)
-  (func (export "i8x16_mul_1") (result v128)
-    v128.const i32x4 0x00ff0001 0x00040002 0x00000003 0x00000004
-    v128.const i32x4 0x00020001 0x00fe0002 0x00000003 0x00000004
-    i8x16.mul)
-
   ;; i16x8 mul
   (func (export "i16x8_mul_0") (result v128)
     v128.const i32x4 0x00000001 0x00000002 0x00000003 0x00000004
@@ -358,8 +348,6 @@
 (assert_return (invoke "i32x4_sub_1") (v128.const i32x4 0x00fd0000 0xff060000 0x00000000 0x00000000))
 (assert_return (invoke "i64x2_sub_0") (v128.const i32x4 0x00000000 0x00000000 0x00000000 0x00000000))
 (assert_return (invoke "i64x2_sub_1") (v128.const i32x4 0x00fd0000 0xff060000 0x00000000 0x00000000))
-(assert_return (invoke "i8x16_mul_0") (v128.const i32x4 0x00000001 0x00000004 0x00000009 0x00000010))
-(assert_return (invoke "i8x16_mul_1") (v128.const i32x4 0x00fe0001 0x00f80004 0x00000009 0x00000010))
 (assert_return (invoke "i16x8_mul_0") (v128.const i32x4 0x00000001 0x00000004 0x00000009 0x00000010))
 (assert_return (invoke "i16x8_mul_1") (v128.const i32x4 0x01fe0001 0x03f80004 0x00000009 0x00000010))
 (assert_return (invoke "i32x4_mul_0") (v128.const i32x4 0x00000001 0x00000004 0x00000009 0x00000010))

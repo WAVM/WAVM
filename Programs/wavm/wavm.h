@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include "WAVM/Logging/Logging.h"
 
 namespace WAVM { namespace IR {
@@ -25,5 +26,5 @@ void showCompileHelp(WAVM::Log::Category outputCategory);
 void showRunHelp(WAVM::Log::Category outputCategory);
 #endif
 
-const char* getFeatureListHelpText();
+std::string getFeatureListHelpText();
 bool parseAndSetFeature(const char* featureName, WAVM::IR::FeatureSpec& featureSpec, bool enable);

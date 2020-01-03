@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <atomic>
 #include "WAVM/Inline/CLI.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Platform/Thread.h"
@@ -70,7 +69,7 @@ static I64 threadMain(void* sharedStateVoid)
 	{
 		std::string inputFilePath;
 		{
-			Lock<Platform::Mutex> sharedStateLock(sharedState->mutex);
+			Platform::Mutex::Lock sharedStateLock(sharedState->mutex);
 			if(!sharedState->inputFilePaths.size()) { break; }
 			inputFilePath = std::move(sharedState->inputFilePaths.back());
 			sharedState->inputFilePaths.pop_back();

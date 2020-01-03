@@ -1,6 +1,5 @@
 #include "WAVM/WASI/WASI.h"
 #include "./WASIPrivate.h"
-#include "./WASITypes.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/IndexMap.h"
@@ -16,6 +15,8 @@
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
+#include "WAVM/WASI/WASI.h"
+#include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -99,10 +100,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
-	Platform::getCryptographicRNG(buffer, numBufferBytes);
+	__wasi_errno_t result = __WASI_ESUCCESS;
+	Runtime::catchRuntimeExceptions(
+		[&] {
+			U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
+			Platform::getCryptographicRNG(buffer, numBufferBytes);
+		},
+		[&](Runtime::Exception* exception) {
+			WAVM_ASSERT(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			result = __WASI_EFAULT;
+		});
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
+	return TRACE_SYSCALL_RETURN(result);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -165,11 +174,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_return_t, wasi_
 
 WASI::Process::~Process()
 {
-	for(const WASI::FDE& fd : fds)
+	for(const std::shared_ptr<WASI::FDE>& fde : fdMap)
 	{
-		if(fd.close() != VFS::Result::success)
+		VFS::Result result = fde->close();
+		if(result != VFS::Result::success)
 		{
-			Log::printf(Log::Category::debug, "Error while closing file because of process exit\n");
+			Log::printf(Log::Category::debug,
+						"Error while closing file because of process exit: %s\n",
+						VFS::describeResult(result));
 		}
 	}
 }
@@ -203,28 +215,35 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 								  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
 								  | __WASI_RIGHT_POLL_FD_READWRITE;
 
-	process->fds.insertOrFail(0, FDE(stdIn, stdioRights, 0, "/dev/stdin"));
-	process->fds.insertOrFail(1, FDE(stdOut, stdioRights, 0, "/dev/stdout"));
-	process->fds.insertOrFail(2, FDE(stdErr, stdioRights, 0, "/dev/stderr"));
+	process->fdMap.insertOrFail(0, std::make_shared<FDE>(stdIn, stdioRights, 0, "/dev/stdin"));
+	process->fdMap.insertOrFail(1, std::make_shared<FDE>(stdOut, stdioRights, 0, "/dev/stdout"));
+	process->fdMap.insertOrFail(2, std::make_shared<FDE>(stdErr, stdioRights, 0, "/dev/stderr"));
 
 	if(fileSystem)
 	{
-		VFS::VFD* rootFD = nullptr;
-		const VFS::Result openResult = fileSystem->open(
-			"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD);
-		if(openResult != VFS::Result::success)
+		// Map the root directory as both / and ., which allows files to be opened from it using
+		// either "/file" or just "file".
+		const char* preopenedRootAliases[2] = {"/", "."};
+		for(Uptr aliasIndex = 0; aliasIndex < 2; ++aliasIndex)
 		{
-			Errors::fatalf("Error opening WASI root directory: %s",
-						   VFS::describeResult(openResult));
-		}
+			VFS::VFD* rootFD = nullptr;
+			VFS::Result openResult = fileSystem->open(
+				"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD);
+			if(openResult != VFS::Result::success)
+			{
+				Errors::fatalf("Error opening WASI root directory: %s",
+							   VFS::describeResult(openResult));
+			}
 
-		process->fds.insertOrFail(3,
-								  FDE(rootFD,
+			process->fdMap.insertOrFail(
+				3 + __wasi_fd_t(aliasIndex),
+				std::make_shared<FDE>(rootFD,
 									  DIRECTORY_RIGHTS,
 									  INHERITING_DIRECTORY_RIGHTS,
-									  "/",
+									  preopenedRootAliases[aliasIndex],
 									  true,
-									  __WASI_PREOPENTYPE_DIR));
+									  __wasi_preopentype_t(__WASI_PREOPENTYPE_DIR)));
+		}
 	}
 
 	process->processClockOrigin = Platform::getClockTime(Platform::Clock::processCPUTime);
@@ -232,17 +251,16 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 	return process;
 }
 
-Resolver& WASI::getProcessResolver(const std::shared_ptr<Process>& process)
+Resolver& WASI::getProcessResolver(Process& process) { return process.resolver; }
+
+Process* WASI::getProcessFromContextRuntimeData(Runtime::ContextRuntimeData* contextRuntimeData)
 {
-	return process->resolver;
+	return (Process*)Runtime::getUserData(
+		Runtime::getCompartmentFromContextRuntimeData(contextRuntimeData));
 }
 
-Memory* WASI::getProcessMemory(const std::shared_ptr<Process>& process) { return process->memory; }
-
-void WASI::setProcessMemory(const std::shared_ptr<Process>& process, Memory* memory)
-{
-	process->memory = memory;
-}
+Memory* WASI::getProcessMemory(const Process& process) { return process.memory; }
+void WASI::setProcessMemory(Process& process, Memory* memory) { process.memory = memory; }
 
 I32 WASI::catchExit(std::function<I32()>&& thunk)
 {

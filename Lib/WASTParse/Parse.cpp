@@ -120,6 +120,7 @@ bool WAST::tryParseValueType(CursorState* cursor, ValueType& outValueType)
 	case t_v128: outValueType = ValueType::v128; break;
 	case t_anyref: outValueType = ValueType::anyref; break;
 	case t_funcref: outValueType = ValueType::funcref; break;
+	case t_nullref: outValueType = ValueType::nullref; break;
 	default: outValueType = ValueType::none; return false;
 	};
 
@@ -150,6 +151,10 @@ bool WAST::tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefT
 		++cursor->nextToken;
 		outRefType = ReferenceType::funcref;
 		return true;
+	case t_nullref:
+		++cursor->nextToken;
+		outRefType = ReferenceType::nullref;
+		return true;
 	default: return false;
 	};
 }
@@ -171,6 +176,7 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 {
 	std::vector<ValueType> parameters;
 	std::vector<ValueType> results;
+	CallingConvention callingConvention = CallingConvention::wasm;
 
 	// Parse the function parameters.
 	while(tryParseParenthesizedTagged(cursor, t_param, [&] {
@@ -206,7 +212,31 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 		});
 	};
 
-	return FunctionType(TypeTuple(results), TypeTuple(parameters));
+	// Parse an optional calling convention.
+	if(cursor->nextToken[0].type == t_leftParenthesis
+	   && cursor->nextToken[1].type == t_calling_conv)
+	{
+		parseParenthesized(cursor, [&] {
+			require(cursor, t_calling_conv);
+
+			switch(cursor->nextToken->type)
+			{
+			case t_intrinsic: callingConvention = CallingConvention::intrinsic; break;
+			case t_intrinsic_with_context_switch:
+				callingConvention = CallingConvention::intrinsicWithContextSwitch;
+				break;
+			case t_c: callingConvention = CallingConvention::c; break;
+			case t_c_api_callback: callingConvention = CallingConvention::cAPICallback; break;
+
+			default:
+				parseErrorf(cursor->parseState, cursor->nextToken, "expected calling convention");
+				throw RecoverParseException();
+			};
+			++cursor->nextToken;
+		});
+	}
+
+	return FunctionType(TypeTuple(results), TypeTuple(parameters), callingConvention);
 }
 
 UnresolvedFunctionType WAST::parseFunctionTypeRefAndOrDecl(
@@ -472,6 +502,41 @@ Uptr WAST::resolveRef(ParseState* parseState,
 	};
 }
 
+Uptr WAST::resolveExternRef(ModuleState* moduleState, ExternKind externKind, const Reference& ref)
+{
+	switch(externKind)
+	{
+	case ExternKind::function:
+		return resolveRef(moduleState->parseState,
+						  moduleState->functionNameToIndexMap,
+						  moduleState->module.functions.size(),
+						  ref);
+	case ExternKind::table:
+		return resolveRef(moduleState->parseState,
+						  moduleState->tableNameToIndexMap,
+						  moduleState->module.tables.size(),
+						  ref);
+	case ExternKind::memory:
+		return resolveRef(moduleState->parseState,
+						  moduleState->memoryNameToIndexMap,
+						  moduleState->module.memories.size(),
+						  ref);
+	case ExternKind::global:
+		return resolveRef(moduleState->parseState,
+						  moduleState->globalNameToIndexMap,
+						  moduleState->module.globals.size(),
+						  ref);
+	case ExternKind::exceptionType:
+		return resolveRef(moduleState->parseState,
+						  moduleState->exceptionTypeNameToIndexMap,
+						  moduleState->module.exceptionTypes.size(),
+						  ref);
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
+	}
+}
+
 bool WAST::tryParseHexit(const char*& nextChar, U8& outValue)
 {
 	if(*nextChar >= '0' && *nextChar <= '9') { outValue = *nextChar - '0'; }
@@ -633,12 +698,13 @@ std::string WAST::parseUTF8String(CursorState* cursor)
 
 void WAST::reportParseErrors(const char* filename,
 							 const char* source,
-							 const std::vector<WAST::Error>& parseErrors)
+							 const std::vector<WAST::Error>& parseErrors,
+							 Log::Category outputCategory)
 {
 	// Print any parse errors.
 	for(auto& error : parseErrors)
 	{
-		Log::printf(Log::error,
+		Log::printf(outputCategory,
 					"%s:%s: %s\n%.*s\n%*s\n",
 					filename,
 					error.locus.describe().c_str(),

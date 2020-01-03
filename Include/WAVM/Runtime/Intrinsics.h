@@ -24,11 +24,10 @@ namespace WAVM { namespace Intrinsics {
 		WAVM_API ~Module();
 	};
 
-	WAVM_API Runtime::ModuleInstance* instantiateModule(
+	WAVM_API Runtime::Instance* instantiateModule(
 		Runtime::Compartment* compartment,
 		const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
-		std::string&& debugName,
-		const HashMap<std::string, Runtime::Object*>& extraExports = {});
+		std::string&& debugName);
 
 	// An intrinsic function.
 	struct Function
@@ -36,18 +35,16 @@ namespace WAVM { namespace Intrinsics {
 		WAVM_API Function(Intrinsics::Module* moduleRef,
 						  const char* inName,
 						  void* inNativeFunction,
-						  IR::FunctionType type,
-						  IR::CallingConvention inCallingConvention);
-		WAVM_API Runtime::Function* instantiate(Runtime::Compartment* compartment);
+						  IR::FunctionType type);
 
+		const char* getName() const { return name; }
+		IR::FunctionType getType() const { return type; }
 		void* getNativeFunction() const { return nativeFunction; }
-		IR::CallingConvention getCallingConvention() const { return callingConvention; }
 
 	private:
 		const char* name;
 		IR::FunctionType type;
 		void* nativeFunction;
-		IR::CallingConvention callingConvention;
 	};
 
 	// The base class of Intrinsic globals.
@@ -57,8 +54,9 @@ namespace WAVM { namespace Intrinsics {
 						const char* inName,
 						IR::ValueType inType,
 						IR::Value inValue);
-		WAVM_API Runtime::Global* instantiate(Runtime::Compartment* compartment);
 
+		const char* getName() const { return name; }
+		IR::ValueType getType() const { return type; }
 		IR::Value getValue() const { return value; }
 
 	private:
@@ -84,12 +82,9 @@ namespace WAVM { namespace Intrinsics {
 	{
 		WAVM_API
 		Memory(Intrinsics::Module* moduleRef, const char* inName, const IR::MemoryType& inType);
-		WAVM_API Runtime::Memory* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::Memory* getInstance(Runtime::ModuleInstance* moduleInstance)
-		{
-			return asMemory(Runtime::getInstanceExport(moduleInstance, name));
-		}
+		const char* getName() const { return name; }
+		IR::MemoryType getType() const { return type; }
 
 	private:
 		const char* name;
@@ -100,12 +95,9 @@ namespace WAVM { namespace Intrinsics {
 	{
 		WAVM_API
 		Table(Intrinsics::Module* moduleRef, const char* inName, const IR::TableType& inType);
-		WAVM_API Runtime::Table* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::Table* getInstance(Runtime::ModuleInstance* moduleInstance)
-		{
-			return asTable(Runtime::getInstanceExport(moduleInstance, name));
-		}
+		const char* getName() const { return name; }
+		IR::TableType getType() const { return type; }
 
 	private:
 		const char* name;
@@ -129,14 +121,16 @@ namespace WAVM { namespace Intrinsics {
 	IR::FunctionType inferIntrinsicFunctionType(R (*)(Runtime::ContextRuntimeData*, Args...))
 	{
 		return IR::FunctionType(IR::inferResultType<R>(),
-								IR::TypeTuple({IR::inferValueType<Args>()...}));
+								IR::TypeTuple({IR::inferValueType<Args>()...}),
+								WAVM::IR::CallingConvention::intrinsic);
 	}
 	template<typename R, typename... Args>
 	IR::FunctionType inferIntrinsicWithContextSwitchFunctionType(
 		ResultInContextRuntimeData<R>* (*)(Runtime::ContextRuntimeData*, Args...))
 	{
 		return IR::FunctionType(IR::inferResultType<R>(),
-								IR::TypeTuple({IR::inferValueType<Args>()...}));
+								IR::TypeTuple({IR::inferValueType<Args>()...}),
+								WAVM::IR::CallingConvention::intrinsicWithContextSwitch);
 	}
 }}
 
@@ -158,8 +152,7 @@ namespace WAVM { namespace Intrinsics {
 		getIntrinsicModule_##module(),                                                             \
 		nameString,                                                                                \
 		(void*)&cName,                                                                             \
-		WAVM::Intrinsics::inferIntrinsicFunctionType(&cName),                                      \
-		WAVM::IR::CallingConvention::intrinsic);                                                   \
+		WAVM::Intrinsics::inferIntrinsicFunctionType(&cName));                                     \
 	static Result cName(WAVM::Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__)
 
 #define WAVM_DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(module, nameString, Result, cName, ...) \
@@ -169,8 +162,7 @@ namespace WAVM { namespace Intrinsics {
 		getIntrinsicModule_##module(),                                                             \
 		nameString,                                                                                \
 		(void*)&cName,                                                                             \
-		WAVM::Intrinsics::inferIntrinsicWithContextSwitchFunctionType(&cName),                     \
-		WAVM::IR::CallingConvention::intrinsicWithContextSwitch);                                  \
+		WAVM::Intrinsics::inferIntrinsicWithContextSwitchFunctionType(&cName));                    \
 	static WAVM::Intrinsics::ResultInContextRuntimeData<Result>* cName(                            \
 		WAVM::Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__)
 

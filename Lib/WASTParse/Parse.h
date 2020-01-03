@@ -148,6 +148,9 @@ namespace WAVM { namespace WAST {
 
 		IR::DisassemblyNames disassemblyNames;
 
+		const Token* startFieldToken{nullptr};
+		const Token* lastCustomSectionToken{nullptr};
+
 		// Thunks that are called after parsing all types.
 		std::vector<std::function<void(ModuleState*)>> postTypeCallbacks;
 
@@ -226,6 +229,10 @@ namespace WAVM { namespace WAST {
 
 	F32 parseF32(CursorState* cursor);
 	F64 parseF64(CursorState* cursor);
+	template<typename Float> Float parseFloat(CursorState* cursor);
+	template<> inline F32 parseFloat<F32>(CursorState* cursor) { return parseF32(cursor); }
+	template<> inline F64 parseFloat<F64>(CursorState* cursor) { return parseF64(cursor); }
+
 	V128 parseV128(CursorState* cursor);
 
 	bool tryParseString(CursorState* cursor, std::string& outString);
@@ -255,6 +262,9 @@ namespace WAVM { namespace WAST {
 					const NameToIndexMap& nameToIndexMap,
 					Uptr maxIndex,
 					const Reference& ref);
+	Uptr resolveExternRef(ModuleState* moduleState,
+						  IR::ExternKind externKind,
+						  const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
 	void findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken);

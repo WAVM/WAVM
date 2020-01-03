@@ -169,8 +169,8 @@ static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<F64
 
 static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<V128>& outImm)
 {
-	outImm.value.u64[0] = random.get(UINT64_MAX);
-	outImm.value.u64[1] = random.get(UINT64_MAX);
+	outImm.value.u64x2[0] = random.get(UINT64_MAX);
+	outImm.value.u64x2[1] = random.get(UINT64_MAX);
 }
 
 template<Uptr naturalAlignmentLog2>
@@ -185,13 +185,14 @@ static void generateImm(RandomStream& random,
 {
 	outImm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
 	outImm.offset = random.get(UINT32_MAX);
+	outImm.memoryIndex = random.get(module.memories.size() - 1);
 }
 
 template<Uptr naturalAlignmentLog2>
 bool isImmAllowed(const IR::Module& module,
 				  ImmTypeAsValue<AtomicLoadOrStoreImm<naturalAlignmentLog2>>)
 {
-	return module.memories.size();
+	return module.memories.size() != 0;
 }
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
@@ -200,6 +201,7 @@ static void generateImm(RandomStream& random,
 {
 	outImm.alignmentLog2 = naturalAlignmentLog2;
 	outImm.offset = random.get(UINT32_MAX);
+	outImm.memoryIndex = random.get(module.memories.size() - 1);
 }
 
 static void generateImm(RandomStream& random, IR::Module& module, AtomicFenceImm& outImm)
@@ -242,16 +244,41 @@ static void generateImm(RandomStream& random, IR::Module& module, DataSegmentImm
 	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
 }
 
+static std::vector<ElemSegmentAndTableImm> getValidElemSegmentAndTableImms(const IR::Module& module)
+{
+	std::vector<ElemSegmentAndTableImm> validImms;
+	for(Uptr elemSegmentIndex = 0; elemSegmentIndex < module.elemSegments.size();
+		++elemSegmentIndex)
+	{
+		const ElemSegment& elemSegment = module.elemSegments[elemSegmentIndex];
+		ReferenceType segmentElemType;
+		switch(elemSegment.contents->encoding)
+		{
+		case ElemSegment::Encoding::expr: segmentElemType = elemSegment.contents->elemType; break;
+		case ElemSegment::Encoding::index:
+			segmentElemType = asReferenceType(elemSegment.contents->externKind);
+			break;
+		default: WAVM_UNREACHABLE();
+		};
+
+		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		{
+			if(isSubtype(segmentElemType, module.tables.getType(tableIndex).elementType))
+			{ validImms.push_back(ElemSegmentAndTableImm{elemSegmentIndex, tableIndex}); }
+		}
+	}
+	return validImms;
+}
+
 static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentAndTableImm>)
 {
-	return module.elemSegments.size() && module.tables.size();
+	return getValidElemSegmentAndTableImms(module).size() != 0;
 }
 static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentAndTableImm& outImm)
 {
-	WAVM_ASSERT(module.elemSegments.size());
-	WAVM_ASSERT(module.tables.size());
-	outImm.elemSegmentIndex = random.get(module.elemSegments.size() - 1);
-	outImm.tableIndex = random.get(module.tables.size() - 1);
+	std::vector<ElemSegmentAndTableImm> validImms = getValidElemSegmentAndTableImms(module);
+	WAVM_ASSERT(validImms.size());
+	outImm = validImms[random.get(validImms.size() - 1)];
 }
 
 static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentImm>)
@@ -293,7 +320,7 @@ static constexpr Uptr numNonParametricOps = sizeof(operatorInfos) / sizeof(Opera
 
 static ValueType generateValueType(RandomStream& random)
 {
-	switch(random.get(6))
+	switch(random.get(7))
 	{
 	case 0: return ValueType::i32;
 	case 1: return ValueType::i64;
@@ -302,6 +329,7 @@ static ValueType generateValueType(RandomStream& random)
 	case 4: return ValueType::v128;
 	case 5: return ValueType::anyref;
 	case 6: return ValueType::funcref;
+	case 7: return ValueType::nullref;
 	default: WAVM_UNREACHABLE();
 	}
 }
@@ -323,25 +351,30 @@ static FunctionType generateFunctionType(RandomStream& random)
 
 static ReferenceType generateRefType(RandomStream& random)
 {
-	switch(random.get(1))
+	switch(random.get(2))
 	{
 	case 0: return ReferenceType::anyref;
 	case 1: return ReferenceType::funcref;
+	case 2: return ReferenceType::nullref;
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+static ExternKind generateExternKind(RandomStream& random)
+{
+	switch(random.get(4))
+	{
+	case 0: return ExternKind::function;
+	case 1: return ExternKind::table;
+	case 2: return ExternKind::memory;
+	case 3: return ExternKind::global;
+	case 4: return ExternKind::exceptionType;
 	default: WAVM_UNREACHABLE();
 	};
 }
 
 FunctionType generateBlockSig(RandomStream& random, TypeTuple params)
 {
-	// Generalize the params to map internal type subsets (e.g. nullref) to a canonical type.
-	ValueType* remappedParamsVector = (ValueType*)alloca(sizeof(ValueType*) * params.size());
-	for(Uptr index = 0; index < params.size(); ++index)
-	{
-		remappedParamsVector[index]
-			= params[index] == ValueType::nullref ? ValueType::anyref : params[index];
-	}
-	params = TypeTuple(remappedParamsVector, params.size());
-
 	const Uptr maxResults = 4;
 	ValueType results[maxResults];
 	const Uptr numResults = random.get(4);
@@ -887,9 +920,10 @@ static void generateFunction(RandomStream& random,
 				// Typed select
 				if(joinType == ValueType::nullref)
 				{
-					// If selecting between two nullrefs, both:
-					//     select (result anyref)
-					// and select (result funcref) are valid.
+					// If selecting between two nullrefs, any of:
+					//    select (result anyref)
+					// or select (result funcref) are valid.
+					// or select (result nullref) are valid.
 					validOpEmitters.push_back(
 						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
 							stack.resize(stack.size() - 3);
@@ -901,6 +935,12 @@ static void generateFunction(RandomStream& random,
 							stack.resize(stack.size() - 3);
 							stack.push_back(ValueType::funcref);
 							codeStream.select({ValueType::funcref});
+						});
+					validOpEmitters.push_back(
+						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+							stack.resize(stack.size() - 3);
+							stack.push_back(ValueType::nullref);
+							codeStream.select({ValueType::nullref});
 						});
 				}
 				else
@@ -1008,11 +1048,10 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 	case ValueType::f64: return InitializerExpression(F64(random.get(UINT64_MAX)));
 	case ValueType::v128: {
 		V128 v128;
-		v128.u64[0] = random.get(UINT64_MAX);
-		v128.u64[1] = random.get(UINT64_MAX);
+		v128.u64x2[0] = random.get(UINT64_MAX);
+		v128.u64x2[1] = random.get(UINT64_MAX);
 		return InitializerExpression(v128);
 	}
-	break;
 	case ValueType::anyref:
 	case ValueType::funcref: {
 		const Uptr functionIndex = random.get(module.functions.size());
@@ -1020,10 +1059,10 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 				   ? InitializerExpression(nullptr)
 				   : InitializerExpression(InitializerExpression::Type::ref_func, functionIndex);
 	}
+	case ValueType::nullref: return InitializerExpression(nullptr);
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	}
 }
@@ -1040,8 +1079,9 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
-	// Generate an optional memory.
-	if(random.get(1))
+	// Generate some memories.
+	const Uptr numMemories = random.get(3);
+	for(Uptr memoryIndex = 0; memoryIndex < numMemories; ++memoryIndex)
 	{
 		MemoryType type;
 		type.isShared = !!random.get(1);
@@ -1061,7 +1101,7 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 	for(Uptr tableIndex = 0; tableIndex < numTables; ++tableIndex)
 	{
 		TableType type;
-		type.elementType = random.get(1) ? ReferenceType::funcref : ReferenceType::anyref;
+		type.elementType = generateRefType(random);
 		type.isShared = !!random.get(1);
 		type.size.min = random.get<U64>(100);
 		type.size.max = IR::maxTableElems;
@@ -1155,45 +1195,96 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 		contents->encoding
 			= random.get(1) ? ElemSegment::Encoding::expr : ElemSegment::Encoding::index;
 
+		ReferenceType segmentElemType;
 		const Uptr numSegmentElements = random.get(100);
 		switch(contents->encoding)
 		{
 		case ElemSegment::Encoding::expr: {
-			contents->elemType = generateRefType(random);
+			segmentElemType = contents->elemType = generateRefType(random);
 			for(Uptr index = 0; index < numSegmentElements; ++index)
 			{
-				const Uptr functionIndex = random.get(module.functions.size());
-				if(functionIndex == module.functions.size())
-				{ contents->elemExprs.push_back(ElemExpr()); }
-				else
+				switch(contents->elemType)
 				{
-					contents->elemExprs.push_back(
-						ElemExpr(ElemExpr::Type::ref_func, functionIndex));
+				case ReferenceType::funcref:
+				case ReferenceType::anyref: {
+					const Uptr functionIndex = random.get(module.functions.size());
+					if(functionIndex == module.functions.size())
+					{ contents->elemExprs.push_back(ElemExpr()); }
+					else
+					{
+						contents->elemExprs.push_back(
+							ElemExpr(ElemExpr::Type::ref_func, functionIndex));
+					}
+					break;
 				}
+				case ReferenceType::nullref: contents->elemExprs.push_back(ElemExpr()); break;
+
+				case ReferenceType::none:
+				default: WAVM_UNREACHABLE();
+				};
 			}
 			break;
 		}
 		case ElemSegment::Encoding::index: {
+			contents->externKind = generateExternKind(random);
+			segmentElemType = asReferenceType(contents->externKind);
 			for(Uptr index = 0; index < numSegmentElements; ++index)
 			{
-				const Uptr functionIndex = random.get(module.functions.size() - 1);
-				contents->elemIndices.push_back(functionIndex);
+				switch(contents->externKind)
+				{
+				case ExternKind::function:
+					if(module.functions.size())
+					{ contents->elemIndices.push_back(random.get(module.functions.size() - 1)); }
+					break;
+				case ExternKind::table:
+					if(module.tables.size())
+					{ contents->elemIndices.push_back(random.get(module.tables.size() - 1)); }
+					break;
+				case ExternKind::memory:
+					if(module.memories.size())
+					{ contents->elemIndices.push_back(random.get(module.memories.size() - 1)); }
+					break;
+				case ExternKind::global:
+					if(module.globals.size())
+					{ contents->elemIndices.push_back(random.get(module.globals.size() - 1)); }
+					break;
+				case ExternKind::exceptionType:
+					if(module.exceptionTypes.size())
+					{
+						contents->elemIndices.push_back(
+							random.get(module.exceptionTypes.size() - 1));
+					}
+					break;
+
+				case ExternKind::invalid:
+				default: WAVM_UNREACHABLE();
+				};
 			}
 			break;
 		}
 		default: WAVM_UNREACHABLE();
 		};
 
-		if(!module.tables.size() || random.get(1))
+		std::vector<Uptr> validTableIndices;
+		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		{
+			const ReferenceType tableElemType = module.tables.getType(tableIndex).elementType;
+			if(isSubtype(segmentElemType, tableElemType))
+			{ validTableIndices.push_back(tableIndex); }
+		}
+
+		if(!validTableIndices.size() || random.get(1))
 		{
 			module.elemSegments.push_back(
 				{ElemSegment::Type::passive, UINTPTR_MAX, InitializerExpression(), contents});
 		}
 		else
 		{
+			Uptr validTableIndex = random.get(validTableIndices.size() - 1);
+
 			module.elemSegments.push_back(
 				{ElemSegment::Type::passive,
-				 random.get(module.tables.size() - 1),
+				 validTableIndices[validTableIndex],
 				 generateInitializerExpression(module, random, ValueType::i32),
 				 std::move(contents)});
 		}

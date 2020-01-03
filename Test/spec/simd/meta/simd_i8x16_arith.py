@@ -11,6 +11,7 @@ class SimdI8x16ArithmeticCase(SimdArithmeticCase):
 
     LANE_LEN = 16
     LANE_TYPE = 'i8x16'
+    BINARY_OPS = ('add', 'sub')
 
     @property
     def hex_binary_op_test_data(self):
@@ -43,10 +44,6 @@ class SimdI8x16ArithmeticCase(SimdArithmeticCase):
             'i8x16.sub': [
                 [['0x7f', '0x8080'], '-1', ['i8x16', 'i16x8', 'i8x16']],
                 [['1', '65535'], '2', ['i8x16', 'i16x8', 'i8x16']]
-            ],
-            'i8x16.mul': [
-                [['0x10', '0x1010'], '0', ['i8x16', 'i16x8', 'i8x16']],
-                [['255', '65535'], '1', ['i8x16', 'i16x8', 'i8x16']]
             ]
         }
 
@@ -60,10 +57,6 @@ class SimdI8x16ArithmeticCase(SimdArithmeticCase):
             'i8x16.sub': [
                 [['0x7f', '0x80808080'], '-1', ['i8x16', 'i32x4', 'i8x16']],
                 [['1', '0xffffffff'], '2', ['i8x16', 'i32x4', 'i8x16']]
-            ],
-            'i8x16.mul': [
-                [['0x80', '0x02020202'], '0', ['i8x16', 'i32x4', 'i8x16']],
-                [['255', '0xffffffff'], '1', ['i8x16', 'i32x4', 'i8x16']]
             ]
         }
 
@@ -87,15 +80,6 @@ class SimdI8x16ArithmeticCase(SimdArithmeticCase):
                 [['1', '+inf'], ['0x01', '0x01', '0x81', '0x82'] * 4, ['i8x16', 'f32x4', 'i8x16']],
                 [['1', '-inf'], ['0x01', '0x01', '0x81', '0x02'] * 4, ['i8x16', 'f32x4', 'i8x16']],
                 [['1', 'nan'], ['0x01', '0x01', '0x41', '0x82'] * 4, ['i8x16', 'f32x4', 'i8x16']]
-            ],
-            'i8x16.mul': [
-                [['0x80', '+0.0'], '0', ['i8x16', 'f32x4', 'i8x16']],
-                [['0x80', '-0.0'], '0', ['i8x16', 'f32x4', 'i8x16']],
-                [['0x80', '1.0'], ['0', '0', '0', '0x80'] * 4, ['i8x16', 'f32x4', 'i8x16']],
-                [['0x80', '-1.0'], ['0', '0', '0', '0x80'] * 4, ['i8x16', 'f32x4', 'i8x16']],
-                [['1', '+inf'], ['0', '0', '0x80', '0x7f'] * 4, ['i8x16', 'f32x4', 'i8x16']],
-                [['1', '-inf'], ['0', '0', '0x80', '0xff'] * 4, ['i8x16', 'f32x4', 'i8x16']],
-                [['1', 'nan'], ['0', '0', '0xc0', '0x7f'] * 4, ['i8x16', 'f32x4', 'i8x16']]
             ]
         }
 
@@ -115,13 +99,6 @@ class SimdI8x16ArithmeticCase(SimdArithmeticCase):
                  ['0', '0x02', '0x04', '0x06', '0x08', '0x0a', '0x0c', '0x0e', '0x10', '0x12', '0x14', '0x16',
                   '0x18', '0x1a', '0x1c', '0x1e'],
                  ['i8x16', 'i8x16', 'i8x16']]
-            ],
-            'i8x16.mul': [
-                [[['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'],
-                  ['0', '0xff', '0xfe', '0xfd', '0xfc', '0xfb', '0xfa', '0xf9', '0xf8', '0xf7', '0xf6', '0xf5',
-                   '0xf4', '0xf3', '0xf2', '0xf1']],
-                 ['0', '0xff', '0xfc', '0xf7', '0xf0', '0xe7', '0xdc', '0xcf', '0xc0', '0xaf', '0x9c', '0x87',
-                  '0x70', '0x57', '0x3c', '0x1f'], ['i8x16', 'i8x16', 'i8x16']]
             ]
         }
 
@@ -135,14 +112,21 @@ class SimdI8x16ArithmeticCase(SimdArithmeticCase):
             'i8x16.sub': [
                 [[[str(i) for i in range(16)], [str(i * 2) for i in range(16)]],
                  [str(-i) for i in range(16)], ['i8x16', 'i8x16', 'i8x16']]
-            ],
-            'i8x16.mul': [
-                [[[str(i) for i in range(16)], [str(i * 2) for i in range(16)]],
-                 ['0', '0x02', '0x08', '0x12', '0x20', '0x32', '0x48', '0x62',
-                  '0x80', '0xa2', '0xc8', '0xf2', '0x20', '0x52', '0x88', '0xc2'],
-                 ['i8x16', 'i8x16', 'i8x16']]
             ]
         }
+
+    @property
+    def combine_ternary_arith_test_data(self):
+        test_data = super().combine_ternary_arith_test_data
+        test_data.pop('mul-add')
+        test_data.pop('mul-sub')
+        return test_data
+
+    @property
+    def combine_binary_arith_test_data(self):
+        test_data = super().combine_binary_arith_test_data
+        test_data.pop('mul-neg')
+        return test_data
 
     @property
     def full_bin_test_data(self):

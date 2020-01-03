@@ -429,43 +429,8 @@ static void parseExport(CursorState* cursor)
 		cursor->moduleState->module.exports.push_back({std::move(exportName), exportKind, 0});
 
 		cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
-			Uptr& exportedObjectIndex = moduleState->module.exports[exportIndex].index;
-			switch(exportKind)
-			{
-			case ExternKind::function:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->functionNameToIndexMap,
-												 moduleState->module.functions.size(),
-												 exportRef);
-				break;
-			case ExternKind::table:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->tableNameToIndexMap,
-												 moduleState->module.tables.size(),
-												 exportRef);
-				break;
-			case ExternKind::memory:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->memoryNameToIndexMap,
-												 moduleState->module.memories.size(),
-												 exportRef);
-				break;
-			case ExternKind::global:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->globalNameToIndexMap,
-												 moduleState->module.globals.size(),
-												 exportRef);
-				break;
-			case ExternKind::exceptionType:
-				exportedObjectIndex = resolveRef(moduleState->parseState,
-												 moduleState->exceptionTypeNameToIndexMap,
-												 moduleState->module.exceptionTypes.size(),
-												 exportRef);
-				break;
-
-			case ExternKind::invalid:
-			default: WAVM_UNREACHABLE();
-			}
+			moduleState->module.exports[exportIndex].index
+				= resolveExternRef(moduleState, exportKind, exportRef);
 		});
 	});
 }
@@ -503,70 +468,35 @@ static void parseData(CursorState* cursor)
 	Name segmentName;
 	Reference memoryRef;
 	UnresolvedInitializerExpression baseAddress;
-	bool isActive = true;
+	bool isActive = false;
 
-	// The segment can have a name, and for active segments, a reference to a memory. If there are
-	// two names, the first is the segment name, and the second is the reference to a memory. If
-	// there is one name on a passive segment, it is the segment name. If there is one name on an
-	// active segment, it is a reference to a memory.
-	switch(cursor->nextToken[0].type)
+	tryParseName(cursor, segmentName);
+
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_memory)
 	{
-	case t_anyref:
-	case t_funcref:
-	case t_string:
-	case t_rightParenthesis:
-		// ...
-		isActive = false;
-		break;
-	case t_quotedName:
-	case t_name:
-		switch(cursor->nextToken[1].type)
+		parseParenthesized(cursor, [&]() {
+			require(cursor, t_memory);
+			memoryRef = parseNameOrIndexRef(cursor, "data memory");
+		});
+		isActive = true;
+	}
+
+	if(isActive || cursor->nextToken[0].type == t_leftParenthesis)
+	{
+		if(!isActive)
 		{
-		case t_anyref:
-		case t_funcref:
-		case t_string:
-		case t_rightParenthesis:
-			// <s:name> ...
-			segmentName = parseName(cursor, "data");
-			isActive = false;
-			break;
-		case t_quotedName:
-		case t_name:
-		case t_hexInt:
-		case t_decimalInt:
-			// <s:name> <m:ref> ...
-			segmentName = parseName(cursor, "data");
-			memoryRef = parseNameOrIndexRef(cursor, "memory");
-			break;
-		default:
-			// <m:name> ...
-			memoryRef = parseNameOrIndexRef(cursor, "memory");
+			memoryRef = Reference(0);
+			isActive = true;
 		}
-		break;
-	case t_hexInt:
-	case t_decimalInt:
-		// <m:ref> ...
-		memoryRef = parseNameOrIndexRef(cursor, "memory");
-		break;
-	default:
-		// ...
-		break;
-	};
 
-	if(isActive)
-	{
-		// Parse an initializer expression for the base index of the segment.
-		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
+		{ baseAddress = parseInitializerExpression(cursor); }
+		else
 		{
-			// The initializer expression can optionally be wrapped in (offset ...)
-			parseParenthesized(cursor, [&] {
+			parseParenthesized(cursor, [&]() {
 				require(cursor, t_offset);
 				baseAddress = parseInitializerExpression(cursor);
 			});
-		}
-		else
-		{
-			baseAddress = parseInitializerExpression(cursor);
 		}
 	}
 
@@ -632,11 +562,11 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 {
 	struct UnresolvedElem
 	{
-		ElemExpr::Type type;
 		Reference ref;
-		UnresolvedElem() : type(ElemExpr::Type::ref_null), ref() {}
-		UnresolvedElem(ElemExpr::Type inType, Reference&& inRef)
-		: type(inType), ref(std::move(inRef))
+		ElemExpr::Type type;
+		UnresolvedElem(Reference&& inRef = Reference(),
+					   ElemExpr::Type inType = ElemExpr::Type::ref_null)
+		: ref(std::move(inRef)), type(inType)
 		{
 		}
 	};
@@ -671,7 +601,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					}
 
 					elementReferences->push_back(
-						UnresolvedElem(ElemExpr::Type::ref_func, std::move(elementRef)));
+						UnresolvedElem(std::move(elementRef), ElemExpr::Type::ref_func));
 					break;
 				}
 				default:
@@ -689,8 +619,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					cursor->parseState, cursor->nextToken, "expected function name or index");
 				throw RecoverParseException();
 			}
-			elementReferences->push_back(
-				UnresolvedElem(ElemExpr::Type::ref_func, std::move(elementRef)));
+			elementReferences->push_back(UnresolvedElem(std::move(elementRef)));
 			break;
 		}
 
@@ -724,7 +653,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 															 elementReferences,
 															 elemToken,
 															 baseIndex,
-															 encoding](ModuleState* moduleState) {
+															 encoding,
+															 externKind](ModuleState* moduleState) {
 		ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
 
 		if(segmentType == ElemSegment::Type::active)
@@ -778,13 +708,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
 			{
 				const UnresolvedElem& unresolvedElem = (*elementReferences)[elementIndex];
-				WAVM_ASSERT(unresolvedElem.type == ElemExpr::Type::ref_func);
-
 				elemSegment.contents->elemIndices[elementIndex]
-					= resolveRef(moduleState->parseState,
-								 moduleState->functionNameToIndexMap,
-								 moduleState->module.functions.size(),
-								 unresolvedElem.ref);
+					= resolveExternRef(moduleState, externKind, unresolvedElem.ref);
 			}
 			break;
 
@@ -1117,6 +1042,17 @@ static void parseExceptionType(CursorState* cursor)
 
 static void parseStart(CursorState* cursor)
 {
+	if(cursor->moduleState->startFieldToken)
+	{
+		parseErrorf(cursor->parseState,
+					cursor->nextToken,
+					"module may not have more than one 'start' field.");
+		parseErrorf(cursor->parseState,
+					cursor->moduleState->startFieldToken,
+					"first 'start' field occurred here");
+	}
+	cursor->moduleState->startFieldToken = cursor->nextToken;
+
 	require(cursor, t_start);
 
 	Reference functionRef;
@@ -1130,6 +1066,152 @@ static void parseStart(CursorState* cursor)
 															moduleState->module.functions.size(),
 															functionRef);
 	});
+}
+
+static OrderedSectionID parseOrderedSectionID(CursorState* cursor)
+{
+	OrderedSectionID result;
+	switch(cursor->nextToken->type)
+	{
+	case t_type: result = OrderedSectionID::type; break;
+	case t_import: result = OrderedSectionID::import; break;
+	case t_func: result = OrderedSectionID::function; break;
+	case t_table: result = OrderedSectionID::table; break;
+	case t_memory: result = OrderedSectionID::memory; break;
+	case t_global: result = OrderedSectionID::global; break;
+	case t_exception_type:
+		if(!cursor->moduleState->module.featureSpec.exceptionHandling)
+		{
+			parseErrorf(
+				cursor->parseState,
+				cursor->nextToken,
+				"custom section after 'exception_type' section requires the 'exception-handling' feature.");
+		}
+		result = OrderedSectionID::exceptionType;
+		break;
+	case t_export: result = OrderedSectionID::export_; break;
+	case t_start: result = OrderedSectionID::start; break;
+	case t_elem: result = OrderedSectionID::elem; break;
+	case t_data_count:
+		if(!cursor->moduleState->module.featureSpec.bulkMemoryOperations)
+		{
+			parseErrorf(
+				cursor->parseState,
+				cursor->nextToken,
+				"custom section after exception_type section requires the 'bulk-memory-operations' feature.");
+		}
+		result = OrderedSectionID::dataCount;
+		break;
+	case t_code: result = OrderedSectionID::code; break;
+	case t_data: result = OrderedSectionID::data; break;
+
+	default:
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected section ID");
+		throw RecoverParseException();
+	};
+	++cursor->nextToken;
+	return result;
+}
+
+static void parseCustomSection(CursorState* cursor)
+{
+	if(!cursor->moduleState->module.featureSpec.customSectionsInTextFormat)
+	{
+		parseErrorf(
+			cursor->parseState,
+			cursor->nextToken,
+			"custom sections in the text format require the 'wat-custom-sections' feature.");
+	}
+
+	const Token* customSectionToken = cursor->nextToken;
+	require(cursor, t_custom_section);
+
+	// Parse the section name.
+	IR::CustomSection customSection;
+	customSection.name = parseUTF8String(cursor);
+
+	// Parse the section order.
+	OrderedSectionID afterSection = OrderedSectionID::moduleBeginning;
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_after)
+	{
+		parseParenthesized(cursor, [&] {
+			WAVM_ASSERT(cursor->nextToken->type == t_after);
+			++cursor->nextToken;
+			afterSection = parseOrderedSectionID(cursor);
+		});
+	}
+	customSection.afterSection = afterSection;
+
+	// Ensure that custom sections do not occur out-of-order w.r.t. afterSection.
+	if(cursor->moduleState->module.customSections.size())
+	{
+		const CustomSection& lastCustomSection = cursor->moduleState->module.customSections.back();
+		if(lastCustomSection.afterSection > afterSection)
+		{
+			WAVM_ASSERT(cursor->moduleState->lastCustomSectionToken);
+			parseErrorf(cursor->parseState,
+						customSectionToken,
+						"out-of-order custom section: this section is declared to be after '%s'...",
+						asString(afterSection));
+			parseErrorf(cursor->parseState,
+						cursor->moduleState->lastCustomSectionToken,
+						"...but it occurs after a custom section that is declared to be after '%s'",
+						asString(lastCustomSection.afterSection));
+		}
+	}
+	cursor->moduleState->lastCustomSectionToken = customSectionToken;
+
+	// Parse a list of strings that contains the custom section's data.
+	std::string dataString;
+	while(tryParseString(cursor, dataString)) {};
+
+	customSection.data = std::vector<U8>((const U8*)dataString.data(),
+										 (const U8*)dataString.data() + dataString.size());
+
+	// Add the custom section to the module.
+	cursor->moduleState->module.customSections.push_back(std::move(customSection));
+
+	// After all declarations have been parsed, validate that the custom section ordering constraint
+	// doesn't reference a virtual section that may not be present in the binary encoding of the
+	// module. This ensures that the text format cannot express order constraints that may not be
+	// encoded in a binary module.
+	cursor->moduleState->postDeclarationCallbacks.push_back(
+		[customSectionToken, afterSection](ModuleState* moduleState) {
+			const IR::Module& module = moduleState->module;
+			bool hasPrecedingSection = true;
+			switch(afterSection)
+			{
+			case OrderedSectionID::moduleBeginning: break;
+			case OrderedSectionID::type: hasPrecedingSection = hasTypeSection(module); break;
+			case OrderedSectionID::import: hasPrecedingSection = hasImportSection(module); break;
+			case OrderedSectionID::function:
+				hasPrecedingSection = hasFunctionSection(module);
+				break;
+			case OrderedSectionID::table: hasPrecedingSection = hasTableSection(module); break;
+			case OrderedSectionID::memory: hasPrecedingSection = hasMemorySection(module); break;
+			case OrderedSectionID::global: hasPrecedingSection = hasGlobalSection(module); break;
+			case OrderedSectionID::exceptionType:
+				hasPrecedingSection = hasExceptionTypeSection(module);
+				break;
+			case OrderedSectionID::export_: hasPrecedingSection = hasExportSection(module); break;
+			case OrderedSectionID::start: hasPrecedingSection = hasStartSection(module); break;
+			case OrderedSectionID::elem: hasPrecedingSection = hasElemSection(module); break;
+			case OrderedSectionID::dataCount:
+				hasPrecedingSection = hasDataCountSection(module);
+				break;
+			case OrderedSectionID::code: hasPrecedingSection = hasCodeSection(module); break;
+			case OrderedSectionID::data: hasPrecedingSection = hasDataSection(module); break;
+			default: WAVM_UNREACHABLE();
+			};
+
+			if(!hasPrecedingSection)
+			{
+				parseErrorf(moduleState->parseState,
+							customSectionToken,
+							"custom section is after a virtual section that is not present (%s)",
+							asString(afterSection));
+			}
+		});
 }
 
 static void parseDeclaration(CursorState* cursor)
@@ -1148,6 +1230,7 @@ static void parseDeclaration(CursorState* cursor)
 		case t_elem: parseElem(cursor); return true;
 		case t_func: parseFunc(cursor); return true;
 		case t_start: parseStart(cursor); return true;
+		case t_custom_section: parseCustomSection(cursor); return true;
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "unrecognized definition in module");
 			throw RecoverParseException();
@@ -1233,15 +1316,6 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		WAVM_ASSERT(outModule.dataSegments.size() == disassemblyNames.dataSegments.size());
 		WAVM_ASSERT(outModule.exceptionTypes.size() == disassemblyNames.exceptionTypes.size());
 		IR::setDisassemblyNames(outModule, disassemblyNames);
-
-		// If metrics logging is enabled, log some statistics about the module's name maps.
-		if(Log::isCategoryEnabled(Log::metrics))
-		{
-			dumpHashMapSpaceAnalysis(moduleState.functionNameToIndexMap, "functionNameToIndexMap");
-			dumpHashMapSpaceAnalysis(moduleState.globalNameToIndexMap, "globalNameToIndexMap");
-			dumpHashMapSpaceAnalysis(moduleState.functionTypeToIndexMap, "functionTypeToIndexMap");
-			dumpHashMapSpaceAnalysis(moduleState.typeNameToIndexMap, "typeNameToIndexMap");
-		}
 	}
 	catch(RecoverParseException const&)
 	{

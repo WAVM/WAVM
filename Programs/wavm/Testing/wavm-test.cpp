@@ -5,7 +5,7 @@
 
 using namespace WAVM;
 
-enum class Command
+enum class TestCommand
 {
 	invalid,
 
@@ -16,14 +16,14 @@ enum class Command
 
 #if WAVM_ENABLE_RUNTIME
 	cAPI,
-	invokeBench,
+	benchmark,
 	script,
 #endif
 };
 
-static const char* getCommandListHelpText()
+static const char* getTestCommandListHelpText()
 {
-	return "Commands:\n"
+	return "TestCommands:\n"
 #if WAVM_ENABLE_RUNTIME
 		   "  c-api         Test the C API\n"
 #endif
@@ -32,7 +32,7 @@ static const char* getCommandListHelpText()
 		   "  hashset       Test HashSet\n"
 		   "  i128          Test I128\n"
 #if WAVM_ENABLE_RUNTIME
-		   "  invoke-bench  Benchmark invoke performance\n"
+		   "  benchmark     Benchmark WAVM\n"
 		   "  script        Run WAST test scripts\n"
 #endif
 		;
@@ -44,41 +44,41 @@ void showTestHelp(Log::Category outputCategory)
 				"Usage: wavm test <command> [command arguments]\n"
 				"\n"
 				"%s",
-				getCommandListHelpText());
+				getTestCommandListHelpText());
 }
 
-static Command parseCommand(const char* string)
+static TestCommand parseTestCommand(const char* string)
 {
-	if(!strcmp(string, "dumpmodules")) { return Command::dumpModules; }
+	if(!strcmp(string, "dumpmodules")) { return TestCommand::dumpModules; }
 	else if(!strcmp(string, "hashmap"))
 	{
-		return Command::hashMap;
+		return TestCommand::hashMap;
 	}
 	else if(!strcmp(string, "hashset"))
 	{
-		return Command::hashSet;
+		return TestCommand::hashSet;
 	}
 	else if(!strcmp(string, "i128"))
 	{
-		return Command::i128;
+		return TestCommand::i128;
 	}
 #if WAVM_ENABLE_RUNTIME
 	else if(!strcmp(string, "c-api"))
 	{
-		return Command::cAPI;
+		return TestCommand::cAPI;
 	}
-	else if(!strcmp(string, "invoke-bench"))
+	else if(!strcmp(string, "benchmark"))
 	{
-		return Command::invokeBench;
+		return TestCommand::benchmark;
 	}
 	else if(!strcmp(string, "script"))
 	{
-		return Command::script;
+		return TestCommand::script;
 	}
 #endif
 	else
 	{
-		return Command::invalid;
+		return TestCommand::invalid;
 	}
 }
 
@@ -91,26 +91,26 @@ int execTestCommand(int argc, char** argv)
 	}
 	else
 	{
-		const Command command = parseCommand(argv[0]);
+		const TestCommand command = parseTestCommand(argv[0]);
 		switch(command)
 		{
-		case Command::dumpModules: return execDumpTestModules(argc - 1, argv + 1);
-		case Command::hashMap: return execHashMapTest(argc - 1, argv + 1);
-		case Command::hashSet: return execHashSetTest(argc - 1, argv + 1);
-		case Command::i128: return execI128Test(argc - 1, argv + 1);
+		case TestCommand::dumpModules: return execDumpTestModules(argc - 1, argv + 1);
+		case TestCommand::hashMap: return execHashMapTest(argc - 1, argv + 1);
+		case TestCommand::hashSet: return execHashSetTest(argc - 1, argv + 1);
+		case TestCommand::i128: return execI128Test(argc - 1, argv + 1);
 #if WAVM_ENABLE_RUNTIME
-		case Command::cAPI: return execCAPITest(argc - 1, argv + 1);
-		case Command::invokeBench: return execInvokeBench(argc - 1, argv + 1);
-		case Command::script: return execRunTestScript(argc - 1, argv + 1);
+		case TestCommand::cAPI: return execCAPITest(argc - 1, argv + 1);
+		case TestCommand::benchmark: return execBenchmark(argc - 1, argv + 1);
+		case TestCommand::script: return execRunTestScript(argc - 1, argv + 1);
 #endif
 
-		case Command::invalid:
+		case TestCommand::invalid:
 			Log::printf(Log::error,
 						"Invalid command: %s\n"
 						"\n"
 						"%s",
-						argv[1],
-						getCommandListHelpText());
+						argv[0],
+						getTestCommandListHelpText());
 			return EXIT_FAILURE;
 
 		default: WAVM_UNREACHABLE();

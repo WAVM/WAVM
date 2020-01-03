@@ -277,20 +277,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
 		list(APPEND WAVM_LINKER_FLAGS "-fuse-ld=${WAVM_USE_LINKER}")
 	endif()
 
-
-	# If the compiler supports it, use -gsplit-dwarf for the configurations that build debug info.
-	wavm_check_cxx_compiler_flag("-gsplit-dwarf" CXX_HAS_GSPLIT_DWARF)
-	if(CXX_HAS_GSPLIT_DWARF)
-		set(CMAKE_C_FLAGS_RELWITHDEBINFO   "${CMAKE_C_FLAGS_RELWITHDEBINFO}   -gsplit-dwarf")
-		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -gsplit-dwarf")
-		set(CMAKE_C_FLAGS_DEBUG            "${CMAKE_C_FLAGS_DEBUG}            -gsplit-dwarf")
-		set(CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS_DEBUG}          -gsplit-dwarf")
-
-		# If the linker supports it, use --gdb-index to add an index of external debug data to the
-		# binaries. gold and lld support this, ld does not.
-		wavm_add_linker_flag_if_supported("-Wl,--gdb-index")
-	endif()
-
 	# Warn if a switch doesn't handle an enum case even if it has a default label.
 	wavm_add_c_cxx_flag_if_supported("-Wswitch-enum")
 	wavm_add_c_cxx_flag_if_supported("-Wswitch-default")
@@ -316,7 +302,7 @@ string(TOUPPER "${WAVM_ENABLE_LTO}" UPPERCASE_WAVM_ENABLE_LTO)
 if(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "THIN")
 	list(APPEND WAVM_LTO_C_CXX_FLAGS "-flto=thin")
 	if(NOT MSVC)
-		list(APPEND WAVM_LINKER_FLAGS "-flto")
+		list(APPEND WAVM_LINKER_FLAGS "-flto=thin")
 	endif()
 
 	# Detect which command line options the linker supports to configure the ThinLTO cache.
@@ -344,7 +330,7 @@ if(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "THIN")
 		list(APPEND WAVM_LINKER_FLAGS "-Wl,-cache_path_lto,${CMAKE_BINARY_DIR}/.thinltocache")
 	endif()
 elseif(UPPERCASE_WAVM_ENABLE_LTO STREQUAL "ON")
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 		list(APPEND WAVM_LTO_C_CXX_FLAGS "-flto")
 		if(NOT MSVC)
 			list(APPEND WAVM_LINKER_FLAGS "-flto")
@@ -360,6 +346,25 @@ elseif(NOT UPPERCASE_WAVM_ENABLE_LTO STREQUAL "OFF")
 	message(FATAL_ERROR "WAVM_ENABLE_LTO must be 'OFF', 'ON', or 'THIN'")
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	# When -flto and -gsplit-dwarf are passed to GCC, it produces a non-error note:
+	# ‘-gsplit-dwarf’ is not supported with LTO, disabling
+	# To avoid the nuisance, don't bother with -gsplit-dwarf if any form LTO is enabled on GCC.
+	if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR UPPERCASE_WAVM_ENABLE_LTO STREQUAL "OFF")
+		# If the compiler supports it, use -gsplit-dwarf for the configurations that build debug info.
+		wavm_check_cxx_compiler_flag("-gsplit-dwarf" CXX_HAS_GSPLIT_DWARF)
+		if(CXX_HAS_GSPLIT_DWARF)
+			set(CMAKE_C_FLAGS_RELWITHDEBINFO   "${CMAKE_C_FLAGS_RELWITHDEBINFO}   -gsplit-dwarf")
+			set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -gsplit-dwarf")
+			set(CMAKE_C_FLAGS_DEBUG            "${CMAKE_C_FLAGS_DEBUG}            -gsplit-dwarf")
+			set(CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS_DEBUG}          -gsplit-dwarf")
+
+			# If the linker supports it, use --gdb-index to add an index of external debug data to the
+			# binaries. gold and lld support this, ld does not.
+			wavm_add_linker_flag_if_supported("-Wl,--gdb-index")
+		endif()
+	endif()
+endif()
 
 function(WAVM_SET_TARGET_LINKER_OPTIONS TARGET_NAME)
 	target_compile_options(${TARGET_NAME} PRIVATE ${WAVM_LTO_C_CXX_FLAGS})
@@ -701,7 +706,7 @@ add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
 add_subdirectory(Programs/wavm)
 add_subdirectory(Test)
-add_subdirectory(ThirdParty/gdtoa)
+add_subdirectory(ThirdParty/BLAKE2)
 add_subdirectory(ThirdParty/liblmdb)
 
 if(WAVM_ENABLE_RUNTIME)

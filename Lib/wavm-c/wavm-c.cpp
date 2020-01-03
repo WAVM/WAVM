@@ -1,15 +1,16 @@
+#include <string.h>
 #include <string>
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/OptionalStorage.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -30,7 +31,7 @@ typedef Memory wasm_memory_t;
 typedef Global wasm_global_t;
 typedef Object wasm_extern_t;
 
-typedef ModuleInstance wasm_instance_t;
+typedef Instance wasm_instance_t;
 typedef Function wasm_shared_func_t;
 typedef Table wasm_shared_table_t;
 typedef Memory wasm_shared_memory_t;
@@ -51,6 +52,16 @@ typedef struct wasm_module_t wasm_shared_module_t;
 #include "WAVM/wavm-c/wavm-c.h"
 
 static_assert(sizeof(wasm_val_t) == sizeof(UntaggedValue), "wasm_val_t should match UntaggedValue");
+
+struct wasm_config_t
+{
+	FeatureSpec featureSpec;
+};
+
+struct wasm_engine_t
+{
+	wasm_config_t config;
+};
 
 struct wasm_valtype_t
 {
@@ -166,8 +177,8 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 	case ValueType::f64: return Value(value->f64);
 	case ValueType::v128: {
 		V128 v128;
-		v128.u64[0] = value->v128.u64[0];
-		v128.u64[1] = value->v128.u64[1];
+		v128.u64x2[0] = value->v128.u64x2[0];
+		v128.u64x2[1] = value->v128.u64x2[1];
 		return Value(v128);
 	}
 	case ValueType::anyref: return Value(value->ref);
@@ -190,8 +201,8 @@ static wasm_val_t as_val(const Value& value)
 	case ValueType::f32: result.f32 = value.f32; break;
 	case ValueType::f64: result.f64 = value.f64; break;
 	case ValueType::v128: {
-		result.v128.u64[0] = value.v128.u64[0];
-		result.v128.u64[1] = value.v128.u64[1];
+		result.v128.u64x2[0] = value.v128.u64x2[0];
+		result.v128.u64x2[1] = value.v128.u64x2[1];
 		break;
 	}
 	case ValueType::anyref: result.ref = value.object; break;
@@ -208,13 +219,43 @@ static wasm_val_t as_val(const Value& value)
 extern "C" {
 
 // wasm_config_t
-void wasm_config_delete(wasm_config_t* config) {}
-wasm_config_t* wasm_config_new() { return nullptr; }
+void wasm_config_delete(wasm_config_t* config) { delete config; }
+wasm_config_t* wasm_config_new() { return new wasm_config_t; }
+
+#define IMPLEMENT_FEATURE(cAPIName, wavmName)                                                      \
+	WASM_C_API void wasm_config_feature_set_##cAPIName(wasm_config_t* config, bool enable)         \
+	{                                                                                              \
+		config->featureSpec.wavmName = enable;                                                     \
+	}
+
+IMPLEMENT_FEATURE(import_export_mutable_globals, importExportMutableGlobals)
+IMPLEMENT_FEATURE(nontrapping_float_to_int, nonTrappingFloatToInt)
+IMPLEMENT_FEATURE(sign_extension, signExtension)
+IMPLEMENT_FEATURE(bulk_memory_ops, bulkMemoryOperations)
+
+IMPLEMENT_FEATURE(simd, simd)
+IMPLEMENT_FEATURE(atomics, atomics)
+IMPLEMENT_FEATURE(exception_handling, exceptionHandling)
+IMPLEMENT_FEATURE(multivalue, multipleResultsAndBlockParams)
+IMPLEMENT_FEATURE(reference_types, referenceTypes)
+IMPLEMENT_FEATURE(extended_name_section, extendedNameSection)
+IMPLEMENT_FEATURE(multimemory, multipleMemories)
+
+IMPLEMENT_FEATURE(shared_tables, sharedTables)
+IMPLEMENT_FEATURE(allow_legacy_inst_names, allowLegacyInstructionNames)
+IMPLEMENT_FEATURE(any_extern_kind_elems, allowAnyExternKindElemSegments)
+IMPLEMENT_FEATURE(wat_quoted_names, quotedNamesInTextFormat)
+IMPLEMENT_FEATURE(wat_custom_sections, customSectionsInTextFormat)
 
 // wasm_engine_t
-wasm_engine_t* wasm_engine_new() { return nullptr; }
-wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* config) { return nullptr; }
-void wasm_engine_delete(wasm_engine_t* engine) {}
+wasm_engine_t* wasm_engine_new() { return new wasm_engine_t; }
+wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* config)
+{
+	wasm_engine_t* engine = new wasm_engine_t{*config};
+	delete config;
+	return engine;
+}
+void wasm_engine_delete(wasm_engine_t* engine) { delete engine; }
 
 // wasm_compartment_t
 void wasm_compartment_delete(wasm_compartment_t* compartment)
@@ -223,26 +264,26 @@ void wasm_compartment_delete(wasm_compartment_t* compartment)
 	removeGCRoot(compartment);
 	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartmentGCRef)));
 }
-wasm_compartment_t* wasm_compartment_new(wasm_engine_t*)
+wasm_compartment_t* wasm_compartment_new(wasm_engine_t*, const char* debug_name)
 {
-	Compartment* compartment = createCompartment();
+	Compartment* compartment = createCompartment(std::string(debug_name));
 	addGCRoot(compartment);
 	return compartment;
 }
-wasm_compartment_t* wasm_compartment_clone(wasm_compartment_t* compartment)
+wasm_compartment_t* wasm_compartment_clone(const wasm_compartment_t* compartment)
 {
 	return cloneCompartment(compartment);
 }
-bool wasm_compartment_contains(wasm_compartment_t* compartment, wasm_ref_t* ref)
+bool wasm_compartment_contains(const wasm_compartment_t* compartment, const wasm_ref_t* ref)
 {
 	return isInCompartment(ref, compartment);
 }
 
 // wasm_store_t
 void wasm_store_delete(wasm_store_t* store) { removeGCRoot(store); }
-wasm_store_t* wasm_store_new(wasm_compartment_t* compartment)
+wasm_store_t* wasm_store_new(wasm_compartment_t* compartment, const char* debug_name)
 {
-	Context* context = createContext(compartment);
+	Context* context = createContext(compartment, std::string(debug_name));
 	addGCRoot(context);
 	return context;
 }
@@ -519,7 +560,17 @@ const wasm_memorytype_t* wasm_externtype_as_memorytype_const(const wasm_externty
 		wasm_##name##_t* ref, void* userData, void (*finalizeUserData)(void*))                     \
 	{                                                                                              \
 		setUserData(ref, userData, finalizeUserData);                                              \
-	}
+	}                                                                                              \
+                                                                                                   \
+	wasm_##name##_t* wasm_##name##_remap_to_cloned_compartment(                                    \
+		const wasm_##name##_t* ref, const wasm_compartment_t* compartment)                         \
+	{                                                                                              \
+		wasm_##name##_t* remappedRef = remapToClonedCompartment(ref, compartment);                 \
+		addGCRoot(remappedRef);                                                                    \
+		return remappedRef;                                                                        \
+	}                                                                                              \
+                                                                                                   \
+	const char* wasm_##name##_name(const wasm_##name##_t* ref) { return getDebugName(ref).c_str(); }
 
 #define IMPLEMENT_REF(name, Type)                                                                  \
 	IMPLEMENT_REF_BASE(name, Type)                                                                 \
@@ -593,45 +644,52 @@ wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,
 {
 	return createException(ExceptionTypes::calledAbort, nullptr, 0, Platform::captureCallStack(1));
 }
-void wasm_trap_message(const wasm_trap_t* trap,
-					   const char** out_message,
-					   size_t* out_num_message_bytes)
+bool wasm_trap_message(const wasm_trap_t* trap, char* out_message, size_t* inout_num_message_bytes)
 {
-	*out_message = "";
-	*out_num_message_bytes = 0;
-}
-void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
-{
-	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	WAVM_ASSERT(callStack.frames.size() >= 1);
-	out_frame->instance = nullptr;
-	out_frame->module_offset = 0;
-	out_frame->func_index = 0;
-	out_frame->func_offset = 0;
+	const std::string description = describeExceptionType(getExceptionType(trap));
+	if(*inout_num_message_bytes < description.size() + 1)
+	{
+		*inout_num_message_bytes = description.size() + 1;
+		return false;
+	}
+	else
+	{
+		WAVM_ASSERT(out_message);
+		memcpy(out_message, description.c_str(), description.size() + 1);
+		*inout_num_message_bytes = description.size() + 1;
+		return true;
+	}
 }
 size_t wasm_trap_stack_num_frames(const wasm_trap_t* trap)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	WAVM_ASSERT(callStack.frames.size() >= 1);
-	return callStack.frames.size() - 1;
+	return callStack.frames.size();
 }
 void wasm_trap_stack_frame(const wasm_trap_t* trap, size_t index, wasm_frame_t* out_frame)
 {
-	// const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	// const Platform::CallStack::Frame& frame = callStack.frames[index + 1];
-	out_frame->instance = nullptr;
-	out_frame->module_offset = 0;
-	out_frame->func_index = 0;
-	out_frame->func_offset = 0;
+	const Platform::CallStack& callStack = getExceptionCallStack(trap);
+	const Platform::CallStack::Frame& frame = callStack.frames[index];
+	InstructionSource source;
+	if(getInstructionSourceByAddress(frame.ip, source)
+	   && source.type == InstructionSource::Type::wasm)
+	{
+		out_frame->function = source.wasm.function;
+		out_frame->instr_index = source.wasm.instructionIndex;
+	}
+	else
+	{
+		out_frame->function = nullptr;
+		out_frame->instr_index = 0;
+	}
 }
 
 // wasm_foreign_t
 
 IMPLEMENT_SHAREABLE_REF(foreign, Foreign)
 
-wasm_foreign_t* wasm_foreign_new(wasm_compartment_t* compartment)
+wasm_foreign_t* wasm_foreign_new(wasm_compartment_t* compartment, const char* debug_name)
 {
-	Foreign* foreign = createForeign(compartment, nullptr, nullptr);
+	Foreign* foreign = createForeign(compartment, nullptr, nullptr, std::string(debug_name));
 	addGCRoot(foreign);
 	return foreign;
 }
@@ -646,25 +704,47 @@ void wasm_val_copy(wasm_valkind_t kind, wasm_val_t* out, const wasm_val_t* val)
 // wasm_module_t
 void wasm_module_delete(wasm_module_t* module) { delete module; }
 wasm_module_t* wasm_module_copy(wasm_module_t* module) { return new wasm_module_t{module->module}; }
-wasm_module_t* wasm_module_new(wasm_engine_t*, const char* binary, uintptr_t numBinaryBytes)
+wasm_module_t* wasm_module_new(wasm_engine_t* engine, const char* wasmBytes, uintptr_t numWASMBytes)
 {
-	IR::Module irModule;
-	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
 	WASM::LoadError loadError;
-	if(WASM::loadBinaryModule(inputStream, irModule, &loadError))
-	{ return new wasm_module_t{compileModule(irModule)}; }
+	ModuleRef module;
+	if(loadBinaryModule(
+		   (const U8*)wasmBytes, numWASMBytes, module, engine->config.featureSpec, &loadError))
+	{ return new wasm_module_t{module}; }
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
 		return nullptr;
 	}
 }
+wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, size_t num_text_chars)
+{
+	// WAST::parseModule requires that the WAST string be null-terminated, so make a copy of the
+	// input string as a std::string to make sure it is.
+	std::string wastString(text, num_text_chars);
+
+	std::vector<WAST::Error> parseErrors;
+	IR::Module irModule(engine->config.featureSpec);
+	if(!WAST::parseModule(wastString.c_str(), wastString.size(), irModule, parseErrors))
+	{
+		if(Log::isCategoryEnabled(Log::debug))
+		{
+			WAST::reportParseErrors(
+				"wasm_module_new_text", wastString.c_str(), parseErrors, Log::debug);
+		}
+		return nullptr;
+	}
+
+	ModuleRef module = compileModule(irModule);
+	return new wasm_module_t{module};
+}
+
 bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 {
 	IR::Module irModule;
-	Serialization::MemoryInputStream inputStream(binary, numBinaryBytes);
 	WASM::LoadError loadError;
-	if(WASM::loadBinaryModule(inputStream, irModule, &loadError)) { return true; }
+	if(WASM::loadBinaryModule((const U8*)binary, numBinaryBytes, irModule, &loadError))
+	{ return true; }
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
@@ -765,10 +845,16 @@ IMPLEMENT_SHAREABLE_REF(func, Function)
 
 wasm_func_t* wasm_func_new(wasm_compartment_t* compartment,
 						   const wasm_functype_t* type,
-						   wasm_func_callback_t callback)
+						   wasm_func_callback_t callback,
+						   const char* debug_name)
 {
-	Function* function = LLVMJIT::getIntrinsicThunk(
-		(void*)callback, type->type, CallingConvention::cAPICallback, "wasm_func_new");
+	FunctionType callbackType(
+		type->type.results(), type->type.params(), CallingConvention::cAPICallback);
+	Intrinsics::Module intrinsicModule;
+	Intrinsics::Function intrinsicFunction(
+		&intrinsicModule, debug_name, (void*)callback, callbackType);
+	Instance* instance = Intrinsics::instantiateModule(compartment, {&intrinsicModule}, debug_name);
+	Function* function = getTypedInstanceExport(instance, debug_name, type->type);
 	addGCRoot(function);
 	return function;
 }
@@ -776,7 +862,8 @@ wasm_func_t* wasm_func_new_with_env(wasm_compartment_t*,
 									const wasm_functype_t* type,
 									wasm_func_callback_with_env_t,
 									void* env,
-									void (*finalizer)(void*))
+									void (*finalizer)(void*),
+									const char* debug_name)
 {
 	Errors::fatal("wasm_func_new_with_env is not yet supported");
 }
@@ -827,9 +914,10 @@ IMPLEMENT_REF(global, Global)
 
 wasm_global_t* wasm_global_new(wasm_compartment_t* compartment,
 							   const wasm_globaltype_t* type,
-							   const wasm_val_t* value)
+							   const wasm_val_t* value,
+							   const char* debug_name)
 {
-	Global* global = createGlobal(compartment, type->type);
+	Global* global = createGlobal(compartment, type->type, std::string(debug_name));
 	addGCRoot(global);
 	initializeGlobal(global, asValue(type->type.valueType, value));
 	return global;
@@ -852,9 +940,10 @@ IMPLEMENT_SHAREABLE_REF(table, Table)
 
 wasm_table_t* wasm_table_new(wasm_compartment_t* compartment,
 							 const wasm_tabletype_t* type,
-							 wasm_ref_t* init)
+							 wasm_ref_t* init,
+							 const char* debug_name)
 {
-	Table* table = createTable(compartment, type->type, init, "wasm_table_new");
+	Table* table = createTable(compartment, type->type, init, std::string(debug_name));
 	addGCRoot(table);
 	return table;
 }
@@ -889,7 +978,7 @@ bool wasm_table_grow(wasm_table_t* table,
 					 wasm_table_size_t* out_previous_size)
 {
 	Uptr oldNumElements = 0;
-	if(!growTable(table, delta, &oldNumElements, init)) { return false; }
+	if(growTable(table, delta, &oldNumElements, init) != GrowResult::success) { return false; }
 	else
 	{
 		WAVM_ERROR_UNLESS(oldNumElements <= WASM_TABLE_SIZE_MAX);
@@ -901,9 +990,11 @@ bool wasm_table_grow(wasm_table_t* table,
 // wasm_memory_t
 IMPLEMENT_SHAREABLE_REF(memory, Memory)
 
-wasm_memory_t* wasm_memory_new(wasm_compartment_t* compartment, const wasm_memorytype_t* type)
+wasm_memory_t* wasm_memory_new(wasm_compartment_t* compartment,
+							   const wasm_memorytype_t* type,
+							   const char* debug_name)
 {
-	Memory* memory = createMemory(compartment, type->type, "wasm_memory_new");
+	Memory* memory = createMemory(compartment, type->type, std::string(debug_name));
 	addGCRoot(memory);
 	return memory;
 }
@@ -930,7 +1021,7 @@ bool wasm_memory_grow(wasm_memory_t* memory,
 					  wasm_memory_pages_t* out_previous_size)
 {
 	Uptr oldNumPages = 0;
-	if(!growMemory(memory, delta, &oldNumPages)) { return false; }
+	if(growMemory(memory, delta, &oldNumPages) != GrowResult::success) { return false; }
 	else
 	{
 		WAVM_ERROR_UNLESS(oldNumPages <= WASM_MEMORY_PAGES_MAX);
@@ -952,7 +1043,7 @@ wasm_externkind_t wasm_extern_kind(const wasm_extern_t* object)
 	case ObjectKind::global: return WASM_EXTERN_GLOBAL;
 	case ObjectKind::exceptionType: Errors::fatal("wasm_extern_kind can't handle exception types");
 
-	case ObjectKind::moduleInstance:
+	case ObjectKind::instance:
 	case ObjectKind::context:
 	case ObjectKind::compartment:
 	case ObjectKind::foreign:
@@ -986,7 +1077,8 @@ IMPLEMENT_EXTERN_SUBTYPE(memory, Memory)
 wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 								   const wasm_module_t* module,
 								   const wasm_extern_t* const imports[],
-								   wasm_trap_t** out_trap)
+								   wasm_trap_t** out_trap,
+								   const char* debug_name)
 {
 	const IR::Module& irModule = getModuleIR(module->module);
 
@@ -996,17 +1088,17 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 	for(Uptr importIndex = 0; importIndex < irModule.imports.size(); ++importIndex)
 	{ importBindings.push_back(const_cast<Object*>(imports[importIndex])); }
 
-	ModuleInstance* moduleInstance = nullptr;
+	Instance* instance = nullptr;
 	catchRuntimeExceptions(
-		[store, module, &importBindings, &moduleInstance]() {
-			moduleInstance = instantiateModule(getCompartment(store),
-											   module->module,
-											   std::move(importBindings),
-											   "wasm_instance_new");
+		[store, module, &importBindings, &instance, debug_name]() {
+			instance = instantiateModule(getCompartment(store),
+										 module->module,
+										 std::move(importBindings),
+										 std::string(debug_name));
 
-			addGCRoot(moduleInstance);
+			addGCRoot(instance);
 
-			Function* startFunction = getStartFunction(moduleInstance);
+			Function* startFunction = getStartFunction(instance);
 			if(startFunction) { invokeFunction(store, startFunction); }
 		},
 		[&](Runtime::Exception* exception) {
@@ -1017,7 +1109,7 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 			}
 		});
 
-	return moduleInstance;
+	return instance;
 }
 
 void wasm_instance_delete(wasm_instance_t* instance) { removeGCRoot(instance); }

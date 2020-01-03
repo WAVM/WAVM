@@ -20,7 +20,7 @@ namespace WAVM { namespace Runtime {
 	struct ContextRuntimeData;
 	struct ExceptionType;
 	struct Function;
-	struct ModuleInstance;
+	struct Instance;
 }}
 
 namespace WAVM { namespace LLVMJIT {
@@ -50,6 +50,8 @@ namespace WAVM { namespace LLVMJIT {
 		Uptr llvmMajor;
 		Uptr llvmMinor;
 		Uptr llvmPatch;
+
+		Uptr llvmjitVersion;
 	};
 
 	WAVM_API Version getVersion();
@@ -63,6 +65,9 @@ namespace WAVM { namespace LLVMJIT {
 									const TargetSpec& targetSpec,
 									bool optimize);
 
+	WAVM_API std::string disassembleObject(const TargetSpec& targetSpec,
+										   const std::vector<U8>& objectBytes);
+
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct Module;
 
@@ -70,15 +75,14 @@ namespace WAVM { namespace LLVMJIT {
 	// Structs that are passed to loadModule to bind undefined symbols in object code to values.
 	//
 
-	struct ModuleInstanceBinding
+	struct InstanceBinding
 	{
 		Uptr id;
 	};
 
 	struct FunctionBinding
 	{
-		IR::CallingConvention callingConvention;
-		void* code;
+		const void* code;
 	};
 
 	struct TableBinding
@@ -116,7 +120,7 @@ namespace WAVM { namespace LLVMJIT {
 		std::vector<MemoryBinding>&& memories,
 		std::vector<GlobalBinding>&& globals,
 		std::vector<ExceptionTypeBinding>&& exceptionTypes,
-		ModuleInstanceBinding moduleInstance,
+		InstanceBinding instance,
 		Uptr tableReferenceBias,
 		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);
 
@@ -128,14 +132,8 @@ namespace WAVM { namespace LLVMJIT {
 
 	// Finds the JIT function and instruction index at the given address. If no JIT function
 	// contains the given address, returns an InstructionSourceInfo with function==nullptr.
-	WAVM_API InstructionSource getInstructionSourceByAddress(Uptr address);
+	WAVM_API bool getInstructionSourceByAddress(Uptr address, InstructionSource& outSource);
 
 	// Generates an invoke thunk for a specific function type.
 	WAVM_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);
-
-	// Generates a thunk to call a native function from generated code.
-	WAVM_API Runtime::Function* getIntrinsicThunk(void* nativeFunction,
-												  IR::FunctionType functionType,
-												  IR::CallingConvention callingConvention,
-												  const char* debugName);
 }}

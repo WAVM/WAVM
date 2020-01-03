@@ -10,7 +10,11 @@ namespace WAVM { namespace Timing {
 	struct Timer
 	{
 		Timer() : startTime(Platform::getClockTime(Platform::Clock::monotonic)), isStopped(false) {}
-		void stop() { endTime = Platform::getClockTime(Platform::Clock::monotonic); }
+		void stop()
+		{
+			endTime = Platform::getClockTime(Platform::Clock::monotonic);
+			isStopped = true;
+		}
 		F64 getNanoseconds()
 		{
 			if(!isStopped) { stop(); }

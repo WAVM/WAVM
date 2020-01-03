@@ -3,7 +3,6 @@ set(PublicHeaders
 	BasicTypes.h
 	Config.h.in
 	CLI.h
-	ConcurrentHashMap.h
 	DenseStaticIntSet.h
 	Errors.h
 	FloatComponents.h
@@ -16,8 +15,7 @@ set(PublicHeaders
 	InlineArray.h
 	IntrusiveSharedPtr.h
 	IsNameChar.h
-	Lock.h
-	OptionalStorage.h Impl/OptionalStorage.natvis
+	Impl/OptionalStorage.h Impl/OptionalStorage.natvis
 	Serialization.h
 	Time.h
 	Timing.h

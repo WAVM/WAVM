@@ -5,7 +5,6 @@
 #include <utility>
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 
@@ -63,6 +62,28 @@ IR::TypeTuple::TypeTuple(const ValueType* inElems, Uptr numElems)
 	impl = getUniqueImpl(numElems, inElems);
 }
 
+struct GlobalUniqueTypeTuples
+{
+	Platform::Mutex mutex;
+	HashSet<TypeTuple, TypeTupleHashPolicy> set;
+	std::vector<void*> impls;
+
+	~GlobalUniqueTypeTuples()
+	{
+		Platform::Mutex::Lock lock(mutex);
+		for(void* impl : impls) { free(impl); }
+	}
+
+	static GlobalUniqueTypeTuples& get()
+	{
+		static GlobalUniqueTypeTuples singleton;
+		return singleton;
+	}
+
+private:
+	GlobalUniqueTypeTuples() {}
+};
+
 const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueType* inElems)
 {
 	if(numElems == 0)
@@ -75,52 +96,82 @@ const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueTy
 		const Uptr numImplBytes = Impl::calcNumBytes(numElems);
 		Impl* localImpl = new(alloca(numImplBytes)) Impl(numElems, inElems);
 
-		static Platform::Mutex uniqueTypeTupleSetMutex;
-		static HashSet<TypeTuple, TypeTupleHashPolicy> uniqueTypeTupleSet;
+		GlobalUniqueTypeTuples& globalUniqueTypeTuples = GlobalUniqueTypeTuples::get();
+		Platform::Mutex::Lock lock(globalUniqueTypeTuples.mutex);
 
-		Lock<Platform::Mutex> uniqueTypeTupleSetLock(uniqueTypeTupleSetMutex);
-
-		const TypeTuple* typeTuple = uniqueTypeTupleSet.get(TypeTuple(localImpl));
+		const TypeTuple* typeTuple = globalUniqueTypeTuples.set.get(TypeTuple(localImpl));
 		if(typeTuple) { return typeTuple->impl; }
 		else
 		{
 			Impl* globalImpl = new(malloc(numImplBytes)) Impl(*localImpl);
-			Platform::expectLeakedObject(globalImpl);
-			uniqueTypeTupleSet.addOrFail(TypeTuple(globalImpl));
+			globalUniqueTypeTuples.set.addOrFail(TypeTuple(globalImpl));
+			globalUniqueTypeTuples.impls.push_back(globalImpl);
 			return globalImpl;
 		}
 	}
 }
 
-IR::FunctionType::Impl::Impl(TypeTuple inResults, TypeTuple inParams)
-: results(inResults), params(inParams)
+struct GlobalUniqueFunctionTypes
+{
+	Platform::Mutex mutex;
+	HashSet<FunctionType, FunctionTypeHashPolicy> set;
+	std::vector<void*> impls;
+
+	~GlobalUniqueFunctionTypes()
+	{
+		Platform::Mutex::Lock lock(mutex);
+		for(void* impl : impls) { free(impl); }
+	}
+
+	static GlobalUniqueFunctionTypes& get()
+	{
+		static GlobalUniqueFunctionTypes singleton;
+		return singleton;
+	}
+
+private:
+	GlobalUniqueFunctionTypes() {}
+};
+
+IR::FunctionType::Impl::Impl(TypeTuple inResults,
+							 TypeTuple inParams,
+							 CallingConvention inCallingConvention)
+: results(inResults), params(inParams), callingConvention(inCallingConvention)
 {
 	hash = Hash<Uptr>()(results.getHash(), params.getHash());
+	hash = Hash<Uptr>()(hash, Uptr(callingConvention));
 }
 
-const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results, TypeTuple params)
+const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results,
+														  TypeTuple params,
+														  CallingConvention callingConvention)
 {
-	if(results.size() == 0 && params.size() == 0)
+	if(results.size() == 0 && params.size() == 0 && callingConvention == CallingConvention::wasm)
 	{
-		static Impl emptyImpl{TypeTuple(), TypeTuple()};
+		static Impl emptyImpl{TypeTuple(), TypeTuple(), CallingConvention::wasm};
+		return &emptyImpl;
+	}
+	else if(results.size() == 0 && params.size() == 0
+			&& callingConvention == CallingConvention::intrinsic)
+	{
+		static Impl emptyImpl{TypeTuple(), TypeTuple(), CallingConvention::intrinsic};
 		return &emptyImpl;
 	}
 	else
 	{
-		Impl localImpl(results, params);
+		Impl localImpl(results, params, callingConvention);
 
-		static Platform::Mutex uniqueFunctionTypeSetMutex;
-		static HashSet<FunctionType, FunctionTypeHashPolicy> uniqueFunctionTypeSet;
+		GlobalUniqueFunctionTypes& globalUniqueFunctionTypes = GlobalUniqueFunctionTypes::get();
+		Platform::Mutex::Lock lock(globalUniqueFunctionTypes.mutex);
 
-		Lock<Platform::Mutex> uniqueFunctionTypeSetLock(uniqueFunctionTypeSetMutex);
-
-		const FunctionType* functionType = uniqueFunctionTypeSet.get(FunctionType(&localImpl));
+		const FunctionType* functionType
+			= globalUniqueFunctionTypes.set.get(FunctionType(&localImpl));
 		if(functionType) { return functionType->impl; }
 		else
 		{
-			Impl* globalImpl = new Impl(localImpl);
-			Platform::expectLeakedObject(globalImpl);
-			uniqueFunctionTypeSet.addOrFail(FunctionType(globalImpl));
+			Impl* globalImpl = new(malloc(sizeof(Impl))) Impl(localImpl);
+			globalUniqueFunctionTypes.set.addOrFail(FunctionType(globalImpl));
+			globalUniqueFunctionTypes.impls.push_back(globalImpl);
 			return globalImpl;
 		}
 	}

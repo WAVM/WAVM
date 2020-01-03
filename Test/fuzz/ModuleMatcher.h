@@ -66,6 +66,18 @@ namespace WAVM {
 				default: WAVM_UNREACHABLE();
 				};
 			}
+
+			if(aModule.customSections.size() != bModule.customSections.size())
+			{ failVerification(); }
+			for(Uptr customSectionIndex = 0; customSectionIndex < aModule.customSections.size();
+				++customSectionIndex)
+			{
+				const CustomSection& aSection = aModule.customSections[customSectionIndex];
+				const CustomSection& bSection = bModule.customSections[customSectionIndex];
+				if(aSection.afterSection != bSection.afterSection || aSection.name != bSection.name
+				   || aSection.data != bSection.data)
+				{ failVerification(); }
+			}
 		}
 
 	private:
@@ -170,7 +182,9 @@ namespace WAVM {
 		void verifyMatches(LoadOrStoreImm<naturalAlignmentLog2> a,
 						   LoadOrStoreImm<naturalAlignmentLog2> b)
 		{
-			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset) { failVerification(); }
+			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset
+			   || a.memoryIndex != b.memoryIndex)
+			{ failVerification(); }
 		}
 
 		template<Uptr numLanes>
@@ -191,7 +205,9 @@ namespace WAVM {
 		void verifyMatches(AtomicLoadOrStoreImm<naturalAlignmentLog2> a,
 						   AtomicLoadOrStoreImm<naturalAlignmentLog2> b)
 		{
-			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset) { failVerification(); }
+			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset
+			   || a.memoryIndex != b.memoryIndex)
+			{ failVerification(); }
 		}
 
 		void verifyMatches(AtomicFenceImm a, AtomicFenceImm b)

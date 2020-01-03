@@ -5,12 +5,11 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -22,7 +21,7 @@ namespace WAVM { namespace Runtime {
 }}
 
 // Global lists of tables; used to query whether an address is reserved by one of them.
-static Platform::Mutex tablesMutex;
+static Platform::RWMutex tablesMutex;
 static std::vector<Table*> tables;
 
 static constexpr Uptr numGuardPages = 1;
@@ -89,17 +88,17 @@ static Table* createTableImpl(Compartment* compartment,
 
 	// Add the table to the global array.
 	{
-		Lock<Platform::Mutex> tablesLock(tablesMutex);
+		Platform::RWMutex::ExclusiveLock tablesLock(tablesMutex);
 		tables.push_back(table);
 	}
 	return table;
 }
 
-static bool growTableImpl(Table* table,
-						  Uptr numElementsToGrow,
-						  Uptr* outOldNumElements,
-						  bool initializeNewElements,
-						  Runtime::Object* initializeToElement = getUninitializedElement())
+static GrowResult growTableImpl(Table* table,
+								Uptr numElementsToGrow,
+								Uptr* outOldNumElements,
+								bool initializeNewElements,
+								Runtime::Object* initializeToElement = getUninitializedElement())
 {
 	Uptr oldNumElements;
 	if(!numElementsToGrow) { oldNumElements = table->numElements.load(std::memory_order_acquire); }
@@ -107,23 +106,25 @@ static bool growTableImpl(Table* table,
 	{
 		// Check the table element quota.
 		if(table->resourceQuota && !table->resourceQuota->tableElems.allocate(numElementsToGrow))
-		{ return false; }
+		{ return GrowResult::outOfQuota; }
 
-		Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+		Platform::RWMutex::ExclusiveLock resizingLock(table->resizingMutex);
 
 		oldNumElements = table->numElements.load(std::memory_order_acquire);
 
-		// If the growth would cause the table's size to exceed its maximum, return -1.
+		// If the growth would cause the table's size to exceed its maximum, return
+		// GrowResult::outOfMaxSize.
 		if(numElementsToGrow > table->type.size.max
 		   || oldNumElements > table->type.size.max - numElementsToGrow
 		   || numElementsToGrow > IR::maxTableElems
 		   || oldNumElements > IR::maxTableElems - numElementsToGrow)
 		{
 			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
-			return false;
+			return GrowResult::outOfMaxSize;
 		}
 
-		// Try to commit pages for the new elements, and return -1 if the commit fails.
+		// Try to commit pages for the new elements, and return GrowResult::outOfMemory if the
+		// commit fails.
 		const Uptr newNumElements = oldNumElements + numElementsToGrow;
 		const Uptr previousNumPlatformPages
 			= getNumPlatformPages(oldNumElements * sizeof(Table::Element));
@@ -135,7 +136,7 @@ static bool growTableImpl(Table* table,
 			   newNumPlatformPages - previousNumPlatformPages))
 		{
 			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
-			return false;
+			return GrowResult::outOfMemory;
 		}
 
 		if(initializeNewElements)
@@ -154,7 +155,7 @@ static bool growTableImpl(Table* table,
 	}
 
 	if(outOldNumElements) { *outOldNumElements = oldNumElements; }
-	return true;
+	return GrowResult::success;
 }
 
 Table* Runtime::createTable(Compartment* compartment,
@@ -175,7 +176,7 @@ Table* Runtime::createTable(Compartment* compartment,
 	}
 
 	// Grow the table to the type's minimum size.
-	if(!growTableImpl(table, Uptr(type.size.min), nullptr, true, element))
+	if(growTableImpl(table, Uptr(type.size.min), nullptr, true, element) != GrowResult::success)
 	{
 		delete table;
 		return nullptr;
@@ -183,7 +184,7 @@ Table* Runtime::createTable(Compartment* compartment,
 
 	// Add the table to the compartment's tables IndexMap.
 	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 
 		table->id = compartment->tables.add(UINTPTR_MAX, table);
 		if(table->id == UINTPTR_MAX)
@@ -199,7 +200,7 @@ Table* Runtime::createTable(Compartment* compartment,
 
 Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 {
-	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+	Platform::RWMutex::ExclusiveLock resizingLock(table->resizingMutex);
 
 	// Create the new table.
 	const Uptr numElements = table->numElements.load(std::memory_order_acquire);
@@ -210,7 +211,7 @@ Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 
 	// Grow the table to the same size as the original, without initializing the new elements since
 	// they will be written immediately following this.
-	if(!growTableImpl(newTable, numElements, nullptr, false))
+	if(growTableImpl(newTable, numElements, nullptr, false) != GrowResult::success)
 	{
 		delete newTable;
 		return nullptr;
@@ -229,7 +230,7 @@ Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 	// Insert the table in the new compartment's tables array with the same index as it had in the
 	// original compartment's tables IndexMap.
 	{
-		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
 
 		newTable->id = table->id;
 		newCompartment->tables.insertOrFail(newTable->id, newTable);
@@ -243,7 +244,7 @@ Table::~Table()
 {
 	if(id != UINTPTR_MAX)
 	{
-		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 
 		WAVM_ASSERT(compartment->tables[id] == this);
 		compartment->tables.removeOrFail(id);
@@ -254,7 +255,7 @@ Table::~Table()
 
 	// Remove the table from the global array.
 	{
-		Lock<Platform::Mutex> tablesLock(tablesMutex);
+		Platform::RWMutex::ExclusiveLock tablesLock(tablesMutex);
 		for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
 		{
 			if(tables[tableIndex] == this)
@@ -281,7 +282,7 @@ bool Runtime::isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTabl
 {
 	// Iterate over all tables and check if the address is within the reserved address space for
 	// each.
-	Lock<Platform::Mutex> tablesLock(tablesMutex);
+	Platform::RWMutex::ShareableLock tablesLock(tablesMutex);
 	for(auto table : tables)
 	{
 		U8* startAddress = (U8*)table->elements;
@@ -389,15 +390,15 @@ Uptr Runtime::getTableNumElements(const Table* table)
 
 IR::TableType Runtime::getTableType(const Table* table) { return table->type; }
 
-bool Runtime::growTable(Table* table,
-						Uptr numElementsToGrow,
-						Uptr* outOldNumElements,
-						Object* initialElement)
+GrowResult Runtime::growTable(Table* table,
+							  Uptr numElementsToGrow,
+							  Uptr* outOldNumElements,
+							  Object* initialElement)
 {
 	return growTableImpl(table, numElementsToGrow, outOldNumElements, true, initialElement);
 }
 
-void Runtime::initElemSegment(ModuleInstance* moduleInstance,
+void Runtime::initElemSegment(Instance* instance,
 							  Uptr elemSegmentIndex,
 							  const IR::ElemSegment::Contents* contents,
 							  Table* table,
@@ -405,11 +406,41 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 							  Uptr sourceOffset,
 							  Uptr numElems)
 {
-	Uptr numSourceIndices;
+	Uptr numSourceElems;
 	switch(contents->encoding)
 	{
-	case IR::ElemSegment::Encoding::expr: numSourceIndices = contents->elemExprs.size(); break;
-	case IR::ElemSegment::Encoding::index: numSourceIndices = contents->elemIndices.size(); break;
+	case IR::ElemSegment::Encoding::expr: numSourceElems = contents->elemExprs.size(); break;
+	case IR::ElemSegment::Encoding::index: numSourceElems = contents->elemIndices.size(); break;
+	default: WAVM_UNREACHABLE();
+	};
+
+	if(sourceOffset + numElems > numSourceElems || sourceOffset + numElems < sourceOffset)
+	{
+		throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+					   {instance,
+						U64(elemSegmentIndex),
+						U64(sourceOffset > numSourceElems ? sourceOffset : numSourceElems)});
+	}
+	else
+	{
+		const Uptr numTableElems = getTableNumElements(table);
+		if(destOffset + numElems > numTableElems || destOffset + numElems < destOffset)
+		{
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {table, U64(destOffset > numTableElems ? destOffset : numTableElems)});
+		}
+	}
+
+	// Assert that the segment's elems are the right type for the table.
+	switch(contents->encoding)
+	{
+	case IR::ElemSegment::Encoding::expr:
+		WAVM_ASSERT(isSubtype(contents->elemType, table->type.elementType));
+		break;
+	case IR::ElemSegment::Encoding::index:
+		WAVM_ASSERT(isSubtype(asReferenceType(contents->externKind), table->type.elementType));
+		break;
+
 	default: WAVM_UNREACHABLE();
 	};
 
@@ -418,12 +449,12 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 		Uptr sourceIndex = sourceOffset + index;
 		const Uptr destIndex = destOffset + index;
 
-		if(sourceIndex >= numSourceIndices || sourceIndex < sourceOffset)
+		if(sourceIndex >= numSourceElems || sourceIndex < sourceOffset)
 		{
 			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-						   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+						   {asObject(instance), U64(elemSegmentIndex), sourceIndex});
 		}
-		sourceIndex = branchlessMin(sourceIndex, numSourceIndices);
+		sourceIndex = branchlessMin(sourceIndex, numSourceElems);
 
 		// Decode the element value.
 		Object* elemObject = nullptr;
@@ -435,7 +466,7 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 			{
 			case IR::ElemExpr::Type::ref_null: elemObject = nullptr; break;
 			case IR::ElemExpr::Type::ref_func:
-				elemObject = asObject(moduleInstance->functions[elemExpr.index]);
+				elemObject = asObject(instance->functions[elemExpr.index]);
 				break;
 			default: WAVM_UNREACHABLE();
 			}
@@ -446,19 +477,17 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 			switch(contents->externKind)
 			{
 			case IR::ExternKind::function:
-				elemObject = asObject(moduleInstance->functions[externIndex]);
+				elemObject = asObject(instance->functions[externIndex]);
 				break;
-			case IR::ExternKind::table:
-				elemObject = asObject(moduleInstance->tables[externIndex]);
-				break;
+			case IR::ExternKind::table: elemObject = asObject(instance->tables[externIndex]); break;
 			case IR::ExternKind::memory:
-				elemObject = asObject(moduleInstance->memories[externIndex]);
+				elemObject = asObject(instance->memories[externIndex]);
 				break;
 			case IR::ExternKind::global:
-				elemObject = asObject(moduleInstance->globals[externIndex]);
+				elemObject = asObject(instance->globals[externIndex]);
 				break;
 			case IR::ExternKind::exceptionType:
-				elemObject = asObject(moduleInstance->exceptionTypes[externIndex]);
+				elemObject = asObject(instance->exceptionTypes[externIndex]);
 				break;
 
 			case IR::ExternKind::invalid:
@@ -483,10 +512,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	Uptr oldNumElements = 0;
-	if(!growTable(table,
-				  deltaNumElements,
-				  &oldNumElements,
-				  initialValue ? initialValue : getUninitializedElement()))
+	if(growTable(table,
+				 deltaNumElements,
+				 &oldNumElements,
+				 initialValue ? initialValue : getUninitializedElement())
+	   != GrowResult::success)
 	{ return -1; }
 	WAVM_ASSERT(oldNumElements <= INT32_MAX);
 	return I32(oldNumElements);
@@ -530,31 +560,31 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   U32 destIndex,
 							   U32 sourceIndex,
 							   U32 numElems,
-							   Uptr moduleInstanceId,
+							   Uptr instanceId,
 							   Uptr tableId,
 							   Uptr elemSegmentIndex)
 {
-	ModuleInstance* moduleInstance
-		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
+	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
-	Lock<Platform::Mutex> elemSegmentsLock(moduleInstance->elemSegmentsMutex);
-	if(!moduleInstance->elemSegments[elemSegmentIndex])
-	{ throwException(ExceptionTypes::invalidArgument); }
+	Platform::RWMutex::ShareableLock elemSegmentsLock(instance->elemSegmentsMutex);
+	if(!instance->elemSegments[elemSegmentIndex])
+	{
+		if(sourceIndex != 0 || numElems != 0)
+		{
+			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+						   {instance, elemSegmentIndex, sourceIndex});
+		}
+	}
 	else
 	{
 		// Make a copy of the shared_ptr to the segment contents and unlock the elem segments mutex.
 		std::shared_ptr<IR::ElemSegment::Contents> contents
-			= moduleInstance->elemSegments[elemSegmentIndex];
+			= instance->elemSegments[elemSegmentIndex];
 		elemSegmentsLock.unlock();
 
-		initElemSegment(moduleInstance,
-						elemSegmentIndex,
-						contents.get(),
-						table,
-						destIndex,
-						sourceIndex,
-						numElems);
+		initElemSegment(
+			instance, elemSegmentIndex, contents.get(), table, destIndex, sourceIndex, numElems);
 	}
 }
 
@@ -562,19 +592,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   "elem.drop",
 							   void,
 							   elem_drop,
-							   Uptr moduleInstanceId,
+							   Uptr instanceId,
 							   Uptr elemSegmentIndex)
 {
-	ModuleInstance* moduleInstance
-		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Lock<Platform::Mutex> elemSegmentsLock(moduleInstance->elemSegmentsMutex);
+	Instance* instance = getInstanceFromRuntimeData(contextRuntimeData, instanceId);
+	Platform::RWMutex::ExclusiveLock elemSegmentsLock(instance->elemSegmentsMutex);
 
-	if(!moduleInstance->elemSegments[elemSegmentIndex])
-	{ throwException(ExceptionTypes::invalidArgument); }
-	else
-	{
-		moduleInstance->elemSegments[elemSegmentIndex].reset();
-	}
+	if(instance->elemSegments[elemSegmentIndex])
+	{ instance->elemSegments[elemSegmentIndex].reset(); }
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
@@ -584,12 +609,37 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   U32 destOffset,
 							   U32 sourceOffset,
 							   U32 numElements,
-							   Uptr sourceTableId,
-							   Uptr destTableId)
+							   Uptr destTableId,
+							   Uptr sourceTableId)
 {
 	Runtime::unwindSignalsAsExceptions([=] {
-		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
 		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
+		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
+
+		const Uptr destOffsetUptr = Uptr(destOffset);
+		const Uptr sourceOffsetUptr = Uptr(sourceOffset);
+		const Uptr numElementsUptr = Uptr(numElements);
+
+		const Uptr sourceTableNumElements = getTableNumElements(sourceTable);
+		if(sourceOffsetUptr + numElementsUptr > sourceTableNumElements
+		   || sourceOffsetUptr + numElementsUptr < sourceOffsetUptr)
+		{
+			const Uptr outOfBoundsSourceOffset = sourceOffsetUptr > sourceTableNumElements
+													 ? sourceOffsetUptr
+													 : sourceTableNumElements;
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {sourceTable, outOfBoundsSourceOffset});
+		}
+
+		const Uptr destTableNumElements = getTableNumElements(destTable);
+		if(destOffsetUptr + numElementsUptr > destTableNumElements
+		   || destOffsetUptr + numElementsUptr < destOffsetUptr)
+		{
+			const Uptr outOfBoundsDestOffset
+				= destOffsetUptr > destTableNumElements ? destOffsetUptr : destTableNumElements;
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {destTable, outOfBoundsDestOffset});
+		}
 
 		if(sourceOffset < destOffset)
 		{
@@ -626,12 +676,25 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 							   U32 numElements,
 							   Uptr destTableId)
 {
-	Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
-
 	// If the value is null, write the uninitialized sentinel value instead.
 	if(!value) { value = getUninitializedElement(); }
 
 	Runtime::unwindSignalsAsExceptions([=] {
+		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
+
+		const Uptr destOffsetUptr = Uptr(destOffset);
+		const Uptr numElementsUptr = Uptr(numElements);
+
+		const Uptr destTableNumElements = getTableNumElements(destTable);
+		if(destOffsetUptr + numElementsUptr > destTableNumElements
+		   || destOffsetUptr + numElementsUptr < destOffsetUptr)
+		{
+			const Uptr outOfBoundsDestOffset
+				= destOffsetUptr > destTableNumElements ? destOffsetUptr : destTableNumElements;
+			throwException(ExceptionTypes::outOfBoundsTableAccess,
+						   {destTable, outOfBoundsDestOffset});
+		}
+
 		for(Uptr index = 0; index < numElements; ++index)
 		{ setTableElementNonNull(destTable, U64(destOffset) + U64(index), value); }
 	});
@@ -648,26 +711,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	if(asObject(function) == getOutOfBoundsElement())
-	{
-		Log::printf(Log::debug, "call_indirect: index %u is out-of-bounds\n", index);
-		throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)});
-	}
+	{ throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
 	else if(asObject(function) == getUninitializedElement())
 	{
-		Log::printf(Log::debug, "call_indirect: index %u is uninitialized\n", index);
 		throwException(ExceptionTypes::uninitializedTableElement, {table, U64(index)});
 	}
 	else
 	{
-		IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedTypeEncoding}};
-		std::string ipDescription = "<unknown>";
-		describeInstructionPointer(reinterpret_cast<Uptr>(function->code), ipDescription);
-		Log::printf(Log::debug,
-					"call_indirect: index %u has signature %s (%s), but was expecting %s\n",
-					index,
-					asString(IR::FunctionType{function->encodedType}).c_str(),
-					ipDescription.c_str(),
-					asString(expectedSignature).c_str());
-		throwException(ExceptionTypes::indirectCallSignatureMismatch);
+		throwException(ExceptionTypes::indirectCallSignatureMismatch,
+					   {function, U64(expectedTypeEncoding)});
 	}
 }

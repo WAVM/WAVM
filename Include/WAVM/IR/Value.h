@@ -36,7 +36,7 @@ namespace WAVM { namespace IR {
 		UntaggedValue(V128 inV128) { v128 = inV128; }
 		UntaggedValue(Runtime::Object* inObject) { object = inObject; }
 		UntaggedValue(Runtime::Function* inFunction) { function = inFunction; }
-		UntaggedValue() { memset(this, 0, sizeof(*this)); }
+		UntaggedValue() { memset(bytes, 0, sizeof(bytes)); }
 	};
 
 	// A boxed value: may hold any value that can be passed to a function invoked through the
@@ -106,8 +106,8 @@ namespace WAVM { namespace IR {
 			case ValueType::i64:
 			case ValueType::f64: return left.i64 == right.i64;
 			case ValueType::v128:
-				return left.v128.u64[0] == right.v128.u64[0]
-					   && left.v128.u64[1] == right.v128.u64[1];
+				return left.v128.u64x2[0] == right.v128.u64x2[0]
+					   && left.v128.u64x2[1] == right.v128.u64x2[1];
 			case ValueType::anyref:
 			case ValueType::funcref: return left.object == right.object;
 			case ValueType::nullref: return true;

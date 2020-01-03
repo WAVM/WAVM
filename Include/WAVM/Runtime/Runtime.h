@@ -43,7 +43,9 @@ namespace WAVM {
 	template<> inline const Runtime::Type* as<const Type>(const Object* object)                    \
 	{                                                                                              \
 		return as##kindName(object);                                                               \
-	}
+	}                                                                                              \
+                                                                                                   \
+	WAVM_API const std::string& getDebugName(const Type*);
 
 namespace WAVM { namespace Runtime {
 
@@ -57,6 +59,8 @@ namespace WAVM { namespace Runtime {
 	WAVM_API void setUserData(Object* object, void* userData, void (*finalizer)(void*) = nullptr);
 	WAVM_API void* getUserData(const Object* object);
 
+	WAVM_API const std::string& getDebugName(const Object*);
+
 	inline Object* asObject(Object* object) { return object; }
 	inline const Object* asObject(const Object* object) { return object; }
 
@@ -68,10 +72,19 @@ namespace WAVM { namespace Runtime {
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::memory, Memory, Memory);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::global, Global, Global);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionType);
-	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
+	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::instance, Instance, Instance);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::context, Context, Context);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
 	WAVM_DECLARE_OBJECT_TYPE(ObjectKind::foreign, Foreign, Foreign);
+
+	// The result of growing a table or memory.
+	enum class GrowResult
+	{
+		success,
+		outOfMemory,
+		outOfQuota,
+		outOfMaxSize
+	};
 
 	//
 	// Garbage collection
@@ -162,12 +175,13 @@ namespace WAVM { namespace Runtime {
 	visit(invalidFloatOperation);                                                                  \
 	visit(invokeSignatureMismatch);                                                                \
 	visit(reachedUnreachable);                                                                     \
-	visit(indirectCallSignatureMismatch);                                                          \
+	visit(indirectCallSignatureMismatch, WAVM::IR::ValueType::funcref, WAVM::IR::ValueType::i64);  \
 	visit(uninitializedTableElement, WAVM::IR::ValueType::anyref, WAVM::IR::ValueType::i64);       \
 	visit(calledAbort);                                                                            \
 	visit(calledUnimplementedIntrinsic);                                                           \
 	visit(outOfMemory);                                                                            \
 	visit(misalignedAtomicMemoryAccess, WAVM::IR::ValueType::i64);                                 \
+	visit(waitOnUnsharedMemory, WAVM::IR::ValueType::anyref);                                      \
 	visit(invalidArgument);
 
 	// Information about a runtime exception.
@@ -255,8 +269,35 @@ namespace WAVM { namespace Runtime {
 	// runtime exceptions.
 	WAVM_API void unwindSignalsAsExceptions(const std::function<void()>& thunk);
 
-	// Describes an instruction pointer.
-	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
+	// Describes the source of an instruction; may be either WASM or native code.
+	struct InstructionSource
+	{
+		enum class Type
+		{
+			unknown,
+			native,
+			wasm,
+		};
+		Type type;
+
+		// Only one of native or wasm will be initialized based on type.
+		// This could be stored in a union, but Platform::InstructionSource's default constructor
+		// and destructor are non-trivial, and so would require manual construction/destruction when
+		// InstructionSource::type changes.
+		Platform::InstructionSource native;
+		struct
+		{
+			Runtime::Function* function;
+			Uptr instructionIndex;
+		} wasm;
+
+		InstructionSource() : type(Type::unknown) {}
+	};
+
+	WAVM_API std::string asString(const InstructionSource& source);
+
+	// Looks up the source of an instruction from either a native or WASM module.
+	bool getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource);
 
 	// Describes a call stack.
 	WAVM_API std::vector<std::string> describeCallStack(const Platform::CallStack& callStack);
@@ -306,10 +347,10 @@ namespace WAVM { namespace Runtime {
 	WAVM_API IR::TableType getTableType(const Table* table);
 
 	// Grows or shrinks the size of a table by numElements. Returns the previous size of the table.
-	WAVM_API bool growTable(Table* table,
-							Uptr numElements,
-							Uptr* outOldNumElems = nullptr,
-							Object* initialElement = nullptr);
+	WAVM_API GrowResult growTable(Table* table,
+								  Uptr numElements,
+								  Uptr* outOldNumElems = nullptr,
+								  Object* initialElement = nullptr);
 
 	//
 	// Memories
@@ -331,7 +372,7 @@ namespace WAVM { namespace Runtime {
 	WAVM_API IR::MemoryType getMemoryType(const Memory* memory);
 
 	// Grows or shrinks the size of a memory by numPages. Returns the previous size of the memory.
-	WAVM_API bool growMemory(Memory* memory, Uptr numPages, Uptr* outOldNumPages = nullptr);
+	WAVM_API GrowResult growMemory(Memory* memory, Uptr numPages, Uptr* outOldNumPages = nullptr);
 
 	// Unmaps a range of memory pages within the memory's address-space.
 	WAVM_API void unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages);
@@ -365,6 +406,7 @@ namespace WAVM { namespace Runtime {
 	// Creates a Global with the specified type. The initial value is set to the appropriate zero.
 	WAVM_API Global* createGlobal(Compartment* compartment,
 								  IR::GlobalType type,
+								  std::string&& debugName,
 								  ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 	// Initializes a Global with the specified value. May not be called more than once/Global.
@@ -396,7 +438,8 @@ namespace WAVM { namespace Runtime {
 	// If true is returned, the load succeeded, and outModule contains the loaded module.
 	// If false is returned, the load failed. If outError != nullptr, *outError will contain the
 	// error that caused the load to fail.
-	WAVM_API bool loadBinaryModule(const std::vector<U8>& wasmBytes,
+	WAVM_API bool loadBinaryModule(const U8* wasmBytes,
+								   Uptr numWASMBytes,
 								   ModuleRef& outModule,
 								   const IR::FeatureSpec& featureSpec = IR::FeatureSpec(),
 								   WASM::LoadError* outError = nullptr);
@@ -419,48 +462,73 @@ namespace WAVM { namespace Runtime {
 
 	typedef std::vector<Object*> ImportBindings;
 
-	// Instantiates a compiled module, bindings its imports to the specified objects. May throw a
-	// runtime exception for bad segment offsets.
-	WAVM_API ModuleInstance* instantiateModule(Compartment* compartment,
-											   ModuleConstRefParam module,
-											   ImportBindings&& imports,
-											   std::string&& debugName,
-											   ResourceQuotaRefParam resourceQuota
-											   = ResourceQuotaRef());
+	// Instantiates a module, bindings its imports to the specified objects. May throw a runtime
+	// exception for bad segment offsets.
+	WAVM_API Instance* instantiateModule(Compartment* compartment,
+										 ModuleConstRefParam module,
+										 ImportBindings&& imports,
+										 std::string&& debugName,
+										 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
-	// Gets the start function of a ModuleInstance.
-	WAVM_API Function* getStartFunction(const ModuleInstance* moduleInstance);
+	// Gets the start function of a Instance.
+	WAVM_API Function* getStartFunction(const Instance* instance);
 
-	// Gets the default table/memory for a ModuleInstance.
-	WAVM_API Memory* getDefaultMemory(const ModuleInstance* moduleInstance);
-	WAVM_API Table* getDefaultTable(const ModuleInstance* moduleInstance);
+	// Gets the default table/memory for a Instance.
+	WAVM_API Memory* getDefaultMemory(const Instance* instance);
+	WAVM_API Table* getDefaultTable(const Instance* instance);
 
-	// Gets an object exported by a ModuleInstance by name.
-	WAVM_API Object* getInstanceExport(const ModuleInstance* moduleInstance,
-									   const std::string& name);
+	// Gets an object exported by a Instance by name.
+	WAVM_API Object* getInstanceExport(const Instance* instance, const std::string& name);
 
-	// Gets an array of the objects exported by a module instance. The array indices correspond to
-	// the IR::Module::exports array.
-	WAVM_API const std::vector<Object*>& getInstanceExports(const ModuleInstance* moduleInstance);
+	// Gets an object exported by a Instance by name and type. If the module exports an object
+	// with the given name, but the type doesn't match, returns nullptr.
+	WAVM_API Object* getTypedInstanceExport(const Instance* instance,
+											const std::string& name,
+											const IR::ExternType& type);
+	WAVM_API Function* getTypedInstanceExport(const Instance* instance,
+											  const std::string& name,
+											  const IR::FunctionType& type);
+	WAVM_API Table* getTypedInstanceExport(const Instance* instance,
+										   const std::string& name,
+										   const IR::TableType& type);
+	WAVM_API Memory* getTypedInstanceExport(const Instance* instance,
+											const std::string& name,
+											const IR::MemoryType& type);
+	WAVM_API Global* getTypedInstanceExport(const Instance* instance,
+											const std::string& name,
+											const IR::GlobalType& type);
+	WAVM_API ExceptionType* getTypedInstanceExport(const Instance* instance,
+												   const std::string& name,
+												   const IR::ExceptionType& type);
+
+	// Gets an array of the objects exported by an instance. The array indices correspond to the
+	// IR::Module::exports array.
+	WAVM_API const std::vector<Object*>& getInstanceExports(const Instance* instance);
 
 	//
 	// Compartments
 	//
 
-	WAVM_API Compartment* createCompartment();
+	WAVM_API Compartment* createCompartment(std::string&& debugName = "");
 
-	WAVM_API Compartment* cloneCompartment(const Compartment* compartment);
+	WAVM_API Compartment* cloneCompartment(const Compartment* compartment,
+										   std::string&& debugName = "");
 
-	WAVM_API Object* remapToClonedCompartment(Object* object, const Compartment* newCompartment);
-	WAVM_API Function* remapToClonedCompartment(Function* function,
+	WAVM_API Object* remapToClonedCompartment(const Object* object,
+											  const Compartment* newCompartment);
+	WAVM_API Function* remapToClonedCompartment(const Function* function,
 												const Compartment* newCompartment);
-	WAVM_API Table* remapToClonedCompartment(Table* table, const Compartment* newCompartment);
-	WAVM_API Memory* remapToClonedCompartment(Memory* memory, const Compartment* newCompartment);
-	WAVM_API Global* remapToClonedCompartment(Global* global, const Compartment* newCompartment);
-	WAVM_API ExceptionType* remapToClonedCompartment(ExceptionType* exceptionType,
+	WAVM_API Table* remapToClonedCompartment(const Table* table, const Compartment* newCompartment);
+	WAVM_API Memory* remapToClonedCompartment(const Memory* memory,
+											  const Compartment* newCompartment);
+	WAVM_API Global* remapToClonedCompartment(const Global* global,
+											  const Compartment* newCompartment);
+	WAVM_API ExceptionType* remapToClonedCompartment(const ExceptionType* exceptionType,
 													 const Compartment* newCompartment);
-	WAVM_API ModuleInstance* remapToClonedCompartment(ModuleInstance* moduleInstance,
-													  const Compartment* newCompartment);
+	WAVM_API Instance* remapToClonedCompartment(const Instance* instance,
+												const Compartment* newCompartment);
+	WAVM_API Foreign* remapToClonedCompartment(const Foreign* foreign,
+											   const Compartment* newCompartment);
 
 	WAVM_API bool isInCompartment(const Object* object, const Compartment* compartment);
 
@@ -468,7 +536,7 @@ namespace WAVM { namespace Runtime {
 	// Contexts
 	//
 
-	WAVM_API Context* createContext(Compartment* compartment);
+	WAVM_API Context* createContext(Compartment* compartment, std::string&& debugName = "");
 
 	WAVM_API struct ContextRuntimeData* getContextRuntimeData(const Context* context);
 	WAVM_API Context* getContextFromRuntimeData(struct ContextRuntimeData* contextRuntimeData);
@@ -486,7 +554,8 @@ namespace WAVM { namespace Runtime {
 
 	WAVM_API Foreign* createForeign(Compartment* compartment,
 									void* userData,
-									void (*finalizer)(void*));
+									void (*finalizer)(void*),
+									std::string&& debugName = "");
 
 	//
 	// Object caching
@@ -496,7 +565,8 @@ namespace WAVM { namespace Runtime {
 	{
 		virtual ~ObjectCacheInterface() {}
 
-		virtual std::vector<U8> getCachedObject(const std::vector<U8>& moduleBytes,
+		virtual std::vector<U8> getCachedObject(const U8* wasmBytes,
+												Uptr numWASMBytes,
 												std::function<std::vector<U8>()>&& compileThunk)
 			= 0;
 	};

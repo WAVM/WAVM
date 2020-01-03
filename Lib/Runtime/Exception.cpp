@@ -10,10 +10,9 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/HashSet.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Platform/Signal.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -44,16 +43,32 @@ void Runtime::setUserData(Exception* exception, void* userData, void (*finalizer
 }
 void* Runtime::getUserData(const Exception* exception) { return exception->userData; }
 
-bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
+std::string Runtime::asString(const InstructionSource& source)
 {
-	LLVMJIT::InstructionSource instructionSource = LLVMJIT::getInstructionSourceByAddress(ip);
-	if(!instructionSource.function)
-	{ return Platform::describeInstructionPointer(ip, outDescription); }
+	switch(source.type)
+	{
+	case InstructionSource::Type::unknown: return "<unknown>";
+	case InstructionSource::Type::native: return "host!" + asString(source.native);
+	case InstructionSource::Type::wasm:
+		return source.wasm.function->mutableData->debugName + '+'
+			   + std::to_string(source.wasm.instructionIndex);
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+bool Runtime::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
+{
+	LLVMJIT::InstructionSource llvmjitSource;
+	if(!LLVMJIT::getInstructionSourceByAddress(ip, llvmjitSource))
+	{
+		outSource.type = InstructionSource::Type::native;
+		return Platform::getInstructionSourceByAddress(ip, outSource.native);
+	}
 	else
 	{
-		outDescription = instructionSource.function->mutableData->debugName;
-		outDescription += '+';
-		outDescription += std::to_string(instructionSource.instructionIndex);
+		outSource.type = InstructionSource::Type::wasm;
+		outSource.wasm.function = llvmjitSource.function;
+		outSource.wasm.instructionIndex = llvmjitSource.instructionIndex;
 		return true;
 	}
 }
@@ -87,8 +102,13 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 			const Uptr frameIP = callStack.frames[frameIndex].ip;
 
 			std::string frameDescription;
-			if(!describeInstructionPointer(frameIP, frameDescription))
+			InstructionSource source;
+			if(!getInstructionSourceByAddress(frameIP, source))
 			{ frameDescription = "<unknown function>"; }
+			else
+			{
+				frameDescription = asString(source);
+			}
 
 			describedIPs.add(frameIP);
 			frameDescriptions.push_back(frameDescription);
@@ -105,7 +125,7 @@ ExceptionType* Runtime::createExceptionType(Compartment* compartment,
 {
 	auto exceptionType = new ExceptionType(compartment, sig, std::move(debugName));
 
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 	exceptionType->id = compartment->exceptionTypes.add(UINTPTR_MAX, exceptionType);
 	if(exceptionType->id == UINTPTR_MAX)
 	{
@@ -123,7 +143,7 @@ ExceptionType* Runtime::cloneExceptionType(ExceptionType* exceptionType,
 		newCompartment, exceptionType->sig, std::string(exceptionType->debugName));
 	newExceptionType->id = exceptionType->id;
 
-	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	Platform::RWMutex::ExclusiveLock compartmentLock(newCompartment->mutex);
 	newCompartment->exceptionTypes.insertOrFail(exceptionType->id, newExceptionType);
 	return newExceptionType;
 }
@@ -132,7 +152,7 @@ Runtime::ExceptionType::~ExceptionType()
 {
 	if(id != UINTPTR_MAX)
 	{
-		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->exceptionTypes.removeOrFail(id);
 	}
 }
@@ -205,6 +225,23 @@ std::string Runtime::describeException(const Exception* exception)
 		result += std::to_string(exception->arguments[1].u64);
 		result += "])";
 	}
+	else if(exception->type == ExceptionTypes::indirectCallSignatureMismatch)
+	{
+		Function* function = exception->arguments[0].function;
+		IR::FunctionType expectedSignature(
+			IR::FunctionType::Encoding{Uptr(exception->arguments[1].u64)});
+		result += '(';
+		if(!function) { result += "<unknown function>"; }
+		else
+		{
+			result += function->mutableData->debugName;
+			result += " : ";
+			result += asString(getFunctionType(function));
+		}
+		result += ", ";
+		result += asString(expectedSignature);
+		result += ')';
+	}
 	else if(exception->type->sig.params.size())
 	{
 		result += '(';
@@ -249,7 +286,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 	ExceptionType* exceptionType;
 	{
 		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 		exceptionType = compartment->exceptionTypes[exceptionTypeId];
 	}
 	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));

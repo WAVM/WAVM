@@ -9,7 +9,6 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Hash.h"
-#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
@@ -56,9 +55,7 @@ static void dumpModule(const Module& module, const char* outputDir, DumpFormat d
 
 	if(dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both)
 	{
-		Serialization::ArrayOutputStream outputStream;
-		WASM::saveBinaryModule(outputStream, module);
-		std::vector<U8> wasmBytes = outputStream.getBytes();
+		std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
 		dumpWASM(wasmBytes.data(), wasmBytes.size(), outputDir);
 	}
 }
@@ -115,6 +112,7 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 	case Command::assert_return_func:
 	case Command::assert_trap:
 	case Command::assert_throws:
+	case Command::benchmark:
 	default: break;
 	};
 }
@@ -183,8 +181,7 @@ int execDumpTestModules(int argc, char** argv)
 	std::vector<WAST::Error> testErrors;
 
 	// Parse the test script.
-	IR::FeatureSpec featureSpec(true);
-	featureSpec.requireSharedFlagForAtomicOperators = true;
+	IR::FeatureSpec featureSpec(IR::FeatureLevel::wavm);
 	WAST::parseTestCommands((const char*)testScriptBytes.data(),
 							testScriptBytes.size(),
 							featureSpec,
@@ -198,6 +195,7 @@ int execDumpTestModules(int argc, char** argv)
 	}
 	else
 	{
+		reportParseErrors(filename, (const char*)testScriptBytes.data(), testErrors);
 		return EXIT_FAILURE;
 	}
 }

@@ -24,8 +24,8 @@ namespace WAVM { namespace IR {
 	};
 	struct MemoryCopyImm
 	{
-		Uptr sourceMemoryIndex;
 		Uptr destMemoryIndex;
+		Uptr sourceMemoryIndex;
 	};
 	struct TableImm
 	{
@@ -33,8 +33,8 @@ namespace WAVM { namespace IR {
 	};
 	struct TableCopyImm
 	{
-		Uptr sourceTableIndex;
 		Uptr destTableIndex;
+		Uptr sourceTableIndex;
 	};
 
 	struct ControlStructureImm
@@ -87,6 +87,7 @@ namespace WAVM { namespace IR {
 	{
 		U8 alignmentLog2;
 		U32 offset;
+		Uptr memoryIndex;
 	};
 
 	template<Uptr numLanes> struct LaneIndexImm
@@ -103,6 +104,7 @@ namespace WAVM { namespace IR {
 	{
 		U8 alignmentLog2;
 		U32 offset;
+		Uptr memoryIndex;
 	};
 
 	enum class MemoryOrder
