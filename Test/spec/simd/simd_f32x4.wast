@@ -2337,7 +2337,7 @@
 (assert_invalid (module (func (result v128) (f32x4.min (i32.const 0) (f32.const 0.0)))) "type mismatch")
 (assert_invalid (module (func (result v128) (f32x4.max (i32.const 0) (f32.const 0.0)))) "type mismatch")
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

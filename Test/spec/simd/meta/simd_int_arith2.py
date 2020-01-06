@@ -321,7 +321,7 @@ class SimdLaneWiseInteger:
 
         cases = []
 
-        cases.append('\n\n;; Argument empty\n')
+        cases.append('\n\n;; Test operation with empty argument\n')
 
         case_data = {
             'op': '',

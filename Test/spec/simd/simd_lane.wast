@@ -847,7 +847,7 @@
 (assert_return (invoke "as-local_set-value-1" (v128.const i64x2 -1 -1)) (i64.const -1))
 (assert_return (invoke "as-global_set-value-3" (v128.const f64x2 0 0)(f64.const 3.14)) (v128.const f64x2 3.14 0))
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

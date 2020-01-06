@@ -370,11 +370,11 @@ class SimdCmpCase(object):
         return '\n'.join(cases)
 
     def argument_empty_test(self):
-        """Argument empty cases.
+        """Test cases with empty argument.
         """
         cases = []
 
-        cases.append('\n;; Argument empty\n')
+        cases.append('\n;; Test operation with empty argument\n')
 
         case_data = {
             'op': '',

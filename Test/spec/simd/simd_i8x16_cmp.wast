@@ -1683,7 +1683,7 @@
 (assert_return (invoke "as-param"))
 
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

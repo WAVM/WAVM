@@ -1489,7 +1489,7 @@
                                                     (v128.const i32x4 -0x80000000 -0x7fffffff 0x7fffffff 0x8000000))
                                                     (v128.const i32x4 0x8000 0x8000 0x7fff 0x7fff))
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

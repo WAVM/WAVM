@@ -260,7 +260,7 @@ class SimdBitWise(SIMD):
 
         param_1 = SIMD.v128_const('0', 'i32x4')
 
-        cases.append('\n\n;; Argument empty\n')
+        cases.append('\n\n;; Test operation with empty argument\n')
 
         case_data = {
             'op': '',

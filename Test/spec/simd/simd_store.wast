@@ -138,7 +138,7 @@
 )
 
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module (memory 0)

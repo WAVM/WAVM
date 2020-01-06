@@ -328,11 +328,11 @@ class SimdArithmeticCase:
         return '\n'.join(invalid_cases) + self.argument_empty_test()
 
     def argument_empty_test(self):
-        """Argument empty cases.
+        """Test cases with empty argument.
         """
         cases = []
 
-        cases.append('\n\n;; Argument empty\n')
+        cases.append('\n\n;; Test operation with empty argument\n')
 
         case_data = {
             'op': '',

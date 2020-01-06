@@ -5306,7 +5306,7 @@
 (assert_invalid (module (func (result v128) (f64x2.mul (i64.const 0) (f64.const 0.0)))) "type mismatch")
 (assert_invalid (module (func (result v128) (f64x2.div (i64.const 0) (f64.const 0.0)))) "type mismatch")
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

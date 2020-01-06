@@ -625,7 +625,7 @@
 (assert_invalid (module (func (result v128) (i16x8.sub_saturate_s (i32.const 0) (f32.const 0.0)))) "type mismatch")
 (assert_invalid (module (func (result v128) (i16x8.sub_saturate_u (i32.const 0) (f32.const 0.0)))) "type mismatch")
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

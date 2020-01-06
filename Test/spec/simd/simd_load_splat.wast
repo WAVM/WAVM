@@ -220,7 +220,7 @@
 (assert_malformed (module quote "(memory 1) (func (drop (i64x2.load_splat (i32.const 0))))") "unknown operator")
 
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module (memory 0)
