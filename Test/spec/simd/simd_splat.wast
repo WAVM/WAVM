@@ -378,7 +378,7 @@
 (assert_return (invoke "as-global_set-value2" (f64.const 1.0)) (v128.const f64x2 1.0 1.0))
 
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

@@ -963,7 +963,7 @@
 (assert_malformed (module quote "(memory 1) (func (result i32) (f64x2.any_true (v128.const i32x4 0 0 0 0)))") "unknown operator")
 (assert_malformed (module quote "(memory 1) (func (result i32) (f64x2.all_true (v128.const i32x4 0 0 0 0)))") "unknown operator")
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

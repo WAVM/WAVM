@@ -355,7 +355,7 @@
 (assert_invalid (module (func (result v128) (i8x16.add (i32.const 0) (f32.const 0.0)))) "type mismatch")
 (assert_invalid (module (func (result v128) (i8x16.sub (i32.const 0) (f32.const 0.0)))) "type mismatch")
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

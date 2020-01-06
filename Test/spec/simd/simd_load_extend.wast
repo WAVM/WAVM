@@ -220,7 +220,7 @@
 (assert_invalid (module (memory 0) (func (result v128) (i64x2.load32x2_s (v128.const i32x4 0 0 0 0)))) "type mismatch")
 (assert_invalid (module (memory 0) (func (result v128) (i64x2.load32x2_u (v128.const i32x4 0 0 0 0)))) "type mismatch")
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module (memory 0)

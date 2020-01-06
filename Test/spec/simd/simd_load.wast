@@ -184,7 +184,7 @@
 )
 
 
-;; Argument empty
+;; Test operation with empty argument
 
 (assert_invalid
   (module

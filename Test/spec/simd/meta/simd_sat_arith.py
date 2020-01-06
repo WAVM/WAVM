@@ -43,7 +43,7 @@ class SimdSaturateArithmeticCases(SimdArithmeticCase):
         return '\n'.join(malformed_cases)
 
     def argument_empty_cases(self):
-        """Argument empty cases.
+        """Test cases with empty argument.
         """
         cases = []
 
