@@ -1,4 +1,4 @@
-;; Vaild alignment
+;; Valid alignment
 
 (module (memory 1) (func (drop (v128.load align=1 (i32.const 0)))))
 (module (memory 1) (func (drop (v128.load align=2 (i32.const 0)))))
@@ -139,169 +139,169 @@
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i16x8.load8x8_s align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i16x8.load8x8_s align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i16x8.load8x8_s align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i16x8.load8x8_s align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i16x8.load8x8_s align=7 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i16x8.load8x8_s align=7 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i16x8.load8x8_u align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i16x8.load8x8_u align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i16x8.load8x8_u align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i16x8.load8x8_u align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i16x8.load8x8_u align=7 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i16x8.load8x8_u align=7 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i32x4.load16x4_s align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i32x4.load16x4_s align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i32x4.load16x4_s align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i32x4.load16x4_s align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i32x4.load16x4_s align=7 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i32x4.load16x4_s align=7 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i32x4.load16x4_u align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i32x4.load16x4_u align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i32x4.load16x4_u align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i32x4.load16x4_u align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i32x4.load16x4_u align=7 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i32x4.load16x4_u align=7 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i64x2.load32x2_s align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i64x2.load32x2_s align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i64x2.load32x2_s align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i64x2.load32x2_s align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i64x2.load32x2_s align=7 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i64x2.load32x2_s align=7 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i64x2.load32x2_u align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i64x2.load32x2_u align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i64x2.load32x2_u align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i64x2.load32x2_u align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (i64x2.load32x2_u align=7 (i32.const 0)))"
+    "(memory 1) (func (result v128) (i64x2.load32x2_u align=7 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v8x16.load_splat align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v8x16.load_splat align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v8x16.load_splat align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v8x16.load_splat align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v16x8.load_splat align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v16x8.load_splat align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v16x8.load_splat align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v16x8.load_splat align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v32x4.load_splat align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v32x4.load_splat align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v32x4.load_splat align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v32x4.load_splat align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v32x4.load_splat align=3 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v32x4.load_splat align=3 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v64x2.load_splat align=-1 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v64x2.load_splat align=-1 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v64x2.load_splat align=0 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v64x2.load_splat align=0 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
 (assert_malformed
   (module quote
-    "(memroy 1) (func (result v128) (v64x2.load_splat align=7 (i32.const 0)))"
+    "(memory 1) (func (result v128) (v64x2.load_splat align=7 (i32.const 0)))"
   )
   "alignment must be a power of two"
 )
@@ -327,7 +327,7 @@
 
 (module
   (memory 1)
-  (func (export "v128_unalign_read_and_write") (result v128)
+  (func (export "v128_unaligned_read_and_write") (result v128)
     (local v128)
     (v128.store (i32.const 0) (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
     (v128.load (i32.const 0))
@@ -337,19 +337,19 @@
     (v128.store align=2 (i32.const 0) (v128.const i16x8 0 1 2 3 4 5 6 7))
     (v128.load align=2  (i32.const 0))
   )
-  (func (export "v128_aligned_read_and_unalign_write") (result v128)
+  (func (export "v128_aligned_read_and_unaligned_write") (result v128)
     (local v128)
     (v128.store (i32.const 0) (v128.const i32x4 0 1 2 3))
     (v128.load align=2 (i32.const 0))
   )
-  (func (export "v128_unalign_read_and_aligned_write") (result v128)
+  (func (export "v128_unaligned_read_and_aligned_write") (result v128)
     (local v128)
     (v128.store align=2 (i32.const 0) (v128.const i32x4 0 1 2 3))
     (v128.load (i32.const 0))
   )
 )
 
-(assert_return (invoke "v128_unalign_read_and_write") (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
+(assert_return (invoke "v128_unaligned_read_and_write") (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
 (assert_return (invoke "v128_aligned_read_and_write") (v128.const i16x8 0 1 2 3 4 5 6 7))
-(assert_return (invoke "v128_aligned_read_and_unalign_write") (v128.const i32x4 0 1 2 3))
-(assert_return (invoke "v128_unalign_read_and_aligned_write") (v128.const i32x4 0 1 2 3))
+(assert_return (invoke "v128_aligned_read_and_unaligned_write") (v128.const i32x4 0 1 2 3))
+(assert_return (invoke "v128_unaligned_read_and_aligned_write") (v128.const i32x4 0 1 2 3))
