@@ -50,7 +50,8 @@ Runtime::Context::~Context()
 	WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 	compartment->contexts.removeOrFail(id);
 
-	Platform::decommitVirtualPages((U8*)runtimeData, sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2());
+	Platform::decommitVirtualPages((U8*)runtimeData,
+								   sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2());
 	Platform::deregisterVirtualAllocation(sizeof(ContextRuntimeData));
 }
 
