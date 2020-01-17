@@ -19,6 +19,10 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/AtomicOrdering.h>
+
+#if LLVM_VERSION_MAJOR >= 10
+#include <llvm/IR/IntrinsicsAArch64.h>
+#endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
@@ -181,7 +185,8 @@ void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 #if LLVM_VERSION_MAJOR < 7
 	irBuilder.CreateMemMove(destPointer, sourcePointer, numBytesUptr, 1, true);
 #else
-	irBuilder.CreateMemMove(destPointer, 1, sourcePointer, 1, numBytesUptr, true);
+	irBuilder.CreateMemMove(
+		destPointer, LLVM_ALIGNMENT(1), sourcePointer, LLVM_ALIGNMENT(1), numBytesUptr, true);
 #endif
 }
 
@@ -211,8 +216,11 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		{destAddress, numBytes, memoryNumPages, emitLiteral(llvmContext, U64(imm.memoryIndex))});
 
 	// Use the LLVM memset instruction to do the fill.
-	irBuilder.CreateMemSet(
-		destPointer, irBuilder.CreateTrunc(value, llvmContext.i8Type), numBytesUptr, 1, true);
+	irBuilder.CreateMemSet(destPointer,
+						   irBuilder.CreateTrunc(value, llvmContext.i8Type),
+						   numBytesUptr,
+						   LLVM_ALIGNMENT(1),
+						   true);
 }
 
 //
@@ -228,7 +236,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		auto load = irBuilder.CreateLoad(pointer);                                                 \
 		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
 		 * trap if it's wrong. */                                                                  \
-		load->setAlignment(1);                                                                     \
+		load->setAlignment(LLVM_ALIGNMENT(1));                                                     \
 		load->setVolatile(true);                                                                   \
 		push(conversionOp(load, destType));                                                        \
 	}
@@ -244,7 +252,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		store->setVolatile(true);                                                                  \
 		/* Don't trust the alignment hint provided by the WebAssembly code, since the store can't  \
 		 * trap if it's wrong. */                                                                  \
-		store->setAlignment(1);                                                                    \
+		store->setAlignment(LLVM_ALIGNMENT(1));                                                    \
 	}
 
 EMIT_LOAD_OP(llvmContext.i32Type, i32_load8_s, llvmContext.i8Type, 0, sext)
@@ -326,7 +334,7 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			/* Don't trust the alignment hint provided by the WebAssembly code, since the load
 			 * can't trap if it's wrong. */
-			load->setAlignment(1);
+			load->setAlignment(LLVM_ALIGNMENT(1));
 			load->setVolatile(true);
 			loads[vectorIndex] = load;
 		}
@@ -403,7 +411,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 				functionContext.irBuilder.CreateInBoundsGEP(
 					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			store->setVolatile(true);
-			store->setAlignment(1);
+			store->setAlignment(LLVM_ALIGNMENT(1));
 		}
 	}
 }
@@ -546,7 +554,7 @@ void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 		trapIfMisalignedAtomic(boundedAddress, naturalAlignmentLog2);                              \
 		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
 		auto load = irBuilder.CreateLoad(pointer);                                                 \
-		load->setAlignment(1 << imm.alignmentLog2);                                                \
+		load->setAlignment(LLVM_ALIGNMENT(U64(1) << imm.alignmentLog2));                           \
 		load->setVolatile(true);                                                                   \
 		load->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                             \
 		push(memToValue(load, asLLVMType(llvmContext, ValueType::valueTypeId)));                   \
@@ -562,7 +570,7 @@ void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 		auto memoryValue = valueToMem(value, llvmMemoryType);                                      \
 		auto store = irBuilder.CreateStore(memoryValue, pointer);                                  \
 		store->setVolatile(true);                                                                  \
-		store->setAlignment(1 << imm.alignmentLog2);                                               \
+		store->setAlignment(LLVM_ALIGNMENT(U64(1) << imm.alignmentLog2));                          \
 		store->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                            \
 	}
 EMIT_ATOMIC_LOAD_OP(i32, atomic_load, llvmContext.i32Type, 2, identity)

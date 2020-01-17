@@ -380,7 +380,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {functionIndexZExt});
 	llvm::LoadInst* biasedValueLoad = irBuilder.CreateLoad(elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
-	biasedValueLoad->setAlignment(sizeof(Uptr));
+	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
 	auto runtimeFunction = irBuilder.CreateIntToPtr(
 		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
 		llvmContext.i8PtrType);

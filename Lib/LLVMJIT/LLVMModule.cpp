@@ -413,9 +413,17 @@ Module::Module(const std::vector<U8>& objectBytes,
 	{
 		for(auto section : object->sections())
 		{
+#if LLVM_VERSION_MAJOR >= 10
+			llvm::Expected<llvm::StringRef> sectionNameOrError = section.getName();
+			if(sectionNameOrError)
+			{
+				const llvm::StringRef& sectionName = sectionNameOrError.get();
+#else
 			llvm::StringRef sectionName;
 			if(!section.getName(sectionName))
 			{
+#endif
+
 #if LLVM_VERSION_MAJOR >= 9
 				llvm::Expected<llvm::StringRef> sectionContentsOrError = section.getContents();
 				if(sectionContentsOrError)
@@ -765,7 +773,7 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 #if LAZY_PARSE_DWARF_LINE_INFO
 	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
-		llvm::object::SectionedAddress(address, llvm::object::SectionedAddress::UndefSection),
+		llvm::object::SectionedAddress{address, llvm::object::SectionedAddress::UndefSection},
 		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
 								  llvm::DINameKind::None));
 

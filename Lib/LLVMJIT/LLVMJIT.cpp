@@ -179,12 +179,14 @@ std::unique_ptr<llvm::TargetMachine> LLVMJIT::getTargetMachine(const TargetSpec&
 	llvm::Triple triple(targetSpec.triple);
 	llvm::SmallVector<std::string, 1> targetAttributes;
 
+#if LLVM_VERSION_MAJOR < 10
 	if(triple.getArch() == llvm::Triple::x86 || triple.getArch() == llvm::Triple::x86_64)
 	{
 		// Disable AVX-512 on X86 targets to workaround a LLVM backend bug:
 		// https://bugs.llvm.org/show_bug.cgi?id=43750
 		targetAttributes.push_back("-avx512f");
 	}
+#endif
 
 	return std::unique_ptr<llvm::TargetMachine>(
 		llvm::EngineBuilder().selectTarget(triple, "", targetSpec.cpu, targetAttributes));

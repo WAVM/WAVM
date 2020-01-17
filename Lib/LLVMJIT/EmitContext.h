@@ -13,6 +13,12 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
+#if LLVM_VERSION_MAJOR > 9
+#define LLVM_ALIGNMENT(alignment) llvm::MaybeAlign(alignment)
+#else
+#define LLVM_ALIGNMENT(alignment) alignment
+#endif
+
 namespace WAVM { namespace LLVMJIT {
 	// Code and state that is used for generating IR for both thunks and WASM functions.
 	struct EmitContext
@@ -37,7 +43,7 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			auto load = irBuilder.CreateLoad(
 				irBuilder.CreatePointerCast(pointer, valueType->getPointerTo()));
-			load->setAlignment(alignment);
+			load->setAlignment(LLVM_ALIGNMENT(alignment));
 			return load;
 		}
 
@@ -45,7 +51,7 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			auto store = irBuilder.CreateStore(
 				value, irBuilder.CreatePointerCast(pointer, value->getType()->getPointerTo()));
-			store->setAlignment(alignment);
+			store->setAlignment(LLVM_ALIGNMENT(alignment));
 		}
 
 		llvm::Value* getCompartmentAddress()

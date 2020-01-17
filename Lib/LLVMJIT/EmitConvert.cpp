@@ -13,6 +13,11 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Intrinsics.h>
+
+#if LLVM_VERSION_MAJOR >= 10
+#include <llvm/IR/IntrinsicsAArch64.h>
+#include <llvm/IR/IntrinsicsX86.h>
+#endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {

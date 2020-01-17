@@ -24,6 +24,11 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
+
+#if LLVM_VERSION_MAJOR >= 10
+#include <llvm/IR/IntrinsicsAArch64.h>
+#include <llvm/IR/IntrinsicsX86.h>
+#endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
@@ -308,7 +313,7 @@ static llvm::Value* quietNaN(EmitFunctionContext& context,
 							 llvm::Value* nan,
 							 llvm::Value* quietNaNMask)
 {
-#if 0
+#if LLVM_VERSION_MAJOR >= 10
 	// Converts a signaling NaN to a quiet NaN by adding zero to it.
 	return context.callLLVMIntrinsic({nan->getType()},
 									 llvm::Intrinsic::experimental_constrained_fadd,

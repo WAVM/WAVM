@@ -16,7 +16,9 @@
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS _Pragma("GCC diagnostic pop")
 #elif defined(_MSC_VER)
 // Disable all VC warnings in the LLVM headers
-#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(push, 0));
+#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
+	__pragma(warning(push, 0));                                                                    \
+	__pragma(warning(disable : 4702));
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
 #else
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
