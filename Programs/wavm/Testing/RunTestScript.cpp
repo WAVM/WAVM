@@ -494,13 +494,11 @@ static bool isResultInExpectedSet(const Value& result, const ResultSet& expected
 			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[0], expectedResultSet.f64x2[0])
 			   && isFloatResultInExpectedSet<F64>(result.v128.f64x2[1], expectedResultSet.f64x2[1]);
 
-	case ResultSet::Type::anyref:
-		return (result.type == ValueType::funcref || result.type == ValueType::anyref)
-			   && result.object == expectedResultSet.object;
-	case ResultSet::Type::funcref:
-		return (result.type == ValueType::funcref || result.type == ValueType::anyref)
-			   && result.function == expectedResultSet.function;
-	case ResultSet::Type::nullref: return isReferenceType(result.type) && !result.object;
+	case ResultSet::Type::specificObject:
+		return isReferenceType(result.type) && result.object == expectedResultSet.object;
+	case ResultSet::Type::anyFunction:
+		return isReferenceType(result.type) && result.object
+			   && result.object->kind == ObjectKind::function;
 
 	default: WAVM_UNREACHABLE();
 	};
@@ -589,27 +587,21 @@ static std::string asString(const ResultSet& resultSet)
 		return string;
 	}
 
-	case ResultSet::Type::anyref: {
-		// buffer needs 31 characters:
-		// (ref.any <0xHHHHHHHHHHHHHHHH>)\0
-		char buffer[32];
-		snprintf(buffer,
-				 sizeof(buffer),
-				 "(ref.any <0x%.16" WAVM_PRIxPTR ">)",
-				 reinterpret_cast<Uptr>(resultSet.object));
-		return std::string(buffer);
+	case ResultSet::Type::specificObject: {
+		if(resultSet.object == nullptr) { return "(ref.null)"; }
+		else
+		{
+			// buffer needs 31 characters:
+			// (ref.any <0xHHHHHHHHHHHHHHHH>)\0
+			char buffer[32];
+			snprintf(buffer,
+					 sizeof(buffer),
+					 "(ref.any <0x%.16" WAVM_PRIxPTR ">)",
+					 reinterpret_cast<Uptr>(resultSet.object));
+			return std::string(buffer);
+		}
 	}
-	case ResultSet::Type::funcref: {
-		// buffer needs 32 characters:
-		// (ref.func <0xHHHHHHHHHHHHHHHH>)\0
-		char buffer[32];
-		snprintf(buffer,
-				 sizeof(buffer),
-				 "(ref.func <0x%.16" WAVM_PRIxPTR ">)",
-				 reinterpret_cast<Uptr>(resultSet.function));
-		return std::string(buffer);
-	}
-	case ResultSet::Type::nullref: return "(ref.null)";
+	case ResultSet::Type::anyFunction: return "(ref.func)";
 
 	default: WAVM_UNREACHABLE();
 	};
@@ -670,15 +662,15 @@ static ResultSet asResultSet(const Value& value, ResultSet::Type expectedType)
 			memcpy(resultSet.i8x16, value.v128.i8x16, sizeof(V128));
 			break;
 		case ValueType::anyref:
-			resultSet.type = ResultSet::Type::anyref;
+			resultSet.type = ResultSet::Type::specificObject;
 			resultSet.object = value.object;
 			break;
 		case ValueType::funcref:
-			resultSet.type = ResultSet::Type::funcref;
-			resultSet.function = value.function;
+			resultSet.type = ResultSet::Type::specificObject;
+			resultSet.object = asObject(value.function);
 			break;
 		case ValueType::nullref:
-			resultSet.type = ResultSet::Type::nullref;
+			resultSet.type = ResultSet::Type::specificObject;
 			resultSet.object = nullptr;
 			break;
 
