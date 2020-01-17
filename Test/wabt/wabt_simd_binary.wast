@@ -373,9 +373,7 @@
 (assert_return (invoke "f64x2_sub_0") (v128.const i32x4 0x00000000 0x40935000 0x00000000 0xfff80000))
 
 ;; These tests should accept any NaN, but there isn't a good way to match that in one vector element:
-;;(assert_return (invoke "f32x4_div_0") (v128.const i32x4 0x7fc00000 0xffc00000 0x3fc00000 0xc0000000))
-  (assert_return (invoke "f32x4_div_0") (v128.const i32x4 0x7fc00000 0x7fc00000 0x3fc00000 0xc0000000))
-;;(assert_return (invoke "f32x4_mul_0") (v128.const i32x4 0x80000000 0xffc00000 0x3fc00000 0xc0900000))
-  (assert_return (invoke "f32x4_mul_0") (v128.const i32x4 0x80000000 0x7fc00000 0x3fc00000 0xc0900000))
-(assert_return (invoke "f64x2_div_0") (v128.const i32x4 0x00000000 0x3ff80000 0x00000000 0xc0000000))
-(assert_return (invoke "f64x2_mul_0") (v128.const i32x4 0x00000000 0x3ff80000 0x00000000 0xc0120000))
+(assert_return (invoke "f32x4_div_0") (v128.const f32x4 nan:canonical nan:canonical 1.5 -2))
+(assert_return (invoke "f32x4_mul_0") (v128.const f32x4 -0.0 nan:canonical 1.5 -4.5))
+(assert_return (invoke "f64x2_div_0") (v128.const f32x4 0x00000000 1.9375 0x00000000 -2))
+(assert_return (invoke "f64x2_mul_0") (v128.const f32x4 0x00000000 1.9375 0x00000000 -2.28125))
