@@ -78,11 +78,20 @@ else()
 		# Check whether __sanitizer_print_memory_profile is defined in sanitizer/common_interface_defs.h
 		set(CMAKE_REQUIRED_FLAGS_SAVED ${CMAKE_REQUIRED_FLAGS})
 		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fsanitize=address")
-		check_symbol_exists(__sanitizer_print_memory_profile sanitizer/common_interface_defs.h HAS_SANITIZER_PRINT_MEMORY_PROFILE)
+		check_c_source_compiles(
+			"#include <sanitizer/common_interface_defs.h>\n\
+			void main() { __sanitizer_print_memory_profile(100); }"
+			HAS_SANITIZER_PRINT_MEMORY_PROFILE_1)
+		check_c_source_compiles(
+			"#include <sanitizer/common_interface_defs.h>\n\
+			void main() { __sanitizer_print_memory_profile(100, 20); }"
+			HAS_SANITIZER_PRINT_MEMORY_PROFILE_2)
 		set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_SAVED})
 
-		if(HAS_SANITIZER_PRINT_MEMORY_PROFILE)
-			list(APPEND PLATFORM_PRIVATE_DEFINITIONS "HAS_SANITIZER_PRINT_MEMORY_PROFILE")
+		if(HAS_SANITIZER_PRINT_MEMORY_PROFILE_2)
+			list(APPEND PLATFORM_PRIVATE_DEFINITIONS "HAS_SANITIZER_PRINT_MEMORY_PROFILE_2")
+		elseif(HAS_SANITIZER_PRINT_MEMORY_PROFILE_1)
+			list(APPEND PLATFORM_PRIVATE_DEFINITIONS "HAS_SANITIZER_PRINT_MEMORY_PROFILE_1")
 		endif()
 	endif()
 
