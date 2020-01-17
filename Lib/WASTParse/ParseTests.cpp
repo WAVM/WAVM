@@ -14,7 +14,6 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
-#include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/TestScript.h"
@@ -239,7 +238,7 @@ static ResultSet parseResultSet(CursorState* cursor)
 		case t_ref_host: {
 			++cursor->nextToken;
 			result.type = ResultSet::Type::specificObject;
-			result.object = Runtime::asObject(makeHostRef(parseU32(cursor)));
+			result.object = &makeHostRef(parseU32(cursor))->object;
 			break;
 		}
 		case t_ref_func: {
