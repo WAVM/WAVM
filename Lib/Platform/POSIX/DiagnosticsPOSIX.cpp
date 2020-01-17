@@ -97,7 +97,7 @@ void Platform::printMemoryProfile()
 	__sanitizer_print_memory_profile(100, 20);
 #endif
 	printf("Committed virtual pages: %" PRIuPTR " KB\n",
-		   numCommittedPageBytes.load(std::memory_order_seq_cst) / 1024);
+		   uintptr_t(numCommittedPageBytes.load(std::memory_order_seq_cst) / 1024));
 	fflush(stdout);
 }
 
