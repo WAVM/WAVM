@@ -436,12 +436,12 @@
 /* v128 conversions                                                                                                                                           */ \
 	visitOp(0xfdab, i32x4_trunc_sat_f32x4_s   , "i32x4.trunc_sat_f32x4_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdac, i32x4_trunc_sat_f32x4_u   , "i32x4.trunc_sat_f32x4_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdad, i64x2_trunc_sat_f64x2_s   , "i64x2.trunc_sat_f64x2_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdae, i64x2_trunc_sat_f64x2_u   , "i64x2.trunc_sat_f64x2_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+/*	visitOp(0xfdad, i64x2_trunc_sat_f64x2_s   , "i64x2.trunc_sat_f64x2_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
+/*	visitOp(0xfdae, i64x2_trunc_sat_f64x2_u   , "i64x2.trunc_sat_f64x2_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
 	visitOp(0xfdaf, f32x4_convert_i32x4_s     , "f32x4.convert_i32x4_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdb0, f32x4_convert_i32x4_u     , "f32x4.convert_i32x4_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdb1, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdb2, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+/*	visitOp(0xfdb1, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
+/*	visitOp(0xfdb2, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
 /* v128 shuffles                                                                                                                                              */ \
 	visitOp(0xfdc0, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc1, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \

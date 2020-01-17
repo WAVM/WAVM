@@ -9,7 +9,7 @@
 (module
   (global $a (import "M" "a") v128)
   (global $b (import "M" "b") (mut v128))
-  
+
   (global $c v128       (global.get $a))
   (global $d v128       (v128.const i32x4 8 9 10 11))
   (global $e (mut v128) (global.get $a))
@@ -294,14 +294,14 @@
 		(v128.const i8x16  15  14  13  12  11  10   9   8   7   6   5   4   3   2   1   0)
 		)
 	(v128.const i8x16     115 114 113 112 111 110 109 108 107 106 105 104 103 102 101 100))
-	
+
 (assert_return
 	(invoke "v8x16.swizzle"
 		(v128.const i8x16 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115)
 		(v128.const i8x16  -1   1  -2   2  -3   3  -4   4  -5   5  -6   6  -7   7  -8   8)
 		)
 	(v128.const i8x16       0 101   0 102   0 103   0 104   0 105   0 106   0 107   0 108))
-	
+
 (assert_return
 	(invoke "v8x16.swizzle"
 		(v128.const i8x16 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115)
@@ -583,8 +583,6 @@
 (module
   (func (export "f32x4.convert_i32x4_s") (param $a v128) (result v128) (f32x4.convert_i32x4_s (local.get $a)))
   (func (export "f32x4.convert_i32x4_u") (param $a v128) (result v128) (f32x4.convert_i32x4_u (local.get $a)))
-  (func (export "f64x2.convert_i64x2_s") (param $a v128) (result v128) (f64x2.convert_i64x2_s (local.get $a)))
-  (func (export "f64x2.convert_i64x2_u") (param $a v128) (result v128) (f64x2.convert_i64x2_u (local.get $a)))
 )
 
 ;; i32x4.trunc_sat_f32x4_s
@@ -606,15 +604,15 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const 2.0))
   (v128.const i32x4 2 2 2 2))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -1.0))
   (v128.const i32x4 -1 -1 -1 -1))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -1.9))
   (v128.const i32x4 -1 -1 -1 -1))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -2))
   (v128.const i32x4 -2 -2 -2 -2))
@@ -630,11 +628,11 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -3000000000.0))
   (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -inf))
   (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +inf))
   (v128.const i32x4 2147483647 2147483647 2147483647 2147483647))
@@ -642,11 +640,11 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const nan:0x444444))
   (v128.const i32x4 0 0 0 0))
@@ -670,7 +668,7 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const 2.0))
   (v128.const i32x4 2 2 2 2))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -1.0))
   (v128.const i32x4 0 0 0 0))
@@ -678,15 +676,15 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -2.0))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -2147483648.0))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -inf))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const +inf))
   (v128.const i32x4 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
@@ -694,22 +692,15 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const +nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const nan:0x444444))
   (v128.const i32x4 0 0 0 0))
 
-;; i64x2.trunc_sat_f64x2_s
-
-(module (func (export "i64x2.trunc_sat_f64x2_s") (param $a f64) (result v128) (i64x2.trunc_sat_f64x2_s (f64x2.splat (local.get $a)))))
-
-;; i64x2.trunc_sat_f64x2_u
-
-(module (func (export "i64x2.trunc_sat_f64x2_u") (param $a f64) (result v128) (i64x2.trunc_sat_f64x2_u (f64x2.splat (local.get $a)))))
 
 ;; Test that LLVM undef isn't introduced by SIMD shifts greater than the scalar width.
 
