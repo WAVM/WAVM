@@ -191,24 +191,6 @@
     v128.const i32x4 0x00000001 0x00000002 0x00000000 0x00000003
     f32x4.convert_i32x4_u)
 
-  ;; f64x2 convert_i64x2_s
-  ;; For Double num:
-  ;; 1.0 = 0x3ff0000000000000  -3.0 = 0xc008000000000000
-  ;; test is:   [   1,   -3]
-  ;; expect is: [ 1.0, -3.0]
-  (func (export "f64x2_convert_i64x2_s_0") (result v128)
-    v128.const i32x4 0x00000001 0x00000000 0xfffffffd 0xffffffff
-    f64x2.convert_i64x2_s)
-
-  ;; f64x2 convert_i64x2_u
-  ;; For Double num:
-  ;; 1.0 = 0x3ff0000000000000 3.0 = 0x4008000000000000
-  ;; test is:   [   1,   3]
-  ;; expect is: [ 1.0, 3.0]
-  (func (export "f64x2_convert_i64x2_u_0") (result v128)
-    v128.const i32x4 0x00000001 0x00000000 0x00000003 0x00000000
-    f64x2.convert_i64x2_u)
-
   ;; i32x4 trunc_sat_f32x4_s
   ;; For Floating num:
   ;; 0xffc00000 is a NaN.
@@ -230,26 +212,6 @@
   (func (export "i32x4_trunc_sat_f32x4_u_0") (result v128)
     v128.const i32x4 0x3fc00000 0x40900000 0xffc00000 0x449a599a
     i32x4.trunc_sat_f32x4_u)
-
-  ;; i64x2 trunc_sat_f64x2_s
-  ;; For Floating num:
-  ;; 0xfff8000000000000 is a NaN.
-  ;; -4.5 = 0xc012000000000000
-  ;; test is:   [ NaN, -4.5]
-  ;; expect is: [   0,   -4]
-  (func (export "i64x2_trunc_sat_f64x2_s_0") (result v128)
-    v128.const i32x4 0x00000000 0xfff80000 0x00000000 0xc0120000
-    i64x2.trunc_sat_f64x2_s)
-
-  ;; i64x2 trunc_sat_f64x2_u
-  ;; For Floating num:
-  ;; 0xfff8000000000000 is a NaN.
-  ;; 4.5 = 0x4012000000000000
-  ;; test is:   [ NaN, 4.5]
-  ;; expect is: [   0,   4]
-  (func (export "i64x2_trunc_sat_f64x2_u_0") (result v128)
-    v128.const i32x4 0x00000000 0xfff80000 0x00000000 0x40120000
-    i64x2.trunc_sat_f64x2_u)
 )
 
 (assert_return (invoke "i8x16_neg_0") (v128.const i32x4 0x000000ff 0x000000fe 0x000000fd 0x000000fc))
@@ -284,9 +246,5 @@
 (assert_return (invoke "f64x2_sqrt_1") (v128.const i32x4 0x00000000 0x40000000 0x00000000 0x40080000))
 (assert_return (invoke "f32x4_convert_i32x4_s_0") (v128.const i32x4 0x3f800000 0xbf800000 0x00000000 0x40400000))
 (assert_return (invoke "f32x4_convert_i32x4_u_0") (v128.const i32x4 0x3f800000 0x40000000 0x00000000 0x40400000))
-(assert_return (invoke "f64x2_convert_i64x2_s_0") (v128.const i32x4 0x00000000 0x3ff00000 0x00000000 0xc0080000))
-(assert_return (invoke "f64x2_convert_i64x2_u_0") (v128.const i32x4 0x00000000 0x3ff00000 0x00000000 0x40080000))
 (assert_return (invoke "i32x4_trunc_sat_f32x4_s_0") (v128.const i32x4 0x00000001 0xfffffffc 0x00000000 0x000004d2))
 (assert_return (invoke "i32x4_trunc_sat_f32x4_u_0") (v128.const i32x4 0x00000001 0x00000004 0x00000000 0x000004d2))
-(assert_return (invoke "i64x2_trunc_sat_f64x2_s_0") (v128.const i32x4 0x00000000 0x00000000 0xfffffffc 0xffffffff))
-(assert_return (invoke "i64x2_trunc_sat_f64x2_u_0") (v128.const i32x4 0x00000000 0x00000000 0x00000004 0x00000000))

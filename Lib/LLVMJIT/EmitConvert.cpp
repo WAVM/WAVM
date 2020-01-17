@@ -50,12 +50,6 @@ EMIT_UNARY_OP(f32x4_convert_i32x4_s,
 EMIT_UNARY_OP(f32x4_convert_i32x4_u,
 			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmContext.i32x4Type),
 									 llvmContext.f32x4Type));
-EMIT_UNARY_OP(f64x2_convert_i64x2_s,
-			  irBuilder.CreateSIToFP(irBuilder.CreateBitCast(operand, llvmContext.i64x2Type),
-									 llvmContext.f64x2Type));
-EMIT_UNARY_OP(f64x2_convert_i64x2_u,
-			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmContext.i64x2Type),
-									 llvmContext.f64x2Type));
 
 EMIT_UNARY_OP(f32_demote_f64, irBuilder.CreateFPTrunc(operand, llvmContext.f32Type))
 EMIT_UNARY_OP(f64_promote_f32, emitF64Promote(operand))
@@ -296,28 +290,6 @@ EMIT_UNARY_OP(
 												U32(0),
 												irBuilder.CreateBitCast(operand,
 																		llvmContext.f32x4Type)))
-EMIT_UNARY_OP(
-	i64x2_trunc_sat_f64x2_s,
-	(emitTruncVectorFloatToIntSat<I64, F64, 2>)(llvmContext.i64x2Type,
-												true,
-												F64(INT64_MIN),
-												F64(INT64_MAX),
-												INT64_MIN,
-												INT64_MAX,
-												I64(0),
-												irBuilder.CreateBitCast(operand,
-																		llvmContext.f64x2Type)))
-EMIT_UNARY_OP(
-	i64x2_trunc_sat_f64x2_u,
-	(emitTruncVectorFloatToIntSat<U64, F64, 2>)(llvmContext.i64x2Type,
-												false,
-												0.0,
-												F64(UINT64_MAX),
-												U64(0),
-												UINT64_MAX,
-												U64(0),
-												irBuilder.CreateBitCast(operand,
-																		llvmContext.f64x2Type)))
 
 EMIT_UNARY_OP(i32_extend8_s, sext(trunc(operand, llvmContext.i8Type), llvmContext.i32Type))
 EMIT_UNARY_OP(i32_extend16_s, sext(trunc(operand, llvmContext.i16Type), llvmContext.i32Type))
