@@ -74,6 +74,18 @@ else()
 		list(APPEND PLATFORM_PRIVATE_DEFINITIONS "HAS_UTIMENSAT")
 	endif()
 
+	if(WAVM_ENABLE_ASAN)
+		# Check whether __sanitizer_print_memory_profile is defined in sanitizer/common_interface_defs.h
+		set(CMAKE_REQUIRED_FLAGS_SAVED ${CMAKE_REQUIRED_FLAGS})
+		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fsanitize=address")
+		check_symbol_exists(__sanitizer_print_memory_profile sanitizer/common_interface_defs.h HAS_SANITIZER_PRINT_MEMORY_PROFILE)
+		set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_SAVED})
+
+		if(HAS_SANITIZER_PRINT_MEMORY_PROFILE)
+			list(APPEND PLATFORM_PRIVATE_DEFINITIONS "HAS_SANITIZER_PRINT_MEMORY_PROFILE")
+		endif()
+	endif()
+
 	set(Sources ${POSIXSources})
 	set(NonCompiledSources ${WindowsSources} ${Win32Sources} ${Win64Sources})
 

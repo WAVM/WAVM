@@ -12,8 +12,8 @@
 #include "libunwind.h"
 #endif
 
-#if WAVM_ENABLE_ASAN
-#include "sanitizer/common_interface_defs.h"
+#if WAVM_ENABLE_ASAN && defined(HAS_SANITIZER_PRINT_MEMORY_PROFILE)
+#include <sanitizer/common_interface_defs.h>
 #endif
 
 using namespace WAVM;
@@ -93,7 +93,7 @@ static std::atomic<Uptr> numCommittedPageBytes{0};
 
 void Platform::printMemoryProfile()
 {
-#if WAVM_ENABLE_ASAN
+#if WAVM_ENABLE_ASAN && defined(HAS_SANITIZER_PRINT_MEMORY_PROFILE)
 	__sanitizer_print_memory_profile(100, 20);
 #endif
 	printf("Committed virtual pages: %" PRIuPTR " KB\n",
