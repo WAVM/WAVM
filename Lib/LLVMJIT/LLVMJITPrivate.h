@@ -379,6 +379,7 @@ namespace WAVM { namespace LLVMJIT {
 	{
 		HashMap<std::string, Runtime::Function*> nameToFunctionMap;
 		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
+		std::string debugName;
 
 #if LAZY_PARSE_DWARF_LINE_INFO
 		Platform::Mutex dwarfContextMutex;
@@ -387,7 +388,8 @@ namespace WAVM { namespace LLVMJIT {
 
 		Module(const std::vector<U8>& inObjectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
-			   bool shouldLogMetrics);
+			   bool shouldLogMetrics,
+			   std::string&& inDebugName);
 		~Module();
 
 	private:

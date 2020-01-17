@@ -122,7 +122,8 @@ namespace WAVM { namespace LLVMJIT {
 		std::vector<ExceptionTypeBinding>&& exceptionTypes,
 		InstanceBinding instance,
 		Uptr tableReferenceBias,
-		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);
+		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas,
+		std::string&& debugName);
 
 	struct InstructionSource
 	{

@@ -314,8 +314,10 @@ private:
 
 Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
-			   bool shouldLogMetrics)
-: memoryManager(new ModuleMemoryManager())
+			   bool shouldLogMetrics,
+			   std::string&& inDebugName)
+: debugName(std::move(inDebugName))
+, memoryManager(new ModuleMemoryManager())
 , globalModuleState(GlobalModuleState::get())
 #if LLVM_VERSION_MAJOR < 8
 , objectBytes(objectBytes)
@@ -591,8 +593,10 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	if(shouldLogMetrics)
 	{
-		Timing::logRatePerSecond(
-			"Loaded object", loadObjectTimer, (F64)objectBytes.size() / 1024.0 / 1024.0, "MiB");
+		Timing::logRatePerSecond((std::string("Loaded ") + debugName).c_str(),
+								 loadObjectTimer,
+								 (F64)objectBytes.size() / 1024.0 / 1024.0,
+								 "MiB");
 	}
 }
 
@@ -636,7 +640,8 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	std::vector<ExceptionTypeBinding>&& exceptionTypes,
 	InstanceBinding instance,
 	Uptr tableReferenceBias,
-	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas)
+	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas,
+	std::string&& debugName)
 {
 	// Bind undefined symbols in the compiled object to values.
 	HashMap<std::string, Uptr> importedSymbolMap;
@@ -747,7 +752,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 #endif
 
 	// Load the module.
-	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true);
+	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true, std::move(debugName));
 }
 
 bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& outSource)
