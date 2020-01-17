@@ -202,14 +202,16 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 	process->compartment = compartment;
 	setUserData(process->compartment, process.get(), nullptr);
 
-	process->resolver.moduleNameToInstanceMap.set(
-		"wasi_unstable",
-		Intrinsics::instantiateModule(compartment,
-									  {WAVM_INTRINSIC_MODULE_REF(wasi),
-									   WAVM_INTRINSIC_MODULE_REF(wasiArgsEnvs),
-									   WAVM_INTRINSIC_MODULE_REF(wasiClocks),
-									   WAVM_INTRINSIC_MODULE_REF(wasiFile)},
-									  "wasi_unstable"));
+	Instance* wasi_snapshot_preview1
+		= Intrinsics::instantiateModule(compartment,
+										{WAVM_INTRINSIC_MODULE_REF(wasi),
+										 WAVM_INTRINSIC_MODULE_REF(wasiArgsEnvs),
+										 WAVM_INTRINSIC_MODULE_REF(wasiClocks),
+										 WAVM_INTRINSIC_MODULE_REF(wasiFile)},
+										"wasi_snapshot_preview1");
+
+	process->resolver.moduleNameToInstanceMap.set("wasi_unstable", wasi_snapshot_preview1);
+	process->resolver.moduleNameToInstanceMap.set("wasi_snapshot_preview1", wasi_snapshot_preview1);
 
 	__wasi_rights_t stdioRights = __WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
 								  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
