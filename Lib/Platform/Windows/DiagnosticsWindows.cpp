@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
@@ -166,3 +167,16 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 	// Unwind the stack.
 	return unwindStack(context, numOmittedFramesFromTop + 1);
 }
+
+static std::atomic<Uptr> numCommittedPageBytes{0};
+
+void Platform::printMemoryProfile()
+{
+	printf("Committed virtual pages: %" PRIuPTR " KB\n",
+		   numCommittedPageBytes.load(std::memory_order_seq_cst) / 1024);
+	fflush(stdout);
+}
+
+void Platform::registerVirtualAllocation(Uptr numBytes) { numCommittedPageBytes += numBytes; }
+
+void Platform::deregisterVirtualAllocation(Uptr numBytes) { numCommittedPageBytes -= numBytes; }

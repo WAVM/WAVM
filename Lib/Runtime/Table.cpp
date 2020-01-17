@@ -138,6 +138,8 @@ static GrowResult growTableImpl(Table* table,
 			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
 			return GrowResult::outOfMemory;
 		}
+		Platform::registerVirtualAllocation((newNumPlatformPages - previousNumPlatformPages)
+											<< Platform::getBytesPerPageLog2());
 
 		if(initializeNewElements)
 		{
@@ -272,6 +274,10 @@ Table::~Table()
 	{
 		Platform::freeVirtualPages((U8*)elements,
 								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
+
+		Platform::deregisterVirtualAllocation(
+			getNumPlatformPages(numElements * sizeof(Table::Element))
+			<< Platform::getBytesPerPageLog2());
 	}
 
 	// Free the allocated quota.

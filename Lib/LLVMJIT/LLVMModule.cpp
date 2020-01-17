@@ -108,6 +108,8 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			// that might erroneously remain.
 			Platform::decommitVirtualPages(imageBaseAddress, numAllocatedImagePages);
 		}
+		Platform::deregisterVirtualAllocation(numAllocatedImagePages
+											  << Platform::getBytesPerPageLog2());
 	}
 
 	void registerEHFrames(U8* addr, U64 loadAddr, uintptr_t numBytes) override
@@ -164,6 +166,8 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			if(!imageBaseAddress
 			   || !Platform::commitVirtualPages(imageBaseAddress, numAllocatedImagePages))
 			{ Errors::fatal("memory allocation for JIT code failed"); }
+			Platform::registerVirtualAllocation(numAllocatedImagePages
+												<< Platform::getBytesPerPageLog2());
 			codeSection.baseAddress = imageBaseAddress;
 			readOnlySection.baseAddress
 				= codeSection.baseAddress
@@ -236,6 +240,10 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	{
 		return numAllocatedImagePages << Platform::getBytesPerPageLog2();
 	}
+
+	Uptr getNumCodeBytes() const { return codeSection.numCommittedBytes; }
+	Uptr getNumReadOnlyBytes() const { return readOnlySection.numCommittedBytes; }
+	Uptr getNumReadWriteBytes() const { return readWriteSection.numCommittedBytes; }
 
 	const llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>>& getSectionNameToContentsMap() const
 	{
@@ -597,6 +605,11 @@ Module::Module(const std::vector<U8>& objectBytes,
 								 loadObjectTimer,
 								 (F64)objectBytes.size() / 1024.0 / 1024.0,
 								 "MiB");
+		Log::printf(Log::Category::metrics,
+					"Code: %.1f KiB, read-only data: %.1f KiB, read-write data: %.1f KiB\n",
+					memoryManager->getNumCodeBytes() / 1024.0,
+					memoryManager->getNumReadOnlyBytes() / 1024.0,
+					memoryManager->getNumReadWriteBytes() / 1024.0);
 	}
 }
 

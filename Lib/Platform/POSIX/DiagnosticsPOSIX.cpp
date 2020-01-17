@@ -1,5 +1,7 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
+#include <stdio.h>
+#include <atomic>
 #include <string>
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
@@ -8,6 +10,10 @@
 #if WAVM_ENABLE_UNWIND
 #define UNW_LOCAL_ONLY
 #include "libunwind.h"
+#endif
+
+#if WAVM_ENABLE_ASAN
+#include "sanitizer/common_interface_defs.h"
 #endif
 
 using namespace WAVM;
@@ -82,3 +88,19 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 #endif
 	return false;
 }
+
+static std::atomic<Uptr> numCommittedPageBytes{0};
+
+void Platform::printMemoryProfile()
+{
+#if WAVM_ENABLE_ASAN
+	__sanitizer_print_memory_profile(100, 20);
+#endif
+	printf("Committed virtual pages: %" PRIuPTR " KB\n",
+		   numCommittedPageBytes.load(std::memory_order_seq_cst) / 1024);
+	fflush(stdout);
+}
+
+void Platform::registerVirtualAllocation(Uptr numBytes) { numCommittedPageBytes += numBytes; }
+
+void Platform::deregisterVirtualAllocation(Uptr numBytes) { numCommittedPageBytes -= numBytes; }

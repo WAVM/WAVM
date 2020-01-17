@@ -34,6 +34,7 @@ Runtime::Compartment::Compartment(std::string&& inDebugName)
 	WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
 		(U8*)runtimeData,
 		offsetof(CompartmentRuntimeData, contexts) >> Platform::getBytesPerPageLog2()));
+	Platform::registerVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
 
 	runtimeData->compartment = this;
 }
@@ -54,6 +55,7 @@ Runtime::Compartment::~Compartment()
 		unalignedRuntimeData,
 		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
 		compartmentRuntimeDataAlignmentLog2);
+	Platform::deregisterVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
 	runtimeData = nullptr;
 	unalignedRuntimeData = nullptr;
 }
