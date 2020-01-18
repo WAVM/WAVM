@@ -453,12 +453,12 @@ static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)
 template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<numLanes>& outImm)
 {
 	const I8 laneIndex = parseI8(cursor);
-	if(laneIndex < 0 || Uptr(laneIndex) > numLanes)
+	if(laneIndex < 0 || Uptr(laneIndex) >= numLanes)
 	{
 		parseErrorf(cursor->parseState,
 					cursor->nextToken - 1,
 					"lane index must be in the range 0..%" WAVM_PRIuPTR,
-					numLanes);
+					numLanes - 1);
 	}
 	outImm.laneIndex = laneIndex;
 }
@@ -473,7 +473,7 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<num
 			parseErrorf(cursor->parseState,
 						cursor->nextToken - 1,
 						"lane index must be in the range 0..%" WAVM_PRIuPTR,
-						numLanes * 2);
+						numLanes * 2 - 1);
 		}
 		outImm.laneIndices[destLaneIndex] = sourceLaneIndex;
 	}
