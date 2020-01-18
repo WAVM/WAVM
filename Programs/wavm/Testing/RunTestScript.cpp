@@ -1440,12 +1440,10 @@ int execRunTestScript(int argc, char** argv)
 		else if(!strcmp(argv[argIndex], "--strict-assert-invalid"))
 		{
 			config.strictAssertInvalid = true;
-			++argIndex;
 		}
 		else if(!strcmp(argv[argIndex], "--strict-assert-malformed"))
 		{
 			config.strictAssertMalformed = true;
-			++argIndex;
 		}
 		else if(!strcmp(argv[argIndex], "--test-cloning"))
 		{
