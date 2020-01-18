@@ -71,91 +71,91 @@
 
 ;; Custom sections after non-present virtual sections
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "b" (after type) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "c" (after import) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "d" (after func) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "e" (after table) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "f" (after memory) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "g" (after global) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "h" (after exception_type) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "i" (after export) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "j" (after start) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "j" (after elem) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "k" (after data_count) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "l" (after code) "")
   )
   "custom section is after a virtual section that is not present"
 )
 
-(assert_invalid
+(assert_malformed
   (module
     (custom_section "m" (after data) "")
   )

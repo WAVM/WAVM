@@ -318,7 +318,7 @@
 (assert_return (invoke "(br_table)") (i32.const 5000))
 
 
-(assert_invalid (module
+(assert_malformed (module
 	(func (export "(block)") (result i32)
 		(block (block (block (block (block (block (block (block (block (block
 		(block (block (block (block (block (block (block (block (block (block
@@ -383,7 +383,7 @@
 	)
 ) "exceeded maximum recursion depth")
 
-(assert_invalid (module
+(assert_malformed (module
 	(func (export "(loop)") (result i32)
 		(loop (loop (loop (loop (loop (loop (loop (loop (loop (loop
 		(loop (loop (loop (loop (loop (loop (loop (loop (loop (loop
@@ -448,7 +448,7 @@
 	)
 ) "exceeded maximum recursion depth")
 
-(assert_invalid (module
+(assert_malformed (module
 	(func (export "block") (result i32)
 		block block block block block block block block block block
 		block block block block block block block block block block
@@ -513,7 +513,7 @@
 	)
 ) "exceeded maximum recursion depth")
 
-(assert_invalid (module
+(assert_malformed (module
 	(func (export "loop") (result i32)
 		loop loop loop loop loop loop loop loop loop loop
 		loop loop loop loop loop loop loop loop loop loop
@@ -578,7 +578,7 @@
 	)
 ) "exceeded maximum recursion depth")
 
-(assert_invalid (module
+(assert_malformed (module
 	(func (export "(br_table)") (result i32)
 		(br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0
 		(br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0 (br_table 0

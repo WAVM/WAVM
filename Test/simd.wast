@@ -65,7 +65,7 @@
   "\0b"                ;; end
 )
 
-(assert_invalid
+(assert_malformed
   (module binary
     "\00asm"
     "\01\00\00\00"       ;; 1 section
@@ -773,24 +773,24 @@
 (module (func (result v128) (v128.const f32x4 0 1 2 3)))
 (module (func (result v128) (v128.const f32x4 0 1 2 -0x1.0p+10)))
 
-(assert_invalid
+(assert_malformed
   (module (func (result v128) (v128.const i32x4 0.0 1.0 2.0 3.0)))
   "expected i32 literal"
 )
 
-(assert_invalid
+(assert_malformed
   (module (func (result v128) (v128.const i32 0 1 2 3)))
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
-(assert_invalid
+(assert_malformed
   (module (func (result v128) (v128.const i16x4 0 1 2 3)))
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
-(assert_invalid
+(assert_malformed
   (module (func (result v128) (v128.const f32 0 1 2 3)))
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
-(assert_invalid
+(assert_malformed
   (module (func (result v128) (v128.const 0 1 2 3)))
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )

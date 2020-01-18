@@ -46,7 +46,7 @@ ADD_WAST_TESTS(
 			trunc_sat.wast
 			wat_custom_section.wast
 			wavm_atomic.wast
-	WAVM_ARGS "--test-cloning")
+	WAVM_ARGS "--test-cloning" "--strict-assert-invalid" "--strict-assert-malformed")
 
 if(WAVM_ENABLE_RUNTIME)
 	# TODO: fix the memory leak in this test.

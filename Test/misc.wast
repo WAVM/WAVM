@@ -234,7 +234,7 @@
 	"error validating binary module: Expected non-empty control stack in select"
 	)
 
-(assert_invalid
+(assert_malformed
 	(module binary
 		"\00\61\73\6d\01\00\00\00\01\84\00\01\60\00\00\03"
 		"\84\00\03\00\00\00\0a\aa\00\03\87\80\80\80\00\02"
@@ -256,7 +256,7 @@
 	"error validating binary module: Expected non-empty control stack in unreachable"
 	)
 
-(assert_invalid
+(assert_malformed
 	(module binary
 		"\00\61\73\6d\01\00\00\00\01\85\00\01\60\00\01\7f"
 		"\03\82\00\01\00\05\84\00\01\29\00\00\0a\ae\00\01"
@@ -267,7 +267,7 @@
 	"error validating binary module: invalid value type (210)"
 	)
 
-(assert_invalid
+(assert_malformed
 	(module binary
 		"\00\61\73\6d\01\00\00\00\01\88\80\80\80\00\01\60"
 		"\03\7f\7f\7f\01\7f\03\82\80\80\80\00\01\00\05\84"
@@ -327,7 +327,7 @@
 	"error validating binary module: Expected non-empty control stack in else"
 	)
 
-(assert_invalid
+(assert_malformed
 	(module binary
 		"\00\61\73\6d\01\00\00\00\01\88\80\80\80\00\01\60"
 		"\03\7f\7f\7f\01\7f\03\82\80\80\80\00\01\00\05\84"
@@ -348,7 +348,7 @@
 	"error validating binary module: invalid value type (0)"
 	)
 
-(assert_invalid
+(assert_malformed
 	(module binary
 		"\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\02"
 		"\01\00"
@@ -356,7 +356,7 @@
 	"error validating binary module: Serialized module contained function declarations, but no corresponding function definition section"
 	)
 
-(assert_invalid
+(assert_malformed
 	(module quote
 		"\80\61\73\6d\01\00\00\00\02\08\01\01\6d\01\66\03"
 		"\7f\00"
@@ -364,7 +364,7 @@
 	"expected '('"
 	)
 
-(assert_invalid
+(assert_malformed
 	(module quote
 		"\00"
 		)
