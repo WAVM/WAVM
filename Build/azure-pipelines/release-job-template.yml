@@ -47,8 +47,8 @@ jobs:
         mv Win64_VS2019_LTO/wavm-package.zip            release/wavm-$(VERSION)-windows.zip
         mv MacOS_StaticLTO/wavm-package.tar.gz          release/wavm-$(VERSION)-macos.tar.gz
         mv Ubuntu1604_Clang_LTO/wavm-package.deb        release/wavm-$(VERSION)-linux.deb
-        mv CentOS70_Clang_LTO/wavm-package.rpm          release/wavm-$(VERSION)-linux.rpm
-        mv CentOS70_Clang_StaticLTO/wavm-package.tar.gz release/wavm-$(VERSION)-linux.tar.gz
+        mv CentOS8x_Clang_LTO/wavm-package.rpm          release/wavm-$(VERSION)-linux.rpm
+        mv CentOS8x_Clang_StaticLTO/wavm-package.tar.gz release/wavm-$(VERSION)-linux.tar.gz
       displayName: Stage release artifacts
       workingDirectory: $(Build.ArtifactStagingDirectory)
 
