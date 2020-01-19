@@ -452,8 +452,8 @@ static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)
 
 template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<numLanes>& outImm)
 {
-	I8 laneIndex = parseI8(cursor);
-	if(laneIndex < 0 || Uptr(laneIndex) >= numLanes)
+	U8 laneIndex = parseU8(cursor);
+	if(Uptr(laneIndex) >= numLanes)
 	{
 		parseErrorf(cursor->parseState,
 					cursor->nextToken - 1,
@@ -468,8 +468,8 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<num
 {
 	for(Uptr destLaneIndex = 0; destLaneIndex < numLanes; ++destLaneIndex)
 	{
-		I8 sourceLaneIndex = parseI8(cursor);
-		if(sourceLaneIndex < 0 || Uptr(sourceLaneIndex) >= numLanes * 2)
+		U8 sourceLaneIndex = parseU8(cursor);
+		if(Uptr(sourceLaneIndex) >= numLanes * 2)
 		{
 			parseErrorf(cursor->parseState,
 						cursor->nextToken - 1,
