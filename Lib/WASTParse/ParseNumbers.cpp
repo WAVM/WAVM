@@ -451,6 +451,17 @@ bool WAST::tryParseUptr(CursorState* cursor, Uptr& outUptr)
 	return tryParseInt<Uptr>(cursor, outUptr, 0, UINTPTR_MAX);
 }
 
+U8 WAST::parseU8(CursorState* cursor)
+{
+	U8 result;
+	if(!tryParseInt<U8>(cursor, result, 0, 255))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected u8 literal");
+		throw RecoverParseException();
+	}
+	return result;
+}
+
 U32 WAST::parseU32(CursorState* cursor)
 {
 	U32 result;

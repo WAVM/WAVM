@@ -186,7 +186,7 @@
 
 ;; Test operation with empty argument
 
-(assert_invalid
+(assert_malformed
   (module
     (func $v128.const-arg-empty (result v128)
       (v128.const)
@@ -194,7 +194,7 @@
   )
   "type mismatch"
 )
-(assert_invalid
+(assert_malformed
   (module
     (func $v128.const-1st-arg-empty (result v128)
       (v128.const 0 0 0 0)
@@ -202,7 +202,7 @@
   )
   "type mismatch"
 )
-(assert_invalid
+(assert_malformed
   (module
     (func $v128.const-2nd-arg-empty (result v128)
       (v128.const i32x4)
