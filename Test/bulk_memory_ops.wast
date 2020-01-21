@@ -57,10 +57,10 @@
 ;; memory.init/data.drop
 
 (assert_malformed
-	(module
-		(memory $m 1)
-		(data "test")
-		(func (memory.init (i32.const 0) (i32.const 0) (i32.const 0)))
+	(module quote
+		"(memory $m 1)"
+		"(data \"test\")"
+		"(func (memory.init (i32.const 0) (i32.const 0) (i32.const 0)))"
 	)
 	"invalid data segment index"
 )
@@ -246,11 +246,11 @@
 (module (elem funcref (ref.func $f)) (func $f))
 (module (elem funcref (ref.null)))
 (assert_malformed
-	(module (table $t 1 funcref) (elem (i32.const 0) (ref.func $f)) (func $f))
+	(module quote "(table $t 1 funcref) (elem (i32.const 0) (ref.func $f)) (func $f)")
 	"unexpected expression"
 )
 (assert_malformed
-	(module (table $t 1 funcref) (elem (i32.const 0) funcref (unreachable)) (func $f))
+	(module quote "(table $t 1 funcref) (elem (i32.const 0) funcref (unreachable)) (func $f)")
 	"expected 'ref.func' or 'ref.null'"
 )
 

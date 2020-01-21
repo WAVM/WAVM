@@ -645,6 +645,17 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				ParseState malformedModuleParseState(outerParseState->string,
 													 outerParseState->lineInfo);
 
+				if(commandType == Command::assert_malformed
+				   && (cursor->nextToken[0].type != t_leftParenthesis
+					   || cursor->nextToken[1].type != t_module
+					   || (cursor->nextToken[2].type != t_quote
+						   && cursor->nextToken[2].type != t_binary)))
+				{
+					parseErrorf(
+						cursor->parseState, cursor->nextToken, "expected quoted or binary module");
+					throw RecoverParseException();
+				}
+
 				QuotedModuleType quotedModuleType = QuotedModuleType::none;
 				std::string quotedModuleString;
 				try
