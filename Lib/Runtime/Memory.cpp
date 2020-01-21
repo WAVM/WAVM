@@ -252,7 +252,7 @@ void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 }
 
 U8* Runtime::getMemoryBaseAddress(Memory* memory) { return memory->baseAddress; }
-u
+
 static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 											 U8* memoryBase,
 											 Uptr memoryNumBytes,
