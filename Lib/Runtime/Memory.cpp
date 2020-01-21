@@ -101,8 +101,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 	return memory;
 }
 
-Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
-{
+Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment, bool copyContents) {
 	Platform::RWMutex::ExclusiveLock resizingLock(memory->resizingMutex);
 	const Uptr numPages = memory->numPages.load(std::memory_order_acquire);
 	std::string debugName = memory->debugName;
@@ -111,7 +110,9 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 	if(!newMemory) { return nullptr; }
 
 	// Copy the memory contents to the new memory.
-	memcpy(newMemory->baseAddress, memory->baseAddress, numPages * IR::numBytesPerPage);
+	if(copyContents) {
+	    memcpy(newMemory->baseAddress, memory->baseAddress, numPages * IR::numBytesPerPage);
+	}
 
 	resizingLock.unlock();
 
@@ -251,7 +252,7 @@ void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 }
 
 U8* Runtime::getMemoryBaseAddress(Memory* memory) { return memory->baseAddress; }
-
+u
 static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 											 U8* memoryBase,
 											 Uptr memoryNumBytes,
