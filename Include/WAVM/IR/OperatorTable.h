@@ -503,9 +503,9 @@
 /* v128 ltz_mask                                                                                                                                              */ \
 	visitOp(0xfdf8, i8x16_ltz_mask            , "i8x16.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
 /* Atomic wait/wake                                                                                                                                           */ \
-	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
-	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
-	visitOp(0xfe02, i64_atomic_wait           , "i64.atomic.wait"           , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics                )   \
+	visitOp(0xfe00, memory_atomic_notify      , "memory.atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
+	visitOp(0xfe01, memory_atomic_wait32      , "memory.atomic.wait32"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
+	visitOp(0xfe02, memory_atomic_wait64      , "memory.atomic.wait64"           , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics                )   \
 /* Atomic fence                                                                                                                                               */ \
 	visitOp(0xfe03, atomic_fence              , "atomic.fence"              , AtomicFenceImm            , WAVM_NONE                 , atomics                )   \
 /* Atomic load/store                                                                                                                                          */ \

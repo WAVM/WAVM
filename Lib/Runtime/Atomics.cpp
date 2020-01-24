@@ -203,7 +203,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-							   "atomic_notify",
+							   "memory.atomic.notify",
 							   I32,
 							   atomic_notify,
 							   U32 address,
@@ -224,7 +224,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-							   "atomic_wait_i32",
+							   "memory.atomic.wait32",
 							   I32,
 							   atomic_wait_I32,
 							   U32 address,
@@ -246,7 +246,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-							   "atomic_wait_i64",
+							   "memory.atomic.wait64",
 							   I32,
 							   atomic_wait_i64,
 							   I32 address,

@@ -483,14 +483,14 @@ void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 align
 	}
 }
 
-void EmitFunctionContext::atomic_notify(AtomicLoadOrStoreImm<2> imm)
+void EmitFunctionContext::memory_atomic_notify(AtomicLoadOrStoreImm<2> imm)
 {
 	llvm::Value* numWaiters = pop();
 	llvm::Value* address = pop();
 	llvm::Value* boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);
 	trapIfMisalignedAtomic(boundedAddress, imm.alignmentLog2);
 	push(emitRuntimeIntrinsic(
-		"atomic_notify",
+		"memory.atomic.notify",
 		FunctionType(TypeTuple{ValueType::i32},
 					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64},
 					 IR::CallingConvention::intrinsic),
@@ -498,7 +498,7 @@ void EmitFunctionContext::atomic_notify(AtomicLoadOrStoreImm<2> imm)
 		 numWaiters,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
-void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
+void EmitFunctionContext::memory_atomic_wait32(AtomicLoadOrStoreImm<2> imm)
 {
 	llvm::Value* timeout = pop();
 	llvm::Value* expectedValue = pop();
@@ -506,7 +506,7 @@ void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
 	llvm::Value* boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);
 	trapIfMisalignedAtomic(boundedAddress, imm.alignmentLog2);
 	push(emitRuntimeIntrinsic(
-		"atomic_wait_i32",
+		"memory.atomic.wait32",
 		FunctionType(
 			TypeTuple{ValueType::i32},
 			TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64, inferValueType<Uptr>()},
@@ -516,7 +516,7 @@ void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
 		 timeout,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
-void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
+void EmitFunctionContext::memory_atomic_wait64(AtomicLoadOrStoreImm<3> imm)
 {
 	llvm::Value* timeout = pop();
 	llvm::Value* expectedValue = pop();
@@ -524,7 +524,7 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 	llvm::Value* boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);
 	trapIfMisalignedAtomic(boundedAddress, imm.alignmentLog2);
 	push(emitRuntimeIntrinsic(
-		"atomic_wait_i64",
+		"memory.atomic.wait64",
 		FunctionType(
 			TypeTuple{ValueType::i32},
 			TypeTuple{ValueType::i32, ValueType::i64, ValueType::i64, inferValueType<Uptr>()},
