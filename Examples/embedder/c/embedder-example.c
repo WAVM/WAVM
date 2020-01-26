@@ -8,7 +8,8 @@
 // A function to be called from Wasm code.
 own wasm_trap_t* hello_callback(const wasm_val_t args[], wasm_val_t results[])
 {
-	printf("Hello world!\n");
+	printf("Hello world! (argument = %i)\n", args[0].i32);
+	results[0].i32 = args[0].i32 + 1;
 	return NULL;
 }
 
@@ -19,20 +20,21 @@ int main(int argc, char** argv)
 	wasm_compartment_t* compartment = wasm_compartment_new(engine, "compartment");
 	wasm_store_t* store = wasm_store_new(compartment, "store");
 
-	// Load binary.
-	char hello_wasm[]
-		= {0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x84, 0x80, 0x80, 0x80, 0x00, 0x01,
-		   0x60, 0x00, 0x00, 0x02, 0x8a, 0x80, 0x80, 0x80, 0x00, 0x01, 0x00, 0x05, 0x68, 0x65, 0x6c,
-		   0x6c, 0x6f, 0x00, 0x00, 0x03, 0x82, 0x80, 0x80, 0x80, 0x00, 0x01, 0x00, 0x07, 0x87, 0x80,
-		   0x80, 0x80, 0x00, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x01, 0x0a, 0x8a, 0x80, 0x80, 0x80,
-		   0x00, 0x01, 0x84, 0x80, 0x80, 0x80, 0x00, 0x00, 0x10, 0x00, 0x0b};
+	char hello_wast[]
+		= "(module\n"
+		  "  (import \"\" \"hello\" (func $1 (param i32) (result i32)))\n"
+		  "  (func (export \"run\") (param i32) (result i32)\n"
+		  "    (call $1 (local.get 0))\n"
+		  "  )\n"
+		  ")";
 
 	// Compile.
-	own wasm_module_t* module = wasm_module_new(engine, hello_wasm, sizeof(hello_wasm));
+	own wasm_module_t* module = wasm_module_new_text(engine, hello_wast, sizeof(hello_wast));
 	if(!module) { return 1; }
 
 	// Create external print functions.
-	own wasm_functype_t* hello_type = wasm_functype_new_0_0();
+	own wasm_functype_t* hello_type
+		= wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
 	own wasm_func_t* hello_func = wasm_func_new(compartment, hello_type, hello_callback, "hello");
 
 	wasm_functype_delete(hello_type);
@@ -55,7 +57,12 @@ int main(int argc, char** argv)
 	wasm_instance_delete(instance);
 
 	// Call.
-	if(wasm_func_call(store, run_func, NULL, NULL)) { return 1; }
+	wasm_val_t args[1];
+	wasm_val_t results[1];
+	args[0].i32 = 100;
+	if(wasm_func_call(store, run_func, args, results)) { return 1; }
+
+	printf("WASM call returned: %i\n", results[0].i32);
 
 	// Shut down.
 	wasm_store_delete(store);
