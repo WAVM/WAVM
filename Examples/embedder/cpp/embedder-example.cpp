@@ -21,6 +21,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(embedder, "hello", I32, hello, I32 argument)
 
 int main(int argc, char** argv)
 {
+	// Compile a WASM module from text.
 	char helloWAST[]
 		= "(module\n"
 		  "  (import \"\" \"hello\" (func $1 (param i32) (result i32)))\n"
@@ -36,17 +37,22 @@ int main(int argc, char** argv)
 
 	ModuleRef module = compileModule(irModule);
 
+	// Create a WAVM compartment and context.
 	GCPointer<Compartment> compartment = createCompartment();
 	Context* context = createContext(compartment);
 
+	// Create an instance that encapsulates the intrinsic function in a way that allows it to be
+	// imported by WASM instances.
 	Instance* intrinsicsInstance = WAVM::Intrinsics::instantiateModule(
 		compartment, {WAVM_INTRINSIC_MODULE_REF(embedder)}, "embedder");
 	const FunctionType i32_to_i32({ValueType::i32}, {ValueType::i32});
 	Function* intrinsicFunction = getTypedInstanceExport(intrinsicsInstance, "hello", i32_to_i32);
 
+	// Instantiate the WASM module using the intrinsic function as its import.
 	Instance* instance
 		= instantiateModule(compartment, module, {asObject(intrinsicFunction)}, "hello");
 
+	// Call the WASM module's "run" function.
 	Function* runFunction = getTypedInstanceExport(instance, "run", i32_to_i32);
 
 	UntaggedValue args[1]{I32(100)};
@@ -55,7 +61,8 @@ int main(int argc, char** argv)
 
 	printf("WASM call returned: %i\n", results[0].i32);
 
-	tryCollectCompartment(std::move(compartment));
+	// Clean up the WAVM runtime objects.
+	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 
 	return 0;
 }
