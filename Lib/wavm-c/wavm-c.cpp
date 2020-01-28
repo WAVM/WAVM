@@ -726,7 +726,7 @@ wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, siz
 
 	std::vector<WAST::Error> parseErrors;
 	IR::Module irModule(engine->config.featureSpec);
-	if(!WAST::parseModule(wastString.c_str(), wastString.size(), irModule, parseErrors))
+	if(!WAST::parseModule(wastString.c_str(), wastString.size() + 1, irModule, parseErrors))
 	{
 		if(Log::isCategoryEnabled(Log::debug))
 		{
