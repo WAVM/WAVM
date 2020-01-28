@@ -498,7 +498,7 @@ struct State
 		bool hasNonWASIImports = false;
 		for(const auto& import : irModule.functions.imports)
 		{
-			if(import.moduleName == "wasi_unstable") { hasWASIImports = true; }
+			if(stringStartsWith(import.moduleName.c_str(), "wasi_")) { hasWASIImports = true; }
 			else
 			{
 				hasNonWASIImports = true;
