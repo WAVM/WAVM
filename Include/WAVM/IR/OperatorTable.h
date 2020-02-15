@@ -67,7 +67,7 @@
 /*  visitOp(0x001b, select             , "select"                           , NoImm                     , PARAMETRIC           , mvp                    )*/ \
 	visitOp(0x001c, select             , "select"                           , SelectImm                 , PARAMETRIC           , mvp                    )
 
-#define WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                               \
+#define WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                                    \
 	visitOp(0x0001, nop                , "nop"                              , NoImm                     , WAVM_NONE                 , mvp                    )   \
 /* Memory                                                                                                                                                     */ \
 	visitOp(0x0028, i32_load           , "i32.load"                         , LoadOrStoreImm<2>         , WAVM_LOAD(i32)            , mvp                    )   \
@@ -248,7 +248,7 @@
 	visitOp(0xfc05, i64_trunc_sat_f32_u       , "i64.trunc_sat_f32_u"       , NoImm                     , WAVM_UNARY(f32,i64)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc06, i64_trunc_sat_f64_s       , "i64.trunc_sat_f64_s"       , NoImm                     , WAVM_UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc07, i64_trunc_sat_f64_u       , "i64.trunc_sat_f64_u"       , NoImm                     , WAVM_UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
-/* Bulk memory/table operators                                                                                                                                 */ \
+/* Bulk memory/table operators                                                                                                                                */ \
 	visitOp(0xfc08, memory_init               , "memory.init"               , DataSegmentAndMemImm      , WAVM_BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc09, data_drop                 , "data.drop"                 , DataSegmentImm            , WAVM_NONE                 , bulkMemoryOperations   )   \
 	visitOp(0xfc0a, memory_copy               , "memory.copy"               , MemoryCopyImm             , WAVM_BULKCOPY             , bulkMemoryOperations   )   \
