@@ -1293,3 +1293,27 @@
     f64x2.extract_lane 1
   )
 )
+
+;; i8x16.abs
+
+(module (func (export "i8x16.abs") (param v128) (result v128) (i8x16.abs (local.get 0))))
+
+(assert_return
+  (invoke "i8x16.abs" (v128.const i8x16 +0 +1 -1 +3 -3 +7 -7 +15 -15 +31 -31 +63 -63 +127 -127 -128))
+                      (v128.const i8x16 +0 +1 +1 +3 +3 +7 +7 +15 +15 +31 +31 +63 +63 +127 +127 -128))
+
+;; i16x8.abs
+
+(module (func (export "i16x8.abs") (param v128) (result v128) (i16x8.abs (local.get 0))))
+
+(assert_return
+  (invoke "i16x8.abs" (v128.const i16x8 +0 +1 +127 -127 -128 +32767 -32767 -32768))
+                      (v128.const i16x8 +0 +1 +127 +127 +128 +32767 +32767 -32768))
+
+;; i32x4.abs
+
+(module (func (export "i32x4.abs") (param v128) (result v128) (i32x4.abs (local.get 0))))
+
+(assert_return
+  (invoke "i32x4.abs" (v128.const i32x4 +0 +2147483647 -2147483647 -2147483648))
+                      (v128.const i32x4 +0 +2147483647 +2147483647 -2147483648))

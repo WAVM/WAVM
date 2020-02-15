@@ -891,3 +891,20 @@ void EmitFunctionContext::v128_bitselect(IR::NoImm)
 
 EMIT_SIMD_AVGR_OP(i8x16, i16x16)
 EMIT_SIMD_AVGR_OP(i16x8, i32x8)
+
+// SIMD integer absolute
+
+#define EMIT_SIMD_INT_ABS_OP(type)                                                                 \
+	void EmitFunctionContext::type##_abs(IR::NoImm)                                                \
+	{                                                                                              \
+		auto operand = irBuilder.CreateBitCast(pop(), llvmContext.type##Type);                     \
+		push(irBuilder.CreateSelect(                                                               \
+			irBuilder.CreateICmpSLT(operand,                                                       \
+									llvm::Constant::getNullValue(llvmContext.type##Type)),         \
+			irBuilder.CreateNeg(operand),                                                          \
+			operand));                                                                             \
+	}
+
+EMIT_SIMD_INT_ABS_OP(i8x16)
+EMIT_SIMD_INT_ABS_OP(i16x8)
+EMIT_SIMD_INT_ABS_OP(i32x4)
