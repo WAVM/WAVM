@@ -36,7 +36,7 @@ class SimdLaneWiseInteger:
         return int(self.LANE_TYPE.replace('i', '').split('x')[0])
 
     @property
-    def get_unary_test_data_1(self):
+    def get_unary_complex_test_data(self):
         """test const vs const and different lanes go through different if-then clauses for unary ops"""
         case_data = [
             [self.LANE_VALUE.min, self.LANE_VALUE.max, self.LANE_VALUE.quarter, self.LANE_VALUE.mask],
@@ -218,7 +218,7 @@ class SimdLaneWiseInteger:
                                                 cnt=cnt)
                 cnt += 1
         for op in self.UNARY_OPS:
-            for param in self.get_unary_test_data_1:
+            for param in self.get_unary_complex_test_data:
                 funcs += unary_func_with_const.format(lane_type=self.LANE_TYPE,
                                                op=op,
                                                param=SIMD.v128_const(param, self.LANE_TYPE),
@@ -250,7 +250,7 @@ class SimdLaneWiseInteger:
                 cnt += 1
 
         for op in self.UNARY_OPS:
-            for param in self.get_unary_test_data_1:
+            for param in self.get_unary_complex_test_data:
                 result = []
                 for idx in range(0, len(param)):
                     result.append(IntOp.unary_op(op, param[idx], self.lane_width))
@@ -309,7 +309,7 @@ class SimdLaneWiseInteger:
         # test different lanes go through different if-then clauses
         cases += '\n\n;; Test different lanes go through different if-then clauses'
         cases += gen_binary(self.get_binary_test_data_go_through_if)
-        cases += gen_unary(self.get_unary_test_data_1)
+        cases += gen_unary(self.get_unary_complex_test_data)
 
         # test opposite signs of zero
         cases += '\n\n;; Test opposite signs of zero'
