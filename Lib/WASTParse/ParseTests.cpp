@@ -36,12 +36,12 @@ struct HostRef
 		}
 	}
 
-	HostRef(HostRef&& movee)
+	HostRef(HostRef&& movee) noexcept
 	{
 		function = movee.function;
 		movee.function = nullptr;
 	}
-	void operator=(HostRef&& movee)
+	void operator=(HostRef&& movee) noexcept
 	{
 		function = movee.function;
 		movee.function = nullptr;

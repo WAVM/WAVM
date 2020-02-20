@@ -408,7 +408,7 @@ static void parseExport(CursorState* cursor)
 {
 	require(cursor, t_export);
 
-	const std::string exportName = parseUTF8String(cursor);
+	std::string exportName = parseUTF8String(cursor);
 
 	parseParenthesized(cursor, [&] {
 		ExternKind exportKind;
@@ -1364,7 +1364,7 @@ bool WAST::parseModule(const char* string,
 	}
 
 	// Resolve line information for any errors, and write them to outErrors.
-	for(const auto& unresolvedError : parseState.unresolvedErrors)
+	for(auto& unresolvedError : parseState.unresolvedErrors)
 	{
 		TextFileLocus locus = calcLocusFromOffset(string, lineInfo, unresolvedError.charOffset);
 		outErrors.push_back({std::move(locus), std::move(unresolvedError.message)});

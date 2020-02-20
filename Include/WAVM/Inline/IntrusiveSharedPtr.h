@@ -19,7 +19,7 @@ namespace WAVM {
 			value = inCopy.value;
 			if(value) { value->addRef(); }
 		}
-		IntrusiveSharedPtr(IntrusiveSharedPtr<Pointee>&& inMove)
+		IntrusiveSharedPtr(IntrusiveSharedPtr<Pointee>&& inMove) noexcept
 		{
 			value = inMove.value;
 			inMove.value = nullptr;
@@ -54,7 +54,7 @@ namespace WAVM {
 			if(value) { value->addRef(); }
 			if(oldValue) { oldValue->removeRef(); }
 		}
-		void operator=(IntrusiveSharedPtr<Pointee>&& inMove)
+		void operator=(IntrusiveSharedPtr<Pointee>&& inMove) noexcept
 		{
 			auto oldValue = value;
 			value = inMove.value;

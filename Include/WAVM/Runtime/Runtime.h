@@ -26,7 +26,7 @@ namespace WAVM {
 	struct Type;                                                                                   \
                                                                                                    \
 	WAVM_API void addGCRoot(const Type* type);                                                     \
-	WAVM_API void removeGCRoot(const Type* type);                                                  \
+	WAVM_API void removeGCRoot(const Type* type) noexcept;                                         \
                                                                                                    \
 	WAVM_API Runtime::Type* as##kindName(Object* object);                                          \
 	WAVM_API Runtime::Type* as##kindName##Nullable(Object* object);                                \
@@ -104,7 +104,7 @@ namespace WAVM { namespace Runtime {
 			value = inCopy.value;
 			if(value) { addGCRoot(value); }
 		}
-		GCPointer(GCPointer<ObjectType>&& inMove)
+		GCPointer(GCPointer<ObjectType>&& inMove) noexcept
 		{
 			value = inMove.value;
 			inMove.value = nullptr;
@@ -126,7 +126,7 @@ namespace WAVM { namespace Runtime {
 			value = inCopy.value;
 			if(value) { addGCRoot(value); }
 		}
-		void operator=(GCPointer<ObjectType>&& inMove)
+		void operator=(GCPointer<ObjectType>&& inMove) noexcept
 		{
 			if(value) { removeGCRoot(value); }
 			value = inMove.value;
@@ -145,7 +145,7 @@ namespace WAVM { namespace Runtime {
 	WAVM_API void addGCRoot(const Object* object);
 
 	// Decrements the object's counter of root referencers.
-	WAVM_API void removeGCRoot(const Object* object);
+	WAVM_API void removeGCRoot(const Object* object) noexcept;
 
 	// Frees any unreferenced objects owned by a compartment.
 	WAVM_API void collectCompartmentGarbage(Compartment* compartment);

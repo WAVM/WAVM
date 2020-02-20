@@ -106,11 +106,11 @@ namespace WAVM {
 
 		HashTable(Uptr estimatedNumElements = 0);
 		HashTable(const HashTable& copy);
-		HashTable(HashTable&& movee);
+		HashTable(HashTable&& movee) noexcept;
 		~HashTable();
 
 		HashTable& operator=(const HashTable& copyee);
-		HashTable& operator=(HashTable&& movee);
+		HashTable& operator=(HashTable&& movee) noexcept;
 
 		void clear();
 
@@ -147,7 +147,7 @@ namespace WAVM {
 
 		void destruct();
 		void copyFrom(const HashTable& copy);
-		void moveFrom(HashTable&& movee);
+		void moveFrom(HashTable&& movee) noexcept;
 	};
 
 // The implementation is defined in a separate file.
