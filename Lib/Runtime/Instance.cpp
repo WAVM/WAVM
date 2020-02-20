@@ -76,6 +76,7 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 		const auto& kindIndex = module->ir.imports[importIndex];
 		Object* importObject = imports[importIndex];
 
+		WAVM_ERROR_UNLESS(importObject);
 		WAVM_ERROR_UNLESS(isInCompartment(importObject, compartment));
 		WAVM_ERROR_UNLESS(importObject->kind == ObjectKind(kindIndex.kind));
 
