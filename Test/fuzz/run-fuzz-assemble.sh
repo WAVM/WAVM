@@ -18,5 +18,5 @@ $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh assemble \
 	translated-compile-model-corpus-wast \
 	-max_total_time=$SECONDS_PER_JOB \
 	-max_len=50000 \
-	-rss_limit_mb=2500 \
+	-rss_limit_mb=2750 \
 	-dict=$WAST_DICTIONARY
