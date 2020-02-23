@@ -152,6 +152,11 @@ namespace WAVM { namespace IR {
 	{
 		ExternKind kind;
 		Uptr index;
+
+		friend bool operator==(const KindAndIndex& left, const KindAndIndex& right)
+		{
+			return left.kind == right.kind && left.index == right.index;
+		}
 	};
 
 	// A data segment: a literal sequence of bytes that is copied into a Runtime::Memory when
@@ -220,7 +225,8 @@ namespace WAVM { namespace IR {
 		enum class Type
 		{
 			active,
-			passive
+			passive,
+			declared
 		};
 		Type type;
 

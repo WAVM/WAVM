@@ -134,6 +134,7 @@ namespace WAVM { namespace WAST {
 		ParseState* parseState;
 
 		IR::Module& module;
+		std::shared_ptr<IR::ModuleValidationState> validationState;
 
 		HashMap<IR::FunctionType, Uptr> functionTypeToIndexMap;
 		NameToIndexMap typeNameToIndexMap;
@@ -157,8 +158,13 @@ namespace WAVM { namespace WAST {
 		// Thunks that are called after parsing all declarations.
 		std::vector<std::function<void(ModuleState*)>> postDeclarationCallbacks;
 
+		// Thunks that are called to parse function bodies.
+		std::vector<std::function<void(ModuleState*)>> functionBodyCallbacks;
+
 		ModuleState(ParseState* inParseState, IR::Module& inModule)
-		: parseState(inParseState), module(inModule)
+		: parseState(inParseState)
+		, module(inModule)
+		, validationState(IR::createModuleValidationState(inModule))
 		{
 		}
 	};

@@ -7,6 +7,8 @@
 
 	(memory 1 1 shared)
 
+	(elem declare $createThreadEntry $createThreadEntry2)
+
 	(data "x")
 
 	(global $atomicAccumulatorAddress i32 (i32.const 0))

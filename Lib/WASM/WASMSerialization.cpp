@@ -267,20 +267,28 @@ namespace WAVM { namespace IR {
 		U32 flags = 0;
 		if(!Stream::isInput)
 		{
+			bool hasNonFunctionElements = false;
 			switch(elemSegment.contents->encoding)
 			{
-			case ElemSegment::Encoding::expr: flags |= 4; break;
-			case ElemSegment::Encoding::index: break;
+			case ElemSegment::Encoding::expr:
+				flags |= 4;
+				if(elemSegment.contents->elemType != ReferenceType::funcref)
+				{ hasNonFunctionElements = true; }
+				break;
+			case ElemSegment::Encoding::index:
+				if(elemSegment.contents->externKind != ExternKind::function)
+				{ hasNonFunctionElements = true; }
+				break;
 			default: WAVM_UNREACHABLE();
 			};
 
 			switch(elemSegment.type)
 			{
 			case ElemSegment::Type::active:
-				if(elemSegment.tableIndex != 0) { flags |= 2; }
+				if(elemSegment.tableIndex != 0 || hasNonFunctionElements) { flags |= 2; }
 				break;
 			case ElemSegment::Type::passive: flags |= 1; break;
-			// case ElemSegment::Type::declared: flags |= 3; break;
+			case ElemSegment::Type::declared: flags |= 3; break;
 			default: WAVM_UNREACHABLE();
 			};
 		}
@@ -306,16 +314,14 @@ namespace WAVM { namespace IR {
 				break;
 			case 1: elemSegment.type = ElemSegment::Type::passive; break;
 			case 2: elemSegment.type = ElemSegment::Type::active; break;
-			case 3:
-				// elemSegment.type = ElemSegment::Type::declared; break;
-				throw FatalSerializationException("invalid elem segment flags");
+			case 3: elemSegment.type = ElemSegment::Type::declared; break;
 
 			default: WAVM_UNREACHABLE();
 			};
 		}
 
 		// Serialize the table the element segment writes to.
-		if(flags & 2) { serializeVarUInt32(stream, elemSegment.tableIndex); }
+		if((flags & 3) == 2) { serializeVarUInt32(stream, elemSegment.tableIndex); }
 
 		// Serialize the offset the element segment writes to the table at.
 		if(!(flags & 1)) { serialize(stream, elemSegment.baseOffset); }
@@ -431,6 +437,7 @@ static void serialize(OutputStream& stream, SectionID sectionID)
 struct ModuleSerializationState
 {
 	bool hadDataCountSection = false;
+	std::shared_ptr<ModuleValidationState> validationState;
 };
 
 template<typename Stream>
@@ -552,6 +559,15 @@ void serialize(Stream& stream,
 template<typename Stream>
 void serialize(Stream& stream,
 			   FunctionImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
+{
+	serializeVarUInt32(stream, imm.functionIndex);
+}
+
+template<typename Stream>
+void serialize(Stream& stream,
+			   FunctionRefImm& imm,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)
 {
@@ -927,7 +943,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 	// Deserialize the function code, validate it, and re-encode it in the IR format.
 	ArrayOutputStream irCodeByteStream;
 	OperatorEncoderStream irEncoderStream(irCodeByteStream);
-	CodeValidationStream codeValidationStream(module, functionDef);
+	CodeValidationStream codeValidationStream(*moduleState.validationState, functionDef);
 	while(bodyStream.capacity())
 	{
 		Opcode opcode;
@@ -1412,8 +1428,10 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	serializeConstant(moduleStream, "magic number", U32(magicNumber));
 	serializeConstant(moduleStream, "version", U32(currentVersion));
 
-	OrderedSectionID lastKnownOrderedSectionID = OrderedSectionID::moduleBeginning;
 	ModuleSerializationState moduleState;
+	moduleState.validationState = IR::createModuleValidationState(module);
+
+	OrderedSectionID lastKnownOrderedSectionID = OrderedSectionID::moduleBeginning;
 	bool hadFunctionDefinitions = false;
 	bool hadDataSection = false;
 	while(moduleStream.capacity())
@@ -1460,43 +1478,43 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		{
 		case SectionID::type:
 			serializeTypeSection(moduleStream, module);
-			IR::validateTypes(module);
+			IR::validateTypes(*moduleState.validationState);
 			break;
 		case SectionID::import:
 			serializeImportSection(moduleStream, module);
-			IR::validateImports(module);
+			IR::validateImports(*moduleState.validationState);
 			break;
 		case SectionID::function:
 			serializeFunctionSection(moduleStream, module);
-			IR::validateFunctionDeclarations(module);
+			IR::validateFunctionDeclarations(*moduleState.validationState);
 			break;
 		case SectionID::table:
 			serializeTableSection(moduleStream, module);
-			IR::validateTableDefs(module);
+			IR::validateTableDefs(*moduleState.validationState);
 			break;
 		case SectionID::memory:
 			serializeMemorySection(moduleStream, module);
-			IR::validateMemoryDefs(module);
+			IR::validateMemoryDefs(*moduleState.validationState);
 			break;
 		case SectionID::global:
 			serializeGlobalSection(moduleStream, module);
-			IR::validateGlobalDefs(module);
+			IR::validateGlobalDefs(*moduleState.validationState);
 			break;
 		case SectionID::exceptionType:
 			serializeExceptionTypeSection(moduleStream, module);
-			IR::validateExceptionTypeDefs(module);
+			IR::validateExceptionTypeDefs(*moduleState.validationState);
 			break;
 		case SectionID::export_:
 			serializeExportSection(moduleStream, module);
-			IR::validateExports(module);
+			IR::validateExports(*moduleState.validationState);
 			break;
 		case SectionID::start:
 			serializeStartSection(moduleStream, module);
-			IR::validateStartFunction(module);
+			IR::validateStartFunction(*moduleState.validationState);
 			break;
 		case SectionID::elem:
 			serializeElementSection(moduleStream, module);
-			IR::validateElemSegments(module);
+			IR::validateElemSegments(*moduleState.validationState);
 			break;
 		case SectionID::dataCount:
 			serializeDataCountSection(moduleStream, module);
@@ -1509,7 +1527,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		case SectionID::data:
 			serializeDataSection(moduleStream, module, moduleState.hadDataCountSection);
 			hadDataSection = true;
-			IR::validateDataSegments(module);
+			IR::validateDataSegments(*moduleState.validationState);
 			break;
 		case SectionID::custom: {
 			CustomSection& customSection
@@ -1521,6 +1539,8 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		default: throw FatalSerializationException("unknown section ID");
 		};
 	};
+
+	IR::validateDeferred(*moduleState.validationState);
 
 	if(module.functions.defs.size() && !hadFunctionDefinitions)
 	{

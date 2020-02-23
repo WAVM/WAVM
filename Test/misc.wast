@@ -386,6 +386,7 @@
 (module $m (func (export "f")))
 (register "m" $m)
 (module
+	(elem declare $f)
 	(func $f (import "m" "f"))
 	(func (export "testLLVM-D58049") (param $x i32) (result i32)
 		(i32.or

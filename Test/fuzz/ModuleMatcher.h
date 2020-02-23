@@ -173,6 +173,11 @@ namespace WAVM {
 			if(a.functionIndex != b.functionIndex) { failVerification(); }
 		}
 
+		void verifyMatches(FunctionRefImm a, FunctionRefImm b)
+		{
+			if(a.functionIndex != b.functionIndex) { failVerification(); }
+		}
+
 		void verifyMatches(CallIndirectImm a, CallIndirectImm b)
 		{
 			if(aModule.types[a.type.index] != bModule.types[b.type.index]) { failVerification(); }

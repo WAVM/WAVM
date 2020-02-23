@@ -550,6 +550,72 @@ static void parseData(CursorState* cursor)
 	}
 }
 
+struct UnresolvedElem
+{
+	Reference ref;
+	ElemExpr::Type type;
+	UnresolvedElem(Reference&& inRef = Reference(),
+				   ElemExpr::Type inType = ElemExpr::Type::ref_null)
+	: ref(std::move(inRef)), type(inType)
+	{
+	}
+};
+
+static UnresolvedElem parseElemSegmentInstr(CursorState* cursor)
+{
+	switch(cursor->nextToken->type)
+	{
+	case t_ref_null:
+		++cursor->nextToken;
+		return UnresolvedElem();
+		break;
+	case t_ref_func: {
+		++cursor->nextToken;
+
+		Reference elementRef;
+		if(!tryParseNameOrIndexRef(cursor, elementRef))
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected function name or index");
+			throw RecoverParseException();
+		}
+
+		return UnresolvedElem(std::move(elementRef), ElemExpr::Type::ref_func);
+		break;
+	}
+	default:
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected 'ref.func' or 'ref.null'");
+		throw RecoverParseException();
+	};
+}
+
+static UnresolvedElem parseElemSegmentExpr(CursorState* cursor)
+{
+	UnresolvedElem result;
+	if(cursor->nextToken->type != t_leftParenthesis) { result = parseElemSegmentInstr(cursor); }
+	else
+	{
+		parseParenthesized(cursor, [&] { result = parseElemSegmentInstr(cursor); });
+	}
+	return result;
+}
+
+static UnresolvedElem parseElemSegmentItemExpr(CursorState* cursor)
+{
+	UnresolvedElem result;
+	parseParenthesized(cursor, [&] {
+		if(cursor->nextToken->type == t_item)
+		{
+			++cursor->nextToken;
+			result = parseElemSegmentExpr(cursor);
+		}
+		else
+		{
+			result = parseElemSegmentExpr(cursor);
+		}
+	});
+	return result;
+}
+
 static Uptr parseElemSegmentBody(CursorState* cursor,
 								 ElemSegment::Type segmentType,
 								 ElemSegment::Encoding encoding,
@@ -560,17 +626,6 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 								 UnresolvedInitializerExpression baseIndex,
 								 const Token* elemToken)
 {
-	struct UnresolvedElem
-	{
-		Reference ref;
-		ElemExpr::Type type;
-		UnresolvedElem(Reference&& inRef = Reference(),
-					   ElemExpr::Type inType = ElemExpr::Type::ref_null)
-		: ref(std::move(inRef)), type(inType)
-		{
-		}
-	};
-
 	// Allocate the elementReferences array on the heap so it doesn't need to be copied for the
 	// post-declaration callback.
 	std::shared_ptr<std::vector<UnresolvedElem>> elementReferences
@@ -580,37 +635,10 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	{
 		switch(encoding)
 		{
-		case ElemSegment::Encoding::expr:
-			parseParenthesized(cursor, [&] {
-				switch(cursor->nextToken->type)
-				{
-				case t_ref_null:
-					++cursor->nextToken;
-					elementReferences->push_back(UnresolvedElem());
-					break;
-				case t_ref_func: {
-					++cursor->nextToken;
-
-					Reference elementRef;
-					if(!tryParseNameOrIndexRef(cursor, elementRef))
-					{
-						parseErrorf(cursor->parseState,
-									cursor->nextToken,
-									"expected function name or index");
-						throw RecoverParseException();
-					}
-
-					elementReferences->push_back(
-						UnresolvedElem(std::move(elementRef), ElemExpr::Type::ref_func));
-					break;
-				}
-				default:
-					parseErrorf(
-						cursor->parseState, cursor->nextToken, "expected 'ref.func' or 'ref.null'");
-					throw RecoverParseException();
-				};
-			});
+		case ElemSegment::Encoding::expr: {
+			elementReferences->push_back(parseElemSegmentItemExpr(cursor));
 			break;
+		}
 		case ElemSegment::Encoding::index: {
 			Reference elementRef;
 			if(!tryParseNameOrIndexRef(cursor, elementRef))
@@ -728,25 +756,30 @@ static void parseElem(CursorState* cursor)
 	Name segmentName;
 	Reference tableRef;
 	UnresolvedInitializerExpression baseIndex;
-	bool isActive = false;
+	ElemSegment::Type segmentType = ElemSegment::Type::passive;
 
 	tryParseName(cursor, segmentName);
 
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_table)
+	if(cursor->nextToken->type == t_declare)
+	{
+		++cursor->nextToken;
+		segmentType = ElemSegment::Type::declared;
+	}
+	else if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_table)
 	{
 		parseParenthesized(cursor, [&]() {
 			require(cursor, t_table);
 			tableRef = parseNameOrIndexRef(cursor, "elem table");
 		});
-		isActive = true;
+		segmentType = ElemSegment::Type::active;
 	}
 
-	if(isActive || cursor->nextToken[0].type == t_leftParenthesis)
+	if(segmentType == ElemSegment::Type::active || cursor->nextToken[0].type == t_leftParenthesis)
 	{
-		if(!isActive)
+		if(segmentType != ElemSegment::Type::active)
 		{
 			tableRef = Reference(0);
-			isActive = true;
+			segmentType = ElemSegment::Type::active;
 		}
 
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
@@ -759,9 +792,6 @@ static void parseElem(CursorState* cursor)
 			});
 		}
 	}
-
-	const ElemSegment::Type segmentType
-		= isActive ? ElemSegment::Type::active : ElemSegment::Type::passive;
 
 	ExternKind elemExternKind = ExternKind::invalid;
 	ReferenceType elemRefType = ReferenceType::none;
@@ -1288,14 +1318,37 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 			{ callback(&moduleState); }
 		}
 
-		// Validate the module's definitions (excluding function code, which is validated as it is
-		// parsed).
+		// After all declarations have been parsed, but before function bodies are parsed, validate
+		// the parts of the module that correspond to pre-code sections in binary modules.
 		if(!cursor->parseState->unresolvedErrors.size())
 		{
 			try
 			{
-				IR::validatePreCodeSections(outModule);
-				IR::validatePostCodeSections(outModule);
+				IR::validatePreCodeSections(*moduleState.validationState);
+			}
+			catch(ValidationException const& validationException)
+			{
+				parseErrorf(cursor->parseState,
+							firstToken,
+							"validation error: %s",
+							validationException.message.c_str());
+			}
+		}
+
+		// Process the function body parsing callbacks.
+		if(!cursor->parseState->unresolvedErrors.size())
+		{
+			for(const auto& callback : cursor->moduleState->functionBodyCallbacks)
+			{ callback(&moduleState); }
+		}
+
+		// After function bodies have been parsed, validate the parts of the module that correspond
+		// to post-code sections in binary modules.
+		if(!cursor->parseState->unresolvedErrors.size())
+		{
+			try
+			{
+				IR::validatePostCodeSections(*moduleState.validationState);
 			}
 			catch(ValidationException const& validationException)
 			{

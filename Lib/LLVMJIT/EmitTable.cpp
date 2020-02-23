@@ -35,7 +35,7 @@ void EmitFunctionContext::ref_is_null(NoImm)
 	push(coerceBoolToI32(isNull));
 }
 
-void EmitFunctionContext::ref_func(FunctionImm imm)
+void EmitFunctionContext::ref_func(FunctionRefImm imm)
 {
 	llvm::Value* referencedFunction = moduleContext.functions[imm.functionIndex];
 	llvm::Value* codeAddress = irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);

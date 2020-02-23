@@ -96,9 +96,11 @@ bool Runtime::generateStub(const std::string& moduleName,
 		{
 			try
 			{
-				IR::validatePreCodeSections(stubIRModule);
-				IR::validateCodeSection(stubIRModule);
-				IR::validatePostCodeSections(stubIRModule);
+				std::shared_ptr<IR::ModuleValidationState> moduleValidationState
+					= IR::createModuleValidationState(stubIRModule);
+				IR::validatePreCodeSections(*moduleValidationState);
+				IR::validateCodeSection(*moduleValidationState);
+				IR::validatePostCodeSections(*moduleValidationState);
 			}
 			catch(const ValidationException& exception)
 			{

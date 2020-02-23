@@ -1098,9 +1098,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 		// Validate the generated module in builds with assertions enabled.
 		if(WAVM_ENABLE_ASSERTS)
 		{
-			IR::validatePreCodeSections(benchmarkModule);
-			IR::validateCodeSection(benchmarkModule);
-			IR::validatePostCodeSections(benchmarkModule);
+			std::shared_ptr<IR::ModuleValidationState> moduleValidationState
+				= IR::createModuleValidationState(benchmarkModule);
+			IR::validatePreCodeSections(*moduleValidationState);
+			IR::validateCodeSection(*moduleValidationState);
+			IR::validatePostCodeSections(*moduleValidationState);
 		}
 
 		// Compile and instantiate the generated module.

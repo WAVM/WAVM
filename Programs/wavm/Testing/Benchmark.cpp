@@ -110,8 +110,10 @@ void runInvokeBench()
 	irModule.exports.push_back({"nopFunction", IR::ExternKind::function, 0});
 	irModuleNames.functions.push_back({"nopFunction", {}, {}});
 	IR::setDisassemblyNames(irModule, irModuleNames);
-	IR::validatePreCodeSections(irModule);
-	IR::validatePostCodeSections(irModule);
+	std::shared_ptr<IR::ModuleValidationState> moduleValidationState
+		= IR::createModuleValidationState(irModule);
+	IR::validatePreCodeSections(*moduleValidationState);
+	IR::validatePostCodeSections(*moduleValidationState);
 
 	// Instantiate the module.
 	GCPointer<Compartment> compartment = Runtime::createCompartment();

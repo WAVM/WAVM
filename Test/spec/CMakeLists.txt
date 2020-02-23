@@ -76,6 +76,7 @@ ADD_WAST_TESTS(
 			table_init.wast
 			table_set.wast
 			table_size.wast
+			table-sub.wast
 			token.wast
 			traps.wast
 			type.wast

@@ -27,13 +27,12 @@ namespace WAVM { namespace WAST {
 	{
 		const Token* validationErrorToken{nullptr};
 
-		ResumableCodeValidationProxyStream(const Module& module,
+		ResumableCodeValidationProxyStream(ModuleState* moduleState,
 										   const FunctionDef& function,
-										   InnerStream& inInnerStream,
-										   ParseState* inParseState)
-		: codeValidationStream(module, function)
+										   InnerStream& inInnerStream)
+		: codeValidationStream(*moduleState->validationState, function)
 		, innerStream(inInnerStream)
-		, parseState(inParseState)
+		, parseState(moduleState->parseState)
 		{
 		}
 
@@ -108,10 +107,7 @@ namespace WAVM { namespace WAST {
 					+ moduleState->module.types[inFunctionDef.type.index].params().size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
-		, validatingCodeStream(moduleState->module,
-							   inFunctionDef,
-							   operationEncoder,
-							   moduleState->parseState)
+		, validatingCodeStream(moduleState, inFunctionDef, operationEncoder)
 		{
 		}
 	};
@@ -361,6 +357,15 @@ static void parseImm(CursorState* cursor, GetOrSetVariableImm<isGlobal>& outImm)
 }
 
 static void parseImm(CursorState* cursor, FunctionImm& outImm)
+{
+	outImm.functionIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->functionNameToIndexMap,
+										cursor->moduleState->module.functions.size(),
+										"function");
+}
+
+static void parseImm(CursorState* cursor, FunctionRefImm& outImm)
 {
 	outImm.functionIndex
 		= parseAndResolveNameOrIndexRef(cursor,
@@ -963,13 +968,12 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 		moduleState->module.functions.defs[functionDefIndex].type = functionTypeIndex;
 
 		// Defer parsing the body of the function until all function types have been resolved.
-		moduleState->postDeclarationCallbacks.push_back([functionIndex,
-														 functionDefIndex,
-														 firstBodyToken,
-														 localNameToIndexMap,
-														 localDisassemblyNames,
-														 functionTypeIndex](
-															ModuleState* moduleState) {
+		moduleState->functionBodyCallbacks.push_back([functionIndex,
+													  functionDefIndex,
+													  firstBodyToken,
+													  localNameToIndexMap,
+													  localDisassemblyNames,
+													  functionTypeIndex](ModuleState* moduleState) {
 			FunctionDef& functionDef = moduleState->module.functions.defs[functionDefIndex];
 			FunctionType functionType = functionTypeIndex.index == UINTPTR_MAX
 											? FunctionType()
