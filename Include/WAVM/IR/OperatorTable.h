@@ -506,10 +506,12 @@
 	visitOp(0xfdfb, v64x2_store_interleaved_4 , "v64x2.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
 /* v128 ltz_mask                                                                                                                                              */ \
 	visitOp(0xfdfc, i8x16_ltz_mask            , "i8x16.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
+	visitOp(0xfdfd, i16x8_ltz_mask            , "i16x8.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
+	visitOp(0xfdfe, i32x4_ltz_mask            , "i32x4.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
 /* Atomic wait/wake                                                                                                                                           */ \
-	visitOp(0xfe00, memory_atomic_notify      , "memory.atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics         )   \
-	visitOp(0xfe01, memory_atomic_wait32      , "memory.atomic.wait32"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics           )   \
-	visitOp(0xfe02, memory_atomic_wait64      , "memory.atomic.wait64"           , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics           )   \
+	visitOp(0xfe00, memory_atomic_notify      , "memory.atomic.notify"      , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
+	visitOp(0xfe01, memory_atomic_wait32      , "memory.atomic.wait32"      , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
+	visitOp(0xfe02, memory_atomic_wait64      , "memory.atomic.wait64"      , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics                )   \
 /* Atomic fence                                                                                                                                               */ \
 	visitOp(0xfe03, atomic_fence              , "atomic.fence"              , AtomicFenceImm            , WAVM_NONE                 , atomics                )   \
 /* Atomic load/store                                                                                                                                          */ \

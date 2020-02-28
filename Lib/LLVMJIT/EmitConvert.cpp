@@ -448,3 +448,72 @@ void EmitFunctionContext::i8x16_ltz_mask(NoImm)
 								  llvmContext.i32Type));
 	}
 }
+
+void EmitFunctionContext::i16x8_ltz_mask(NoImm)
+{
+	auto i8x16Operand = irBuilder.CreateBitCast(pop(), llvmContext.i16x8Type);
+	auto i1x8Mask = irBuilder.CreateICmpSLT(
+		i8x16Operand, llvm::ConstantVector::getNullValue(llvmContext.i16x8Type));
+	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	{
+		auto i16x8Mask = irBuilder.CreateSExt(i1x8Mask, llvmContext.i16x8Type);
+		auto constant1 = llvm::ConstantInt::get(llvmContext.i16Type, 1);
+		auto constant2 = llvm::ConstantInt::get(llvmContext.i16Type, 2);
+		auto constant4 = llvm::ConstantInt::get(llvmContext.i16Type, 4);
+		auto constant8 = llvm::ConstantInt::get(llvmContext.i16Type, 8);
+		auto constant16 = llvm::ConstantInt::get(llvmContext.i16Type, 16);
+		auto constant32 = llvm::ConstantInt::get(llvmContext.i16Type, 32);
+		auto constant64 = llvm::ConstantInt::get(llvmContext.i16Type, 64);
+		auto constant128 = llvm::ConstantInt::get(llvmContext.i16Type, 128);
+		auto i16x8OrthogonalBitMask = irBuilder.CreateAnd(i16x8Mask,
+														  llvm::ConstantVector::get({constant1,
+																					 constant2,
+																					 constant4,
+																					 constant8,
+																					 constant16,
+																					 constant32,
+																					 constant64,
+																					 constant128}));
+		auto i16CombinedBitMask = callLLVMIntrinsic({llvmContext.i16x8Type},
+													llvm::Intrinsic::experimental_vector_reduce_add,
+													{i16x8OrthogonalBitMask});
+		push(irBuilder.CreateZExt(i16CombinedBitMask, llvmContext.i32Type));
+	}
+	else
+	{
+		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x8Mask, llvmContext.i8Type),
+								  llvmContext.i32Type));
+	}
+}
+
+void EmitFunctionContext::i32x4_ltz_mask(NoImm)
+{
+	auto i32x4Operand = irBuilder.CreateBitCast(pop(), llvmContext.i32x4Type);
+	auto i1x4Mask = irBuilder.CreateICmpSLT(
+		i32x4Operand, llvm::ConstantVector::getNullValue(llvmContext.i32x4Type));
+	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	{
+		auto i32x4Mask = irBuilder.CreateSExt(i1x4Mask, llvmContext.i32x4Type);
+		auto constant1 = llvm::ConstantInt::get(llvmContext.i32Type, 1);
+		auto constant2 = llvm::ConstantInt::get(llvmContext.i32Type, 2);
+		auto constant4 = llvm::ConstantInt::get(llvmContext.i32Type, 4);
+		auto constant8 = llvm::ConstantInt::get(llvmContext.i32Type, 8);
+		auto i32x4OrthogonalBitMask = irBuilder.CreateAnd(i32x4Mask,
+														  llvm::ConstantVector::get({
+															  constant1,
+															  constant2,
+															  constant4,
+															  constant8,
+														  }));
+		auto i32CombinedBitMask = callLLVMIntrinsic({llvmContext.i32x4Type},
+													llvm::Intrinsic::experimental_vector_reduce_add,
+													{i32x4OrthogonalBitMask});
+		push(i32CombinedBitMask);
+	}
+	else
+	{
+		push(irBuilder.CreateZExt(
+			irBuilder.CreateBitCast(i1x4Mask, llvm::IntegerType::get(llvmContext, 4)),
+			llvmContext.i32Type));
+	}
+}

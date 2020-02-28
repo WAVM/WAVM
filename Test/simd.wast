@@ -1117,37 +1117,125 @@
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
-  (i32.const 0x00000000)
+  (i32.const 0x0000)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80))
-  (i32.const 0x0000ffff)
+  (i32.const 0xffff)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f))
-  (i32.const 0x00000000)
+  (i32.const 0x0000)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff))
-  (i32.const 0x0000ffff)
+  (i32.const 0xffff)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x80 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
-  (i32.const 0x00000001)
+  (i32.const 0x0001)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80))
   (i32.const 0x0000aaaa)
+)
+
+;; i16x8.ltz_mask
+
+(module
+  (func (export "i16x8.ltz_mask") (param v128) (result i32)
+    (i16x8.ltz_mask (local.get 0))
+  )
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0 0 0 0 0 0 0 0))
+  (i32.const 0x00)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000))
+  (i32.const 0xff)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff))
+  (i32.const 0x00)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff))
+  (i32.const 0xff)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x8000 0 0 0 0 0 0 0))
+  (i32.const 0x01)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x0000 0x8000 0x0000 0x8000 0x0000 0x8000 0x0000 0x8000))
+  (i32.const 0xaa)
+)
+
+;; i32x4.ltz_mask
+
+(module
+  (func (export "i32x4.ltz_mask") (param v128) (result i32)
+    (i32x4.ltz_mask (local.get 0))
+  )
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0 0 0 0))
+  (i32.const 0x0)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x80000000 0x80000000 0x80000000 0x80000000))
+  (i32.const 0xf)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x7fffffff 0x7fffffff 0x7fffffff 0x7fffffff))
+  (i32.const 0x0)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
+  (i32.const 0xf)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x80000000 0 0 0))
+  (i32.const 0x1)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x00000000 0x80000000 0x00000000 0x80000000))
+  (i32.const 0xa)
 )
 
 ;; i8x16 min/max
