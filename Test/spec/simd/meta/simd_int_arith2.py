@@ -39,8 +39,7 @@ class SimdLaneWiseInteger:
     def get_unary_complex_test_data(self):
         """test const vs const and different lanes go through different if-then clauses for unary ops"""
         case_data = [
-            [self.LANE_VALUE.min, self.LANE_VALUE.max, self.LANE_VALUE.quarter, self.LANE_VALUE.mask],
-            [self.LANE_VALUE.mask, self.LANE_VALUE.quarter, self.LANE_VALUE.max, self.LANE_VALUE.min]
+            [self.LANE_VALUE.min, self.LANE_VALUE.max, self.LANE_VALUE.quarter, self.LANE_VALUE.mask]
         ]
         case_data = [list(map(str, param)) for param in case_data]
 
