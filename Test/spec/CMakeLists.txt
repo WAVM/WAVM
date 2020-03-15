@@ -33,7 +33,7 @@ ADD_WAST_TESTS(
 			forward.wast
 			func.wast
 			func_ptrs.wast
-			globals.wast
+			global.wast
 			i32.wast
 			i64.wast
 			if.wast
@@ -69,6 +69,7 @@ ADD_WAST_TESTS(
 			stack.wast
 			store.wast
 			switch.wast
+			table.wast
 			table_copy.wast
 			table_fill.wast
 			table_get.wast
