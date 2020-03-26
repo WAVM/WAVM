@@ -105,7 +105,7 @@ class Simdf64x2ArithmeticCase(Simdf32x4ArithmeticCase):
         return super().get_invalid_cases().replace('32', '64')
 
     @property
-    def mixed_sqrt_nan_test_data(self):
+    def mixed_nan_test_data(self):
         return {
             'neg_canon': [
                 ('nan', '1.0'), ('nan:canonical', '-1.0'),
@@ -134,7 +134,7 @@ class Simdf64x2ArithmeticCase(Simdf32x4ArithmeticCase):
         """Mixed f64x2 tests when only expects NaNs in a subset of lanes."""
         mixed_cases = [
             '\n;; Mixed f64x2 tests when some lanes are NaNs', '(module']
-        for test_type, test_data in sorted(self.mixed_sqrt_nan_test_data.items()):
+        for test_type, test_data in sorted(self.mixed_nan_test_data.items()):
             op = test_type.split('_')[0]
             if op in self.UNARY_OPS:
                 mixed_cases.extend([
@@ -149,7 +149,7 @@ class Simdf64x2ArithmeticCase(Simdf32x4ArithmeticCase):
                         param1=' '.join(test_data[0]),
                         param2=' '.join(test_data[1]))])
         mixed_cases.append(')\n')
-        for test_type, test_data in sorted(self.mixed_sqrt_nan_test_data.items()):
+        for test_type, test_data in sorted(self.mixed_nan_test_data.items()):
             mixed_cases.append('(assert_return (invoke "{lane}_{t}") (v128.const {lane} {result}))'.format(
                 lane=self.LANE_TYPE, t=test_type, result=' '.join(test_data[-1])
             ))
