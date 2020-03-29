@@ -194,7 +194,6 @@ stages:
         parameters:
           name: 'MacOSTGZ'
           matrix:
-            MacOS1013: {vmImage: 'macOS-10.13', container: ''}
             MacOS1014: {vmImage: 'macOS-10.14', container: ''}
           examplesDir: '/usr/local/share/wavm/examples'
           artifactName: 'MacOS_StaticLTO'
