@@ -446,7 +446,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 	)
 
 	# Target C++11.
-	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_11)
+	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_14)
 	
 	# Set sanitizer options.
 	WAVM_SET_TARGET_SANITIZER_OPTIONS(${TARGET_NAME})

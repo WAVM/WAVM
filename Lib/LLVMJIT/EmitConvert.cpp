@@ -13,6 +13,11 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Intrinsics.h>
+
+#if LLVM_VERSION_MAJOR >= 10
+#include <llvm/IR/IntrinsicsAArch64.h>
+#include <llvm/IR/IntrinsicsX86.h>
+#endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
@@ -50,12 +55,6 @@ EMIT_UNARY_OP(f32x4_convert_i32x4_s,
 EMIT_UNARY_OP(f32x4_convert_i32x4_u,
 			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmContext.i32x4Type),
 									 llvmContext.f32x4Type));
-EMIT_UNARY_OP(f64x2_convert_i64x2_s,
-			  irBuilder.CreateSIToFP(irBuilder.CreateBitCast(operand, llvmContext.i64x2Type),
-									 llvmContext.f64x2Type));
-EMIT_UNARY_OP(f64x2_convert_i64x2_u,
-			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmContext.i64x2Type),
-									 llvmContext.f64x2Type));
 
 EMIT_UNARY_OP(f32_demote_f64, irBuilder.CreateFPTrunc(operand, llvmContext.f32Type))
 EMIT_UNARY_OP(f64_promote_f32, emitF64Promote(operand))
@@ -296,28 +295,6 @@ EMIT_UNARY_OP(
 												U32(0),
 												irBuilder.CreateBitCast(operand,
 																		llvmContext.f32x4Type)))
-EMIT_UNARY_OP(
-	i64x2_trunc_sat_f64x2_s,
-	(emitTruncVectorFloatToIntSat<I64, F64, 2>)(llvmContext.i64x2Type,
-												true,
-												F64(INT64_MIN),
-												F64(INT64_MAX),
-												INT64_MIN,
-												INT64_MAX,
-												I64(0),
-												irBuilder.CreateBitCast(operand,
-																		llvmContext.f64x2Type)))
-EMIT_UNARY_OP(
-	i64x2_trunc_sat_f64x2_u,
-	(emitTruncVectorFloatToIntSat<U64, F64, 2>)(llvmContext.i64x2Type,
-												false,
-												0.0,
-												F64(UINT64_MAX),
-												U64(0),
-												UINT64_MAX,
-												U64(0),
-												irBuilder.CreateBitCast(operand,
-																		llvmContext.f64x2Type)))
 
 EMIT_UNARY_OP(i32_extend8_s, sext(trunc(operand, llvmContext.i8Type), llvmContext.i32Type))
 EMIT_UNARY_OP(i32_extend16_s, sext(trunc(operand, llvmContext.i16Type), llvmContext.i32Type))
@@ -469,5 +446,74 @@ void EmitFunctionContext::i8x16_ltz_mask(NoImm)
 	{
 		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x16Mask, llvmContext.i16Type),
 								  llvmContext.i32Type));
+	}
+}
+
+void EmitFunctionContext::i16x8_ltz_mask(NoImm)
+{
+	auto i8x16Operand = irBuilder.CreateBitCast(pop(), llvmContext.i16x8Type);
+	auto i1x8Mask = irBuilder.CreateICmpSLT(
+		i8x16Operand, llvm::ConstantVector::getNullValue(llvmContext.i16x8Type));
+	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	{
+		auto i16x8Mask = irBuilder.CreateSExt(i1x8Mask, llvmContext.i16x8Type);
+		auto constant1 = llvm::ConstantInt::get(llvmContext.i16Type, 1);
+		auto constant2 = llvm::ConstantInt::get(llvmContext.i16Type, 2);
+		auto constant4 = llvm::ConstantInt::get(llvmContext.i16Type, 4);
+		auto constant8 = llvm::ConstantInt::get(llvmContext.i16Type, 8);
+		auto constant16 = llvm::ConstantInt::get(llvmContext.i16Type, 16);
+		auto constant32 = llvm::ConstantInt::get(llvmContext.i16Type, 32);
+		auto constant64 = llvm::ConstantInt::get(llvmContext.i16Type, 64);
+		auto constant128 = llvm::ConstantInt::get(llvmContext.i16Type, 128);
+		auto i16x8OrthogonalBitMask = irBuilder.CreateAnd(i16x8Mask,
+														  llvm::ConstantVector::get({constant1,
+																					 constant2,
+																					 constant4,
+																					 constant8,
+																					 constant16,
+																					 constant32,
+																					 constant64,
+																					 constant128}));
+		auto i16CombinedBitMask = callLLVMIntrinsic({llvmContext.i16x8Type},
+													llvm::Intrinsic::experimental_vector_reduce_add,
+													{i16x8OrthogonalBitMask});
+		push(irBuilder.CreateZExt(i16CombinedBitMask, llvmContext.i32Type));
+	}
+	else
+	{
+		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x8Mask, llvmContext.i8Type),
+								  llvmContext.i32Type));
+	}
+}
+
+void EmitFunctionContext::i32x4_ltz_mask(NoImm)
+{
+	auto i32x4Operand = irBuilder.CreateBitCast(pop(), llvmContext.i32x4Type);
+	auto i1x4Mask = irBuilder.CreateICmpSLT(
+		i32x4Operand, llvm::ConstantVector::getNullValue(llvmContext.i32x4Type));
+	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	{
+		auto i32x4Mask = irBuilder.CreateSExt(i1x4Mask, llvmContext.i32x4Type);
+		auto constant1 = llvm::ConstantInt::get(llvmContext.i32Type, 1);
+		auto constant2 = llvm::ConstantInt::get(llvmContext.i32Type, 2);
+		auto constant4 = llvm::ConstantInt::get(llvmContext.i32Type, 4);
+		auto constant8 = llvm::ConstantInt::get(llvmContext.i32Type, 8);
+		auto i32x4OrthogonalBitMask = irBuilder.CreateAnd(i32x4Mask,
+														  llvm::ConstantVector::get({
+															  constant1,
+															  constant2,
+															  constant4,
+															  constant8,
+														  }));
+		auto i32CombinedBitMask = callLLVMIntrinsic({llvmContext.i32x4Type},
+													llvm::Intrinsic::experimental_vector_reduce_add,
+													{i32x4OrthogonalBitMask});
+		push(i32CombinedBitMask);
+	}
+	else
+	{
+		push(irBuilder.CreateZExt(
+			irBuilder.CreateBitCast(i1x4Mask, llvm::IntegerType::get(llvmContext, 4)),
+			llvmContext.i32Type));
 	}
 }

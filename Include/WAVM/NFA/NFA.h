@@ -44,8 +44,8 @@ namespace WAVM { namespace NFA {
 		Machine() : stateAndOffsetToNextStateMap(nullptr), numClasses(0), numStates(0) {}
 		~Machine();
 
-		Machine(Machine&& inMachine) { moveFrom(std::move(inMachine)); }
-		void operator=(Machine&& inMachine) { moveFrom(std::move(inMachine)); }
+		Machine(Machine&& inMachine) noexcept { moveFrom(std::move(inMachine)); }
+		void operator=(Machine&& inMachine) noexcept { moveFrom(std::move(inMachine)); }
 
 		// Constructs a DFA from the abstract builder object (which is destroyed).
 		Machine(Builder* inBuilder);
@@ -99,6 +99,6 @@ namespace WAVM { namespace NFA {
 		Uptr numClasses;
 		Uptr numStates;
 
-		void moveFrom(Machine&& inMachine);
+		void moveFrom(Machine&& inMachine) noexcept;
 	};
 }}

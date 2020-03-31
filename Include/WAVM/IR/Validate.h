@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Operators.h"
@@ -14,13 +15,15 @@ namespace WAVM { namespace IR {
 		ValidationException(std::string&& inMessage) : message(inMessage) {}
 	};
 
+	struct ModuleValidationState;
 	struct CodeValidationStreamImpl;
 
 	struct CodeValidationStream
 	{
 		typedef void Result;
 
-		WAVM_API CodeValidationStream(const Module& module, const FunctionDef& function);
+		WAVM_API CodeValidationStream(ModuleValidationState& moduleValidationState,
+									  const FunctionDef& function);
 		WAVM_API ~CodeValidationStream();
 
 		WAVM_API void finish();
@@ -35,10 +38,10 @@ namespace WAVM { namespace IR {
 
 	template<typename InnerStream> struct CodeValidationProxyStream
 	{
-		CodeValidationProxyStream(const Module& module,
+		CodeValidationProxyStream(ModuleValidationState& moduleValidationState,
 								  const FunctionDef& function,
 								  InnerStream& inInnerStream)
-		: codeValidationStream(module, function), innerStream(inInnerStream)
+		: codeValidationStream(moduleValidationState, function), innerStream(inInnerStream)
 		{
 		}
 
@@ -58,33 +61,41 @@ namespace WAVM { namespace IR {
 		InnerStream& innerStream;
 	};
 
-	WAVM_API void validateTypes(const IR::Module& module);
-	WAVM_API void validateImports(const IR::Module& module);
-	WAVM_API void validateFunctionDeclarations(const IR::Module& module);
-	WAVM_API void validateTableDefs(const IR::Module& module);
-	WAVM_API void validateMemoryDefs(const IR::Module& module);
-	WAVM_API void validateGlobalDefs(const IR::Module& module);
-	WAVM_API void validateExceptionTypeDefs(const IR::Module& module);
-	WAVM_API void validateExports(const IR::Module& module);
-	WAVM_API void validateStartFunction(const IR::Module& module);
-	WAVM_API void validateElemSegments(const IR::Module& module);
-	WAVM_API void validateDataSegments(const IR::Module& module);
+	WAVM_API std::shared_ptr<ModuleValidationState> createModuleValidationState(
+		const Module& module);
 
-	inline void validatePreCodeSections(const IR::Module& module)
+	WAVM_API void validateTypes(ModuleValidationState& state);
+	WAVM_API void validateImports(ModuleValidationState& state);
+	WAVM_API void validateFunctionDeclarations(ModuleValidationState& state);
+	WAVM_API void validateTableDefs(ModuleValidationState& state);
+	WAVM_API void validateMemoryDefs(ModuleValidationState& state);
+	WAVM_API void validateGlobalDefs(ModuleValidationState& state);
+	WAVM_API void validateExceptionTypeDefs(ModuleValidationState& state);
+	WAVM_API void validateExports(ModuleValidationState& state);
+	WAVM_API void validateStartFunction(ModuleValidationState& state);
+	WAVM_API void validateElemSegments(ModuleValidationState& state);
+	WAVM_API void validateDataSegments(ModuleValidationState& state);
+	WAVM_API void validateDeferred(ModuleValidationState& state);
+
+	inline void validatePreCodeSections(ModuleValidationState& state)
 	{
-		validateTypes(module);
-		validateImports(module);
-		validateFunctionDeclarations(module);
-		validateTableDefs(module);
-		validateMemoryDefs(module);
-		validateGlobalDefs(module);
-		validateExceptionTypeDefs(module);
-		validateExports(module);
-		validateStartFunction(module);
-		validateElemSegments(module);
+		validateTypes(state);
+		validateImports(state);
+		validateFunctionDeclarations(state);
+		validateTableDefs(state);
+		validateMemoryDefs(state);
+		validateGlobalDefs(state);
+		validateExceptionTypeDefs(state);
+		validateExports(state);
+		validateStartFunction(state);
+		validateElemSegments(state);
 	}
 
-	WAVM_API void validateCodeSection(const IR::Module& module);
+	WAVM_API void validateCodeSection(ModuleValidationState& state);
 
-	inline void validatePostCodeSections(const IR::Module& module) { validateDataSegments(module); }
+	inline void validatePostCodeSections(ModuleValidationState& state)
+	{
+		validateDataSegments(state);
+		validateDeferred(state);
+	}
 }}

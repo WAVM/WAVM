@@ -1,4 +1,5 @@
 ADD_WAST_TESTS(
+    WAVM_ARGS "--test-cloning" "--strict-assert-invalid" "--strict-assert-malformed"
     SOURCES simd_address.wast
             simd_align.wast
             simd_load.wast

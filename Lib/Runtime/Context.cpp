@@ -32,6 +32,7 @@ Context* Runtime::createContext(Compartment* compartment, std::string&& debugNam
 		WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
 			(U8*)context->runtimeData,
 			sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2()));
+		Platform::registerVirtualAllocation(sizeof(ContextRuntimeData));
 
 		// Initialize the context's global data.
 		memcpy(context->runtimeData->mutableGlobals,
@@ -48,6 +49,10 @@ Runtime::Context::~Context()
 {
 	WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 	compartment->contexts.removeOrFail(id);
+
+	Platform::decommitVirtualPages((U8*)runtimeData,
+								   sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2());
+	Platform::deregisterVirtualAllocation(sizeof(ContextRuntimeData));
 }
 
 Compartment* Runtime::getCompartment(const Context* context) { return context->compartment; }

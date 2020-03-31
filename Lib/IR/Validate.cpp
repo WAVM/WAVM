@@ -38,6 +38,34 @@ using namespace WAVM::IR;
 								  + getFeatureName(Feature::feature) + " feature");                \
 	}
 
+namespace WAVM {
+	template<> struct Hash<KindAndIndex>
+	{
+		Uptr operator()(const KindAndIndex& kindAndIndex, Uptr seed = 0) const
+		{
+			Uptr hash = seed;
+			hash = Hash<Uptr>()(Uptr(kindAndIndex.kind), hash);
+			hash = Hash<Uptr>()(kindAndIndex.index, hash);
+			return hash;
+		}
+	};
+}
+
+namespace WAVM { namespace IR {
+	struct ModuleValidationState
+	{
+		const IR::Module& module;
+		HashSet<KindAndIndex> declaredExternRefs;
+
+		ModuleValidationState(const IR::Module& inModule) : module(inModule) {}
+	};
+}}
+
+std::shared_ptr<ModuleValidationState> IR::createModuleValidationState(const IR::Module& module)
+{
+	return std::make_shared<ModuleValidationState>(module);
+}
+
 static void validate(const IR::Module& module, IR::ValueType valueType)
 {
 	switch(valueType)
@@ -165,6 +193,18 @@ static FunctionType validateFunctionIndex(const Module& module, Uptr functionInd
 	return module.types[module.functions.getType(functionIndex).index];
 }
 
+static void validateFunctionRef(const ModuleValidationState& state, Uptr functionIndex)
+{
+	validateFunctionIndex(state.module, functionIndex);
+
+	if(!state.declaredExternRefs.contains(KindAndIndex{ExternKind::function, functionIndex}))
+	{
+		throw ValidationException(
+			"function " + std::to_string(functionIndex)
+			+ " must be present in an elem segment to be used as the operand to ref.func");
+	}
+}
+
 static FunctionType validateBlockType(const Module& module, const IndexedBlockType& type)
 {
 	switch(type.format)
@@ -201,11 +241,13 @@ static FunctionType validateFunctionType(const Module& module, const IndexedFunc
 	return functionType;
 }
 
-static void validateInitializer(const Module& module,
+static void validateInitializer(const ModuleValidationState& state,
 								const InitializerExpression& expression,
 								ValueType expectedType,
 								const char* context)
 {
+	const Module& module = state.module;
+
 	switch(expression.type)
 	{
 	case InitializerExpression::Type::i32_const:
@@ -233,7 +275,7 @@ static void validateInitializer(const Module& module,
 		validateType(expectedType, ValueType::nullref, context);
 		break;
 	case InitializerExpression::Type::ref_func: {
-		validateFunctionIndex(module, expression.ref);
+		validateFunctionRef(state, expression.ref);
 		validateType(expectedType, ValueType::funcref, context);
 		break;
 	}
@@ -247,10 +289,12 @@ struct FunctionValidationContext
 {
 	const bool enableTracing{Log::isCategoryEnabled(Log::traceValidation)};
 
-	FunctionValidationContext(const Module& inModule, const FunctionDef& inFunctionDef)
-	: module(inModule)
+	FunctionValidationContext(ModuleValidationState& inModuleValidationState,
+							  const FunctionDef& inFunctionDef)
+	: module(inModuleValidationState.module)
 	, functionDef(inFunctionDef)
-	, functionType(inModule.types[inFunctionDef.type.index])
+	, functionType(inModuleValidationState.module.types[inFunctionDef.type.index])
+	, moduleValidationState(inModuleValidationState)
 	{
 		// Validate the function's local types.
 		for(auto localType : functionDef.nonParameterLocalTypes) { validate(module, localType); }
@@ -629,7 +673,10 @@ struct FunctionValidationContext
 					   asValueType(module.tables.getType(imm.destTableIndex).elementType)));
 	}
 
-	void validateImm(FunctionImm imm) { validateFunctionIndex(module, imm.functionIndex); }
+	void validateImm(FunctionRefImm imm)
+	{
+		validateFunctionRef(moduleValidationState, imm.functionIndex);
+	}
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
 	{
@@ -738,6 +785,7 @@ private:
 	const Module& module;
 	const FunctionDef& functionDef;
 	FunctionType functionType;
+	ModuleValidationState& moduleValidationState;
 
 	std::vector<ValueType> locals;
 	std::vector<ControlContext> controlStack;
@@ -881,8 +929,10 @@ private:
 	}
 };
 
-void IR::validateTypes(const Module& module)
+void IR::validateTypes(ModuleValidationState& state)
 {
+	const Module& module = state.module;
+
 	for(Uptr typeIndex = 0; typeIndex < module.types.size(); ++typeIndex)
 	{
 		FunctionType functionType = module.types[typeIndex];
@@ -904,8 +954,10 @@ void IR::validateTypes(const Module& module)
 	}
 }
 
-void IR::validateImports(const Module& module)
+void IR::validateImports(ModuleValidationState& state)
 {
+	const Module& module = state.module;
+
 	WAVM_ASSERT(module.imports.size()
 				== module.functions.imports.size() + module.tables.imports.size()
 					   + module.memories.imports.size() + module.globals.imports.size()
@@ -928,8 +980,10 @@ void IR::validateImports(const Module& module)
 	if(module.memories.size() > 1) { VALIDATE_FEATURE("multiple memories", multipleMemories); }
 }
 
-void IR::validateFunctionDeclarations(const Module& module)
+void IR::validateFunctionDeclarations(ModuleValidationState& state)
 {
+	const Module& module = state.module;
+
 	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
 		++functionDefIndex)
 	{
@@ -941,38 +995,42 @@ void IR::validateFunctionDeclarations(const Module& module)
 	}
 }
 
-void IR::validateGlobalDefs(const Module& module)
+void IR::validateGlobalDefs(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	for(auto& globalDef : module.globals.defs)
 	{
 		validate(module, globalDef.type);
-		validateInitializer(module,
-							globalDef.initializer,
-							globalDef.type.valueType,
-							"global initializer expression");
+		// Defer validating the global initializers until validateDeferred, so elem segments have
+		// been validated and can be used to validate that the global initializers don't reference
+		// any externs not declared as referenceable in an elem segment.
 	}
 }
 
-void IR::validateExceptionTypeDefs(const Module& module)
+void IR::validateExceptionTypeDefs(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	for(auto& exceptionTypeDef : module.exceptionTypes.defs)
 	{ validate(module, exceptionTypeDef.type.params); }
 }
 
-void IR::validateTableDefs(const Module& module)
+void IR::validateTableDefs(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	for(auto& tableDef : module.tables.defs) { validate(module, tableDef.type); }
 	if(module.tables.size() > 1) { VALIDATE_FEATURE("multiple tables", referenceTypes); }
 }
 
-void IR::validateMemoryDefs(const Module& module)
+void IR::validateMemoryDefs(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	for(auto& memoryDef : module.memories.defs) { validate(module, memoryDef.type); }
 	if(module.memories.size() > 1) { VALIDATE_FEATURE("multiple memories", multipleMemories); }
 }
 
-void IR::validateExports(const Module& module)
+void IR::validateExports(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	HashSet<std::string> exportNameSet;
 	for(auto& exportIt : module.exports)
 	{
@@ -1003,8 +1061,9 @@ void IR::validateExports(const Module& module)
 	}
 }
 
-void IR::validateStartFunction(const Module& module)
+void IR::validateStartFunction(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	if(module.startFunctionIndex != UINTPTR_MAX)
 	{
 		VALIDATE_INDEX(module.startFunctionIndex, module.functions.size());
@@ -1015,8 +1074,9 @@ void IR::validateStartFunction(const Module& module)
 	}
 }
 
-void IR::validateElemSegments(const Module& module)
+void IR::validateElemSegments(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	for(auto& elemSegment : module.elemSegments)
 	{
 		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)
@@ -1060,11 +1120,12 @@ void IR::validateElemSegments(const Module& module)
 			}
 
 			validateInitializer(
-				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
+				state, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
 
 			break;
 		}
 		case ElemSegment::Type::passive: break;
+		case ElemSegment::Type::declared: break;
 
 		default: WAVM_UNREACHABLE();
 		};
@@ -1081,6 +1142,11 @@ void IR::validateElemSegments(const Module& module)
 				case ElemExpr::Type::ref_func:
 					exprType = ReferenceType::funcref;
 					VALIDATE_INDEX(elem.index, module.functions.size());
+					if(elemSegment.type == ElemSegment::Type::declared)
+					{
+						state.declaredExternRefs.add(
+							KindAndIndex{ExternKind::function, elem.index});
+					}
 					break;
 				default: WAVM_UNREACHABLE();
 				};
@@ -1111,6 +1177,12 @@ void IR::validateElemSegments(const Module& module)
 				case ExternKind::invalid:
 				default: WAVM_UNREACHABLE();
 				};
+
+				if(elemSegment.type == ElemSegment::Type::declared)
+				{
+					state.declaredExternRefs.add(
+						KindAndIndex{elemSegment.contents->externKind, externIndex});
+				}
 			}
 			break;
 		default: WAVM_UNREACHABLE();
@@ -1118,26 +1190,43 @@ void IR::validateElemSegments(const Module& module)
 	}
 }
 
-void IR::validateDataSegments(const Module& module)
+void IR::validateDataSegments(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	for(auto& dataSegment : module.dataSegments)
 	{
 		if(dataSegment.isActive)
 		{
 			VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
 			validateInitializer(
-				module, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
+				state, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
 		}
 	}
 }
 
-void IR::validateCodeSection(const Module& module)
+void IR::validateCodeSection(ModuleValidationState& state)
 {
+	const Module& module = state.module;
 	for(const auto& functionDef : module.functions.defs)
 	{
-		CodeValidationStream validationStream(module, functionDef);
+		CodeValidationStream validationStream(state, functionDef);
 		OperatorDecoderStream operatorDecoderStream(functionDef.code);
 		while(operatorDecoderStream) { operatorDecoderStream.decodeOp(validationStream); }
+	}
+}
+
+void IR::validateDeferred(ModuleValidationState& state)
+{
+	// Validate that global initializers don't reference externs that aren't declared as
+	// referenceable through being in an elem segment. This must be deferred until after both the
+	// global and elem sections are serialized.
+	const Module& module = state.module;
+	for(auto& globalDef : module.globals.defs)
+	{
+		validateInitializer(state,
+							globalDef.initializer,
+							globalDef.type.valueType,
+							"global initializer expression");
 	}
 }
 
@@ -1147,16 +1236,19 @@ namespace WAVM { namespace IR {
 		FunctionValidationContext functionContext;
 		OperatorPrinter operatorPrinter;
 
-		CodeValidationStreamImpl(const Module& module, const FunctionDef& functionDef)
-		: functionContext(module, functionDef), operatorPrinter(module, functionDef)
+		CodeValidationStreamImpl(ModuleValidationState& moduleValidationState,
+								 const FunctionDef& functionDef)
+		: functionContext(moduleValidationState, functionDef)
+		, operatorPrinter(moduleValidationState.module, functionDef)
 		{
 		}
 	};
 }}
 
-IR::CodeValidationStream::CodeValidationStream(const Module& module, const FunctionDef& functionDef)
+IR::CodeValidationStream::CodeValidationStream(ModuleValidationState& moduleValidationState,
+											   const FunctionDef& functionDef)
 {
-	impl = new CodeValidationStreamImpl(module, functionDef);
+	impl = new CodeValidationStreamImpl(moduleValidationState, functionDef);
 }
 
 IR::CodeValidationStream::~CodeValidationStream()

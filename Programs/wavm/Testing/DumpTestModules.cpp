@@ -60,7 +60,10 @@ static void dumpModule(const Module& module, const char* outputDir, DumpFormat d
 	}
 }
 
-static void dumpCommandModules(const Command* command, const char* outputDir, DumpFormat dumpFormat)
+static void dumpCommandModules(const char* filename,
+							   const Command* command,
+							   const char* outputDir,
+							   DumpFormat dumpFormat)
 {
 	switch(command->type)
 	{
@@ -70,6 +73,10 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 		{
 		case ActionType::_module: {
 			auto moduleAction = (ModuleAction*)actionCommand->action.get();
+			Log::printf(Log::output,
+						"Dumping module at %s:%s...\n",
+						filename,
+						moduleAction->locus.describe().c_str());
 			dumpModule(*moduleAction->module, outputDir, dumpFormat);
 			break;
 		}
@@ -81,12 +88,21 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 	}
 	case Command::assert_unlinkable: {
 		auto assertUnlinkableCommand = (AssertUnlinkableCommand*)command;
+		Log::printf(Log::output,
+					"Dumping unlinkable module at %s:%s...\n",
+					filename,
+					assertUnlinkableCommand->locus.describe().c_str());
 		dumpModule(*assertUnlinkableCommand->moduleAction->module, outputDir, dumpFormat);
 		break;
 	}
 	case Command::assert_invalid:
 	case Command::assert_malformed: {
 		auto assertInvalidOrMalformedCommand = (AssertInvalidOrMalformedCommand*)command;
+		Log::printf(Log::output,
+					"Dumping malformed or invalid module at %s:%s...\n",
+					filename,
+					assertInvalidOrMalformedCommand->locus.describe().c_str());
+
 		if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::text
 		   && (dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both))
 		{ dumpWAST(assertInvalidOrMalformedCommand->quotedModuleString, outputDir); }
@@ -163,11 +179,12 @@ int execDumpTestModules(int argc, char** argv)
 	{
 		Log::printf(
 			Log::error,
-			"Usage: wavm test dumpmodule [--output-dir <directory>] [--wast] [--wasm] <input .wast>\n");
+			"Usage: wavm test dumpmodules [--output-dir <dir>] [--wast] [--wasm] <input .wast>\n");
 		return EXIT_FAILURE;
 	}
 
 	WAVM_ASSERT(filename);
+	Log::printf(Log::output, "Dumping test modules from '%s'...\n", filename);
 
 	// Read the file into a vector.
 	std::vector<U8> testScriptBytes;
@@ -190,7 +207,7 @@ int execDumpTestModules(int argc, char** argv)
 	if(!testErrors.size())
 	{
 		for(auto& command : testCommands)
-		{ dumpCommandModules(command.get(), outputDir, dumpFormat); }
+		{ dumpCommandModules(filename, command.get(), outputDir, dumpFormat); }
 		return EXIT_SUCCESS;
 	}
 	else

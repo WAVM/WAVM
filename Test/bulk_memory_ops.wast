@@ -56,11 +56,11 @@
 
 ;; memory.init/data.drop
 
-(assert_invalid
-	(module
-		(memory $m 1)
-		(data "test")
-		(func (memory.init (i32.const 0) (i32.const 0) (i32.const 0)))
+(assert_malformed
+	(module quote
+		"(memory $m 1)"
+		"(data \"test\")"
+		"(func (memory.init (i32.const 0) (i32.const 0) (i32.const 0)))"
 	)
 	"invalid data segment index"
 )
@@ -245,12 +245,12 @@
 
 (module (elem funcref (ref.func $f)) (func $f))
 (module (elem funcref (ref.null)))
-(assert_invalid
-	(module (table $t 1 funcref) (elem (i32.const 0) (ref.func $f)) (func $f))
+(assert_malformed
+	(module quote "(table $t 1 funcref) (elem (i32.const 0) (ref.func $f)) (func $f)")
 	"unexpected expression"
 )
-(assert_invalid
-	(module (table $t 1 funcref) (elem (i32.const 0) funcref (unreachable)) (func $f))
+(assert_malformed
+	(module quote "(table $t 1 funcref) (elem (i32.const 0) funcref (unreachable)) (func $f)")
 	"expected 'ref.func' or 'ref.null'"
 )
 
@@ -321,7 +321,7 @@
 	"\0b"                                ;; end
 )
 
-(assert_invalid
+(assert_malformed
 	(module binary
 		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
 
@@ -580,7 +580,7 @@
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 		"\70\00\01"                          ;;   (table 1 funcref)
 	
-		"\0a\0f\01"                          ;; Code section
+		"\0a\0e\01"                          ;; Code section
 		"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
 		"\41\00"                             ;; i32.const 0
 		"\41\00"                             ;; i32.const 0
@@ -604,7 +604,7 @@
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 		"\70\00\01"                          ;;   (table 1 funcref)
 	
-		"\0a\0f\01"                          ;; Code section
+		"\0a\0e\01"                          ;; Code section
 		"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
 		"\41\00"                             ;; i32.const 0
 		"\41\00"                             ;; i32.const 0

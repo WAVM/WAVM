@@ -9,7 +9,7 @@
 (module
   (global $a (import "M" "a") v128)
   (global $b (import "M" "b") (mut v128))
-  
+
   (global $c v128       (global.get $a))
   (global $d v128       (v128.const i32x4 8 9 10 11))
   (global $e (mut v128) (global.get $a))
@@ -65,7 +65,7 @@
   "\0b"                ;; end
 )
 
-(assert_invalid
+(assert_malformed
   (module binary
     "\00asm"
     "\01\00\00\00"       ;; 1 section
@@ -294,14 +294,14 @@
 		(v128.const i8x16  15  14  13  12  11  10   9   8   7   6   5   4   3   2   1   0)
 		)
 	(v128.const i8x16     115 114 113 112 111 110 109 108 107 106 105 104 103 102 101 100))
-	
+
 (assert_return
 	(invoke "v8x16.swizzle"
 		(v128.const i8x16 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115)
 		(v128.const i8x16  -1   1  -2   2  -3   3  -4   4  -5   5  -6   6  -7   7  -8   8)
 		)
 	(v128.const i8x16       0 101   0 102   0 103   0 104   0 105   0 106   0 107   0 108))
-	
+
 (assert_return
 	(invoke "v8x16.swizzle"
 		(v128.const i8x16 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115)
@@ -583,8 +583,6 @@
 (module
   (func (export "f32x4.convert_i32x4_s") (param $a v128) (result v128) (f32x4.convert_i32x4_s (local.get $a)))
   (func (export "f32x4.convert_i32x4_u") (param $a v128) (result v128) (f32x4.convert_i32x4_u (local.get $a)))
-  (func (export "f64x2.convert_i64x2_s") (param $a v128) (result v128) (f64x2.convert_i64x2_s (local.get $a)))
-  (func (export "f64x2.convert_i64x2_u") (param $a v128) (result v128) (f64x2.convert_i64x2_u (local.get $a)))
 )
 
 ;; i32x4.trunc_sat_f32x4_s
@@ -606,15 +604,15 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const 2.0))
   (v128.const i32x4 2 2 2 2))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -1.0))
   (v128.const i32x4 -1 -1 -1 -1))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -1.9))
   (v128.const i32x4 -1 -1 -1 -1))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -2))
   (v128.const i32x4 -2 -2 -2 -2))
@@ -630,11 +628,11 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -3000000000.0))
   (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -inf))
   (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +inf))
   (v128.const i32x4 2147483647 2147483647 2147483647 2147483647))
@@ -642,11 +640,11 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const nan:0x444444))
   (v128.const i32x4 0 0 0 0))
@@ -670,7 +668,7 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const 2.0))
   (v128.const i32x4 2 2 2 2))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -1.0))
   (v128.const i32x4 0 0 0 0))
@@ -678,15 +676,15 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -2.0))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -2147483648.0))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -inf))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const +inf))
   (v128.const i32x4 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
@@ -694,22 +692,15 @@
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const +nan))
   (v128.const i32x4 0 0 0 0))
-  
+
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const nan:0x444444))
   (v128.const i32x4 0 0 0 0))
 
-;; i64x2.trunc_sat_f64x2_s
-
-(module (func (export "i64x2.trunc_sat_f64x2_s") (param $a f64) (result v128) (i64x2.trunc_sat_f64x2_s (f64x2.splat (local.get $a)))))
-
-;; i64x2.trunc_sat_f64x2_u
-
-(module (func (export "i64x2.trunc_sat_f64x2_u") (param $a f64) (result v128) (i64x2.trunc_sat_f64x2_u (f64x2.splat (local.get $a)))))
 
 ;; Test that LLVM undef isn't introduced by SIMD shifts greater than the scalar width.
 
@@ -782,25 +773,25 @@
 (module (func (result v128) (v128.const f32x4 0 1 2 3)))
 (module (func (result v128) (v128.const f32x4 0 1 2 -0x1.0p+10)))
 
-(assert_invalid
-  (module (func (result v128) (v128.const i32x4 0.0 1.0 2.0 3.0)))
+(assert_malformed
+  (module quote "(func (result v128) (v128.const i32x4 0.0 1.0 2.0 3.0))")
   "expected i32 literal"
 )
 
-(assert_invalid
-  (module (func (result v128) (v128.const i32 0 1 2 3)))
+(assert_malformed
+  (module quote "(func (result v128) (v128.const i32 0 1 2 3))")
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
-(assert_invalid
-  (module (func (result v128) (v128.const i16x4 0 1 2 3)))
+(assert_malformed
+  (module quote "(func (result v128) (v128.const i16x4 0 1 2 3))")
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
-(assert_invalid
-  (module (func (result v128) (v128.const f32 0 1 2 3)))
+(assert_malformed
+  (module quote "(func (result v128) (v128.const f32 0 1 2 3))")
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
-(assert_invalid
-  (module (func (result v128) (v128.const 0 1 2 3)))
+(assert_malformed
+  (module quote "(func (result v128) (v128.const 0 1 2 3))")
   "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
 )
 
@@ -1126,37 +1117,125 @@
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
-  (i32.const 0x00000000)
+  (i32.const 0x0000)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80))
-  (i32.const 0x0000ffff)
+  (i32.const 0xffff)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f))
-  (i32.const 0x00000000)
+  (i32.const 0x0000)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff))
-  (i32.const 0x0000ffff)
+  (i32.const 0xffff)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x80 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
-  (i32.const 0x00000001)
+  (i32.const 0x0001)
 )
 
 (assert_return
   (invoke "i8x16.ltz_mask"
     (v128.const i8x16 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80))
   (i32.const 0x0000aaaa)
+)
+
+;; i16x8.ltz_mask
+
+(module
+  (func (export "i16x8.ltz_mask") (param v128) (result i32)
+    (i16x8.ltz_mask (local.get 0))
+  )
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0 0 0 0 0 0 0 0))
+  (i32.const 0x00)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000))
+  (i32.const 0xff)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff))
+  (i32.const 0x00)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff))
+  (i32.const 0xff)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x8000 0 0 0 0 0 0 0))
+  (i32.const 0x01)
+)
+
+(assert_return
+  (invoke "i16x8.ltz_mask"
+    (v128.const i16x8 0x0000 0x8000 0x0000 0x8000 0x0000 0x8000 0x0000 0x8000))
+  (i32.const 0xaa)
+)
+
+;; i32x4.ltz_mask
+
+(module
+  (func (export "i32x4.ltz_mask") (param v128) (result i32)
+    (i32x4.ltz_mask (local.get 0))
+  )
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0 0 0 0))
+  (i32.const 0x0)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x80000000 0x80000000 0x80000000 0x80000000))
+  (i32.const 0xf)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x7fffffff 0x7fffffff 0x7fffffff 0x7fffffff))
+  (i32.const 0x0)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
+  (i32.const 0xf)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x80000000 0 0 0))
+  (i32.const 0x1)
+)
+
+(assert_return
+  (invoke "i32x4.ltz_mask"
+    (v128.const i32x4 0x00000000 0x80000000 0x00000000 0x80000000))
+  (i32.const 0xa)
 )
 
 ;; i8x16 min/max
@@ -1302,3 +1381,27 @@
     f64x2.extract_lane 1
   )
 )
+
+;; i8x16.abs
+
+(module (func (export "i8x16.abs") (param v128) (result v128) (i8x16.abs (local.get 0))))
+
+(assert_return
+  (invoke "i8x16.abs" (v128.const i8x16 +0 +1 -1 +3 -3 +7 -7 +15 -15 +31 -31 +63 -63 +127 -127 -128))
+                      (v128.const i8x16 +0 +1 +1 +3 +3 +7 +7 +15 +15 +31 +31 +63 +63 +127 +127 -128))
+
+;; i16x8.abs
+
+(module (func (export "i16x8.abs") (param v128) (result v128) (i16x8.abs (local.get 0))))
+
+(assert_return
+  (invoke "i16x8.abs" (v128.const i16x8 +0 +1 +127 -127 -128 +32767 -32767 -32768))
+                      (v128.const i16x8 +0 +1 +127 +127 +128 +32767 +32767 -32768))
+
+;; i32x4.abs
+
+(module (func (export "i32x4.abs") (param v128) (result v128) (i32x4.abs (local.get 0))))
+
+(assert_return
+  (invoke "i32x4.abs" (v128.const i32x4 +0 +2147483647 -2147483647 -2147483648))
+                      (v128.const i32x4 +0 +2147483647 +2147483647 -2147483648))

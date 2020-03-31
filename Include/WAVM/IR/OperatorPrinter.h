@@ -63,6 +63,10 @@ namespace WAVM { namespace IR {
 					  : asString(module.types[module.functions.getType(imm.functionIndex).index]);
 			return " " + std::to_string(imm.functionIndex) + " " + typeString;
 		}
+		std::string describeImm(FunctionRefImm imm)
+		{
+			return describeImm(FunctionImm{imm.functionIndex});
+		}
 		std::string describeImm(CallIndirectImm imm)
 		{
 			const std::string typeString = imm.type.index >= module.types.size()

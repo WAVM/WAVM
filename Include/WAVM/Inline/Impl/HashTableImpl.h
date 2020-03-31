@@ -346,7 +346,7 @@ template<HASHTABLE_PARAMETERS> HashTable<HASHTABLE_ARGUMENTS>::HashTable(const H
 	copyFrom(copy);
 }
 
-template<HASHTABLE_PARAMETERS> HashTable<HASHTABLE_ARGUMENTS>::HashTable(HashTable&& movee)
+template<HASHTABLE_PARAMETERS> HashTable<HASHTABLE_ARGUMENTS>::HashTable(HashTable&& movee) noexcept
 {
 	moveFrom(std::move(movee));
 }
@@ -368,7 +368,7 @@ HashTable<HASHTABLE_ARGUMENTS>& HashTable<HASHTABLE_ARGUMENTS>::operator=(
 
 template<HASHTABLE_PARAMETERS>
 HashTable<HASHTABLE_ARGUMENTS>& HashTable<HASHTABLE_ARGUMENTS>::operator=(
-	HashTable<HASHTABLE_ARGUMENTS>&& movee)
+	HashTable<HASHTABLE_ARGUMENTS>&& movee) noexcept
 {
 	// Do nothing if moving from this.
 	if(this != &movee)
@@ -411,7 +411,8 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(con
 	}
 }
 
-template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::moveFrom(HashTable&& movee)
+template<HASHTABLE_PARAMETERS>
+void HashTable<HASHTABLE_ARGUMENTS>::moveFrom(HashTable&& movee) noexcept
 {
 	numElements = movee.numElements;
 	hashToBucketIndexMask = movee.hashToBucketIndexMask;

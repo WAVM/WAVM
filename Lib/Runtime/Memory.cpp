@@ -164,6 +164,8 @@ Runtime::Memory::~Memory()
 	{
 		Platform::freeVirtualPages(baseAddress,
 								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
+
+		Platform::deregisterVirtualAllocation(numPages >> pageBytesLog2);
 	}
 
 	// Free the allocated quota.
@@ -227,6 +229,8 @@ GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOld
 			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
 			return GrowResult::outOfMemory;
 		}
+		Platform::registerVirtualAllocation(numPagesToGrow
+											<< getPlatformPagesPerWebAssemblyPageLog2());
 
 		const Uptr newNumPages = oldNumPages + numPagesToGrow;
 		memory->numPages.store(newNumPages, std::memory_order_release);
@@ -249,6 +253,8 @@ void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 	// Decommit the pages.
 	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage,
 								   numPages << getPlatformPagesPerWebAssemblyPageLog2());
+
+	Platform::deregisterVirtualAllocation(numPages << getPlatformPagesPerWebAssemblyPageLog2());
 }
 
 U8* Runtime::getMemoryBaseAddress(Memory* memory) { return memory->baseAddress; }

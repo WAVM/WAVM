@@ -16,7 +16,9 @@
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS _Pragma("GCC diagnostic pop")
 #elif defined(_MSC_VER)
 // Disable all VC warnings in the LLVM headers
-#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(push, 0));
+#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
+	__pragma(warning(push, 0));                                                                    \
+	__pragma(warning(disable : 4702));
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
 #else
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
@@ -377,6 +379,7 @@ namespace WAVM { namespace LLVMJIT {
 	{
 		HashMap<std::string, Runtime::Function*> nameToFunctionMap;
 		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
+		std::string debugName;
 
 #if LAZY_PARSE_DWARF_LINE_INFO
 		Platform::Mutex dwarfContextMutex;
@@ -385,7 +388,8 @@ namespace WAVM { namespace LLVMJIT {
 
 		Module(const std::vector<U8>& inObjectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
-			   bool shouldLogMetrics);
+			   bool shouldLogMetrics,
+			   std::string&& inDebugName);
 		~Module();
 
 	private:

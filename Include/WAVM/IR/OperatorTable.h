@@ -67,7 +67,7 @@
 /*  visitOp(0x001b, select             , "select"                           , NoImm                     , PARAMETRIC           , mvp                    )*/ \
 	visitOp(0x001c, select             , "select"                           , SelectImm                 , PARAMETRIC           , mvp                    )
 
-#define WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                               \
+#define WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                                    \
 	visitOp(0x0001, nop                , "nop"                              , NoImm                     , WAVM_NONE                 , mvp                    )   \
 /* Memory                                                                                                                                                     */ \
 	visitOp(0x0028, i32_load           , "i32.load"                         , LoadOrStoreImm<2>         , WAVM_LOAD(i32)            , mvp                    )   \
@@ -238,7 +238,7 @@
 /* Reference type operators                                                                                                                                   */ \
 	visitOp(0x00d0, ref_null                  , "ref.null"                  , NoImm                     , WAVM_NULLARY(nullref)     , referenceTypes         )   \
 	visitOp(0x00d1, ref_is_null               , "ref.is_null"               , NoImm                     , WAVM_UNARY(anyref,i32)    , referenceTypes         )   \
-	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionImm               , WAVM_NULLARY(funcref)     , referenceTypes         )   \
+	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionRefImm            , WAVM_NULLARY(funcref)     , referenceTypes         )   \
 /* Saturating float->int truncation operators                                                                                                                 */ \
 	visitOp(0xfc00, i32_trunc_sat_f32_s       , "i32.trunc_sat_f32_s"       , NoImm                     , WAVM_UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc01, i32_trunc_sat_f32_u       , "i32.trunc_sat_f32_u"       , NoImm                     , WAVM_UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
@@ -248,7 +248,7 @@
 	visitOp(0xfc05, i64_trunc_sat_f32_u       , "i64.trunc_sat_f32_u"       , NoImm                     , WAVM_UNARY(f32,i64)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc06, i64_trunc_sat_f64_s       , "i64.trunc_sat_f64_s"       , NoImm                     , WAVM_UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc07, i64_trunc_sat_f64_u       , "i64.trunc_sat_f64_u"       , NoImm                     , WAVM_UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
-/* Bulk memory/table operators                                                                                                                                 */ \
+/* Bulk memory/table operators                                                                                                                                */ \
 	visitOp(0xfc08, memory_init               , "memory.init"               , DataSegmentAndMemImm      , WAVM_BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc09, data_drop                 , "data.drop"                 , DataSegmentImm            , WAVM_NONE                 , bulkMemoryOperations   )   \
 	visitOp(0xfc0a, memory_copy               , "memory.copy"               , MemoryCopyImm             , WAVM_BULKCOPY             , bulkMemoryOperations   )   \
@@ -436,12 +436,12 @@
 /* v128 conversions                                                                                                                                           */ \
 	visitOp(0xfdab, i32x4_trunc_sat_f32x4_s   , "i32x4.trunc_sat_f32x4_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdac, i32x4_trunc_sat_f32x4_u   , "i32x4.trunc_sat_f32x4_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdad, i64x2_trunc_sat_f64x2_s   , "i64x2.trunc_sat_f64x2_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdae, i64x2_trunc_sat_f64x2_u   , "i64x2.trunc_sat_f64x2_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+/*	visitOp(0xfdad, i64x2_trunc_sat_f64x2_s   , "i64x2.trunc_sat_f64x2_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
+/*	visitOp(0xfdae, i64x2_trunc_sat_f64x2_u   , "i64x2.trunc_sat_f64x2_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
 	visitOp(0xfdaf, f32x4_convert_i32x4_s     , "f32x4.convert_i32x4_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdb0, f32x4_convert_i32x4_u     , "f32x4.convert_i32x4_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdb1, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfdb2, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+/*	visitOp(0xfdb1, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
+/*	visitOp(0xfdb2, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )*/ \
 /* v128 shuffles                                                                                                                                              */ \
 	visitOp(0xfdc0, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc1, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
@@ -475,37 +475,43 @@
 /* v128 avgr instructions - should be renumbered to be with the other integer arithmetic instructions                                                         */ \
 	visitOp(0xfdd9, i8x16_avgr_u              , "i8x16.avgr_u"              , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdda, i16x8_avgr_u              , "i16x8.avgr_u"              , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+/* v128 abs instructions - should be renumbered to be with the other integer arithmetic instructions                                                          */ \
+	visitOp(0xfde1, i8x16_abs                 , "i8x16.abs"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfde2, i16x8_abs                 , "i16x8.abs"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfde3, i32x4_abs                 , "i32x4.abs"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 /* v128 interleaved load/store instructions                                                                                                                   */ \
-	visitOp(0xfde0, v8x16_load_interleaved_2  , "v8x16.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde1, v8x16_load_interleaved_3  , "v8x16.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde2, v8x16_load_interleaved_4  , "v8x16.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde3, v16x8_load_interleaved_2  , "v16x8.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde4, v16x8_load_interleaved_3  , "v16x8.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde5, v16x8_load_interleaved_4  , "v16x8.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde6, v32x4_load_interleaved_2  , "v32x4.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde7, v32x4_load_interleaved_3  , "v32x4.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde8, v32x4_load_interleaved_4  , "v32x4.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfde9, v64x2_load_interleaved_2  , "v64x2.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfdea, v64x2_load_interleaved_3  , "v64x2.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfdeb, v64x2_load_interleaved_4  , "v64x2.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
-	visitOp(0xfdec, v8x16_store_interleaved_2 , "v8x16.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfded, v8x16_store_interleaved_3 , "v8x16.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdee, v8x16_store_interleaved_4 , "v8x16.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdef, v16x8_store_interleaved_2 , "v16x8.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf0, v16x8_store_interleaved_3 , "v16x8.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf1, v16x8_store_interleaved_4 , "v16x8.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf2, v32x4_store_interleaved_2 , "v32x4.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf3, v32x4_store_interleaved_3 , "v32x4.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf4, v32x4_store_interleaved_4 , "v32x4.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf5, v64x2_store_interleaved_2 , "v64x2.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf6, v64x2_store_interleaved_3 , "v64x2.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
-	visitOp(0xfdf7, v64x2_store_interleaved_4 , "v64x2.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfde4, v8x16_load_interleaved_2  , "v8x16.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde5, v8x16_load_interleaved_3  , "v8x16.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde6, v8x16_load_interleaved_4  , "v8x16.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde7, v16x8_load_interleaved_2  , "v16x8.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde8, v16x8_load_interleaved_3  , "v16x8.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfde9, v16x8_load_interleaved_4  , "v16x8.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdea, v32x4_load_interleaved_2  , "v32x4.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdeb, v32x4_load_interleaved_3  , "v32x4.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdec, v32x4_load_interleaved_4  , "v32x4.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfded, v64x2_load_interleaved_2  , "v64x2.load_interleaved_2"  , LoadOrStoreImm<4>         , WAVM_LOAD_2(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdee, v64x2_load_interleaved_3  , "v64x2.load_interleaved_3"  , LoadOrStoreImm<4>         , WAVM_LOAD_3(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdef, v64x2_load_interleaved_4  , "v64x2.load_interleaved_4"  , LoadOrStoreImm<4>         , WAVM_LOAD_4(v128)         , interleavedLoadStore   )   \
+	visitOp(0xfdf0, v8x16_store_interleaved_2 , "v8x16.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf1, v8x16_store_interleaved_3 , "v8x16.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf2, v8x16_store_interleaved_4 , "v8x16.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf3, v16x8_store_interleaved_2 , "v16x8.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf4, v16x8_store_interleaved_3 , "v16x8.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf5, v16x8_store_interleaved_4 , "v16x8.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf6, v32x4_store_interleaved_2 , "v32x4.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf7, v32x4_store_interleaved_3 , "v32x4.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf8, v32x4_store_interleaved_4 , "v32x4.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdf9, v64x2_store_interleaved_2 , "v64x2.store_interleaved_2" , LoadOrStoreImm<4>         , WAVM_STORE_2(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdfa, v64x2_store_interleaved_3 , "v64x2.store_interleaved_3" , LoadOrStoreImm<4>         , WAVM_STORE_3(v128)        , interleavedLoadStore   )   \
+	visitOp(0xfdfb, v64x2_store_interleaved_4 , "v64x2.store_interleaved_4" , LoadOrStoreImm<4>         , WAVM_STORE_4(v128)        , interleavedLoadStore   )   \
 /* v128 ltz_mask                                                                                                                                              */ \
-	visitOp(0xfdf8, i8x16_ltz_mask            , "i8x16.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
+	visitOp(0xfdfc, i8x16_ltz_mask            , "i8x16.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
+	visitOp(0xfdfd, i16x8_ltz_mask            , "i16x8.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
+	visitOp(0xfdfe, i32x4_ltz_mask            , "i32x4.ltz_mask"            , NoImm                     , WAVM_UNARY(v128,i32)      , ltzMask                )   \
 /* Atomic wait/wake                                                                                                                                           */ \
-	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
-	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
-	visitOp(0xfe02, i64_atomic_wait           , "i64.atomic.wait"           , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics                )   \
+	visitOp(0xfe00, memory_atomic_notify      , "memory.atomic.notify"      , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
+	visitOp(0xfe01, memory_atomic_wait32      , "memory.atomic.wait32"      , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
+	visitOp(0xfe02, memory_atomic_wait64      , "memory.atomic.wait64"      , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics                )   \
 /* Atomic fence                                                                                                                                               */ \
 	visitOp(0xfe03, atomic_fence              , "atomic.fence"              , AtomicFenceImm            , WAVM_NONE                 , atomics                )   \
 /* Atomic load/store                                                                                                                                          */ \

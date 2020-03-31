@@ -116,6 +116,8 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			// that might erroneously remain.
 			Platform::decommitVirtualPages(imageBaseAddress, numAllocatedImagePages);
 		}
+		Platform::deregisterVirtualAllocation(numAllocatedImagePages
+											  << Platform::getBytesPerPageLog2());
 	}
 
 	void registerEHFrames(U8* addr, U64 loadAddr, uintptr_t numBytes) override
@@ -172,6 +174,8 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			if(!imageBaseAddress
 			   || !Platform::commitVirtualPages(imageBaseAddress, numAllocatedImagePages))
 			{ Errors::fatal("memory allocation for JIT code failed"); }
+			Platform::registerVirtualAllocation(numAllocatedImagePages
+												<< Platform::getBytesPerPageLog2());
 			codeSection.baseAddress = imageBaseAddress;
 			readOnlySection.baseAddress
 				= codeSection.baseAddress
@@ -244,6 +248,10 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	{
 		return numAllocatedImagePages << Platform::getBytesPerPageLog2();
 	}
+
+	Uptr getNumCodeBytes() const { return codeSection.numCommittedBytes; }
+	Uptr getNumReadOnlyBytes() const { return readOnlySection.numCommittedBytes; }
+	Uptr getNumReadWriteBytes() const { return readWriteSection.numCommittedBytes; }
 
 	const llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>>& getSectionNameToContentsMap() const
 	{
@@ -322,8 +330,10 @@ private:
 
 Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
-			   bool shouldLogMetrics)
-: memoryManager(new ModuleMemoryManager())
+			   bool shouldLogMetrics,
+			   std::string&& inDebugName)
+: debugName(std::move(inDebugName))
+, memoryManager(new ModuleMemoryManager())
 , globalModuleState(GlobalModuleState::get())
 #if LLVM_VERSION_MAJOR < 8
 , objectBytes(objectBytes)
@@ -421,9 +431,17 @@ Module::Module(const std::vector<U8>& objectBytes,
 	{
 		for(auto section : object->sections())
 		{
+#if LLVM_VERSION_MAJOR >= 10
+			llvm::Expected<llvm::StringRef> sectionNameOrError = section.getName();
+			if(sectionNameOrError)
+			{
+				const llvm::StringRef& sectionName = sectionNameOrError.get();
+#else
 			llvm::StringRef sectionName;
 			if(!section.getName(sectionName))
 			{
+#endif
+
 #if LLVM_VERSION_MAJOR >= 9
 				llvm::Expected<llvm::StringRef> sectionContentsOrError = section.getContents();
 				if(sectionContentsOrError)
@@ -599,8 +617,15 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	if(shouldLogMetrics)
 	{
-		Timing::logRatePerSecond(
-			"Loaded object", loadObjectTimer, (F64)objectBytes.size() / 1024.0 / 1024.0, "MiB");
+		Timing::logRatePerSecond((std::string("Loaded ") + debugName).c_str(),
+								 loadObjectTimer,
+								 (F64)objectBytes.size() / 1024.0 / 1024.0,
+								 "MiB");
+		Log::printf(Log::Category::metrics,
+					"Code: %.1f KiB, read-only data: %.1f KiB, read-write data: %.1f KiB\n",
+					memoryManager->getNumCodeBytes() / 1024.0,
+					memoryManager->getNumReadOnlyBytes() / 1024.0,
+					memoryManager->getNumReadWriteBytes() / 1024.0);
 	}
 }
 
@@ -648,7 +673,8 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	std::vector<ExceptionTypeBinding>&& exceptionTypes,
 	InstanceBinding instance,
 	Uptr tableReferenceBias,
-	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas)
+	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas,
+	std::string&& debugName)
 {
 	// Bind undefined symbols in the compiled object to values.
 	HashMap<std::string, Uptr> importedSymbolMap;
@@ -759,7 +785,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 #endif
 
 	// Load the module.
-	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true);
+	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true, std::move(debugName));
 }
 
 bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& outSource)
@@ -785,7 +811,7 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 #if LAZY_PARSE_DWARF_LINE_INFO
 	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
-		llvm::object::SectionedAddress(address, llvm::object::SectionedAddress::UndefSection),
+		llvm::object::SectionedAddress{address, llvm::object::SectionedAddress::UndefSection},
 		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
 								  llvm::DINameKind::None));
 

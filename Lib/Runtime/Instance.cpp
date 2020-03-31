@@ -76,6 +76,7 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 		const auto& kindIndex = module->ir.imports[importIndex];
 		Object* importObject = imports[importIndex];
 
+		WAVM_ERROR_UNLESS(importObject);
 		WAVM_ERROR_UNLESS(isInCompartment(importObject, compartment));
 		WAVM_ERROR_UNLESS(importObject->kind == ObjectKind(kindIndex.kind));
 
@@ -313,7 +314,8 @@ Instance* Runtime::instantiateModuleInternal(Compartment* compartment,
 							  std::move(jitExceptionTypes),
 							  {id},
 							  reinterpret_cast<Uptr>(getOutOfBoundsElement()),
-							  functionDefMutableDatas);
+							  functionDefMutableDatas,
+							  std::string(moduleDebugName));
 
 	// LLVMJIT::loadModule filled in the functionDefMutableDatas' function pointers with the
 	// compiled functions. Add those functions to the module.

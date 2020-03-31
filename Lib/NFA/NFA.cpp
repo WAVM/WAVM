@@ -295,7 +295,7 @@ struct StateTransitionsByChar
 	: c(inC), nextStateByInitialState(nullptr), numStates(inNumStates)
 	{
 	}
-	StateTransitionsByChar(StateTransitionsByChar&& inMove)
+	StateTransitionsByChar(StateTransitionsByChar&& inMove) noexcept
 	: c(inMove.c)
 	, nextStateByInitialState(inMove.nextStateByInitialState)
 	, numStates(inMove.numStates)
@@ -307,7 +307,7 @@ struct StateTransitionsByChar
 		if(nextStateByInitialState) { delete[] nextStateByInitialState; }
 	}
 
-	void operator=(StateTransitionsByChar&& inMove)
+	void operator=(StateTransitionsByChar&& inMove) noexcept
 	{
 		c = inMove.c;
 		nextStateByInitialState = inMove.nextStateByInitialState;
@@ -406,7 +406,7 @@ NFA::Machine::~Machine()
 	}
 }
 
-void NFA::Machine::moveFrom(Machine&& inMachine)
+void NFA::Machine::moveFrom(Machine&& inMachine) noexcept
 {
 	memcpy(charToOffsetMap, inMachine.charToOffsetMap, sizeof(charToOffsetMap));
 	stateAndOffsetToNextStateMap = inMachine.stateAndOffsetToNextStateMap;

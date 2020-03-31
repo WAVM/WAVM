@@ -129,6 +129,7 @@
   "incompatible import type"
 )
 
+
 (assert_unlinkable
   (module (global (import "Mref_ex" "g-var-null") (mut funcref)))
   "incompatible import type"
@@ -287,8 +288,8 @@
 )
 (assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
 
-;; Unlike in the v1 spec, the elements stored before an out-of-bounds access
-;; persist after the instantiation failure.
+;; Unlike in the v1 spec, active element segments stored before an
+;; out-of-bounds access persist after the instantiation failure.
 (assert_trap
   (module
     (table (import "Mt" "tab") 10 funcref)
@@ -435,8 +436,8 @@
 )
 (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
 
-;; Unlike in v1 spec, bytes written before an out-of-bounds access persist
-;; after the instantiation failure.
+;; Unlike in v1 spec, active data segments written before an
+;; out-of-bounds access persist after the instantiation failure.
 (assert_trap
   (module
     (memory (import "Mm" "mem") 1)

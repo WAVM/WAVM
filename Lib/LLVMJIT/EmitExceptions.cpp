@@ -320,7 +320,7 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 	const Uptr numArgBytes = numArgs * sizeof(UntaggedValue);
 	auto argBaseAddress
 		= irBuilder.CreateAlloca(llvmContext.i8Type, emitLiteral(llvmContext, numArgBytes));
-	argBaseAddress->setAlignment(sizeof(UntaggedValue));
+	argBaseAddress->setAlignment(LLVM_ALIGNMENT(sizeof(UntaggedValue)));
 
 	for(Uptr argIndex = 0; argIndex < exceptionType.params.size(); ++argIndex)
 	{

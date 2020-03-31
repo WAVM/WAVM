@@ -28,7 +28,7 @@ Runtime::GCObject::GCObject(ObjectKind inKind,
 
 #define IMPLEMENT_GCOBJECT_REFCOUNTING(Type)                                                       \
 	void Runtime::addGCRoot(const Type* object) { ++object->numRootReferences; }                   \
-	void Runtime::removeGCRoot(const Type* object) { --object->numRootReferences; }
+	void Runtime::removeGCRoot(const Type* object) noexcept { --object->numRootReferences; }
 
 IMPLEMENT_GCOBJECT_REFCOUNTING(Table)
 IMPLEMENT_GCOBJECT_REFCOUNTING(Memory)
@@ -45,7 +45,7 @@ void Runtime::addGCRoot(const Function* function)
 	++function->mutableData->numRootReferences;
 }
 
-void Runtime::removeGCRoot(const Function* function)
+void Runtime::removeGCRoot(const Function* function) noexcept
 {
 	WAVM_ASSERT(function->mutableData);
 	--function->mutableData->numRootReferences;
@@ -61,7 +61,7 @@ void Runtime::addGCRoot(const Object* object)
 	}
 }
 
-void Runtime::removeGCRoot(const Object* object)
+void Runtime::removeGCRoot(const Object* object) noexcept
 {
 	if(object->kind == ObjectKind::function) { removeGCRoot((const Function*)object); }
 	else

@@ -11,6 +11,7 @@
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
+#include "WAVM/WASTPrint/WASTPrint.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -725,7 +726,7 @@ wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, siz
 
 	std::vector<WAST::Error> parseErrors;
 	IR::Module irModule(engine->config.featureSpec);
-	if(!WAST::parseModule(wastString.c_str(), wastString.size(), irModule, parseErrors))
+	if(!WAST::parseModule(wastString.c_str(), wastString.size() + 1, irModule, parseErrors))
 	{
 		if(Log::isCategoryEnabled(Log::debug))
 		{
@@ -737,6 +738,18 @@ wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, siz
 
 	ModuleRef module = compileModule(irModule);
 	return new wasm_module_t{module};
+}
+
+char* wasm_module_print(const wasm_module_t* module, size_t* out_num_chars)
+{
+	const std::string wastString = WAST::print(getModuleIR(module->module));
+
+	char* returnBuffer = (char*)malloc(wastString.size() + 1);
+	memcpy(returnBuffer, wastString.c_str(), wastString.size());
+	returnBuffer[wastString.size()] = 0;
+
+	*out_num_chars = wastString.size();
+	return returnBuffer;
 }
 
 bool wasm_module_validate(const char* binary, size_t numBinaryBytes)

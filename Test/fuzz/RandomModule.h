@@ -9,6 +9,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/HashSet.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -72,61 +73,71 @@ private:
 	}
 };
 
+struct ModuleState
+{
+	IR::Module& module;
+	std::vector<Uptr> declaredFunctionIndices;
+	std::vector<ElemSegmentAndTableImm> validElemSegmentAndTableImms;
+
+	ModuleState(IR::Module& inModule) : module(inModule) {}
+};
+
 template<typename Imm> struct ImmTypeAsValue
 {
 };
 
-template<typename Imm> bool isImmAllowed(const IR::Module&, ImmTypeAsValue<Imm>) { return true; }
+template<typename Imm> bool isImmAllowed(const ModuleState&, ImmTypeAsValue<Imm>) { return true; }
 
-static void generateImm(RandomStream& random, IR::Module& module, NoImm& outImm) {}
+static void generateImm(RandomStream& random, const ModuleState& state, NoImm& outImm) {}
 
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<MemoryImm>)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<MemoryImm>)
 {
-	return module.memories.size();
+	return state.module.memories.size();
 }
-static void generateImm(RandomStream& random, IR::Module& module, MemoryImm& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, MemoryImm& outImm)
 {
-	WAVM_ASSERT(module.memories.size());
-	outImm.memoryIndex = random.get(module.memories.size() - 1);
-}
-
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<MemoryCopyImm>)
-{
-	return module.memories.size();
-}
-static void generateImm(RandomStream& random, IR::Module& module, MemoryCopyImm& outImm)
-{
-	WAVM_ASSERT(module.memories.size());
-	outImm.sourceMemoryIndex = random.get(module.memories.size() - 1);
-	outImm.destMemoryIndex = random.get(module.memories.size() - 1);
+	WAVM_ASSERT(state.module.memories.size());
+	outImm.memoryIndex = random.get(state.module.memories.size() - 1);
 }
 
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<TableImm>)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<MemoryCopyImm>)
 {
-	return module.tables.size();
+	return state.module.memories.size();
 }
-static void generateImm(RandomStream& random, IR::Module& module, TableImm& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, MemoryCopyImm& outImm)
 {
-	WAVM_ASSERT(module.tables.size());
-	outImm.tableIndex = random.get(module.tables.size() - 1);
+	WAVM_ASSERT(state.module.memories.size());
+	outImm.sourceMemoryIndex = random.get(state.module.memories.size() - 1);
+	outImm.destMemoryIndex = random.get(state.module.memories.size() - 1);
 }
 
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<TableCopyImm>)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<TableImm>)
 {
-	return module.tables.size();
+	return state.module.tables.size();
 }
-static void generateImm(RandomStream& random, IR::Module& module, TableCopyImm& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, TableImm& outImm)
 {
-	WAVM_ASSERT(module.tables.size());
-	outImm.sourceTableIndex = random.get(module.tables.size() - 1);
+	WAVM_ASSERT(state.module.tables.size());
+	outImm.tableIndex = random.get(state.module.tables.size() - 1);
+}
 
-	const ReferenceType sourceElemType = module.tables.getType(outImm.sourceTableIndex).elementType;
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<TableCopyImm>)
+{
+	return state.module.tables.size();
+}
+static void generateImm(RandomStream& random, const ModuleState& state, TableCopyImm& outImm)
+{
+	WAVM_ASSERT(state.module.tables.size());
+	outImm.sourceTableIndex = random.get(state.module.tables.size() - 1);
 
-	Uptr* validDestTableIndices = (Uptr*)alloca(module.tables.size() * sizeof(Uptr));
+	const ReferenceType sourceElemType
+		= state.module.tables.getType(outImm.sourceTableIndex).elementType;
+
+	Uptr* validDestTableIndices = (Uptr*)alloca(state.module.tables.size() * sizeof(Uptr));
 	Uptr numValidDestTables = 0;
-	for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+	for(Uptr tableIndex = 0; tableIndex < state.module.tables.size(); ++tableIndex)
 	{
-		const ReferenceType destElemType = module.tables.getType(tableIndex).elementType;
+		const ReferenceType destElemType = state.module.tables.getType(tableIndex).elementType;
 		if(isSubtype(sourceElemType, destElemType))
 		{ validDestTableIndices[numValidDestTables++] = tableIndex; }
 	}
@@ -135,182 +146,164 @@ static void generateImm(RandomStream& random, IR::Module& module, TableCopyImm& 
 	outImm.destTableIndex = validDestTableIndices[random.get(numValidDestTables - 1)];
 }
 
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<FunctionImm>)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<FunctionRefImm>)
 {
-	return module.functions.size();
+	return state.declaredFunctionIndices.size();
 }
-static void generateImm(RandomStream& random, IR::Module& module, FunctionImm& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, FunctionRefImm& outImm)
 {
-	WAVM_ASSERT(module.functions.size());
-	outImm.functionIndex = random.get(module.functions.size() - 1);
+	outImm.functionIndex
+		= state.declaredFunctionIndices[random.get(state.declaredFunctionIndices.size() - 1)];
 }
 
-static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<I32>& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, LiteralImm<I32>& outImm)
 {
 	outImm.value = I32(random.get(UINT32_MAX));
 }
 
-static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<I64>& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, LiteralImm<I64>& outImm)
 {
 	outImm.value = I64(random.get(UINT64_MAX));
 }
 
-static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<F32>& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, LiteralImm<F32>& outImm)
 {
 	const U32 u32 = random.get(UINT32_MAX);
 	memcpy(&outImm.value, &u32, sizeof(U32));
 }
 
-static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<F64>& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, LiteralImm<F64>& outImm)
 {
 	const U64 u64 = random.get(UINT64_MAX);
 	memcpy(&outImm.value, &u64, sizeof(U64));
 }
 
-static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<V128>& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, LiteralImm<V128>& outImm)
 {
 	outImm.value.u64x2[0] = random.get(UINT64_MAX);
 	outImm.value.u64x2[1] = random.get(UINT64_MAX);
 }
 
 template<Uptr naturalAlignmentLog2>
-bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<LoadOrStoreImm<naturalAlignmentLog2>>)
+bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<LoadOrStoreImm<naturalAlignmentLog2>>)
 {
-	return module.memories.size();
+	return state.module.memories.size();
 }
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
-						IR::Module& module,
+						const ModuleState& state,
 						LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
 	outImm.offset = random.get(UINT32_MAX);
-	outImm.memoryIndex = random.get(module.memories.size() - 1);
+	outImm.memoryIndex = random.get(state.module.memories.size() - 1);
 }
 
 template<Uptr naturalAlignmentLog2>
-bool isImmAllowed(const IR::Module& module,
+bool isImmAllowed(const ModuleState& state,
 				  ImmTypeAsValue<AtomicLoadOrStoreImm<naturalAlignmentLog2>>)
 {
-	return module.memories.size() != 0;
+	return state.module.memories.size() != 0;
 }
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
-						IR::Module& module,
+						const ModuleState& state,
 						AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = naturalAlignmentLog2;
 	outImm.offset = random.get(UINT32_MAX);
-	outImm.memoryIndex = random.get(module.memories.size() - 1);
+	outImm.memoryIndex = random.get(state.module.memories.size() - 1);
 }
 
-static void generateImm(RandomStream& random, IR::Module& module, AtomicFenceImm& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, AtomicFenceImm& outImm)
 {
 	outImm.order = MemoryOrder::sequentiallyConsistent;
 }
 
 template<Uptr numLanes>
-static void generateImm(RandomStream& random, IR::Module& module, LaneIndexImm<numLanes>& outImm)
+static void generateImm(RandomStream& random,
+						const ModuleState& state,
+						LaneIndexImm<numLanes>& outImm)
 {
 	outImm.laneIndex = random.get<U8>(numLanes - 1);
 }
 
 template<Uptr numLanes>
-static void generateImm(RandomStream& random, IR::Module& module, ShuffleImm<numLanes>& outImm)
+static void generateImm(RandomStream& random,
+						const ModuleState& state,
+						ShuffleImm<numLanes>& outImm)
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{ outImm.laneIndices[laneIndex] = random.get<U8>(numLanes * 2 - 1); }
 }
 
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<DataSegmentAndMemImm>)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<DataSegmentAndMemImm>)
 {
-	return module.dataSegments.size() && module.memories.size();
+	return state.module.dataSegments.size() && state.module.memories.size();
 }
-static void generateImm(RandomStream& random, IR::Module& module, DataSegmentAndMemImm& outImm)
+static void generateImm(RandomStream& random,
+						const ModuleState& state,
+						DataSegmentAndMemImm& outImm)
 {
-	WAVM_ASSERT(module.dataSegments.size());
-	WAVM_ASSERT(module.memories.size());
-	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
-	outImm.memoryIndex = random.get(module.memories.size() - 1);
-}
-
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<DataSegmentImm>)
-{
-	return module.dataSegments.size();
-}
-static void generateImm(RandomStream& random, IR::Module& module, DataSegmentImm& outImm)
-{
-	WAVM_ASSERT(module.dataSegments.size());
-	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
+	WAVM_ASSERT(state.module.dataSegments.size());
+	WAVM_ASSERT(state.module.memories.size());
+	outImm.dataSegmentIndex = random.get(state.module.dataSegments.size() - 1);
+	outImm.memoryIndex = random.get(state.module.memories.size() - 1);
 }
 
-static std::vector<ElemSegmentAndTableImm> getValidElemSegmentAndTableImms(const IR::Module& module)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<DataSegmentImm>)
 {
-	std::vector<ElemSegmentAndTableImm> validImms;
-	for(Uptr elemSegmentIndex = 0; elemSegmentIndex < module.elemSegments.size();
-		++elemSegmentIndex)
-	{
-		const ElemSegment& elemSegment = module.elemSegments[elemSegmentIndex];
-		ReferenceType segmentElemType;
-		switch(elemSegment.contents->encoding)
-		{
-		case ElemSegment::Encoding::expr: segmentElemType = elemSegment.contents->elemType; break;
-		case ElemSegment::Encoding::index:
-			segmentElemType = asReferenceType(elemSegment.contents->externKind);
-			break;
-		default: WAVM_UNREACHABLE();
-		};
-
-		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
-		{
-			if(isSubtype(segmentElemType, module.tables.getType(tableIndex).elementType))
-			{ validImms.push_back(ElemSegmentAndTableImm{elemSegmentIndex, tableIndex}); }
-		}
-	}
-	return validImms;
+	return state.module.dataSegments.size();
+}
+static void generateImm(RandomStream& random, const ModuleState& state, DataSegmentImm& outImm)
+{
+	WAVM_ASSERT(state.module.dataSegments.size());
+	outImm.dataSegmentIndex = random.get(state.module.dataSegments.size() - 1);
 }
 
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentAndTableImm>)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<ElemSegmentAndTableImm>)
 {
-	return getValidElemSegmentAndTableImms(module).size() != 0;
+	return state.validElemSegmentAndTableImms.size();
 }
-static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentAndTableImm& outImm)
+static void generateImm(RandomStream& random,
+						const ModuleState& state,
+						ElemSegmentAndTableImm& outImm)
 {
-	std::vector<ElemSegmentAndTableImm> validImms = getValidElemSegmentAndTableImms(module);
-	WAVM_ASSERT(validImms.size());
-	outImm = validImms[random.get(validImms.size() - 1)];
+	WAVM_ASSERT(state.validElemSegmentAndTableImms.size());
+	outImm = state.validElemSegmentAndTableImms[random.get(state.validElemSegmentAndTableImms.size()
+														   - 1)];
 }
 
-static bool isImmAllowed(const IR::Module& module, ImmTypeAsValue<ElemSegmentImm>)
+static bool isImmAllowed(const ModuleState& state, ImmTypeAsValue<ElemSegmentImm>)
 {
-	return module.elemSegments.size();
+	return state.module.elemSegments.size();
 }
-static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentImm& outImm)
+static void generateImm(RandomStream& random, const ModuleState& state, ElemSegmentImm& outImm)
 {
-	WAVM_ASSERT(module.elemSegments.size());
-	outImm.elemSegmentIndex = random.get(module.elemSegments.size() - 1);
+	WAVM_ASSERT(state.module.elemSegments.size());
+	outImm.elemSegmentIndex = random.get(state.module.elemSegments.size() - 1);
 }
 
 // Build a table with information about non-parametric operators.
 
 typedef CodeValidationProxyStream<OperatorEncoderStream> CodeStream;
-typedef void OperatorEmitFunc(RandomStream&, IR::Module&, CodeStream&);
+typedef void OperatorEmitFunc(RandomStream&, const ModuleState&, CodeStream&);
 
 struct OperatorInfo
 {
 	const char* name;
 	FunctionType (*sig)();
-	bool (*isAllowed)(const IR::Module& module);
+	bool (*isAllowed)(const ModuleState& state);
 	OperatorEmitFunc* emit;
 };
 
 #define VISIT_OP(encoding, name, nameString, Imm, SIGNATURE, ...)                                  \
 	{nameString,                                                                                   \
 	 []() { return IR::getNonParametricOpSigs().name; },                                           \
-	 [](const IR::Module& module) { return isImmAllowed(module, ImmTypeAsValue<Imm>{}); },         \
-	 [](RandomStream& random, IR::Module& module, CodeStream& codeStream) {                        \
+	 [](const ModuleState& state) { return isImmAllowed(state, ImmTypeAsValue<Imm>{}); },          \
+	 [](RandomStream& random, const ModuleState& state, CodeStream& codeStream) {                  \
 		 Imm imm;                                                                                  \
-		 generateImm(random, module, imm);                                                         \
+		 generateImm(random, state, imm);                                                          \
 		 codeStream.name(imm);                                                                     \
 	 }},
 static OperatorInfo operatorInfos[]{WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)};
@@ -459,10 +452,12 @@ static void emitControlEnd(std::vector<ControlContext>& controlStack,
 }
 
 static void generateFunction(RandomStream& random,
-							 IR::Module& module,
+							 const ModuleState& moduleState,
+							 IR::ModuleValidationState& moduleValidationState,
 							 FunctionDef& functionDef,
 							 HashMap<FunctionType, Uptr>& functionTypeMap)
 {
+	const IR::Module& module = moduleState.module;
 	const FunctionType functionType = module.types[functionDef.type.index];
 
 	// Generate locals.
@@ -473,7 +468,8 @@ static void generateFunction(RandomStream& random,
 
 	Serialization::ArrayOutputStream codeByteStream;
 	OperatorEncoderStream opEncoder(codeByteStream);
-	CodeValidationProxyStream<OperatorEncoderStream> codeStream(module, functionDef, opEncoder);
+	CodeValidationProxyStream<OperatorEncoderStream> codeStream(
+		moduleValidationState, functionDef, opEncoder);
 
 	std::vector<ControlContext> controlStack;
 	controlStack.push_back({ControlContext::Type::function,
@@ -517,19 +513,20 @@ static void generateFunction(RandomStream& random,
 				if(controlContext.type == ControlContext::Type::ifThen)
 				{
 					// Enter an if-else clause.
-					validOpEmitters.push_back([&stack, &controlStack](RandomStream& random,
-																	  IR::Module& module,
-																	  CodeStream& codeStream) {
-						// Emit the else operator.
-						codeStream.else_();
+					validOpEmitters.push_back(
+						[&stack, &controlStack](RandomStream& random,
+												const ModuleState& moduleState,
+												CodeStream& codeStream) {
+							// Emit the else operator.
+							codeStream.else_();
 
-						stack.resize(controlStack.back().outerStackSize);
-						for(ValueType elseParam : controlStack.back().elseParams)
-						{ stack.push_back(elseParam); }
+							stack.resize(controlStack.back().outerStackSize);
+							for(ValueType elseParam : controlStack.back().elseParams)
+							{ stack.push_back(elseParam); }
 
-						// Change the current control context type to an else clause.
-						controlStack.back().type = ControlContext::Type::ifElse;
-					});
+							// Change the current control context type to an else clause.
+							controlStack.back().type = ControlContext::Type::ifElse;
+						});
 				}
 
 				if(controlContext.type != ControlContext::Type::try_
@@ -537,20 +534,21 @@ static void generateFunction(RandomStream& random,
 					   || controlContext.elseParams == controlStack.back().results))
 				{
 					// End the current control structure.
-					validOpEmitters.push_back([&stack, &controlStack](RandomStream& random,
-																	  IR::Module& module,
-																	  CodeStream& codeStream) {
-						// Emit the end operator.
-						codeStream.end();
+					validOpEmitters.push_back(
+						[&stack, &controlStack](RandomStream& random,
+												const ModuleState& moduleState,
+												CodeStream& codeStream) {
+							// Emit the end operator.
+							codeStream.end();
 
-						// Push the control context's results on the stack.
-						stack.resize(controlStack.back().outerStackSize);
-						const TypeTuple& results = controlStack.back().results;
-						stack.insert(stack.end(), results.begin(), results.end());
+							// Push the control context's results on the stack.
+							stack.resize(controlStack.back().outerStackSize);
+							const TypeTuple& results = controlStack.back().results;
+							stack.insert(stack.end(), results.begin(), results.end());
 
-						// Pop the control stack.
-						controlStack.pop_back();
-					});
+							// Pop the control stack.
+							controlStack.pop_back();
+						});
 				}
 			}
 		}
@@ -561,13 +559,13 @@ static void generateFunction(RandomStream& random,
 		{
 			const OperatorInfo& opInfo = operatorInfos[opIndex];
 
-			if(!opInfo.isAllowed(module)) { continue; }
+			if(!opInfo.isAllowed(moduleState)) { continue; }
 
 			const TypeTuple params = opInfo.sig().params();
 			const TypeTuple results = opInfo.sig().results();
 
-			// If the random stream has run out of entropy, only consider operators that result in
-			// fewer operands on the stack.
+			// If the random stream has run out of entropy, only consider operators that result
+			// in fewer operands on the stack.
 			if(!allowStackGrowth && results.size() >= params.size()) { continue; }
 
 			// Ensure the stack has enough values for the operator's parameters.
@@ -588,9 +586,9 @@ static void generateFunction(RandomStream& random,
 			{
 				// Add the operator to the list of valid operators.
 				validOpEmitters.push_back([&stack, opInfo](RandomStream& random,
-														   IR::Module& module,
+														   const ModuleState& moduleState,
 														   CodeStream& codeStream) {
-					opInfo.emit(random, module, codeStream);
+					opInfo.emit(random, moduleState.module, codeStream);
 
 					// Remove the operator's parameters from the top of the stack.
 					stack.resize(stack.size() - opInfo.sig().params().size());
@@ -601,8 +599,8 @@ static void generateFunction(RandomStream& random,
 			}
 		}
 
-		// Build a list of the parametric operators that are valid given the current state of the
-		// stack.
+		// Build a list of the parametric operators that are valid given the current state of
+		// the stack.
 
 		for(Uptr localIndex = 0; localIndex < numLocals; ++localIndex)
 		{
@@ -617,7 +615,7 @@ static void generateFunction(RandomStream& random,
 			{
 				// local.set
 				validOpEmitters.push_back([&stack, localIndex](RandomStream& random,
-															   IR::Module& module,
+															   const ModuleState& moduleState,
 															   CodeStream& codeStream) {
 					codeStream.local_set({localIndex});
 					stack.pop_back();
@@ -627,7 +625,7 @@ static void generateFunction(RandomStream& random,
 				if(allowStackGrowth)
 				{
 					validOpEmitters.push_back([localIndex](RandomStream& random,
-														   IR::Module& module,
+														   const ModuleState& moduleState,
 														   CodeStream& codeStream) {
 						codeStream.local_tee({localIndex});
 					});
@@ -637,12 +635,13 @@ static void generateFunction(RandomStream& random,
 			// local.get
 			if(allowStackGrowth)
 			{
-				validOpEmitters.push_back([&stack, localIndex, localType](RandomStream& random,
-																		  IR::Module& module,
-																		  CodeStream& codeStream) {
-					codeStream.local_get({localIndex});
-					stack.push_back(localType);
-				});
+				validOpEmitters.push_back(
+					[&stack, localIndex, localType](RandomStream& random,
+													const ModuleState& moduleState,
+													CodeStream& codeStream) {
+						codeStream.local_get({localIndex});
+						stack.push_back(localType);
+					});
 			}
 		}
 
@@ -655,7 +654,7 @@ static void generateFunction(RandomStream& random,
 			{
 				// global.set
 				validOpEmitters.push_back([&stack, globalIndex](RandomStream& random,
-																IR::Module& module,
+																const ModuleState& moduleState,
 																CodeStream& codeStream) {
 					codeStream.global_set({globalIndex});
 					stack.pop_back();
@@ -666,8 +665,9 @@ static void generateFunction(RandomStream& random,
 			{
 				// global.get
 				validOpEmitters.push_back(
-					[&stack, globalIndex, globalType](
-						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					[&stack, globalIndex, globalType](RandomStream& random,
+													  const ModuleState& moduleState,
+													  CodeStream& codeStream) {
 						codeStream.global_get({globalIndex});
 						stack.push_back(globalType.valueType);
 					});
@@ -686,7 +686,7 @@ static void generateFunction(RandomStream& random,
 			{
 				// table.set
 				validOpEmitters.push_back([&stack, tableIndex](RandomStream& random,
-															   IR::Module& module,
+															   const ModuleState& moduleState,
 															   CodeStream& codeStream) {
 					codeStream.table_set({U32(tableIndex)});
 					stack.resize(stack.size() - 2);
@@ -696,13 +696,14 @@ static void generateFunction(RandomStream& random,
 			if(stack.size() > controlStack.back().outerStackSize && stack.back() == ValueType::i32)
 			{
 				// table.get
-				validOpEmitters.push_back([&stack, tableIndex, tableType](RandomStream& random,
-																		  IR::Module& module,
-																		  CodeStream& codeStream) {
-					codeStream.table_get({tableIndex});
-					stack.pop_back();
-					stack.push_back(asValueType(tableType.elementType));
-				});
+				validOpEmitters.push_back(
+					[&stack, tableIndex, tableType](RandomStream& random,
+													const ModuleState& moduleState,
+													CodeStream& codeStream) {
+						codeStream.table_get({tableIndex});
+						stack.pop_back();
+						stack.push_back(asValueType(tableType.elementType));
+					});
 
 				if(tableType.elementType == ReferenceType::funcref)
 				{
@@ -713,16 +714,16 @@ static void generateFunction(RandomStream& random,
 						const TypeTuple params = calleeType.params();
 						const TypeTuple results = calleeType.results();
 
-						// If the random stream has run out of entropy, only consider operators that
-						// result in fewer operands on the stack.
+						// If the random stream has run out of entropy, only consider operators
+						// that result in fewer operands on the stack.
 						if(!allowStackGrowth && results.size() >= params.size() + 1) { continue; }
 
 						// Ensure the stack has enough values for the operator's parameters.
 						if(params.size() + 1 > stack.size() - controlStack.back().outerStackSize)
 						{ continue; }
 
-						// Check that the types of values on top of the stack are the right type for
-						// the operator's parameters.
+						// Check that the types of values on top of the stack are the right type
+						// for the operator's parameters.
 						bool sigMatch = true;
 						for(Uptr paramIndex = 0; paramIndex < params.size(); ++paramIndex)
 						{
@@ -737,12 +738,12 @@ static void generateFunction(RandomStream& random,
 						{
 							validOpEmitters.push_back([&stack, calleeType, typeIndex, tableIndex](
 														  RandomStream& random,
-														  IR::Module& module,
+														  const ModuleState& moduleState,
 														  CodeStream& codeStream) {
 								codeStream.call_indirect({{typeIndex}, tableIndex});
 
-								// Remove the function's parameters and the table index from the top
-								// of the stack.
+								// Remove the function's parameters and the table index from
+								// the top of the stack.
 								stack.resize(stack.size() - calleeType.params().size() - 1);
 
 								// Push the function's results onto the stack.
@@ -761,31 +762,34 @@ static void generateFunction(RandomStream& random,
 			for(Uptr arity = 0; arity < maxArity; ++arity)
 			{
 				// Enter a block control structure.
-				validOpEmitters.push_back(
-					[&stack, &controlStack, &functionTypeMap, arity](
-						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-						const FunctionType blockSig = generateBlockSig(
-							random, TypeTuple(stack.data() + stack.size() - arity, arity));
-						stack.resize(stack.size() - arity);
-						stack.insert(
-							stack.end(), blockSig.params().begin(), blockSig.params().end());
-						codeStream.block({getIndexedBlockType(module, functionTypeMap, blockSig)});
-						controlStack.push_back({ControlContext::Type::block,
-												stack.size() - arity,
-												blockSig.results(),
-												blockSig.results(),
-												TypeTuple()});
-					});
+				validOpEmitters.push_back([&stack, &controlStack, &functionTypeMap, arity](
+											  RandomStream& random,
+											  const ModuleState& moduleState,
+											  CodeStream& codeStream) {
+					const FunctionType blockSig = generateBlockSig(
+						random, TypeTuple(stack.data() + stack.size() - arity, arity));
+					stack.resize(stack.size() - arity);
+					stack.insert(stack.end(), blockSig.params().begin(), blockSig.params().end());
+					codeStream.block(
+						{getIndexedBlockType(moduleState.module, functionTypeMap, blockSig)});
+					controlStack.push_back({ControlContext::Type::block,
+											stack.size() - arity,
+											blockSig.results(),
+											blockSig.results(),
+											TypeTuple()});
+				});
 
 				// Enter a loop control structure.
 				validOpEmitters.push_back(
-					[&stack, &controlStack, &functionTypeMap, arity](
-						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					[&stack, &controlStack, &functionTypeMap, arity](RandomStream& random,
+																	 const ModuleState& moduleState,
+																	 CodeStream& codeStream) {
 						const FunctionType loopSig = generateBlockSig(
 							random, TypeTuple(stack.data() + stack.size() - arity, arity));
 						stack.resize(stack.size() - arity);
 						stack.insert(stack.end(), loopSig.params().begin(), loopSig.params().end());
-						codeStream.loop({getIndexedBlockType(module, functionTypeMap, loopSig)});
+						codeStream.loop(
+							{getIndexedBlockType(moduleState.module, functionTypeMap, loopSig)});
 						controlStack.push_back({ControlContext::Type::loop,
 												stack.size() - arity,
 												loopSig.params(),
@@ -803,13 +807,15 @@ static void generateFunction(RandomStream& random,
 			for(Uptr arity = 0; arity < maxArity; ++arity)
 			{
 				validOpEmitters.push_back(
-					[&stack, &controlStack, &functionTypeMap, arity](
-						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					[&stack, &controlStack, &functionTypeMap, arity](RandomStream& random,
+																	 const ModuleState& moduleState,
+																	 CodeStream& codeStream) {
 						const FunctionType ifSig = generateBlockSig(
 							random, TypeTuple(stack.data() + stack.size() - arity - 1, arity));
 						stack.resize(stack.size() - arity - 1);
 						stack.insert(stack.end(), ifSig.params().begin(), ifSig.params().end());
-						codeStream.if_({getIndexedBlockType(module, functionTypeMap, ifSig)});
+						codeStream.if_(
+							{getIndexedBlockType(moduleState.module, functionTypeMap, ifSig)});
 						controlStack.push_back({ControlContext::Type::ifThen,
 												stack.size() - arity,
 												ifSig.results(),
@@ -845,21 +851,23 @@ static void generateFunction(RandomStream& random,
 			{
 				// br
 				validOpEmitters.push_back(
-					[&controlStack, &stack, branchTargetDepth](
-						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					[&controlStack, &stack, branchTargetDepth](RandomStream& random,
+															   const ModuleState& moduleState,
+															   CodeStream& codeStream) {
 						codeStream.br({U32(branchTargetDepth)});
-						emitControlEnd(controlStack, stack, module, codeStream);
+						emitControlEnd(controlStack, stack, moduleState.module, codeStream);
 					});
 
 				if(branchTargetDepth == controlStack.size() - 1)
 				{
 					// return
-					validOpEmitters.push_back([&controlStack, &stack](RandomStream& random,
-																	  IR::Module& module,
-																	  CodeStream& codeStream) {
-						codeStream.return_();
-						emitControlEnd(controlStack, stack, module, codeStream);
-					});
+					validOpEmitters.push_back(
+						[&controlStack, &stack](RandomStream& random,
+												const ModuleState& moduleState,
+												CodeStream& codeStream) {
+							codeStream.return_();
+							emitControlEnd(controlStack, stack, moduleState.module, codeStream);
+						});
 				}
 			}
 		}
@@ -890,22 +898,23 @@ static void generateFunction(RandomStream& random,
 				}
 				if(sigMatch)
 				{
-					validOpEmitters.push_back([&stack, branchTargetDepth](RandomStream& random,
-																		  IR::Module& module,
-																		  CodeStream& codeStream) {
-						stack.pop_back();
-						codeStream.br_if({U32(branchTargetDepth)});
-					});
+					validOpEmitters.push_back(
+						[&stack, branchTargetDepth](RandomStream& random,
+													const ModuleState& moduleState,
+													CodeStream& codeStream) {
+							stack.pop_back();
+							codeStream.br_if({U32(branchTargetDepth)});
+						});
 				}
 			}
 		}
 
 		// unreachable
 		validOpEmitters.push_back([&controlStack, &stack](RandomStream& random,
-														  IR::Module& module,
+														  const ModuleState& moduleState,
 														  CodeStream& codeStream) {
 			codeStream.unreachable();
-			emitControlEnd(controlStack, stack, module, codeStream);
+			emitControlEnd(controlStack, stack, moduleState.module, codeStream);
 		});
 
 		// TODO: br_table
@@ -924,29 +933,32 @@ static void generateFunction(RandomStream& random,
 					//    select (result anyref)
 					// or select (result funcref) are valid.
 					// or select (result nullref) are valid.
-					validOpEmitters.push_back(
-						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-							stack.resize(stack.size() - 3);
-							stack.push_back(ValueType::anyref);
-							codeStream.select({ValueType::anyref});
-						});
-					validOpEmitters.push_back(
-						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-							stack.resize(stack.size() - 3);
-							stack.push_back(ValueType::funcref);
-							codeStream.select({ValueType::funcref});
-						});
-					validOpEmitters.push_back(
-						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-							stack.resize(stack.size() - 3);
-							stack.push_back(ValueType::nullref);
-							codeStream.select({ValueType::nullref});
-						});
+					validOpEmitters.push_back([&stack](RandomStream& random,
+													   const ModuleState& moduleState,
+													   CodeStream& codeStream) {
+						stack.resize(stack.size() - 3);
+						stack.push_back(ValueType::anyref);
+						codeStream.select({ValueType::anyref});
+					});
+					validOpEmitters.push_back([&stack](RandomStream& random,
+													   const ModuleState& moduleState,
+													   CodeStream& codeStream) {
+						stack.resize(stack.size() - 3);
+						stack.push_back(ValueType::funcref);
+						codeStream.select({ValueType::funcref});
+					});
+					validOpEmitters.push_back([&stack](RandomStream& random,
+													   const ModuleState& moduleState,
+													   CodeStream& codeStream) {
+						stack.resize(stack.size() - 3);
+						stack.push_back(ValueType::nullref);
+						codeStream.select({ValueType::nullref});
+					});
 				}
 				else
 				{
 					validOpEmitters.push_back([&stack, joinType](RandomStream& random,
-																 IR::Module& module,
+																 const ModuleState& moduleState,
 																 CodeStream& codeStream) {
 						stack.resize(stack.size() - 3);
 						stack.push_back(joinType);
@@ -960,7 +972,7 @@ static void generateFunction(RandomStream& random,
 			{
 				// Non-typed select
 				validOpEmitters.push_back([&stack, joinType](RandomStream& random,
-															 IR::Module& module,
+															 const ModuleState& moduleState,
 															 CodeStream& codeStream) {
 					stack.resize(stack.size() - 3);
 					stack.push_back(joinType);
@@ -972,11 +984,12 @@ static void generateFunction(RandomStream& random,
 		if(stack.size() > controlStack.back().outerStackSize)
 		{
 			// drop
-			validOpEmitters.push_back(
-				[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-					codeStream.drop();
-					stack.pop_back();
-				});
+			validOpEmitters.push_back([&stack](RandomStream& random,
+											   const ModuleState& moduleState,
+											   CodeStream& codeStream) {
+				codeStream.drop();
+				stack.pop_back();
+			});
 		}
 
 		// call
@@ -987,8 +1000,8 @@ static void generateFunction(RandomStream& random,
 			const TypeTuple params = calleeType.params();
 			const TypeTuple results = calleeType.results();
 
-			// If the random stream has run out of entropy, only consider operators that result in
-			// fewer operands on the stack.
+			// If the random stream has run out of entropy, only consider operators that result
+			// in fewer operands on the stack.
 			if(!allowStackGrowth && results.size() >= params.size()) { continue; }
 
 			// Ensure the stack has enough values for the operator's parameters.
@@ -1008,10 +1021,11 @@ static void generateFunction(RandomStream& random,
 			if(sigMatch)
 			{
 				validOpEmitters.push_back([&stack, functionIndex](RandomStream& random,
-																  IR::Module& module,
+																  const ModuleState& moduleState,
 																  CodeStream& codeStream) {
 					const FunctionType calleeType
-						= module.types[module.functions.getType(functionIndex).index];
+						= moduleState.module
+							  .types[moduleState.module.functions.getType(functionIndex).index];
 
 					codeStream.call({functionIndex});
 
@@ -1027,7 +1041,7 @@ static void generateFunction(RandomStream& random,
 		// Emit a random operator.
 		WAVM_ASSERT(validOpEmitters.size());
 		const Uptr randomOpIndex = random.get(validOpEmitters.size() - 1);
-		validOpEmitters[randomOpIndex](random, module, codeStream);
+		validOpEmitters[randomOpIndex](random, moduleState, codeStream);
 		validOpEmitters.clear();
 	};
 
@@ -1069,6 +1083,8 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 
 void generateValidModule(IR::Module& module, RandomStream& random)
 {
+	ModuleState moduleState(module);
+
 	WAVM_ASSERT(module.featureSpec.simd);
 	WAVM_ASSERT(module.featureSpec.atomics);
 	WAVM_ASSERT(module.featureSpec.exceptionHandling);
@@ -1188,6 +1204,7 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 	};
 
 	// Generate some elem segments.
+	HashSet<Uptr> declaredFunctionIndexSet;
 	Uptr numElemSegments = random.get(2);
 	for(Uptr segmentIndex = 0; segmentIndex < numElemSegments; ++segmentIndex)
 	{
@@ -1214,6 +1231,8 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 					{
 						contents->elemExprs.push_back(
 							ElemExpr(ElemExpr::Type::ref_func, functionIndex));
+						if(declaredFunctionIndexSet.add(functionIndex))
+						{ moduleState.declaredFunctionIndices.push_back(functionIndex); }
 					}
 					break;
 				}
@@ -1234,7 +1253,12 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 				{
 				case ExternKind::function:
 					if(module.functions.size())
-					{ contents->elemIndices.push_back(random.get(module.functions.size() - 1)); }
+					{
+						const Uptr functionIndex = random.get(module.functions.size() - 1);
+						contents->elemIndices.push_back(functionIndex);
+						if(declaredFunctionIndexSet.add(functionIndex))
+						{ moduleState.declaredFunctionIndices.push_back(functionIndex); }
+					}
 					break;
 				case ExternKind::table:
 					if(module.tables.size())
@@ -1273,31 +1297,73 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 			{ validTableIndices.push_back(tableIndex); }
 		}
 
-		if(!validTableIndices.size() || random.get(1))
+		ElemSegment::Type elemSegmentType = ElemSegment::Type::passive;
+		if(!validTableIndices.size())
 		{
-			module.elemSegments.push_back(
-				{ElemSegment::Type::passive, UINTPTR_MAX, InitializerExpression(), contents});
+			elemSegmentType
+				= random.get(1) ? ElemSegment::Type::passive : ElemSegment::Type::declared;
 		}
 		else
 		{
-			Uptr validTableIndex = random.get(validTableIndices.size() - 1);
+			switch(random.get(2))
+			{
+			case 0: elemSegmentType = ElemSegment::Type::passive; break;
+			case 1: elemSegmentType = ElemSegment::Type::active; break;
+			case 2: elemSegmentType = ElemSegment::Type::declared; break;
+			default: WAVM_UNREACHABLE();
+			};
+		}
 
+		switch(elemSegmentType)
+		{
+		case ElemSegment::Type::passive: {
+			module.elemSegments.push_back({ElemSegment::Type::passive,
+										   UINTPTR_MAX,
+										   InitializerExpression(),
+										   std::move(contents)});
+			break;
+		}
+		case ElemSegment::Type::active: {
+			const Uptr validTableIndex = random.get(validTableIndices.size() - 1);
 			module.elemSegments.push_back(
-				{ElemSegment::Type::passive,
+				{ElemSegment::Type::active,
 				 validTableIndices[validTableIndex],
 				 generateInitializerExpression(module, random, ValueType::i32),
 				 std::move(contents)});
+			break;
+		}
+		case ElemSegment::Type::declared: {
+			module.elemSegments.push_back({ElemSegment::Type::declared,
+										   UINTPTR_MAX,
+										   InitializerExpression(),
+										   std::move(contents)});
+			break;
+		}
+		default: WAVM_UNREACHABLE();
+		};
+
+		// Precalculate a list of element-table pairs that are valid for a table.init
+		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		{
+			if(isSubtype(segmentElemType, module.tables.getType(tableIndex).elementType))
+			{
+				moduleState.validElemSegmentAndTableImms.push_back(
+					ElemSegmentAndTableImm{segmentIndex, tableIndex});
+			}
 		}
 	};
 
-	validatePreCodeSections(module);
+	std::shared_ptr<IR::ModuleValidationState> moduleValidationState
+		= IR::createModuleValidationState(module);
+
+	validatePreCodeSections(*moduleValidationState);
 
 	// Generate a few functions.
 	for(FunctionDef& functionDef : module.functions.defs)
-	{ generateFunction(random, module, functionDef, functionTypeMap); };
+	{ generateFunction(random, module, *moduleValidationState, functionDef, functionTypeMap); };
 
 	// Generating functions might have added some block types, so revalidate the type section.
-	validateTypes(module);
+	validateTypes(*moduleValidationState);
 
-	validatePostCodeSections(module);
+	validatePostCodeSections(*moduleValidationState);
 }

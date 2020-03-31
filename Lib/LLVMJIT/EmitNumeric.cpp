@@ -24,6 +24,11 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
+
+#if LLVM_VERSION_MAJOR >= 10
+#include <llvm/IR/IntrinsicsAArch64.h>
+#include <llvm/IR/IntrinsicsX86.h>
+#endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
@@ -308,7 +313,7 @@ static llvm::Value* quietNaN(EmitFunctionContext& context,
 							 llvm::Value* nan,
 							 llvm::Value* quietNaNMask)
 {
-#if 0
+#if LLVM_VERSION_MAJOR >= 10
 	// Converts a signaling NaN to a quiet NaN by adding zero to it.
 	return context.callLLVMIntrinsic({nan->getType()},
 									 llvm::Intrinsic::experimental_constrained_fadd,
@@ -887,3 +892,20 @@ void EmitFunctionContext::v128_bitselect(IR::NoImm)
 
 EMIT_SIMD_AVGR_OP(i8x16, i16x16)
 EMIT_SIMD_AVGR_OP(i16x8, i32x8)
+
+// SIMD integer absolute
+
+#define EMIT_SIMD_INT_ABS_OP(type)                                                                 \
+	void EmitFunctionContext::type##_abs(IR::NoImm)                                                \
+	{                                                                                              \
+		auto operand = irBuilder.CreateBitCast(pop(), llvmContext.type##Type);                     \
+		push(irBuilder.CreateSelect(                                                               \
+			irBuilder.CreateICmpSLT(operand,                                                       \
+									llvm::Constant::getNullValue(llvmContext.type##Type)),         \
+			irBuilder.CreateNeg(operand),                                                          \
+			operand));                                                                             \
+	}
+
+EMIT_SIMD_INT_ABS_OP(i8x16)
+EMIT_SIMD_INT_ABS_OP(i16x8)
+EMIT_SIMD_INT_ABS_OP(i32x4)

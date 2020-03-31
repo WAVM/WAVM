@@ -17,15 +17,6 @@ stages:
 
               git diff --exit-code
 
-      # Win64 VS2017
-      - template: Build/azure-pipelines/windows-build-job-template.yml
-        parameters:
-          name: Win64_VS2017
-          vsVersion: '2017'
-          platform: 'x64'
-          llvmBuildBaseName: 'Win64'
-          llvmVersion: '9.x'
-
       # Win64 VS2019
       - template: Build/azure-pipelines/windows-build-job-template.yml
         parameters:
@@ -203,7 +194,6 @@ stages:
         parameters:
           name: 'MacOSTGZ'
           matrix:
-            MacOS1013: {vmImage: 'macOS-10.13', container: ''}
             MacOS1014: {vmImage: 'macOS-10.14', container: ''}
           examplesDir: '/usr/local/share/wavm/examples'
           artifactName: 'MacOS_StaticLTO'

@@ -7,6 +7,8 @@
 
 	(memory 1 1 shared)
 
+	(elem declare $createThreadEntry $createThreadEntry2)
+
 	(data "x")
 
 	(global $atomicAccumulatorAddress i32 (i32.const 0))
@@ -46,16 +48,16 @@
 		(return (call $getAccumulator))
 		)
 
-	(func (export "atomic.notify") (param $numWaiters i32) (param $address i32) (result i32)
-		(atomic.notify (local.get $numWaiters) (local.get $address))
+	(func (export "memory.atomic.notify") (param $numWaiters i32) (param $address i32) (result i32)
+		(memory.atomic.notify (local.get $numWaiters) (local.get $address))
 		)
 
-	(func (export "i32.atomic.wait") (param $address i32) (param $expectedValue i32) (param $timeout i64) (result i32)
-		(i32.atomic.wait (local.get $address) (local.get $expectedValue) (local.get $timeout))
+	(func (export "memory.atomic.wait32") (param $address i32) (param $expectedValue i32) (param $timeout i64) (result i32)
+		(memory.atomic.wait32 (local.get $address) (local.get $expectedValue) (local.get $timeout))
 		)
 
-	(func (export "i64.atomic.wait") (param $address i32) (param $expectedValue i64) (param $timeout i64) (result i32)
-		(i64.atomic.wait (local.get $address) (local.get $expectedValue) (local.get $timeout))
+	(func (export "memory.atomic.wait64") (param $address i32) (param $expectedValue i64) (param $timeout i64) (result i32)
+		(memory.atomic.wait64 (local.get $address) (local.get $expectedValue) (local.get $timeout))
 		)
 )
 

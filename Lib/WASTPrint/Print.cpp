@@ -602,6 +602,11 @@ struct FunctionPrintContext
 		string += ' ';
 		string += moduleContext.names.functions[imm.functionIndex].name;
 	}
+	void printImm(FunctionRefImm imm)
+	{
+		string += ' ';
+		string += moduleContext.names.functions[imm.functionIndex].name;
+	}
 
 	void printImm(LiteralImm<I32> imm)
 	{
@@ -1006,6 +1011,10 @@ void ModulePrintContext::printModule()
 			}
 			string += ' ';
 			printInitializerExpression(elemSegment.baseOffset);
+		}
+		else if(elemSegment.type == ElemSegment::Type::declared)
+		{
+			string += " declare";
 		}
 
 		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)

@@ -212,9 +212,11 @@ Instance* Intrinsics::instantiateModule(
 	{
 		try
 		{
-			validatePreCodeSections(irModule);
-			validateCodeSection(irModule);
-			validatePostCodeSections(irModule);
+			std::shared_ptr<IR::ModuleValidationState> moduleValidationState
+				= IR::createModuleValidationState(irModule);
+			validatePreCodeSections(*moduleValidationState);
+			validateCodeSection(*moduleValidationState);
+			validatePostCodeSections(*moduleValidationState);
 		}
 		catch(ValidationException const& exception)
 		{

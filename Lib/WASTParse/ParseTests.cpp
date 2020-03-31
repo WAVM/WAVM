@@ -36,12 +36,12 @@ struct HostRef
 		}
 	}
 
-	HostRef(HostRef&& movee)
+	HostRef(HostRef&& movee) noexcept
 	{
 		function = movee.function;
 		movee.function = nullptr;
 	}
-	void operator=(HostRef&& movee)
+	void operator=(HostRef&& movee) noexcept
 	{
 		function = movee.function;
 		movee.function = nullptr;
@@ -237,13 +237,19 @@ static ResultSet parseResultSet(CursorState* cursor)
 		}
 		case t_ref_host: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::funcref;
-			result.function = makeHostRef(parseU32(cursor));
+			result.type = ResultSet::Type::specificObject;
+			result.object = &makeHostRef(parseU32(cursor))->object;
+			break;
+		}
+		case t_ref_func: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::anyFunction;
 			break;
 		}
 		case t_ref_null: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::nullref;
+			result.type = ResultSet::Type::specificObject;
+			result.object = nullptr;
 			break;
 		}
 		default:
@@ -638,6 +644,17 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				ParseState* outerParseState = cursor->parseState;
 				ParseState malformedModuleParseState(outerParseState->string,
 													 outerParseState->lineInfo);
+
+				if(commandType == Command::assert_malformed
+				   && (cursor->nextToken[0].type != t_leftParenthesis
+					   || cursor->nextToken[1].type != t_module
+					   || (cursor->nextToken[2].type != t_quote
+						   && cursor->nextToken[2].type != t_binary)))
+				{
+					parseErrorf(
+						cursor->parseState, cursor->nextToken, "expected quoted or binary module");
+					throw RecoverParseException();
+				}
 
 				QuotedModuleType quotedModuleType = QuotedModuleType::none;
 				std::string quotedModuleString;

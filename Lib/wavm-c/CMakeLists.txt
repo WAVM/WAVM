@@ -6,5 +6,5 @@ set(PublicHeaders
 
 WAVM_ADD_LIB_COMPONENT(wavm-c
 	SOURCES ${Sources} ${PublicHeaders}
-	PRIVATE_LIB_COMPONENTS IR Logging Platform Runtime WASM
+	PRIVATE_LIB_COMPONENTS IR Logging Platform Runtime WASM WASTParse WASTPrint
 	PUBLIC_DEFINITIONS "WASM_C_API=WAVM_API")

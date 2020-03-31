@@ -43,6 +43,7 @@
 	VISIT_LITERAL_TOKEN(get)                                                                       \
 	VISIT_LITERAL_TOKEN(align)                                                                     \
 	VISIT_LITERAL_TOKEN(offset)                                                                    \
+	VISIT_LITERAL_TOKEN(item)                                                                      \
 	VISIT_LITERAL_TOKEN(then)                                                                      \
 	VISIT_LITERAL_TOKEN(register)                                                                  \
 	VISIT_LITERAL_TOKEN(mut)                                                                       \
@@ -59,6 +60,7 @@
 	VISIT_LITERAL_TOKEN(anyref)                                                                    \
 	VISIT_LITERAL_TOKEN(funcref)                                                                   \
 	VISIT_LITERAL_TOKEN(nullref)                                                                   \
+	VISIT_LITERAL_TOKEN(declare)                                                                   \
 	VISIT_LITERAL_TOKEN(shared)                                                                    \
 	VISIT_LITERAL_TOKEN(quote)                                                                     \
 	VISIT_LITERAL_TOKEN(binary)                                                                    \

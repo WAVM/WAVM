@@ -77,6 +77,11 @@ namespace WAVM { namespace IR {
 		Uptr functionIndex;
 	};
 
+	struct FunctionRefImm
+	{
+		Uptr functionIndex;
+	};
+
 	struct CallIndirectImm
 	{
 		IndexedFunctionType type;

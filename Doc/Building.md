@@ -1,6 +1,6 @@
 # Building WAVM from source
 
-To build WAVM, you'll need CMake and [LLVM 9.0](https://github.com/WAVM/WAVM-LLVM/releases/tag/9.x).
+To build WAVM, you'll need CMake and [LLVM 9.0+](https://github.com/WAVM/WAVM-LLVM/releases/tag/9.x).
 If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake
 configuration variable. Note that on Windows, you must compile LLVM from source, and manually point
 the LLVM_DIR configuration variable at `<LLVM build directory>\lib\cmake\llvm`.
@@ -21,7 +21,7 @@ Otherwise, you can download it from the [CMake website](https://cmake.org/downlo
 
 #### Windows
 
-You can use Visual Studio 2017+ to compile WAVM. If you don't have Visual Studio, you can use the
+You can use Visual Studio 2019+ to compile WAVM. If you don't have Visual Studio, you can use the
 freely available Visual Studio C++ Build Tools for Visual Studio or Visual Studio Community, both
 available from the Visual Studio [download page](https://visualstudio.microsoft.com/downloads/).
 
@@ -42,8 +42,7 @@ You'll need to install Xcode from the App Store.
     cmake <path to WAVM source> -G <generator> -DLLVM_DIR=<path to LLVM build>/lib/cmake/llvm
     ```
    What you pass as `<generator>` depends on your platform:
-   * For Windows, you'll use either `"Visual Studio 15 2017 Win64"` (aka Visual Studio 2017) or
-     `"Visual Studio 16 2019"` (aka Visual Studio 2019).
+   * For Windows, you'll use either `"Visual Studio 16 2019"` (aka Visual Studio 2019).
    * For Linux and MacOS, you'll use `"Unix Makefiles"`.
    
    If `cmake` executes successfully, it will create either a Visual Studio solution file or

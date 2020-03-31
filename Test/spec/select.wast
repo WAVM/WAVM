@@ -40,10 +40,10 @@
   )
 
   (func (export "join-nullref") (param i32) (result anyref)
-    (select (result anyref) (ref.null) (ref.null) (local.get 0))
+    (select (result nullref) (ref.null) (ref.null) (local.get 0))
   )
   (func (export "join-funcref") (param i32) (result anyref)
-    (select (result anyref)
+    (select (result funcref)
       (table.get $tab (i32.const 0))
       (ref.null)
       (local.get 0)
@@ -282,10 +282,10 @@
 (assert_return (invoke "join-nullref" (i32.const 1)) (ref.null))
 (assert_return (invoke "join-nullref" (i32.const 0)) (ref.null))
 
-(assert_return_func (invoke "join-funcref" (i32.const 1)))
+(assert_return (invoke "join-funcref" (i32.const 1)) (ref.func))
 (assert_return (invoke "join-funcref" (i32.const 0)) (ref.null))
 
-(assert_return_func (invoke "join-anyref" (i32.const 1) (ref.host 1)))
+(assert_return (invoke "join-anyref" (i32.const 1) (ref.host 1)) (ref.func))
 (assert_return (invoke "join-anyref" (i32.const 0) (ref.host 1)) (ref.host 1))
 
 (assert_trap (invoke "select-trap-left" (i32.const 1)) "unreachable")
