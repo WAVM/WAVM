@@ -41,7 +41,7 @@ class ArithmeticOp:
                 return value + lane.mod
         return value
 
-    def saturate(self, p1: int, p2: int, lane: LaneValue) -> int:
+    def _saturate(self, operand1: int, operand2: int, lane: LaneValue) -> int:
         """Get the result of saturating arithmetic operation on 2 operands.
         The operands can be both signed or unsigned. The following ops
         are covered:
@@ -51,21 +51,21 @@ class ArithmeticOp:
         When the operation result is less than the minimum, return the minimum.
         When the operation result is greater than the maximum, return the maximum.
         For other operation results, simply return themselves.
-        :param p1: the integer operand 1
-        :param p2: the integer operand 2
+        :param operand1: the integer operand 1
+        :param operand2: the integer operand 2
         :param lane: the LaneValue instance of a lane in v128
         :return: the result of the saturating arithmetic operation
         """
         if self.op.endswith('saturate_s'):
-            if p1 > lane.max:
-                p1 -= lane.mod
-            if p2 > lane.max:
-                p2 -= lane.mod
+            if operand1 > lane.max:
+                operand1 -= lane.mod
+            if operand2 > lane.max:
+                operand2 -= lane.mod
 
             if self.op.startswith('add'):
-                value = p1 + p2
+                value = operand1 + operand2
             if self.op.startswith('sub'):
-                value = p1 - p2
+                value = operand1 - operand2
 
             if value > lane.max:
                 return lane.max
@@ -73,14 +73,14 @@ class ArithmeticOp:
                 return lane.min
 
         if self.op.endswith('saturate_u'):
-            if p1 < 0:
-                p1 += lane.mod
-            if p2 < 0:
-                p2 += lane.mod
+            if operand1 < 0:
+                operand1 += lane.mod
+            if operand2 < 0:
+                operand2 += lane.mod
             if self.op.startswith('add'):
-                value = p1 + p2
+                value = operand1 + operand2
             if self.op.startswith('sub'):
-                value = p1 - p2
+                value = operand1 - operand2
 
             if value > lane.mask:
                 return lane.mask
@@ -89,29 +89,29 @@ class ArithmeticOp:
 
         return value
 
-    def unary_op(self, p, lane):
+    def unary_op(self, operand, lane):
         """General integer arithmetic and saturating arithmetic operations
         with only one operand.
 
         Supported ops: neg, abs
 
-        :param p: the operand, integer or literal string in hex or decimal format
+        :param operand: the operand, integer or literal string in hex or decimal format
         :param lane: the LaneValue instance of a lane in v128
         :return: the string of the result of <self.op p> in hex or decimal format
         """
-        v = p
+        v = operand
         base = 10
-        if isinstance(p, str):
-            if '0x' in p:
+        if isinstance(operand, str):
+            if '0x' in operand:
                 base = 16
-            v = int(p, base)
+            v = int(operand, base)
 
         if self.op == 'neg':
             result = self.get_valid_value(-v, lane)
         elif self.op == 'abs':
             result = self.get_valid_value(v, lane)
             if result >= 0:
-                return p
+                return operand
             else:
                 result = -result
             if base == 16:
@@ -121,7 +121,7 @@ class ArithmeticOp:
 
         return str(result)
 
-    def binary_op(self, p1, p2, lane):
+    def binary_op(self, operand1, operand2, lane):
         """General integer arithmetic and saturating arithmetic operations
         with 2 operands.
 
@@ -131,22 +131,22 @@ class ArithmeticOp:
         sub_saturate_s, sub_saturate_u,
         min_s, min_u, max_s, max_u, avgr_u
 
-        :param p1: the operand 1, integer or literal string in hex or decimal format
-        :param p2: the operand 2, integer or literal string in hex or decimal format
+        :param operand1: the operand 1, integer or literal string in hex or decimal format
+        :param operand2: the operand 2, integer or literal string in hex or decimal format
         :param lane: the LaneValue instance of a lane in v128
         :return: the string of the result of <p1 self.op p2> in hex or decimal format
         """
-        v1 = p1
-        v2 = p2
+        v1 = operand1
+        v2 = operand2
         base1 = base2 = 10
-        if isinstance(p1, str):
-            if '0x' in p1:
+        if isinstance(operand1, str):
+            if '0x' in operand1:
                 base1 = 16
-            v1 = int(p1, base1)
-        if isinstance(p2, str):
-            if '0x' in p2:
+            v1 = int(operand1, base1)
+        if isinstance(operand2, str):
+            if '0x' in operand2:
                 base2 = 16
-            v2 = int(p2, base2)
+            v2 = int(operand2, base2)
 
         result_signed = True
         if self.op == 'add':
@@ -156,23 +156,23 @@ class ArithmeticOp:
         elif self.op == 'mul':
             value = v1 * v2
         elif 'saturate' in self.op:
-            value = self.saturate(v1, v2, lane)
+            value = self._saturate(v1, v2, lane)
             if self.op.endswith('_u'):
                 result_signed = False
         elif self.op in ['min_s', 'max_s']:
             i1 = self.get_valid_value(v1, lane)
             i2 = self.get_valid_value(v2, lane)
             if self.op == 'min_s':
-                return p1 if i1 <= i2 else p2
+                return operand1 if i1 <= i2 else operand2
             else:
-                return p1 if i1 >= i2 else p2
+                return operand1 if i1 >= i2 else operand2
         elif self.op in ['min_u', 'max_u']:
             i1 = self.get_valid_value(v1, lane, signed=False)
             i2 = self.get_valid_value(v2, lane, signed=False)
             if self.op == 'min_u':
-                return p1 if i1 <= i2 else p2
+                return operand1 if i1 <= i2 else operand2
             else:
-                return p1 if i1 >= i2 else p2
+                return operand1 if i1 >= i2 else operand2
         elif self.op == 'avgr_u':
             i1 = self.get_valid_value(v1, lane, signed=False)
             i2 = self.get_valid_value(v2, lane, signed=False)
