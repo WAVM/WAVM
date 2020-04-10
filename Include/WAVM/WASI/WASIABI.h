@@ -44,6 +44,8 @@ typedef uint64_t __wasi_device_t;
 typedef uint64_t __wasi_dircookie_t;
 #define __WASI_DIRCOOKIE_START (UINT64_C(0))
 
+typedef uint32_t __wasi_dirnamlen_t;
+
 typedef uint16_t __wasi_errno_t;
 #define __WASI_ESUCCESS (UINT16_C(0))
 #define __WASI_E2BIG (UINT16_C(1))
@@ -266,8 +268,6 @@ typedef uint8_t __wasi_whence_t;
 
 typedef uint8_t __wasi_preopentype_t;
 #define __WASI_PREOPENTYPE_DIR (UINT8_C(0))
-
-typedef uint32_t __wasi_dirnamlen_t;
 
 typedef struct __wasi_dirent_t
 {
