@@ -273,7 +273,7 @@ typedef struct __wasi_dirent_t
 {
 	__wasi_dircookie_t d_next;
 	__wasi_inode_t d_ino;
-    __wasi_dirnamlen_t d_namlen;
+	__wasi_dirnamlen_t d_namlen;
 	__wasi_filetype_t d_type;
 } __wasi_dirent_t;
 static_assert(offsetof(__wasi_dirent_t, d_next) == 0, "non-wasi data layout");
