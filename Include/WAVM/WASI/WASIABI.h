@@ -44,6 +44,8 @@ typedef uint64_t __wasi_device_t;
 typedef uint64_t __wasi_dircookie_t;
 #define __WASI_DIRCOOKIE_START (UINT64_C(0))
 
+typedef uint32_t __wasi_dirnamlen_t;
+
 typedef uint16_t __wasi_errno_t;
 #define __WASI_ESUCCESS (UINT16_C(0))
 #define __WASI_E2BIG (UINT16_C(1))
@@ -164,7 +166,7 @@ typedef uint16_t __wasi_fstflags_t;
 
 typedef uint64_t __wasi_inode_t;
 
-typedef uint32_t __wasi_linkcount_t;
+typedef uint64_t __wasi_linkcount_t;
 
 typedef uint32_t __wasi_lookupflags_t;
 #define __WASI_LOOKUP_SYMLINK_FOLLOW (UINT32_C(0x00000001))
@@ -260,9 +262,9 @@ typedef uint64_t __wasi_timestamp_t;
 typedef uint64_t __wasi_userdata_t;
 
 typedef uint8_t __wasi_whence_t;
-#define __WASI_WHENCE_CUR (UINT8_C(0))
-#define __WASI_WHENCE_END (UINT8_C(1))
-#define __WASI_WHENCE_SET (UINT8_C(2))
+#define __WASI_WHENCE_SET (UINT8_C(0))
+#define __WASI_WHENCE_CUR (UINT8_C(1))
+#define __WASI_WHENCE_END (UINT8_C(2))
 
 typedef uint8_t __wasi_preopentype_t;
 #define __WASI_PREOPENTYPE_DIR (UINT8_C(0))
@@ -271,7 +273,7 @@ typedef struct __wasi_dirent_t
 {
 	__wasi_dircookie_t d_next;
 	__wasi_inode_t d_ino;
-	uint32_t d_namlen;
+	__wasi_dirnamlen_t d_namlen;
 	__wasi_filetype_t d_type;
 } __wasi_dirent_t;
 static_assert(offsetof(__wasi_dirent_t, d_next) == 0, "non-wasi data layout");
@@ -356,12 +358,12 @@ typedef struct __wasi_filestat_t
 static_assert(offsetof(__wasi_filestat_t, st_dev) == 0, "non-wasi data layout");
 static_assert(offsetof(__wasi_filestat_t, st_ino) == 8, "non-wasi data layout");
 static_assert(offsetof(__wasi_filestat_t, st_filetype) == 16, "non-wasi data layout");
-static_assert(offsetof(__wasi_filestat_t, st_nlink) == 20, "non-wasi data layout");
-static_assert(offsetof(__wasi_filestat_t, st_size) == 24, "non-wasi data layout");
-static_assert(offsetof(__wasi_filestat_t, st_atim) == 32, "non-wasi data layout");
-static_assert(offsetof(__wasi_filestat_t, st_mtim) == 40, "non-wasi data layout");
-static_assert(offsetof(__wasi_filestat_t, st_ctim) == 48, "non-wasi data layout");
-static_assert(sizeof(__wasi_filestat_t) == 56, "non-wasi data layout");
+static_assert(offsetof(__wasi_filestat_t, st_nlink) == 24, "non-wasi data layout");
+static_assert(offsetof(__wasi_filestat_t, st_size) == 32, "non-wasi data layout");
+static_assert(offsetof(__wasi_filestat_t, st_atim) == 40, "non-wasi data layout");
+static_assert(offsetof(__wasi_filestat_t, st_mtim) == 48, "non-wasi data layout");
+static_assert(offsetof(__wasi_filestat_t, st_ctim) == 56, "non-wasi data layout");
+static_assert(sizeof(__wasi_filestat_t) == 64, "non-wasi data layout");
 static_assert(alignof(__wasi_filestat_t) == 8, "non-wasi data layout");
 
 typedef struct __wasi_ciovec_t
@@ -410,7 +412,6 @@ typedef struct __wasi_subscription_t
 	{
 		struct __wasi_subscription_u_clock_t
 		{
-			__wasi_userdata_t identifier;
 			__wasi_clockid_t clock_id;
 			__wasi_timestamp_t timeout;
 			__wasi_timestamp_t precision;
@@ -424,13 +425,12 @@ typedef struct __wasi_subscription_t
 } __wasi_subscription_t;
 static_assert(offsetof(__wasi_subscription_t, userdata) == 0, "non-wasi data layout");
 static_assert(offsetof(__wasi_subscription_t, type) == 8, "non-wasi data layout");
-static_assert(offsetof(__wasi_subscription_t, u.clock.identifier) == 16, "non-wasi data layout");
-static_assert(offsetof(__wasi_subscription_t, u.clock.clock_id) == 24, "non-wasi data layout");
-static_assert(offsetof(__wasi_subscription_t, u.clock.timeout) == 32, "non-wasi data layout");
-static_assert(offsetof(__wasi_subscription_t, u.clock.precision) == 40, "non-wasi data layout");
-static_assert(offsetof(__wasi_subscription_t, u.clock.flags) == 48, "non-wasi data layout");
+static_assert(offsetof(__wasi_subscription_t, u.clock.clock_id) == 16, "non-wasi data layout");
+static_assert(offsetof(__wasi_subscription_t, u.clock.timeout) == 24, "non-wasi data layout");
+static_assert(offsetof(__wasi_subscription_t, u.clock.precision) == 32, "non-wasi data layout");
+static_assert(offsetof(__wasi_subscription_t, u.clock.flags) == 40, "non-wasi data layout");
 static_assert(offsetof(__wasi_subscription_t, u.fd_readwrite.fd) == 16, "non-wasi data layout");
-static_assert(sizeof(__wasi_subscription_t) == 56, "non-wasi data layout");
+static_assert(sizeof(__wasi_subscription_t) == 48, "non-wasi data layout");
 static_assert(alignof(__wasi_subscription_t) == 8, "non-wasi data layout");
 
 #define __WASI_IOV_MAX 1024
