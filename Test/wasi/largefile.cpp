@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <wasi/core.h>
+#include <wasi/api.h>
 
 static const char string3[] = "Hello 3GB!";
 static const char string6[] = "Hello 6GB!";
