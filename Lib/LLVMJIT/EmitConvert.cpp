@@ -389,12 +389,18 @@ EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_s, llvmContext.i32x4Type, llvmContext.i16
 EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, zext)
 EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, zext)
 
-void EmitFunctionContext::i8x16_ltz_mask(NoImm)
+void EmitFunctionContext::i8x16_bitmask(NoImm)
 {
 	auto i8x16Operand = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto i1x16Mask = irBuilder.CreateICmpSLT(
 		i8x16Operand, llvm::ConstantVector::getNullValue(llvmContext.i8x16Type));
-	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	if(moduleContext.targetArch == llvm::Triple::x86_64
+	   || moduleContext.targetArch == llvm::Triple::x86)
+	{
+		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x16Mask, llvmContext.i16Type),
+								  llvmContext.i32Type));
+	}
+	else
 	{
 		auto i8x16Mask = irBuilder.CreateSExt(i1x16Mask, llvmContext.i8x16Type);
 		auto constant1 = llvm::ConstantInt::get(llvmContext.i8Type, 1);
@@ -442,19 +448,20 @@ void EmitFunctionContext::i8x16_ltz_mask(NoImm)
 								emitLiteral(llvmContext, U32(8))));
 		push(i32CombinedBitMask);
 	}
-	else
-	{
-		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x16Mask, llvmContext.i16Type),
-								  llvmContext.i32Type));
-	}
 }
 
-void EmitFunctionContext::i16x8_ltz_mask(NoImm)
+void EmitFunctionContext::i16x8_bitmask(NoImm)
 {
 	auto i8x16Operand = irBuilder.CreateBitCast(pop(), llvmContext.i16x8Type);
 	auto i1x8Mask = irBuilder.CreateICmpSLT(
 		i8x16Operand, llvm::ConstantVector::getNullValue(llvmContext.i16x8Type));
-	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	if(moduleContext.targetArch == llvm::Triple::x86_64
+	   || moduleContext.targetArch == llvm::Triple::x86)
+	{
+		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x8Mask, llvmContext.i8Type),
+								  llvmContext.i32Type));
+	}
+	else
 	{
 		auto i16x8Mask = irBuilder.CreateSExt(i1x8Mask, llvmContext.i16x8Type);
 		auto constant1 = llvm::ConstantInt::get(llvmContext.i16Type, 1);
@@ -479,19 +486,21 @@ void EmitFunctionContext::i16x8_ltz_mask(NoImm)
 													{i16x8OrthogonalBitMask});
 		push(irBuilder.CreateZExt(i16CombinedBitMask, llvmContext.i32Type));
 	}
-	else
-	{
-		push(irBuilder.CreateZExt(irBuilder.CreateBitCast(i1x8Mask, llvmContext.i8Type),
-								  llvmContext.i32Type));
-	}
 }
 
-void EmitFunctionContext::i32x4_ltz_mask(NoImm)
+void EmitFunctionContext::i32x4_bitmask(NoImm)
 {
 	auto i32x4Operand = irBuilder.CreateBitCast(pop(), llvmContext.i32x4Type);
 	auto i1x4Mask = irBuilder.CreateICmpSLT(
 		i32x4Operand, llvm::ConstantVector::getNullValue(llvmContext.i32x4Type));
-	if(moduleContext.targetArch == llvm::Triple::aarch64)
+	if(moduleContext.targetArch == llvm::Triple::x86_64
+	   || moduleContext.targetArch == llvm::Triple::x86)
+	{
+		push(irBuilder.CreateZExt(
+			irBuilder.CreateBitCast(i1x4Mask, llvm::IntegerType::get(llvmContext, 4)),
+			llvmContext.i32Type));
+	}
+	else
 	{
 		auto i32x4Mask = irBuilder.CreateSExt(i1x4Mask, llvmContext.i32x4Type);
 		auto constant1 = llvm::ConstantInt::get(llvmContext.i32Type, 1);
@@ -509,11 +518,5 @@ void EmitFunctionContext::i32x4_ltz_mask(NoImm)
 													llvm::Intrinsic::experimental_vector_reduce_add,
 													{i32x4OrthogonalBitMask});
 		push(i32CombinedBitMask);
-	}
-	else
-	{
-		push(irBuilder.CreateZExt(
-			irBuilder.CreateBitCast(i1x4Mask, llvm::IntegerType::get(llvmContext, 4)),
-			llvmContext.i32Type));
 	}
 }
