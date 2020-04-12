@@ -696,8 +696,8 @@ struct FunctionPrintContext
 
 	void printImm(DataSegmentAndMemImm imm)
 	{
-		string += " " + moduleContext.names.dataSegments[imm.dataSegmentIndex];
 		if(imm.memoryIndex != 0) { string += " " + moduleContext.names.memories[imm.memoryIndex]; }
+		string += " " + moduleContext.names.dataSegments[imm.dataSegmentIndex];
 	}
 	void printImm(DataSegmentImm imm)
 	{
@@ -706,8 +706,8 @@ struct FunctionPrintContext
 
 	void printImm(ElemSegmentAndTableImm imm)
 	{
+		if(imm.tableIndex != 0) { string += " " + moduleContext.names.tables[imm.tableIndex]; }
 		string += " " + moduleContext.names.elemSegments[imm.elemSegmentIndex];
-		string += " " + moduleContext.names.tables[imm.tableIndex];
 	}
 	void printImm(ElemSegmentImm imm)
 	{
