@@ -1106,134 +1106,134 @@
 (assert_return (invoke "v128.load" (i32.const 544)) (v128.const i64x2 10000000001 10000000003))
 (assert_return (invoke "v128.load" (i32.const 560)) (v128.const i64x2 10000000005 10000000007))
 
-;; i8x16.ltz_mask
+;; i8x16.bitmask
 
 (module
-  (func (export "i8x16.ltz_mask") (param v128) (result i32)
-    (i8x16.ltz_mask (local.get 0))
+  (func (export "i8x16.bitmask") (param v128) (result i32)
+    (i8x16.bitmask (local.get 0))
   )
 )
 
 (assert_return
-  (invoke "i8x16.ltz_mask"
+  (invoke "i8x16.bitmask"
     (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
   (i32.const 0x0000)
 )
 
 (assert_return
-  (invoke "i8x16.ltz_mask"
+  (invoke "i8x16.bitmask"
     (v128.const i8x16 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80))
   (i32.const 0xffff)
 )
 
 (assert_return
-  (invoke "i8x16.ltz_mask"
+  (invoke "i8x16.bitmask"
     (v128.const i8x16 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f))
   (i32.const 0x0000)
 )
 
 (assert_return
-  (invoke "i8x16.ltz_mask"
+  (invoke "i8x16.bitmask"
     (v128.const i8x16 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff))
   (i32.const 0xffff)
 )
 
 (assert_return
-  (invoke "i8x16.ltz_mask"
+  (invoke "i8x16.bitmask"
     (v128.const i8x16 0x80 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
   (i32.const 0x0001)
 )
 
 (assert_return
-  (invoke "i8x16.ltz_mask"
+  (invoke "i8x16.bitmask"
     (v128.const i8x16 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80 0x00 0x80))
   (i32.const 0x0000aaaa)
 )
 
-;; i16x8.ltz_mask
+;; i16x8.bitmask
 
 (module
-  (func (export "i16x8.ltz_mask") (param v128) (result i32)
-    (i16x8.ltz_mask (local.get 0))
+  (func (export "i16x8.bitmask") (param v128) (result i32)
+    (i16x8.bitmask (local.get 0))
   )
 )
 
 (assert_return
-  (invoke "i16x8.ltz_mask"
+  (invoke "i16x8.bitmask"
     (v128.const i16x8 0 0 0 0 0 0 0 0))
   (i32.const 0x00)
 )
 
 (assert_return
-  (invoke "i16x8.ltz_mask"
+  (invoke "i16x8.bitmask"
     (v128.const i16x8 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000 0x8000))
   (i32.const 0xff)
 )
 
 (assert_return
-  (invoke "i16x8.ltz_mask"
+  (invoke "i16x8.bitmask"
     (v128.const i16x8 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff))
   (i32.const 0x00)
 )
 
 (assert_return
-  (invoke "i16x8.ltz_mask"
+  (invoke "i16x8.bitmask"
     (v128.const i16x8 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff))
   (i32.const 0xff)
 )
 
 (assert_return
-  (invoke "i16x8.ltz_mask"
+  (invoke "i16x8.bitmask"
     (v128.const i16x8 0x8000 0 0 0 0 0 0 0))
   (i32.const 0x01)
 )
 
 (assert_return
-  (invoke "i16x8.ltz_mask"
+  (invoke "i16x8.bitmask"
     (v128.const i16x8 0x0000 0x8000 0x0000 0x8000 0x0000 0x8000 0x0000 0x8000))
   (i32.const 0xaa)
 )
 
-;; i32x4.ltz_mask
+;; i32x4.bitmask
 
 (module
-  (func (export "i32x4.ltz_mask") (param v128) (result i32)
-    (i32x4.ltz_mask (local.get 0))
+  (func (export "i32x4.bitmask") (param v128) (result i32)
+    (i32x4.bitmask (local.get 0))
   )
 )
 
 (assert_return
-  (invoke "i32x4.ltz_mask"
+  (invoke "i32x4.bitmask"
     (v128.const i32x4 0 0 0 0))
   (i32.const 0x0)
 )
 
 (assert_return
-  (invoke "i32x4.ltz_mask"
+  (invoke "i32x4.bitmask"
     (v128.const i32x4 0x80000000 0x80000000 0x80000000 0x80000000))
   (i32.const 0xf)
 )
 
 (assert_return
-  (invoke "i32x4.ltz_mask"
+  (invoke "i32x4.bitmask"
     (v128.const i32x4 0x7fffffff 0x7fffffff 0x7fffffff 0x7fffffff))
   (i32.const 0x0)
 )
 
 (assert_return
-  (invoke "i32x4.ltz_mask"
+  (invoke "i32x4.bitmask"
     (v128.const i32x4 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
   (i32.const 0xf)
 )
 
 (assert_return
-  (invoke "i32x4.ltz_mask"
+  (invoke "i32x4.bitmask"
     (v128.const i32x4 0x80000000 0 0 0))
   (i32.const 0x1)
 )
 
 (assert_return
-  (invoke "i32x4.ltz_mask"
+  (invoke "i32x4.bitmask"
     (v128.const i32x4 0x00000000 0x80000000 0x00000000 0x80000000))
   (i32.const 0xa)
 )
@@ -1376,7 +1376,7 @@
 (module 
   (func (param v128) (result f64)
     local.get 0
-    i8x16.ltz_mask
+    i8x16.bitmask
     i16x8.splat
     f64x2.extract_lane 1
   )

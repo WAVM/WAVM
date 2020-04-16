@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <wasi/core.h>
+#include <wasi/api.h>
 
 int main(int argc, char** argv)
 {

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <wasi/core.h>
+#include <wasi/api.h>
 
 static const char string500[] = "Hello 500!";
 static const char string5000[] = "Hello 5000!";

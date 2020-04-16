@@ -18,6 +18,7 @@
 // command-line.
 #define WAVM_ENUM_PROPOSED_FEATURES(V)                                                             \
 	V(simd, "simd", "128-bit SIMD")                                                                \
+	V(simdBitMask, "simd-bitmask", "128-bit SIMD bitmask instructions")                            \
 	V(atomics, "atomics", "Shared memories and atomic instructions")                               \
 	V(exceptionHandling, "exception-handling", "Exception handling")                               \
 	V(multipleResultsAndBlockParams, "multivalue", "Multiple results and block parameters")        \

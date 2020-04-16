@@ -76,7 +76,7 @@
 	(module
 		(memory $m 1)
 		(data "test")
-		(func (memory.init 0 1 (i32.const 0) (i32.const 0) (i32.const 0)))
+		(func (memory.init 1 0 (i32.const 0) (i32.const 0) (i32.const 0)))
 	)
 	"invalid memory index"
 )
@@ -104,7 +104,7 @@
 (module
 	(memory $m 1 1)
 	(data "a")
-	(func (memory.init 0 $m (i32.const 0) (i32.const 0) (i32.const 0)))
+	(func (memory.init $m 0 (i32.const 0) (i32.const 0) (i32.const 0)))
 )
 
 (module binary
@@ -454,14 +454,14 @@
 		(param $destOffset i32)
 		(param $sourceOffset i32)
 		(param $numElements i32)
-		(table.init 0 $t (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
+		(table.init $t 0 (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
 	)
 	
 	(func (export "table.init 1")
 		(param $destOffset i32)
 		(param $sourceOffset i32)
 		(param $numElements i32)
-		(table.init 1 $t (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
+		(table.init $t 1 (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
 	)
 	
 	(func (export "elem.drop 0") (elem.drop 0))
@@ -528,7 +528,7 @@
 		(param $destOffset i32)
 		(param $sourceOffset i32)
 		(param $numElements i32)
-		(table.init 0 $t (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
+		(table.init $t 0 (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
 	)
 )
 

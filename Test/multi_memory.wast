@@ -424,13 +424,13 @@
   (data $s "\aa\bb\cc\dd")
 
   (func (export "a.init") (param i32 i32 i32)
-    (memory.init $s $a
+    (memory.init $a $s
       (local.get 0)
       (local.get 1)
       (local.get 2)))
 
   (func (export "b.init") (param i32 i32 i32)
-    (memory.init $s $b
+    (memory.init $b $s
       (local.get 0)
       (local.get 1)
       (local.get 2)))

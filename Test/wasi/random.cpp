@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <wasi/core.h>
+#include <wasi/api.h>
 
 int main(int argc, char** argv)
 {

@@ -1,6 +1,6 @@
 (module
   (memory 1)
-  (func (export "i8x16.ltz_mask")
+  (func (export "i8x16.bitmask")
     (param $numIterations i32)
     (result i32)
     (local $i i32)
@@ -8,7 +8,7 @@
     loop $loop
       (local.set $result (i32.xor
         (local.get $result)
-        (i8x16.ltz_mask (v128.load (i32.const 0)))
+        (i8x16.bitmask (v128.load (i32.const 0)))
       ))
       (local.set $i (i32.add (local.get $i) (i32.const 1)))
       (br_if $loop (i32.lt_u (local.get $i) (local.get $numIterations)))
@@ -16,7 +16,7 @@
     (local.get $result)
   )
   
-  (func (export "i16x8.ltz_mask")
+  (func (export "i16x8.bitmask")
     (param $numIterations i32)
     (result i32)
     (local $i i32)
@@ -24,7 +24,7 @@
     loop $loop
       (local.set $result (i32.xor
         (local.get $result)
-        (i16x8.ltz_mask (v128.load (i32.const 0)))
+        (i16x8.bitmask (v128.load (i32.const 0)))
       ))
       (local.set $i (i32.add (local.get $i) (i32.const 1)))
       (br_if $loop (i32.lt_u (local.get $i) (local.get $numIterations)))
@@ -32,7 +32,7 @@
     (local.get $result)
   )
   
-  (func (export "i32x4.ltz_mask")
+  (func (export "i32x4.bitmask")
     (param $numIterations i32)
     (result i32)
     (local $i i32)
@@ -40,7 +40,7 @@
     loop $loop
       (local.set $result (i32.xor
         (local.get $result)
-        (i32x4.ltz_mask (v128.load (i32.const 0)))
+        (i32x4.bitmask (v128.load (i32.const 0)))
       ))
       (local.set $i (i32.add (local.get $i) (i32.const 1)))
       (br_if $loop (i32.lt_u (local.get $i) (local.get $numIterations)))
@@ -48,7 +48,7 @@
     (local.get $result)
   )
 
-  (func (export "emulated i8x16.ltz_mask")
+  (func (export "emulated i8x16.bitmask")
     (param $numIterations i32)
     (result i32)
     (local $i i32)
@@ -81,8 +81,8 @@
   )
 )
 
-(benchmark "i8x16.ltz_mask" (invoke "i8x16.ltz_mask" (i32.const 1000000)))
-(benchmark "emulated i8x16.ltz_mask" (invoke "emulated i8x16.ltz_mask" (i32.const 1000000)))
+(benchmark "i8x16.bitmask" (invoke "i8x16.bitmask" (i32.const 1000000)))
+(benchmark "emulated i8x16.bitmask" (invoke "emulated i8x16.bitmask" (i32.const 1000000)))
 
-(benchmark "i16x8.ltz_mask" (invoke "i16x8.ltz_mask" (i32.const 1000000)))
-(benchmark "i32x4.ltz_mask" (invoke "i32x4.ltz_mask" (i32.const 1000000)))
+(benchmark "i16x8.bitmask" (invoke "i16x8.bitmask" (i32.const 1000000)))
+(benchmark "i32x4.bitmask" (invoke "i32x4.bitmask" (i32.const 1000000)))

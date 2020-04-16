@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wasi/core.h>
+#include <wasi/api.h>
 
 static void printUsage(char* exe)
 {
@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 	__wasi_timestamp_t lastAccessTime = 0;
 	__wasi_timestamp_t lastWriteTime = 0;
 
-	if(!strcmp(argv[2], "now")) { flags |= __WASI_FILESTAT_SET_ATIM_NOW; }
+	if(!strcmp(argv[2], "now")) { flags |= __WASI_FSTFLAGS_ATIM_NOW; }
 	else if(strcmp(argv[2], "nochange"))
 	{
 		char* end;
@@ -34,10 +34,10 @@ int main(int argc, char** argv)
 			printUsage(argv[0]);
 			return 1;
 		}
-		flags |= __WASI_FILESTAT_SET_ATIM;
+		flags |= __WASI_FSTFLAGS_ATIM;
 	}
 
-	if(!strcmp(argv[3], "now")) { flags |= __WASI_FILESTAT_SET_MTIM_NOW; }
+	if(!strcmp(argv[3], "now")) { flags |= __WASI_FSTFLAGS_MTIM_NOW; }
 	else if(strcmp(argv[3], "nochange"))
 	{
 		char* end;
@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 			printUsage(argv[0]);
 			return 1;
 		}
-		flags |= __WASI_FILESTAT_SET_MTIM;
+		flags |= __WASI_FSTFLAGS_MTIM;
 	}
 
 	int fd = open(argv[1], O_WRONLY);

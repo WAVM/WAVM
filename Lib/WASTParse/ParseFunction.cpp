@@ -520,17 +520,27 @@ static void parseImm(CursorState* cursor, RethrowImm& outImm)
 
 static void parseImm(CursorState* cursor, DataSegmentAndMemImm& outImm)
 {
-	outImm.dataSegmentIndex
-		= parseAndResolveNameOrIndexRef(cursor,
-										cursor->moduleState->dataNameToIndexMap,
-										cursor->moduleState->module.dataSegments.size(),
-										"data");
-	if(!tryParseAndResolveNameOrIndexRef(cursor,
-										 cursor->moduleState->memoryNameToIndexMap,
-										 cursor->moduleState->module.memories.size(),
-										 "memory",
-										 outImm.memoryIndex))
-	{ outImm.memoryIndex = 0; }
+	Reference firstRef;
+	if(!tryParseNameOrIndexRef(cursor, firstRef))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected data segment name or index");
+		throw RecoverParseException();
+	}
+	else
+	{
+		Reference secondRef;
+		const bool hasSecondRef = tryParseNameOrIndexRef(cursor, secondRef);
+
+		outImm.memoryIndex = hasSecondRef ? resolveRef(cursor->parseState,
+													   cursor->moduleState->memoryNameToIndexMap,
+													   cursor->moduleState->module.memories.size(),
+													   firstRef)
+										  : 0;
+		outImm.dataSegmentIndex = resolveRef(cursor->parseState,
+											 cursor->moduleState->dataNameToIndexMap,
+											 cursor->moduleState->module.dataSegments.size(),
+											 hasSecondRef ? secondRef : firstRef);
+	}
 }
 
 static void parseImm(CursorState* cursor, DataSegmentImm& outImm)
@@ -544,17 +554,27 @@ static void parseImm(CursorState* cursor, DataSegmentImm& outImm)
 
 static void parseImm(CursorState* cursor, ElemSegmentAndTableImm& outImm)
 {
-	outImm.elemSegmentIndex
-		= parseAndResolveNameOrIndexRef(cursor,
-										cursor->moduleState->elemNameToIndexMap,
-										cursor->moduleState->module.elemSegments.size(),
-										"elem");
-	if(!tryParseAndResolveNameOrIndexRef(cursor,
-										 cursor->moduleState->tableNameToIndexMap,
-										 cursor->moduleState->module.tables.size(),
-										 "table",
-										 outImm.tableIndex))
-	{ outImm.tableIndex = 0; }
+	Reference firstRef;
+	if(!tryParseNameOrIndexRef(cursor, firstRef))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected elem segment name or index");
+		throw RecoverParseException();
+	}
+	else
+	{
+		Reference secondRef;
+		const bool hasSecondRef = tryParseNameOrIndexRef(cursor, secondRef);
+
+		outImm.tableIndex = hasSecondRef ? resolveRef(cursor->parseState,
+													  cursor->moduleState->tableNameToIndexMap,
+													  cursor->moduleState->module.tables.size(),
+													  firstRef)
+										 : 0;
+		outImm.elemSegmentIndex = resolveRef(cursor->parseState,
+											 cursor->moduleState->elemNameToIndexMap,
+											 cursor->moduleState->module.elemSegments.size(),
+											 hasSecondRef ? secondRef : firstRef);
+	}
 }
 
 static void parseImm(CursorState* cursor, ElemSegmentImm& outImm)
