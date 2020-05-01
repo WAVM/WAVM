@@ -483,14 +483,12 @@
   (func (export "i8x16.any_true") (param $a v128) (result i32) (i8x16.any_true (local.get $a)))
   (func (export "i16x8.any_true") (param $a v128) (result i32) (i16x8.any_true (local.get $a)))
   (func (export "i32x4.any_true") (param $a v128) (result i32) (i32x4.any_true (local.get $a)))
-  (func (export "i64x2.any_true") (param $a v128) (result i32) (i64x2.any_true (local.get $a)))
 )
 
 (module
   (func (export "i8x16.all_true") (param $a v128) (result i32) (i8x16.all_true (local.get $a)))
   (func (export "i16x8.all_true") (param $a v128) (result i32) (i16x8.all_true (local.get $a)))
   (func (export "i32x4.all_true") (param $a v128) (result i32) (i32x4.all_true (local.get $a)))
-  (func (export "i64x2.all_true") (param $a v128) (result i32) (i64x2.all_true (local.get $a)))
 )
 
 (module
