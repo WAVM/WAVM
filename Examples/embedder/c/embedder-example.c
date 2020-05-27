@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 	wasm_compartment_t* compartment = wasm_compartment_new(engine, "compartment");
 	wasm_store_t* store = wasm_store_new(compartment, "store");
 
-	char hello_wast[]
+	char* hello_wast
 		= "(module\n"
 		  "  (import \"\" \"hello\" (func $1 (param i32) (result i32)))\n"
 		  "  (func (export \"run\") (param i32) (result i32)\n"
@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 		  ")";
 
 	// Compile.
-	own wasm_module_t* module = wasm_module_new_text(engine, hello_wast, sizeof(hello_wast));
+	own wasm_module_t* module = wasm_module_new_text(engine, hello_wast, strlen(hello_wast));
 	if(!module) { return 1; }
 
 	// Create external print functions.
