@@ -135,8 +135,6 @@
  (func (export "i32x4.sub") (param $0 v128) (param $1 v128) (result v128) (i32x4.sub (local.get $0) (local.get $1)))
  (func (export "i32x4.mul") (param $0 v128) (param $1 v128) (result v128) (i32x4.mul (local.get $0) (local.get $1)))
  (func (export "i64x2.neg") (param $0 v128) (result v128) (i64x2.neg (local.get $0)))
- (func (export "i64x2.any_true") (param $0 v128) (result i32) (i64x2.any_true (local.get $0)))
- (func (export "i64x2.all_true") (param $0 v128) (result i32) (i64x2.all_true (local.get $0)))
  (func (export "i64x2.shl") (param $0 v128) (param $1 i32) (result v128) (i64x2.shl (local.get $0) (local.get $1)))
  (func (export "i64x2.shr_s") (param $0 v128) (param $1 i32) (result v128) (i64x2.shr_s (local.get $0) (local.get $1)))
  (func (export "i64x2.shr_u") (param $0 v128) (param $1 i32) (result v128) (i64x2.shr_u (local.get $0) (local.get $1)))
@@ -592,12 +590,6 @@
 
 ;; i64x2 arithmetic
 (assert_return (invoke "i64x2.neg" (v128.const i64x2 0x8000000000000000 42)) (v128.const i64x2 0x8000000000000000 -42))
-(assert_return (invoke "i64x2.any_true" (v128.const i64x2 0 0)) (i32.const 0))
-(assert_return (invoke "i64x2.any_true" (v128.const i64x2 1 0)) (i32.const 1))
-(assert_return (invoke "i64x2.any_true" (v128.const i64x2 1 1)) (i32.const 1))
-(assert_return (invoke "i64x2.all_true" (v128.const i64x2 0 0)) (i32.const 0))
-(assert_return (invoke "i64x2.all_true" (v128.const i64x2 1 0)) (i32.const 0))
-(assert_return (invoke "i64x2.all_true" (v128.const i64x2 1 1)) (i32.const 1))
 (assert_return (invoke "i64x2.shl" (v128.const i64x2 1 0x8000000000000000) (i32.const 1)) (v128.const i64x2 2 0))
 (assert_return (invoke "i64x2.shl" (v128.const i64x2 1 0x8000000000000000) (i32.const 64)) (v128.const i64x2 1 0x8000000000000000))
 (assert_return (invoke "i64x2.shr_s" (v128.const i64x2 1 0x8000000000000000) (i32.const 1)) (v128.const i64x2 0 0xc000000000000000))

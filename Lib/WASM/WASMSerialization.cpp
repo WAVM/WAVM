@@ -976,16 +976,6 @@ static void serializeFunctionBody(InputStream& sectionStream,
 			irEncoderStream.select(imm);
 			break;
 		}
-		// Hack to accept the obsolete 0xfd03 opcode that the LLVM WASM backend emits for
-		// v8x16.shuffle.
-		case 0xfd03: {
-			ShuffleImm<16> imm;
-			serialize(bodyStream, imm, functionDef, moduleState);
-
-			codeValidationStream.v8x16_shuffle(imm);
-			irEncoderStream.v8x16_shuffle(imm);
-			break;
-		}
 		default:
 			throw FatalSerializationException(std::string("unknown opcode (")
 											  + std::to_string(Uptr(opcode)) + ")");
