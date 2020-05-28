@@ -271,8 +271,8 @@
 	visitOp(0xfd0a, v64x2_load_splat          , "v64x2.load_splat"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 	visitOp(0xfd0b, v128_store                , "v128.store"                , LoadOrStoreImm<4>         , WAVM_STORE(v128)          , simd                   )   \
 	visitOp(0xfd0c, v128_const                , "v128.const"                , LiteralImm<V128>          , WAVM_NULLARY(v128)        , simd                   )   \
-	visitOp(0xfd0d, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd0e, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd0d, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd0e, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd0f, i8x16_splat               , "i8x16.splat"               , NoImm                     , WAVM_UNARY(i32,v128)      , simd                   )   \
 	visitOp(0xfd10, i16x8_splat               , "i16x8.splat"               , NoImm                     , WAVM_UNARY(i32,v128)      , simd                   )   \
 	visitOp(0xfd11, i32x4_splat               , "i32x4.splat"               , NoImm                     , WAVM_UNARY(i32,v128)      , simd                   )   \
