@@ -720,19 +720,15 @@ wasm_module_t* wasm_module_new(wasm_engine_t* engine, const char* wasmBytes, uin
 }
 wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, size_t num_text_chars)
 {
-	// WAST::parseModule requires that the WAST string be null-terminated, so make a copy of the
-	// input string as a std::string to make sure it is.
-	std::string wastString(text, num_text_chars);
+	// wasm_module_new_text requires the input string to be null terminated.
+	WAVM_ERROR_UNLESS(text[num_text_chars - 1] == 0);
 
 	std::vector<WAST::Error> parseErrors;
 	IR::Module irModule(engine->config.featureSpec);
-	if(!WAST::parseModule(wastString.c_str(), wastString.size() + 1, irModule, parseErrors))
+	if(!WAST::parseModule(text, num_text_chars, irModule, parseErrors))
 	{
 		if(Log::isCategoryEnabled(Log::debug))
-		{
-			WAST::reportParseErrors(
-				"wasm_module_new_text", wastString.c_str(), parseErrors, Log::debug);
-		}
+		{ WAST::reportParseErrors("wasm_module_new_text", text, parseErrors, Log::debug); }
 		return nullptr;
 	}
 
