@@ -52,10 +52,7 @@ namespace WAVM { namespace IR {
 		Value(F32 inF32) : UntaggedValue(inF32), type(ValueType::f32) {}
 		Value(F64 inF64) : UntaggedValue(inF64), type(ValueType::f64) {}
 		Value(const V128& inV128) : UntaggedValue(inV128), type(ValueType::v128) {}
-		Value(std::nullptr_t) : UntaggedValue((Runtime::Object*)nullptr), type(ValueType::nullref)
-		{
-		}
-		Value(Runtime::Object* inObject) : UntaggedValue(inObject), type(ValueType::anyref) {}
+		Value(Runtime::Object* inObject) : UntaggedValue(inObject), type(ValueType::externref) {}
 		Value(Runtime::Function* inFunction) : UntaggedValue(inFunction), type(ValueType::funcref)
 		{
 		}
@@ -71,19 +68,18 @@ namespace WAVM { namespace IR {
 			case ValueType::f32: return "f32.const " + asString(value.f32);
 			case ValueType::f64: return "f64.const " + asString(value.f64);
 			case ValueType::v128: return "v128.const " + asString(value.v128);
-			case ValueType::anyref:
+			case ValueType::externref:
 			case ValueType::funcref: {
-				// buffer needs 27 characters:
-				// (anyref|funcref) 0xHHHHHHHHHHHHHHHH\0
-				char buffer[27];
+				// buffer needs 29 characters:
+				// (externref|funcref) 0xHHHHHHHHHHHHHHHH\0
+				char buffer[29];
 				snprintf(buffer,
 						 sizeof(buffer),
 						 "%s 0x%.16" WAVM_PRIxPTR,
-						 value.type == ValueType::anyref ? "anyref" : "funcref",
+						 value.type == ValueType::externref ? "externref" : "funcref",
 						 reinterpret_cast<Uptr>(value.object));
 				return std::string(buffer);
 			}
-			case ValueType::nullref: return "ref.null";
 
 			case ValueType::none:
 			case ValueType::any:
@@ -108,9 +104,8 @@ namespace WAVM { namespace IR {
 			case ValueType::v128:
 				return left.v128.u64x2[0] == right.v128.u64x2[0]
 					   && left.v128.u64x2[1] == right.v128.u64x2[1];
-			case ValueType::anyref:
+			case ValueType::externref:
 			case ValueType::funcref: return left.object == right.object;
-			case ValueType::nullref: return true;
 			case ValueType::any:
 			default: WAVM_UNREACHABLE();
 			};

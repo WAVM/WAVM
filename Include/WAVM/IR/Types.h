@@ -28,21 +28,19 @@ namespace WAVM { namespace IR {
 		f32,
 		f64,
 		v128,
-		anyref,
-		funcref,
-		nullref
+		externref,
+		funcref
 	};
 
-	static constexpr U8 numValueTypes = U8(ValueType::nullref) + 1;
+	static constexpr U8 numValueTypes = U8(ValueType::funcref) + 1;
 
 	// The reference types subset of ValueType.
 	enum class ReferenceType : U8
 	{
 		none = U8(ValueType::none),
 
-		anyref = U8(ValueType::anyref),
-		funcref = U8(ValueType::funcref),
-		nullref = U8(ValueType::nullref),
+		externref = U8(ValueType::externref),
+		funcref = U8(ValueType::funcref)
 	};
 
 	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
@@ -55,33 +53,12 @@ namespace WAVM { namespace IR {
 
 	inline bool isReferenceType(ValueType type)
 	{
-		return type == ValueType::anyref || type == ValueType::funcref
-			   || type == ValueType::nullref;
+		return type == ValueType::externref || type == ValueType::funcref;
 	}
 
 	inline bool isSubtype(ValueType subtype, ValueType supertype)
 	{
-		if(subtype == supertype || subtype == ValueType::none) { return true; }
-		else
-		{
-			switch(supertype)
-			{
-			case ValueType::any: return true;
-
-			case ValueType::anyref:
-				return subtype == ValueType::funcref || subtype == ValueType::nullref;
-			case ValueType::funcref: return subtype == ValueType::nullref;
-
-			case ValueType::none:
-			case ValueType::i32:
-			case ValueType::i64:
-			case ValueType::f32:
-			case ValueType::f64:
-			case ValueType::v128:
-			case ValueType::nullref:
-			default: return false;
-			}
-		}
+		return subtype == supertype || subtype == ValueType::none || supertype == ValueType::any;
 	}
 
 	inline bool isSubtype(ReferenceType subtype, ReferenceType supertype)
@@ -91,69 +68,11 @@ namespace WAVM { namespace IR {
 		{
 			switch(supertype)
 			{
-			case ReferenceType::anyref:
-				return subtype == ReferenceType::funcref || subtype == ReferenceType::nullref;
-			case ReferenceType::funcref: return subtype == ReferenceType::nullref;
-
-			case ReferenceType::nullref:
+			case ReferenceType::externref: return subtype == ReferenceType::funcref;
+			case ReferenceType::funcref:
 			case ReferenceType::none:
 			default: return false;
 			}
-		}
-	}
-
-	// Returns the type that includes all values that are an instance of a OR b.
-	inline ValueType join(ValueType a, ValueType b)
-	{
-		if(a == b) { return a; }
-		else if(isReferenceType(a) && isReferenceType(b))
-		{
-			// a \ b    anyref  funcref  nullref
-			// anyref   anyref  anyref   anyref
-			// funcref  anyref  funcref  funcref
-			// nullref  anyref  funcref  nullref
-			if(a == ValueType::nullref) { return b; }
-			else if(b == ValueType::nullref)
-			{
-				return a;
-			}
-			else
-			{
-				// Because we know a != b, and neither a or b are nullref, we can infer that one is
-				// anyref, and one is funcref.
-				return ValueType::anyref;
-			}
-		}
-		else
-		{
-			return ValueType::any;
-		}
-	}
-
-	// Returns the type that includes all values that are an instance of both a AND b.
-	inline ValueType meet(ValueType a, ValueType b)
-	{
-		if(a == b) { return a; }
-		else if(isReferenceType(a) && isReferenceType(b))
-		{
-			// a \ b    anyref   funcref  nullref
-			// anyref   anyref   funcref  nullref
-			// funcref  funcref  funcref  nullref
-			// nullref  nullref  nullref  nullref
-			if(a == ValueType::nullref || b == ValueType::nullref) { return ValueType::nullref; }
-			else if(a == ValueType::anyref)
-			{
-				return b;
-			}
-			else
-			{
-				WAVM_ASSERT(b == ValueType::anyref);
-				return a;
-			}
-		}
-		else
-		{
-			return ValueType::none;
 		}
 	}
 
@@ -186,9 +105,8 @@ namespace WAVM { namespace IR {
 		case ValueType::f32: return 4;
 		case ValueType::f64: return 8;
 		case ValueType::v128: return 16;
-		case ValueType::anyref:
-		case ValueType::funcref:
-		case ValueType::nullref: return sizeof(void*);
+		case ValueType::externref:
+		case ValueType::funcref: return sizeof(void*);
 
 		case ValueType::none:
 		case ValueType::any:
@@ -209,9 +127,8 @@ namespace WAVM { namespace IR {
 		case ValueType::f32: return "f32";
 		case ValueType::f64: return "f64";
 		case ValueType::v128: return "v128";
-		case ValueType::anyref: return "anyref";
+		case ValueType::externref: return "externref";
 		case ValueType::funcref: return "funcref";
-		case ValueType::nullref: return "nullref";
 		default: WAVM_UNREACHABLE();
 		};
 	}
@@ -221,9 +138,8 @@ namespace WAVM { namespace IR {
 		switch(type)
 		{
 		case ReferenceType::none: return "none";
-		case ReferenceType::anyref: return "anyref";
+		case ReferenceType::externref: return "externref";
 		case ReferenceType::funcref: return "funcref";
-		case ReferenceType::nullref: return "nullref";
 		default: WAVM_UNREACHABLE();
 		};
 	}
@@ -328,14 +244,17 @@ namespace WAVM { namespace IR {
 	template<> constexpr ValueType inferValueType<U64>() { return ValueType::i64; }
 	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
 	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
-	template<> constexpr ValueType inferValueType<Runtime::Object*>() { return ValueType::anyref; }
+	template<> constexpr ValueType inferValueType<Runtime::Object*>()
+	{
+		return ValueType::externref;
+	}
 	template<> constexpr ValueType inferValueType<Runtime::Function*>()
 	{
 		return ValueType::funcref;
 	}
 	template<> constexpr ValueType inferValueType<const Runtime::Object*>()
 	{
-		return ValueType::anyref;
+		return ValueType::externref;
 	}
 	template<> constexpr ValueType inferValueType<const Runtime::Function*>()
 	{
@@ -722,7 +641,7 @@ namespace WAVM { namespace IR {
 		case ExternKind::global:
 		case ExternKind::exceptionType:
 		case ExternKind::invalid:
-		default: return ReferenceType::anyref;
+		default: return ReferenceType::externref;
 		}
 	}
 

@@ -205,6 +205,7 @@ namespace WAVM { namespace WAST {
 	IR::ValueType parseValueType(CursorState* cursor);
 	bool tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefType);
 	IR::ReferenceType parseReferenceType(CursorState* cursor);
+	IR::ReferenceType parseReferencedType(CursorState* cursor);
 
 	IR::FunctionType parseFunctionType(CursorState* cursor,
 									   NameToIndexMap& outLocalNameToIndexMap,

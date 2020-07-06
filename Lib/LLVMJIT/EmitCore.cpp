@@ -404,7 +404,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 					 IR::CallingConvention::intrinsic),
 		{tableElementIndex,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
-		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.anyrefType),
+		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.externrefType),
 		 calleeTypeId});
 
 	// Call the function loaded from the table.

@@ -148,5 +148,10 @@ namespace WAVM { namespace IR {
 		{
 			return " " + std::to_string(imm.elemSegmentIndex);
 		}
+
+		std::string describeImm(ReferenceTypeImm imm)
+		{
+			return std::string(" ") + asString(imm.referenceType);
+		}
 	};
 }}

@@ -586,6 +586,11 @@ static void parseImm(CursorState* cursor, ElemSegmentImm& outImm)
 										"elem");
 }
 
+static void parseImm(CursorState* cursor, ReferenceTypeImm& outImm)
+{
+	outImm.referenceType = parseReferencedType(cursor);
+}
+
 static void parseInstrSequence(CursorState* cursor, Uptr depth);
 static void parseExpr(CursorState* cursor, Uptr depth);
 

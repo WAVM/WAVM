@@ -160,14 +160,14 @@ namespace WAVM { namespace Runtime {
 	//
 
 #define WAVM_ENUM_INTRINSIC_EXCEPTION_TYPES(visit)                                                 \
-	visit(outOfBoundsMemoryAccess, WAVM::IR::ValueType::anyref, WAVM::IR::ValueType::i64);         \
-	visit(outOfBoundsTableAccess, WAVM::IR::ValueType::anyref, WAVM::IR::ValueType::i64);          \
+	visit(outOfBoundsMemoryAccess, WAVM::IR::ValueType::externref, WAVM::IR::ValueType::i64);      \
+	visit(outOfBoundsTableAccess, WAVM::IR::ValueType::externref, WAVM::IR::ValueType::i64);       \
 	visit(outOfBoundsDataSegmentAccess,                                                            \
-		  WAVM::IR::ValueType::anyref,                                                             \
+		  WAVM::IR::ValueType::externref,                                                          \
 		  WAVM::IR::ValueType::i64,                                                                \
 		  WAVM::IR::ValueType::i64);                                                               \
 	visit(outOfBoundsElemSegmentAccess,                                                            \
-		  WAVM::IR::ValueType::anyref,                                                             \
+		  WAVM::IR::ValueType::externref,                                                          \
 		  WAVM::IR::ValueType::i64,                                                                \
 		  WAVM::IR::ValueType::i64);                                                               \
 	visit(stackOverflow);                                                                          \
@@ -176,12 +176,12 @@ namespace WAVM { namespace Runtime {
 	visit(invokeSignatureMismatch);                                                                \
 	visit(reachedUnreachable);                                                                     \
 	visit(indirectCallSignatureMismatch, WAVM::IR::ValueType::funcref, WAVM::IR::ValueType::i64);  \
-	visit(uninitializedTableElement, WAVM::IR::ValueType::anyref, WAVM::IR::ValueType::i64);       \
+	visit(uninitializedTableElement, WAVM::IR::ValueType::externref, WAVM::IR::ValueType::i64);    \
 	visit(calledAbort);                                                                            \
 	visit(calledUnimplementedIntrinsic);                                                           \
 	visit(outOfMemory);                                                                            \
 	visit(misalignedAtomicMemoryAccess, WAVM::IR::ValueType::i64);                                 \
-	visit(waitOnUnsharedMemory, WAVM::IR::ValueType::anyref);                                      \
+	visit(waitOnUnsharedMemory, WAVM::IR::ValueType::externref);                                   \
 	visit(invalidArgument);
 
 	// Information about a runtime exception.

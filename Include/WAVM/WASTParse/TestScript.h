@@ -185,6 +185,7 @@ namespace WAVM { namespace WAST {
 
 			specificObject,
 			anyFunction,
+			nullref,
 		};
 
 		Type type;
@@ -204,6 +205,7 @@ namespace WAVM { namespace WAST {
 			FloatResultSet<F64> f64x2[2];
 
 			Runtime::Object* object;
+			IR::ReferenceType nullReferenceType;
 		};
 	};
 

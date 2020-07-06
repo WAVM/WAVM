@@ -16,19 +16,19 @@
 
 ;; non-funcref tables
 (module
-	(table $t 0 anyref)
+	(table $t 0 externref)
 )
 
 ;; reference typed values
 
-(module (func (param anyref)))
+(module (func (param externref)))
 (module (func (param funcref)))
-(module (func (result anyref)  ref.null))
-(module (func (result funcref) ref.null))
-(module (global anyref  (ref.null)))
-(module (global funcref (ref.null)))
-(module (global (mut anyref)  (ref.null)))
-(module (global (mut funcref) (ref.null)))
+(module (func (result externref)  ref.null extern))
+(module (func (result funcref) ref.null func))
+(module (global externref  (ref.null extern)))
+(module (global funcref (ref.null func)))
+(module (global (mut externref)  (ref.null extern)))
+(module (global (mut funcref) (ref.null func)))
 
 ;; table.get
 
@@ -46,11 +46,11 @@
 	(func $4 (result i32) (i32.const 4))
 	(func $5 (result i32) (i32.const 5))
 
-	(func (export "table.get $t1") (param $index i32) (result anyref)
+	(func (export "table.get $t1") (param $index i32) (result funcref)
 		(table.get $t1 (local.get $index))
 	)
 	
-	(func (export "table.get $t2") (param $index i32) (result anyref)
+	(func (export "table.get $t2") (param $index i32) (result funcref)
 		(table.get $t2 (local.get $index))
 	)
 )
@@ -71,7 +71,7 @@
 ;; call_indirect with non-zero table index
 
 (module
-	(table $t1 4 anyref)
+	(table $t1 4 externref)
 	(table $t2 4 funcref)
 	(table $t3 4 funcref)
 

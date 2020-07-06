@@ -172,7 +172,7 @@ namespace WAVM { namespace Emscripten { namespace emabi {
 	static constexpr Result eopnotsupp = -138;
 	static constexpr Result epfnosupport = -139;
 	static constexpr Result eshutdown = -140;
-	static constexpr Result etoomanyrefs = -141;
+	static constexpr Result etoomexternrefs = -141;
 	static constexpr Result ehostdown = -142;
 	static constexpr Result euclean = -143;
 	static constexpr Result enotnam = -144;

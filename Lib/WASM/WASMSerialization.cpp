@@ -65,8 +65,7 @@ namespace WAVM { namespace IR {
 		case -4: return ValueType::f64;
 		case -5: return ValueType::v128;
 		case -16: return ValueType::funcref;
-		case -17: return ValueType::anyref;
-		case -18: return ValueType::nullref;
+		case -17: return ValueType::externref;
 		default: throw FatalSerializationException("invalid value type encoding");
 		};
 	}
@@ -80,8 +79,7 @@ namespace WAVM { namespace IR {
 		case ValueType::f64: return -4;
 		case ValueType::v128: return -5;
 		case ValueType::funcref: return -16;
-		case ValueType::anyref: return -17;
-		case ValueType::nullref: return -18;
+		case ValueType::externref: return -17;
 
 		case ValueType::none:
 		case ValueType::any:
@@ -143,8 +141,7 @@ namespace WAVM { namespace IR {
 			switch(encodedReferenceType)
 			{
 			case 0x70: referenceType = ReferenceType::funcref; break;
-			case 0x6F: referenceType = ReferenceType::anyref; break;
-			case 0x6E: referenceType = ReferenceType::nullref; break;
+			case 0x6F: referenceType = ReferenceType::externref; break;
 			default: throw FatalSerializationException("invalid reference type encoding");
 			}
 		}
@@ -154,8 +151,7 @@ namespace WAVM { namespace IR {
 			switch(referenceType)
 			{
 			case ReferenceType::funcref: encodedReferenceType = 0x70; break;
-			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
-			case ReferenceType::nullref: encodedReferenceType = 0x6E; break;
+			case ReferenceType::externref: encodedReferenceType = 0x6F; break;
 
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
@@ -229,7 +225,9 @@ namespace WAVM { namespace IR {
 		case InitializerExpression::Type::global_get:
 			serializeVarUInt32(stream, initializer.ref);
 			break;
-		case InitializerExpression::Type::ref_null: break;
+		case InitializerExpression::Type::ref_null:
+			serialize(stream, initializer.nullReferenceType);
+			break;
 		case InitializerExpression::Type::ref_func:
 			serializeVarUInt32(stream, initializer.ref);
 			break;
@@ -336,8 +334,10 @@ namespace WAVM { namespace IR {
 					serializeOpcode(stream, elem.typeOpcode);
 					switch(elem.type)
 					{
-					case ElemExpr::Type::ref_null: break;
+					case ElemExpr::Type::ref_null: serialize(stream, elem.nullReferenceType); break;
 					case ElemExpr::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
+
+					case ElemExpr::Type::invalid:
 					default: throw FatalSerializationException("invalid elem opcode");
 					};
 					serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
@@ -771,6 +771,15 @@ void serialize(Stream& stream,
 			   const ModuleSerializationState&)
 {
 	serialize(stream, imm.value);
+}
+
+template<typename Stream>
+void serialize(Stream& stream,
+			   ReferenceTypeImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
+{
+	serialize(stream, imm.referenceType);
 }
 
 template<typename SerializeSection>
@@ -1529,8 +1538,6 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		default: throw FatalSerializationException("unknown section ID");
 		};
 	};
-
-	IR::validateDeferred(*moduleState.validationState);
 
 	if(module.functions.defs.size() && !hadFunctionDefinitions)
 	{

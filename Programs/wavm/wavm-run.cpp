@@ -667,14 +667,13 @@ struct State
 				case ValueType::f32: value = (F32)atof(argString.c_str()); break;
 				case ValueType::f64: value = atof(argString.c_str()); break;
 				case ValueType::v128:
-				case ValueType::anyref:
+				case ValueType::externref:
 				case ValueType::funcref:
 					Errors::fatalf("Cannot parse command-line argument for %s function parameter",
 								   asString(functionType.params()[argIndex]));
 
 				case ValueType::none:
 				case ValueType::any:
-				case ValueType::nullref:
 				default: WAVM_UNREACHABLE();
 				}
 				invokeArgs.push_back(value);

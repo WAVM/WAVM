@@ -567,7 +567,7 @@ static inline own wasm_valtype_t* wasm_valtype_new_f32() { return wasm_valtype_n
 static inline own wasm_valtype_t* wasm_valtype_new_f64() { return wasm_valtype_new(WASM_F64); }
 static inline own wasm_valtype_t* wasm_valtype_new_v128() { return wasm_valtype_new(WASM_V128); }
 
-static inline own wasm_valtype_t* wasm_valtype_new_anyref()
+static inline own wasm_valtype_t* wasm_valtype_new_externref()
 {
 	return wasm_valtype_new(WASM_ANYREF);
 }

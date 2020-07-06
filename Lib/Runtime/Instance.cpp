@@ -38,7 +38,8 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 		WAVM_ERROR_UNLESS(!global->type.isMutable);
 		return IR::Value(global->type.valueType, global->initialValue);
 	}
-	case InitializerExpression::Type::ref_null: return nullptr;
+	case InitializerExpression::Type::ref_null:
+		return Value(asValueType(expression.nullReferenceType), UntaggedValue());
 
 	case InitializerExpression::Type::ref_func:
 		// instantiateModule delays evaluating ref.func initializers until the module is loaded and

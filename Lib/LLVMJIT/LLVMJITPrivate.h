@@ -92,7 +92,7 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* i16x32Type;
 		llvm::Type* i32x16Type;
 		llvm::Type* i64x8Type;
-		llvm::Type* anyrefType;
+		llvm::Type* externrefType;
 
 		// Zero constants of each type.
 		llvm::Constant* typedZeroConstants[IR::numValueTypes];

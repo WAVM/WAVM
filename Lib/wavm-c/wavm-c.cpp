@@ -163,7 +163,7 @@ static ValueType asValueType(wasm_valkind_t kind)
 	case WASM_F32: return ValueType::f32;
 	case WASM_F64: return ValueType::f64;
 	case WASM_V128: return ValueType::v128;
-	case WASM_ANYREF: return ValueType::anyref;
+	case WASM_ANYREF: return ValueType::externref;
 	case WASM_FUNCREF: return ValueType::funcref;
 	default: Errors::fatalf("Unknown wasm_valkind_t value: %u", kind);
 	}
@@ -182,12 +182,11 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 		v128.u64x2[1] = value->v128.u64x2[1];
 		return Value(v128);
 	}
-	case ValueType::anyref: return Value(value->ref);
+	case ValueType::externref: return Value(value->ref);
 	case ValueType::funcref: return Value(asFunction(value->ref));
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	}
 }
@@ -206,12 +205,11 @@ static wasm_val_t as_val(const Value& value)
 		result.v128.u64x2[1] = value.v128.u64x2[1];
 		break;
 	}
-	case ValueType::anyref: result.ref = value.object; break;
+	case ValueType::externref: result.ref = value.object; break;
 	case ValueType::funcref: result.ref = asObject(value.function); break;
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	}
 	return result;
@@ -306,12 +304,11 @@ wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t* type)
 	case ValueType::f32: return WASM_F32;
 	case ValueType::f64: return WASM_F64;
 	case ValueType::v128: return WASM_V128;
-	case ValueType::anyref: return WASM_ANYREF;
+	case ValueType::externref: return WASM_ANYREF;
 	case ValueType::funcref: return WASM_FUNCREF;
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	};
 }

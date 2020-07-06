@@ -61,7 +61,10 @@
 	visitOp(0xfc11, table_fill         , "table.fill"                       , TableImm                  , PARAMETRIC           , referenceTypes         )   \
 /* Exceptions                                                                                                                                            */ \
 	visitOp(0xfb00, throw_             , "throw"                            , ExceptionTypeImm          , PARAMETRIC           , exceptionHandling      )   \
-	visitOp(0xfb01, rethrow            , "rethrow"                          , RethrowImm                , PARAMETRIC           , exceptionHandling      )
+	visitOp(0xfb01, rethrow            , "rethrow"                          , RethrowImm                , PARAMETRIC           , exceptionHandling      )   \
+/* References                                                                                                                                            */ \
+	visitOp(0x00d0, ref_null           , "ref.null"                         , ReferenceTypeImm          , PARAMETRIC           , referenceTypes         )   \
+	visitOp(0x00d1, ref_is_null        , "ref.is_null"                      , NoImm                     , PARAMETRIC           , referenceTypes         )
 
 #define WAVM_ENUM_OVERLOADED_OPERATORS(visitOp)                                                                                                             \
 /*  visitOp(0x001b, select             , "select"                           , NoImm                     , PARAMETRIC           , mvp                    )*/ \
@@ -236,8 +239,6 @@
 	visitOp(0x00c3, i64_extend16_s            , "i64.extend16_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , signExtension          )   \
 	visitOp(0x00c4, i64_extend32_s            , "i64.extend32_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , signExtension          )   \
 /* Reference type operators                                                                                                                                   */ \
-	visitOp(0x00d0, ref_null                  , "ref.null"                  , NoImm                     , WAVM_NULLARY(nullref)     , referenceTypes         )   \
-	visitOp(0x00d1, ref_is_null               , "ref.is_null"               , NoImm                     , WAVM_UNARY(anyref,i32)    , referenceTypes         )   \
 	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionRefImm            , WAVM_NULLARY(funcref)     , referenceTypes         )   \
 /* Saturating float->int truncation operators                                                                                                                 */ \
 	visitOp(0xfc00, i32_trunc_sat_f32_s       , "i32.trunc_sat_f32_s"       , NoImm                     , WAVM_UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
@@ -627,3 +628,4 @@
 	WAVM_ENUM_OVERLOADED_OPERATORS(visitOp)                                                        \
 	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                          \
 	WAVM_ENUM_CONTROL_OPERATORS(visitOp)
+
