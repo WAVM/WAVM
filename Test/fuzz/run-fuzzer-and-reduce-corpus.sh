@@ -16,8 +16,9 @@ git push -f
 
 cd ../corpora-archive
 git add *
-git commit -m "Update $1" -q || true
-git push
+git commit --amend -m "Reinitialize" -q || true
+git prune
+#git push -f
 
 cd ../artifacts
 git add *

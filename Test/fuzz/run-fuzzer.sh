@@ -32,5 +32,7 @@ bin/fuzz-${FUZZER} \
 	$EXTRA_ARGS \
 	|| true
 
-# Copy the current corpus into the archive
-cp -rf corpora/${FUZZER} corpora-archive
+if [ "$FUZZER" != "compile-model" ]; then
+	# Add the current corpus to the archive
+	tar --update -f corpora-archive/$FUZZER.tar corpora/$FUZZER
+fi
