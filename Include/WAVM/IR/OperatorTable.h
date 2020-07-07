@@ -628,4 +628,3 @@
 	WAVM_ENUM_OVERLOADED_OPERATORS(visitOp)                                                        \
 	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                          \
 	WAVM_ENUM_CONTROL_OPERATORS(visitOp)
-
