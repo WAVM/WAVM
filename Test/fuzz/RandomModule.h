@@ -1211,6 +1211,7 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 				{
 				case ReferenceType::externref: {
 					contents->elemExprs.push_back(ElemExpr(ReferenceType::externref));
+					break;
 				}
 				case ReferenceType::funcref: {
 					const Uptr functionIndex = random.get(module.functions.size());
