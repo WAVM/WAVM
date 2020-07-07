@@ -63,17 +63,7 @@ namespace WAVM { namespace IR {
 
 	inline bool isSubtype(ReferenceType subtype, ReferenceType supertype)
 	{
-		if(subtype == supertype) { return true; }
-		else
-		{
-			switch(supertype)
-			{
-			case ReferenceType::externref: return subtype == ReferenceType::funcref;
-			case ReferenceType::funcref:
-			case ReferenceType::none:
-			default: return false;
-			}
-		}
+		return isSubtype(asValueType(subtype), asValueType(supertype));
 	}
 
 	inline std::string asString(I32 value) { return std::to_string(value); }
