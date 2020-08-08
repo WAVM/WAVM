@@ -225,7 +225,7 @@ namespace WAVM { namespace WAST {
 	bool tryParseU64(CursorState* cursor, U64& outI64);
 	bool tryParseUptr(CursorState* cursor, Uptr& outUptr);
 
-	U8 parseU8(CursorState* cursor);
+	U8 parseU8(CursorState* cursor, bool allowSign = true);
 	U32 parseU32(CursorState* cursor);
 
 	// Uninterpreted integers: may be anywhere in the range INT_MIN to UINT_MAX.

@@ -31,24 +31,29 @@ static void throwIfNotValidUTF8(const std::string& string)
 
 WAVM_FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 {
-	opcode = (Opcode)0;
-	serializeNativeValue(stream, *(U8*)&opcode);
-	if(opcode > (Opcode)maxSingleByteOpcode)
+	U8 opcodeU8;
+	serializeNativeValue(stream, opcodeU8);
+	if(opcodeU8 <= maxSingleByteOpcode) { opcode = Opcode(opcodeU8); }
+	else
 	{
-		opcode = (Opcode)(U16(opcode) << 8);
-		serializeVarUInt8(stream, *(U8*)&opcode);
+		U32 opcodeVarUInt;
+		serializeVarUInt32(stream, opcodeVarUInt);
+		opcode = Opcode((U32(opcodeU8) << 8) | opcodeVarUInt);
 	}
 }
 WAVM_FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 {
 	if(opcode <= (Opcode)maxSingleByteOpcode)
-	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
+	{
+		U8 opcodeU8 = U8(opcode);
+		Serialization::serializeNativeValue(stream, opcodeU8);
+	}
 	else
 	{
 		U8 opcodePrefix = U8(U16(opcode) >> 8);
-		U8 opcodeVarUInt = U8(opcode);
+		U32 opcodeVarUInt = U32(opcode) & 0xff;
 		serializeNativeValue(stream, opcodePrefix);
-		serializeVarUInt8(stream, opcodeVarUInt);
+		serializeVarUInt32(stream, opcodeVarUInt);
 	}
 }
 

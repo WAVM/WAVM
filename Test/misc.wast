@@ -500,3 +500,13 @@
 		unreachable
 	)
 )
+
+;; Test for this issue: https://github.com/WebAssembly/spec/issues/1224
+(module
+ (func (export "trunc") (result i32)
+   (i32.trunc_f64_s
+    (f64.const -2147483648.1)
+  )
+ )
+)
+(assert_return (invoke "trunc") (i32.const -2147483648))
