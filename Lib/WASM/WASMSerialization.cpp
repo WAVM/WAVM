@@ -169,21 +169,29 @@ namespace WAVM { namespace IR {
 	{
 		serialize(stream, tableType.elementType);
 
-		Uptr flags = 0;
+		U8 flags = 0;
 		if(!Stream::isInput && tableType.size.max != UINT64_MAX) { flags |= 0x01; }
 		if(!Stream::isInput && tableType.isShared) { flags |= 0x02; }
-		serializeVarUInt32(stream, flags);
-		if(Stream::isInput) { tableType.isShared = (flags & 0x02) != 0; }
+		serializeVarUInt7(stream, flags);
+		if(Stream::isInput)
+		{
+			tableType.isShared = (flags & 0x02) != 0;
+			if(flags & ~0x03) { throw FatalSerializationException("unknown table type flag"); }
+		}
 		serialize(stream, tableType.size, flags & 0x01);
 	}
 
 	template<typename Stream> void serialize(Stream& stream, MemoryType& memoryType)
 	{
-		Uptr flags = 0;
+		U8 flags = 0;
 		if(!Stream::isInput && memoryType.size.max != UINT64_MAX) { flags |= 0x01; }
 		if(!Stream::isInput && memoryType.isShared) { flags |= 0x02; }
-		serializeVarUInt32(stream, flags);
-		if(Stream::isInput) { memoryType.isShared = (flags & 0x02) != 0; }
+		serializeVarUInt7(stream, flags);
+		if(Stream::isInput)
+		{
+			memoryType.isShared = (flags & 0x02) != 0;
+			if(flags & ~0x03) { throw FatalSerializationException("unknown memory type flag"); }
+		}
 		serialize(stream, memoryType.size, flags & 0x01);
 	}
 
@@ -200,9 +208,34 @@ namespace WAVM { namespace IR {
 		serialize(stream, exceptionType.params);
 	}
 
-	template<typename Stream> void serialize(Stream& stream, ExternKind& kind)
+	static void serialize(InputStream& stream, ExternKind& kind)
 	{
-		serializeNativeValue(stream, *(U8*)&kind);
+		U8 encodedKind = 0;
+		serializeVarUInt7(stream, encodedKind);
+		switch(encodedKind)
+		{
+		case 0: kind = ExternKind::function; break;
+		case 1: kind = ExternKind::table; break;
+		case 2: kind = ExternKind::memory; break;
+		case 3: kind = ExternKind::global; break;
+		case 127: kind = ExternKind::exceptionType; break;
+		default: throw FatalSerializationException("invalid reference type encoding");
+		};
+	}
+	static void serialize(OutputStream& stream, ExternKind& kind)
+	{
+		U8 encodedKind;
+		switch(kind)
+		{
+		case ExternKind::function: encodedKind = 0; break;
+		case ExternKind::table: encodedKind = 1; break;
+		case ExternKind::memory: encodedKind = 2; break;
+		case ExternKind::global: encodedKind = 3; break;
+		case ExternKind::exceptionType: encodedKind = 127; break;
+		case ExternKind::invalid:
+		default: WAVM_UNREACHABLE();
+		};
+		serializeVarUInt7(stream, encodedKind);
 	}
 
 	template<typename Stream> void serialize(Stream& stream, Export& e)

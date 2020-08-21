@@ -543,14 +543,14 @@ namespace WAVM { namespace IR {
 	// The type of an external object: something that can be imported or exported from a module.
 	enum class ExternKind : U8
 	{
+		invalid,
+
 		// Standard object kinds that may be imported/exported from WebAssembly modules.
-		function = 0,
-		table = 1,
-		memory = 2,
-		global = 3,
-		exceptionType = 4,
-		max = 4,
-		invalid = 0xff,
+		function,
+		table,
+		memory,
+		global,
+		exceptionType,
 	};
 	struct ExternType
 	{
