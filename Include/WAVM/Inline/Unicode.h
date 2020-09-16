@@ -58,7 +58,7 @@ namespace WAVM { namespace Unicode {
 			}
 			else if(*nextChar == 0xed)
 			{
-				if(nextChar + 2 >= endChar || nextChar[1] < 0xa0 || nextChar[1] > 0x9f
+				if(nextChar + 2 >= endChar || nextChar[1] < 0x80 || nextChar[1] > 0x9f
 				   || nextChar[2] < 0x80 || nextChar[2] > 0xbf)
 				{ return false; }
 			}
