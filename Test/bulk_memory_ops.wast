@@ -244,7 +244,7 @@
 ;; passive elem segments
 
 (module (elem funcref (ref.func $f)) (func $f))
-(module (elem funcref (ref.null)))
+(module (elem funcref (ref.null func)))
 (assert_malformed
 	(module quote "(table $t 1 funcref) (elem (i32.const 0) (ref.func $f)) (func $f)")
 	"unexpected expression"
@@ -311,10 +311,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\06\01"                          ;; elem section: 6 bytes, 1 entry
+	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
 	"\05\70"                             ;;   [0] passive elem funcref expression segment
 	"\01"                                ;;     elem segment with 1 element
-	"\d0\0b"                             ;;     [0] ref.null
+	"\d0\70\0b"                          ;;     [0] ref.null
 	
 	"\0a\04\01"                          ;; Code section
 	"\02\00"                             ;; function 0: 2 bytes, 0 local sets
@@ -515,7 +515,7 @@
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
 
-	(elem funcref (ref.func $0) (ref.null) (ref.func $1))
+	(elem funcref (ref.func $0) (ref.null func) (ref.func $1))
 
 	(func $0 (type $type_i32) (result i32) i32.const 0)
 	(func $1 (type $type_i32) (result i32) i32.const 1)

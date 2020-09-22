@@ -499,6 +499,8 @@ static bool isResultInExpectedSet(const Value& result, const ResultSet& expected
 	case ResultSet::Type::anyFunction:
 		return isReferenceType(result.type) && result.object
 			   && result.object->kind == ObjectKind::function;
+	case ResultSet::Type::nullref:
+		return result.type == asValueType(expectedResultSet.nullReferenceType) && !result.object;
 
 	default: WAVM_UNREACHABLE();
 	};
@@ -588,20 +590,26 @@ static std::string asString(const ResultSet& resultSet)
 	}
 
 	case ResultSet::Type::specificObject: {
-		if(resultSet.object == nullptr) { return "(ref.null)"; }
-		else
-		{
-			// buffer needs 31 characters:
-			// (ref.any <0xHHHHHHHHHHHHHHHH>)\0
-			char buffer[32];
-			snprintf(buffer,
-					 sizeof(buffer),
-					 "(ref.any <0x%.16" WAVM_PRIxPTR ">)",
-					 reinterpret_cast<Uptr>(resultSet.object));
-			return std::string(buffer);
-		}
+		// buffer needs 34 characters:
+		// (ref.extern <0xHHHHHHHHHHHHHHHH>)\0
+		char buffer[34];
+		snprintf(buffer,
+				 sizeof(buffer),
+				 "(ref.extern <0x%.16" WAVM_PRIxPTR ">)",
+				 reinterpret_cast<Uptr>(resultSet.object));
+		return std::string(buffer);
 	}
 	case ResultSet::Type::anyFunction: return "(ref.func)";
+	case ResultSet::Type::nullref: {
+		// buffer needs 18 characters:
+		// (ref.null (func|extern))\0
+		char buffer[18];
+		snprintf(buffer,
+				 sizeof(buffer),
+				 "(ref.null %s)",
+				 resultSet.nullReferenceType == ReferenceType::funcref ? "func" : "extern");
+		return std::string(buffer);
+	}
 
 	default: WAVM_UNREACHABLE();
 	};
@@ -661,17 +669,13 @@ static ResultSet asResultSet(const Value& value, ResultSet::Type expectedType)
 			resultSet.type = ResultSet::Type::i8x16;
 			memcpy(resultSet.i8x16, value.v128.i8x16, sizeof(V128));
 			break;
-		case ValueType::anyref:
+		case ValueType::externref:
 			resultSet.type = ResultSet::Type::specificObject;
 			resultSet.object = value.object;
 			break;
 		case ValueType::funcref:
 			resultSet.type = ResultSet::Type::specificObject;
 			resultSet.object = asObject(value.function);
-			break;
-		case ValueType::nullref:
-			resultSet.type = ResultSet::Type::specificObject;
-			resultSet.object = nullptr;
 			break;
 
 		case ValueType::none:
@@ -1065,10 +1069,9 @@ static void processCommand(TestScriptState& state, const Command* command)
 			case ValueType::f64: encoder.f64_const({arg.f64}); break;
 			case ValueType::v128: encoder.v128_const({arg.v128}); break;
 
-			case ValueType::anyref:
+			case ValueType::externref:
 			case ValueType::funcref: Errors::unimplemented("Benchmark invoke reference arguments");
 
-			case ValueType::nullref:
 			case ValueType::any:
 			case ValueType::none:
 			default: WAVM_UNREACHABLE();

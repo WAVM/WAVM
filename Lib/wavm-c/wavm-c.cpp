@@ -163,7 +163,7 @@ static ValueType asValueType(wasm_valkind_t kind)
 	case WASM_F32: return ValueType::f32;
 	case WASM_F64: return ValueType::f64;
 	case WASM_V128: return ValueType::v128;
-	case WASM_ANYREF: return ValueType::anyref;
+	case WASM_ANYREF: return ValueType::externref;
 	case WASM_FUNCREF: return ValueType::funcref;
 	default: Errors::fatalf("Unknown wasm_valkind_t value: %u", kind);
 	}
@@ -182,12 +182,11 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 		v128.u64x2[1] = value->v128.u64x2[1];
 		return Value(v128);
 	}
-	case ValueType::anyref: return Value(value->ref);
+	case ValueType::externref: return Value(value->ref);
 	case ValueType::funcref: return Value(asFunction(value->ref));
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	}
 }
@@ -206,12 +205,11 @@ static wasm_val_t as_val(const Value& value)
 		result.v128.u64x2[1] = value.v128.u64x2[1];
 		break;
 	}
-	case ValueType::anyref: result.ref = value.object; break;
+	case ValueType::externref: result.ref = value.object; break;
 	case ValueType::funcref: result.ref = asObject(value.function); break;
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	}
 	return result;
@@ -306,12 +304,11 @@ wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t* type)
 	case ValueType::f32: return WASM_F32;
 	case ValueType::f64: return WASM_F64;
 	case ValueType::v128: return WASM_V128;
-	case ValueType::anyref: return WASM_ANYREF;
+	case ValueType::externref: return WASM_ANYREF;
 	case ValueType::funcref: return WASM_FUNCREF;
 
 	case ValueType::none:
 	case ValueType::any:
-	case ValueType::nullref:
 	default: WAVM_UNREACHABLE();
 	};
 }
@@ -720,19 +717,15 @@ wasm_module_t* wasm_module_new(wasm_engine_t* engine, const char* wasmBytes, uin
 }
 wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, size_t num_text_chars)
 {
-	// WAST::parseModule requires that the WAST string be null-terminated, so make a copy of the
-	// input string as a std::string to make sure it is.
-	std::string wastString(text, num_text_chars);
+	// wasm_module_new_text requires the input string to be null terminated.
+	WAVM_ERROR_UNLESS(text[num_text_chars - 1] == 0);
 
 	std::vector<WAST::Error> parseErrors;
 	IR::Module irModule(engine->config.featureSpec);
-	if(!WAST::parseModule(wastString.c_str(), wastString.size() + 1, irModule, parseErrors))
+	if(!WAST::parseModule(text, num_text_chars, irModule, parseErrors))
 	{
 		if(Log::isCategoryEnabled(Log::debug))
-		{
-			WAST::reportParseErrors(
-				"wasm_module_new_text", wastString.c_str(), parseErrors, Log::debug);
-		}
+		{ WAST::reportParseErrors("wasm_module_new_text", text, parseErrors, Log::debug); }
 		return nullptr;
 	}
 

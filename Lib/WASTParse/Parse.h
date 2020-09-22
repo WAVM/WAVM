@@ -205,6 +205,7 @@ namespace WAVM { namespace WAST {
 	IR::ValueType parseValueType(CursorState* cursor);
 	bool tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefType);
 	IR::ReferenceType parseReferenceType(CursorState* cursor);
+	IR::ReferenceType parseReferencedType(CursorState* cursor);
 
 	IR::FunctionType parseFunctionType(CursorState* cursor,
 									   NameToIndexMap& outLocalNameToIndexMap,
@@ -224,7 +225,7 @@ namespace WAVM { namespace WAST {
 	bool tryParseU64(CursorState* cursor, U64& outI64);
 	bool tryParseUptr(CursorState* cursor, Uptr& outUptr);
 
-	U8 parseU8(CursorState* cursor);
+	U8 parseU8(CursorState* cursor, bool allowSign = true);
 	U32 parseU32(CursorState* cursor);
 
 	// Uninterpreted integers: may be anywhere in the range INT_MIN to UINT_MAX.

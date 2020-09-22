@@ -31,24 +31,29 @@ static void throwIfNotValidUTF8(const std::string& string)
 
 WAVM_FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 {
-	opcode = (Opcode)0;
-	serializeNativeValue(stream, *(U8*)&opcode);
-	if(opcode > (Opcode)maxSingleByteOpcode)
+	U8 opcodeU8;
+	serializeNativeValue(stream, opcodeU8);
+	if(opcodeU8 <= maxSingleByteOpcode) { opcode = Opcode(opcodeU8); }
+	else
 	{
-		opcode = (Opcode)(U16(opcode) << 8);
-		serializeVarUInt8(stream, *(U8*)&opcode);
+		U32 opcodeVarUInt;
+		serializeVarUInt32(stream, opcodeVarUInt);
+		opcode = Opcode((U32(opcodeU8) << 8) | opcodeVarUInt);
 	}
 }
 WAVM_FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 {
 	if(opcode <= (Opcode)maxSingleByteOpcode)
-	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
+	{
+		U8 opcodeU8 = U8(opcode);
+		Serialization::serializeNativeValue(stream, opcodeU8);
+	}
 	else
 	{
 		U8 opcodePrefix = U8(U16(opcode) >> 8);
-		U8 opcodeVarUInt = U8(opcode);
+		U32 opcodeVarUInt = U32(opcode) & 0xff;
 		serializeNativeValue(stream, opcodePrefix);
-		serializeVarUInt8(stream, opcodeVarUInt);
+		serializeVarUInt32(stream, opcodeVarUInt);
 	}
 }
 
@@ -65,8 +70,7 @@ namespace WAVM { namespace IR {
 		case -4: return ValueType::f64;
 		case -5: return ValueType::v128;
 		case -16: return ValueType::funcref;
-		case -17: return ValueType::anyref;
-		case -18: return ValueType::nullref;
+		case -17: return ValueType::externref;
 		default: throw FatalSerializationException("invalid value type encoding");
 		};
 	}
@@ -80,8 +84,7 @@ namespace WAVM { namespace IR {
 		case ValueType::f64: return -4;
 		case ValueType::v128: return -5;
 		case ValueType::funcref: return -16;
-		case ValueType::anyref: return -17;
-		case ValueType::nullref: return -18;
+		case ValueType::externref: return -17;
 
 		case ValueType::none:
 		case ValueType::any:
@@ -143,8 +146,7 @@ namespace WAVM { namespace IR {
 			switch(encodedReferenceType)
 			{
 			case 0x70: referenceType = ReferenceType::funcref; break;
-			case 0x6F: referenceType = ReferenceType::anyref; break;
-			case 0x6E: referenceType = ReferenceType::nullref; break;
+			case 0x6F: referenceType = ReferenceType::externref; break;
 			default: throw FatalSerializationException("invalid reference type encoding");
 			}
 		}
@@ -154,8 +156,7 @@ namespace WAVM { namespace IR {
 			switch(referenceType)
 			{
 			case ReferenceType::funcref: encodedReferenceType = 0x70; break;
-			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
-			case ReferenceType::nullref: encodedReferenceType = 0x6E; break;
+			case ReferenceType::externref: encodedReferenceType = 0x6F; break;
 
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
@@ -168,21 +169,29 @@ namespace WAVM { namespace IR {
 	{
 		serialize(stream, tableType.elementType);
 
-		Uptr flags = 0;
+		U8 flags = 0;
 		if(!Stream::isInput && tableType.size.max != UINT64_MAX) { flags |= 0x01; }
 		if(!Stream::isInput && tableType.isShared) { flags |= 0x02; }
-		serializeVarUInt32(stream, flags);
-		if(Stream::isInput) { tableType.isShared = (flags & 0x02) != 0; }
+		serializeVarUInt7(stream, flags);
+		if(Stream::isInput)
+		{
+			tableType.isShared = (flags & 0x02) != 0;
+			if(flags & ~0x03) { throw FatalSerializationException("unknown table type flag"); }
+		}
 		serialize(stream, tableType.size, flags & 0x01);
 	}
 
 	template<typename Stream> void serialize(Stream& stream, MemoryType& memoryType)
 	{
-		Uptr flags = 0;
+		U8 flags = 0;
 		if(!Stream::isInput && memoryType.size.max != UINT64_MAX) { flags |= 0x01; }
 		if(!Stream::isInput && memoryType.isShared) { flags |= 0x02; }
-		serializeVarUInt32(stream, flags);
-		if(Stream::isInput) { memoryType.isShared = (flags & 0x02) != 0; }
+		serializeVarUInt7(stream, flags);
+		if(Stream::isInput)
+		{
+			memoryType.isShared = (flags & 0x02) != 0;
+			if(flags & ~0x03) { throw FatalSerializationException("unknown memory type flag"); }
+		}
 		serialize(stream, memoryType.size, flags & 0x01);
 	}
 
@@ -199,9 +208,34 @@ namespace WAVM { namespace IR {
 		serialize(stream, exceptionType.params);
 	}
 
-	template<typename Stream> void serialize(Stream& stream, ExternKind& kind)
+	static void serialize(InputStream& stream, ExternKind& kind)
 	{
-		serializeNativeValue(stream, *(U8*)&kind);
+		U8 encodedKind = 0;
+		serializeVarUInt7(stream, encodedKind);
+		switch(encodedKind)
+		{
+		case 0: kind = ExternKind::function; break;
+		case 1: kind = ExternKind::table; break;
+		case 2: kind = ExternKind::memory; break;
+		case 3: kind = ExternKind::global; break;
+		case 127: kind = ExternKind::exceptionType; break;
+		default: throw FatalSerializationException("invalid reference type encoding");
+		};
+	}
+	static void serialize(OutputStream& stream, ExternKind& kind)
+	{
+		U8 encodedKind;
+		switch(kind)
+		{
+		case ExternKind::function: encodedKind = 0; break;
+		case ExternKind::table: encodedKind = 1; break;
+		case ExternKind::memory: encodedKind = 2; break;
+		case ExternKind::global: encodedKind = 3; break;
+		case ExternKind::exceptionType: encodedKind = 127; break;
+		case ExternKind::invalid:
+		default: WAVM_UNREACHABLE();
+		};
+		serializeVarUInt7(stream, encodedKind);
 	}
 
 	template<typename Stream> void serialize(Stream& stream, Export& e)
@@ -229,7 +263,9 @@ namespace WAVM { namespace IR {
 		case InitializerExpression::Type::global_get:
 			serializeVarUInt32(stream, initializer.ref);
 			break;
-		case InitializerExpression::Type::ref_null: break;
+		case InitializerExpression::Type::ref_null:
+			serialize(stream, initializer.nullReferenceType);
+			break;
 		case InitializerExpression::Type::ref_func:
 			serializeVarUInt32(stream, initializer.ref);
 			break;
@@ -336,8 +372,10 @@ namespace WAVM { namespace IR {
 					serializeOpcode(stream, elem.typeOpcode);
 					switch(elem.type)
 					{
-					case ElemExpr::Type::ref_null: break;
+					case ElemExpr::Type::ref_null: serialize(stream, elem.nullReferenceType); break;
 					case ElemExpr::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
+
+					case ElemExpr::Type::invalid:
 					default: throw FatalSerializationException("invalid elem opcode");
 					};
 					serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
@@ -773,6 +811,15 @@ void serialize(Stream& stream,
 	serialize(stream, imm.value);
 }
 
+template<typename Stream>
+void serialize(Stream& stream,
+			   ReferenceTypeImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
+{
+	serialize(stream, imm.referenceType);
+}
+
 template<typename SerializeSection>
 void serializeSection(OutputStream& stream, SectionID id, SerializeSection serializeSectionBody)
 {
@@ -974,16 +1021,6 @@ static void serializeFunctionBody(InputStream& sectionStream,
 
 			codeValidationStream.select(imm);
 			irEncoderStream.select(imm);
-			break;
-		}
-		// Hack to accept the obsolete 0xfd03 opcode that the LLVM WASM backend emits for
-		// v8x16.shuffle.
-		case 0xfd03: {
-			ShuffleImm<16> imm;
-			serialize(bodyStream, imm, functionDef, moduleState);
-
-			codeValidationStream.v8x16_shuffle(imm);
-			irEncoderStream.v8x16_shuffle(imm);
 			break;
 		}
 		default:
@@ -1539,8 +1576,6 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		default: throw FatalSerializationException("unknown section ID");
 		};
 	};
-
-	IR::validateDeferred(*moduleState.validationState);
 
 	if(module.functions.defs.size() && !hadFunctionDefinitions)
 	{

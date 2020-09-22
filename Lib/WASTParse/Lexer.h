@@ -57,9 +57,9 @@
 	VISIT_LITERAL_TOKEN(i64x2)                                                                     \
 	VISIT_LITERAL_TOKEN(f32x4)                                                                     \
 	VISIT_LITERAL_TOKEN(f64x2)                                                                     \
-	VISIT_LITERAL_TOKEN(anyref)                                                                    \
+	VISIT_LITERAL_TOKEN(externref)                                                                 \
 	VISIT_LITERAL_TOKEN(funcref)                                                                   \
-	VISIT_LITERAL_TOKEN(nullref)                                                                   \
+	VISIT_LITERAL_TOKEN(extern)                                                                    \
 	VISIT_LITERAL_TOKEN(declare)                                                                   \
 	VISIT_LITERAL_TOKEN(shared)                                                                    \
 	VISIT_LITERAL_TOKEN(quote)                                                                     \
@@ -76,7 +76,7 @@
 	VISIT_LITERAL_TOKEN(intrinsic_with_context_switch)                                             \
 	VISIT_LITERAL_TOKEN(c)                                                                         \
 	VISIT_LITERAL_TOKEN(c_api_callback)                                                            \
-	VISIT_TOKEN(ref_host, "'ref.host'", "ref.host")
+	VISIT_TOKEN(ref_extern, "'ref.extern'", "ref.extern")
 
 #define ENUM_TOKENS()                                                                              \
 	VISIT_TOKEN(eof, "eof", _)                                                                     \

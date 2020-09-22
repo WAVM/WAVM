@@ -5,15 +5,15 @@ set -e
 BUILD_DIR=$(pwd)
 WAVM_DIR=$(cd `dirname $0`/../.. && pwd)
 
-clang-9 -v
-clang++-9 -v
-ld.lld-9 -v
-llvm-ar-9 --version
-llvm-ranlib-9 --version
+clang-10 -v
+clang++-10 -v
+ld.lld-10 -v
+llvm-ar-10 --version
+llvm-ranlib-10 --version
 
 rm -rf llvm
 mkdir llvm
-git clone http://github.com/llvm/llvm-project -b release/9.x llvm
+git clone http://github.com/llvm/llvm-project -b release/10.x llvm
 
 rm -rf $BUILD_DIR/llvm/build 
 mkdir $BUILD_DIR/llvm/build
@@ -34,11 +34,11 @@ cmake \
     -DLLVM_INCLUDE_TESTS=OFF \
     -DLLVM_ENABLE_ZLIB=OFF \
     -DLLVM_ENABLE_TERMINFO=OFF \
-	-DLLVM_USE_LINKER=lld-9 \
-	-DCMAKE_C_COMPILER=clang-9 \
-	-DCMAKE_CXX_COMPILER=clang++-9 \
-	-DCMAKE_AR=`which llvm-ar-9` \
-	-DCMAKE_RANLIB=`which llvm-ranlib-9` \
+	-DLLVM_USE_LINKER=lld-10 \
+	-DCMAKE_C_COMPILER=clang-10 \
+	-DCMAKE_CXX_COMPILER=clang++-10 \
+	-DCMAKE_AR=`which llvm-ar-10` \
+	-DCMAKE_RANLIB=`which llvm-ranlib-10` \
 	-DCMAKE_C_FLAGS="-march=native" \
 	-DCMAKE_CXX_FLAGS="-march=native" \
 	../llvm
@@ -53,11 +53,11 @@ cmake \
 	-DWAVM_ENABLE_LIBFUZZER=ON \
 	-DWAVM_ENABLE_RELEASE_ASSERTS=ON \
 	-DWAVM_ENABLE_STATIC_LINKING=ON \
-	-DWAVM_USE_LINKER=lld-9 \
-	-DCMAKE_C_COMPILER=clang-9 \
-	-DCMAKE_CXX_COMPILER=clang++-9 \
-	-DCMAKE_AR=`which llvm-ar-9` \
-	-DCMAKE_RANLIB=`which llvm-ranlib-9` \
+	-DWAVM_USE_LINKER=lld-10 \
+	-DCMAKE_C_COMPILER=clang-10 \
+	-DCMAKE_CXX_COMPILER=clang++-10 \
+	-DCMAKE_AR=`which llvm-ar-10` \
+	-DCMAKE_RANLIB=`which llvm-ranlib-10` \
 	-DCMAKE_C_FLAGS="-march=native" \
 	-DCMAKE_CXX_FLAGS="-march=native" \
 	-DLLVM_DIR=$BUILD_DIR/llvm/build/lib/cmake/llvm \

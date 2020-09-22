@@ -52,14 +52,6 @@
     v128.const i32x4 0x00000000 0x00000000 0x00000000 0x00000000
     i32x4.any_true)
 
-  ;; i64x2 any_true
-  (func (export "i64x2_any_true_0") (result i32)
-    v128.const i32x4 0x00000000 0x00000000 0x00000000 0x00000000
-    i64x2.any_true)
-  (func (export "i64x2_any_true_1") (result i32)
-    v128.const i32x4 0x00ff0001 0x00550002 0x00000003 0x00000004
-    i64x2.any_true)
-
   ;; i8x16 all_true
   (func (export "i8x16_all_true_0") (result i32)
     v128.const i32x4 0x01020304 0x01050706 0x10020403 0x20103004
@@ -83,14 +75,6 @@
   (func (export "i32x4_all_true_1") (result i32)
     v128.const i32x4 0x01010101 0x000000ff 0x000ff000 0x00000000
     i32x4.all_true)
-
-  ;; i64x2 all_true
-  (func (export "i64x2_all_true_0") (result i32)
-    v128.const i32x4 0x00000001 0x00000000 0x00000001 0x00000000
-    i64x2.all_true)
-  (func (export "i64x2_all_true_1") (result i32)
-    v128.const i32x4 0x00ff0001 0x00550002 0x00000000 0x00000000
-    i64x2.all_true)
 
   ;; f32x4 neg
   ;; For Floating num:
@@ -225,16 +209,12 @@
 (assert_return (invoke "i16x8_any_true_1") (i32.const 1))
 (assert_return (invoke "i32x4_any_true_0") (i32.const 1))
 (assert_return (invoke "i32x4_any_true_1") (i32.const 0))
-(assert_return (invoke "i64x2_any_true_0") (i32.const 0))
-(assert_return (invoke "i64x2_any_true_1") (i32.const 1))
 (assert_return (invoke "i8x16_all_true_0") (i32.const 1))
 (assert_return (invoke "i8x16_all_true_1") (i32.const 0))
 (assert_return (invoke "i16x8_all_true_0") (i32.const 1))
 (assert_return (invoke "i16x8_all_true_1") (i32.const 0))
 (assert_return (invoke "i32x4_all_true_0") (i32.const 1))
 (assert_return (invoke "i32x4_all_true_1") (i32.const 0))
-(assert_return (invoke "i64x2_all_true_0") (i32.const 1))
-(assert_return (invoke "i64x2_all_true_1") (i32.const 0))
 (assert_return (invoke "f32x4_neg_0") (v128.const i32x4 0x00000000 0x7fc00000 0xc49a5000 0x3f800000))
 (assert_return (invoke "f64x2_neg_0") (v128.const i32x4 0x00000000 0x80000000 0x00000000 0x7ff80000))
 (assert_return (invoke "f64x2_neg_1") (v128.const i32x4 0x00000000 0x40934a00 0x00000000 0xbff00000))

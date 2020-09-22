@@ -212,8 +212,7 @@ static void print(std::string& string, ReferenceType type)
 	switch(type)
 	{
 	case ReferenceType::funcref: string += "funcref"; break;
-	case ReferenceType::anyref: string += "anyref"; break;
-	case ReferenceType::nullref: string += "nullref"; break;
+	case ReferenceType::externref: string += "externref"; break;
 
 	case ReferenceType::none:
 	default: WAVM_UNREACHABLE();
@@ -251,6 +250,17 @@ static void print(std::string& string, const ExceptionType& type)
 		string += ' ';
 		print(string, param);
 	}
+}
+
+static void printReferencedType(std::string& string, const ReferenceType type)
+{
+	switch(type)
+	{
+	case ReferenceType::funcref: string += "func"; break;
+	case ReferenceType::externref: string += "extern"; break;
+	case ReferenceType::none:
+	default: WAVM_UNREACHABLE();
+	};
 }
 
 struct NameScope
@@ -356,7 +366,11 @@ struct ModulePrintContext
 		case InitializerExpression::Type::global_get:
 			string += "(global.get " + names.globals[expression.ref] + ')';
 			break;
-		case InitializerExpression::Type::ref_null: string += "(ref.null)"; break;
+		case InitializerExpression::Type::ref_null:
+			string += "(ref.null ";
+			printReferencedType(string, expression.nullReferenceType);
+			string += ')';
+			break;
 		case InitializerExpression::Type::ref_func:
 			string += "(ref.func " + names.functions[expression.ref].name + ')';
 			break;
@@ -540,6 +554,14 @@ struct FunctionPrintContext
 
 		string += "\nrethrow " + getBranchTargetId(imm.catchDepth);
 	}
+
+	void ref_null(ReferenceTypeImm imm)
+	{
+		string += "\nref.null ";
+		printReferencedType(string, imm.referenceType);
+	}
+
+	void ref_is_null(NoImm) { string += "\nref.is_null"; }
 
 	void call(FunctionImm imm)
 	{
@@ -1055,9 +1077,8 @@ void ModulePrintContext::printModule()
 		{
 			switch(elemSegment.contents->elemType)
 			{
-			case ReferenceType::anyref: string += " anyref"; break;
+			case ReferenceType::externref: string += " externref"; break;
 			case ReferenceType::funcref: string += " funcref"; break;
-			case ReferenceType::nullref: string += " nullref"; break;
 
 			case ReferenceType::none:
 			default: WAVM_UNREACHABLE();
@@ -1071,7 +1092,11 @@ void ModulePrintContext::printModule()
 				string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
 				switch(elemExpr.type)
 				{
-				case ElemExpr::Type::ref_null: string += "(ref.null)"; break;
+				case ElemExpr::Type::ref_null:
+					string += "(ref.null ";
+					printReferencedType(string, elemExpr.nullReferenceType);
+					string += ')';
+					break;
 				case ElemExpr::Type::ref_func:
 					WAVM_ASSERT(elemExpr.index < names.functions.size());
 					string += "(ref.func ";
@@ -1079,6 +1104,7 @@ void ModulePrintContext::printModule()
 					string += ')';
 					break;
 
+				case ElemExpr::Type::invalid:
 				default: WAVM_UNREACHABLE();
 				};
 			}

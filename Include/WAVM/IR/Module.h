@@ -44,6 +44,7 @@ namespace WAVM { namespace IR {
 			F64 f64;
 			V128 v128;
 			Ref ref;
+			ReferenceType nullReferenceType;
 		};
 		InitializerExpressionBase() : type(Type::invalid) {}
 		InitializerExpressionBase(I32 inI32) : type(Type::i32_const), i32(inI32) {}
@@ -55,7 +56,10 @@ namespace WAVM { namespace IR {
 		{
 			WAVM_ASSERT(type == Type::global_get || type == Type::ref_func);
 		}
-		InitializerExpressionBase(std::nullptr_t) : type(Type::ref_null) {}
+		InitializerExpressionBase(ReferenceType inNullReferenceType)
+		: type(Type::ref_null), nullReferenceType(inNullReferenceType)
+		{
+		}
 
 		friend bool operator==(const InitializerExpressionBase& a,
 							   const InitializerExpressionBase& b)
@@ -174,6 +178,8 @@ namespace WAVM { namespace IR {
 	{
 		enum class Type
 		{
+			invalid = 0,
+
 			// These must match the corresponding Opcode members.
 			ref_null = 0xd0,
 			ref_func = 0xd2
@@ -183,12 +189,20 @@ namespace WAVM { namespace IR {
 			Type type;
 			Opcode typeOpcode;
 		};
-		Uptr index;
+		union
+		{
+			Uptr index;
+			ReferenceType nullReferenceType;
+		};
 
-		ElemExpr(Type inType = Type::ref_null, Uptr inIndex = UINTPTR_MAX)
-		: type(inType), index(inIndex)
+		ElemExpr() : type(Type::invalid) {}
+
+		ElemExpr(ReferenceType inNullReferenceType)
+		: type(Type::ref_null), nullReferenceType(inNullReferenceType)
 		{
 		}
+
+		ElemExpr(Type inType, Uptr inIndex = UINTPTR_MAX) : type(inType), index(inIndex) {}
 
 		friend bool operator==(const ElemExpr& a, const ElemExpr& b)
 		{
@@ -196,8 +210,10 @@ namespace WAVM { namespace IR {
 			switch(a.type)
 			{
 			case ElemExpr::Type::ref_func: return a.index == b.index;
-			case ElemExpr::Type::ref_null:
-			default: return true;
+			case ElemExpr::Type::ref_null: return true;
+
+			case ElemExpr::Type::invalid:
+			default: WAVM_UNREACHABLE();
 			}
 		}
 
@@ -207,8 +223,10 @@ namespace WAVM { namespace IR {
 			switch(a.type)
 			{
 			case ElemExpr::Type::ref_func: return a.index != b.index;
-			case ElemExpr::Type::ref_null:
-			default: return false;
+			case ElemExpr::Type::ref_null: return false;
+
+			case ElemExpr::Type::invalid:
+			default: WAVM_UNREACHABLE();
 			}
 		}
 	};

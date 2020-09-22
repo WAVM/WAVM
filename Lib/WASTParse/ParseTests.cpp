@@ -97,15 +97,15 @@ static IR::Value parseConstExpression(CursorState* cursor)
 			result.v128 = parseV128(cursor);
 			break;
 		}
-		case t_ref_host: {
+		case t_ref_extern: {
 			++cursor->nextToken;
-			result.type = ValueType::funcref;
+			result.type = ValueType::externref;
 			result.function = makeHostRef(parseU32(cursor));
 			break;
 		}
 		case t_ref_null: {
 			++cursor->nextToken;
-			result.type = ValueType::nullref;
+			result.type = asValueType(parseReferencedType(cursor));
 			result.object = nullptr;
 			break;
 		}
@@ -235,7 +235,7 @@ static ResultSet parseResultSet(CursorState* cursor)
 			result = parseV128ResultSet(cursor);
 			break;
 		}
-		case t_ref_host: {
+		case t_ref_extern: {
 			++cursor->nextToken;
 			result.type = ResultSet::Type::specificObject;
 			result.object = &makeHostRef(parseU32(cursor))->object;
@@ -248,8 +248,8 @@ static ResultSet parseResultSet(CursorState* cursor)
 		}
 		case t_ref_null: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::specificObject;
-			result.object = nullptr;
+			result.type = ResultSet::Type::nullref;
+			result.nullReferenceType = parseReferencedType(cursor);
 			break;
 		}
 		default:

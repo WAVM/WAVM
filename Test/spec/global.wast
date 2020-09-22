@@ -11,16 +11,19 @@
   (global (;6;) (mut f64) (f64.const -14))
   (global $y (mut i64) (i64.const -15))
 
-  (global $r anyref (ref.null))
-  (global funcref (ref.null))
+  (global $r externref (ref.null extern))
+  (global $mr (mut externref) (ref.null extern))
+  (global funcref (ref.null func))
 
   (func (export "get-a") (result i32) (global.get $a))
   (func (export "get-b") (result i64) (global.get $b))
-  (func (export "get-r") (result anyref) (global.get $r))
+  (func (export "get-r") (result externref) (global.get $r))
+  (func (export "get-mr") (result externref) (global.get $mr))
   (func (export "get-x") (result i32) (global.get $x))
   (func (export "get-y") (result i64) (global.get $y))
   (func (export "set-x") (param i32) (global.set $x (local.get 0)))
   (func (export "set-y") (param i64) (global.set $y (local.get 0)))
+  (func (export "set-mr") (param externref) (global.set $mr (local.get 0)))
 
   (func (export "get-1") (result f32) (global.get 1))
   (func (export "get-2") (result f64) (global.get 2))
@@ -184,7 +187,8 @@
 
 (assert_return (invoke "get-a") (i32.const -2))
 (assert_return (invoke "get-b") (i64.const -5))
-(assert_return (invoke "get-r") (ref.null))
+(assert_return (invoke "get-r") (ref.null extern))
+(assert_return (invoke "get-mr") (ref.null extern))
 (assert_return (invoke "get-x") (i32.const -12))
 (assert_return (invoke "get-y") (i64.const -15))
 
@@ -197,11 +201,13 @@
 (assert_return (invoke "set-y" (i64.const 7)))
 (assert_return (invoke "set-5" (f32.const 8)))
 (assert_return (invoke "set-6" (f64.const 9)))
+(assert_return (invoke "set-mr" (ref.extern 10)))
 
 (assert_return (invoke "get-x") (i32.const 6))
 (assert_return (invoke "get-y") (i64.const 7))
 (assert_return (invoke "get-5") (f32.const 8))
 (assert_return (invoke "get-6") (f64.const 9))
+(assert_return (invoke "get-mr") (ref.extern 10))
 
 (assert_return (invoke "as-select-first") (i32.const 6))
 (assert_return (invoke "as-select-mid") (i32.const 2))
@@ -294,7 +300,7 @@
 )
 
 (assert_invalid
-  (module (global (import "" "") anyref) (global funcref (global.get 0)))
+  (module (global (import "" "") externref) (global funcref (global.get 0)))
   "type mismatch"
 )
 

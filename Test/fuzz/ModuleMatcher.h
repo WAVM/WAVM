@@ -252,6 +252,11 @@ namespace WAVM {
 			if(a.elemSegmentIndex != b.elemSegmentIndex) { failVerification(); }
 		}
 
+		void verifyMatches(ReferenceTypeImm a, ReferenceTypeImm b)
+		{
+			if(a.referenceType != b.referenceType) { failVerification(); }
+		}
+
 		void verifyMatches(const FunctionDef& a, const FunctionDef& b)
 		{
 			aFunction = &a;

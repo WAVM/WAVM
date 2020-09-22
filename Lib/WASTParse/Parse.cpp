@@ -118,9 +118,8 @@ bool WAST::tryParseValueType(CursorState* cursor, ValueType& outValueType)
 	case t_f32: outValueType = ValueType::f32; break;
 	case t_f64: outValueType = ValueType::f64; break;
 	case t_v128: outValueType = ValueType::v128; break;
-	case t_anyref: outValueType = ValueType::anyref; break;
+	case t_externref: outValueType = ValueType::externref; break;
 	case t_funcref: outValueType = ValueType::funcref; break;
-	case t_nullref: outValueType = ValueType::nullref; break;
 	default: outValueType = ValueType::none; return false;
 	};
 
@@ -143,17 +142,13 @@ bool WAST::tryParseReferenceType(CursorState* cursor, IR::ReferenceType& outRefT
 {
 	switch(cursor->nextToken->type)
 	{
-	case t_anyref:
+	case t_externref:
 		++cursor->nextToken;
-		outRefType = ReferenceType::anyref;
+		outRefType = ReferenceType::externref;
 		return true;
 	case t_funcref:
 		++cursor->nextToken;
 		outRefType = ReferenceType::funcref;
-		return true;
-	case t_nullref:
-		++cursor->nextToken;
-		outRefType = ReferenceType::nullref;
 		return true;
 	default: return false;
 	};
@@ -165,6 +160,33 @@ ReferenceType WAST::parseReferenceType(CursorState* cursor)
 	if(!tryParseReferenceType(cursor, result))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected reference type");
+		throw RecoverParseException();
+	}
+	return result;
+}
+
+static bool tryParseReferencedType(CursorState* cursor, IR::ReferenceType& outRefType)
+{
+	switch(cursor->nextToken->type)
+	{
+	case t_extern:
+		++cursor->nextToken;
+		outRefType = ReferenceType::externref;
+		return true;
+	case t_func:
+		++cursor->nextToken;
+		outRefType = ReferenceType::funcref;
+		return true;
+	default: return false;
+	};
+}
+
+ReferenceType WAST::parseReferencedType(CursorState* cursor)
+{
+	ReferenceType result;
+	if(!tryParseReferencedType(cursor, result))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected 'func' or 'extern'");
 		throw RecoverParseException();
 	}
 	return result;

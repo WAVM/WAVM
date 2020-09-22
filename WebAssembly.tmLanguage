@@ -718,7 +718,7 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>(?&lt;=[\s=();])(i32|i64|f32|f64|v128|mut|anyfunc|funcref|anyref|shared)</string>
+			<string>(?&lt;=[\s=();])(i32|i64|f32|f64|v128|mut|anyfunc|funcref|externref|extern|shared)</string>
 			<key>name</key>
 			<string>constant.language.wasm</string>
 		</dict>

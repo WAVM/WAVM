@@ -2141,4 +2141,3 @@
   (elem funcref) (elem funcref) (elem funcref) (elem funcref)
   (elem funcref)
   (func (table.init 64 (i32.const 0) (i32.const 0) (i32.const 0))))
-

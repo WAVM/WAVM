@@ -22,15 +22,15 @@ POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 
-void EmitFunctionContext::ref_null(NoImm)
+void EmitFunctionContext::ref_null(ReferenceTypeImm imm)
 {
-	push(llvm::Constant::getNullValue(llvmContext.anyrefType));
+	push(llvm::Constant::getNullValue(llvmContext.externrefType));
 }
 
 void EmitFunctionContext::ref_is_null(NoImm)
 {
 	llvm::Value* reference = pop();
-	llvm::Value* null = llvm::Constant::getNullValue(llvmContext.anyrefType);
+	llvm::Value* null = llvm::Constant::getNullValue(llvmContext.externrefType);
 	llvm::Value* isNull = irBuilder.CreateICmpEQ(reference, null);
 	push(coerceBoolToI32(isNull));
 }
@@ -41,8 +41,8 @@ void EmitFunctionContext::ref_func(FunctionRefImm imm)
 	llvm::Value* codeAddress = irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);
 	llvm::Value* functionAddress = irBuilder.CreateSub(
 		codeAddress, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))));
-	llvm::Value* anyref = irBuilder.CreateIntToPtr(functionAddress, llvmContext.anyrefType);
-	push(anyref);
+	llvm::Value* externref = irBuilder.CreateIntToPtr(functionAddress, llvmContext.externrefType);
+	push(externref);
 }
 
 void EmitFunctionContext::table_get(TableImm imm)
@@ -50,7 +50,7 @@ void EmitFunctionContext::table_get(TableImm imm)
 	llvm::Value* index = pop();
 	llvm::Value* result = emitRuntimeIntrinsic(
 		"table.get",
-		FunctionType({ValueType::anyref},
+		FunctionType({ValueType::externref},
 					 TypeTuple({ValueType::i32, inferValueType<Uptr>()}),
 					 IR::CallingConvention::intrinsic),
 		{index, getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])})[0];
@@ -64,7 +64,7 @@ void EmitFunctionContext::table_set(TableImm imm)
 	emitRuntimeIntrinsic(
 		"table.set",
 		FunctionType({},
-					 TypeTuple({ValueType::i32, ValueType::anyref, inferValueType<Uptr>()}),
+					 TypeTuple({ValueType::i32, ValueType::externref, inferValueType<Uptr>()}),
 					 IR::CallingConvention::intrinsic),
 		{index,
 		 value,
@@ -136,7 +136,8 @@ void EmitFunctionContext::table_fill(TableImm imm)
 		"table.fill",
 		FunctionType(
 			{},
-			TypeTuple({ValueType::i32, ValueType::anyref, ValueType::i32, inferValueType<Uptr>()}),
+			TypeTuple(
+				{ValueType::i32, ValueType::externref, ValueType::i32, inferValueType<Uptr>()}),
 			IR::CallingConvention::intrinsic),
 		{destOffset,
 		 value,
@@ -151,7 +152,7 @@ void EmitFunctionContext::table_grow(TableImm imm)
 	ValueVector previousNumElements = emitRuntimeIntrinsic(
 		"table.grow",
 		FunctionType(TypeTuple(ValueType::i32),
-					 TypeTuple({ValueType::anyref, ValueType::i32, inferValueType<Uptr>()}),
+					 TypeTuple({ValueType::externref, ValueType::i32, inferValueType<Uptr>()}),
 					 IR::CallingConvention::intrinsic),
 		{value,
 		 deltaNumElements,

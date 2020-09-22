@@ -141,7 +141,7 @@ static UnresolvedInitializerExpression parseInitializerInstruction(CursorState* 
 	}
 	case t_ref_null: {
 		++cursor->nextToken;
-		result = nullptr;
+		result = parseReferencedType(cursor);
 		break;
 	}
 	case t_ref_func: {
@@ -203,7 +203,8 @@ static InitializerExpression resolveInitializerExpression(
 												moduleState->globalNameToIndexMap,
 												moduleState->module.globals.size(),
 												unresolvedExpression.ref));
-	case UnresolvedInitializerExpression::Type::ref_null: return InitializerExpression(nullptr);
+	case UnresolvedInitializerExpression::Type::ref_null:
+		return InitializerExpression(unresolvedExpression.nullReferenceType);
 	case UnresolvedInitializerExpression::Type::ref_func:
 		return InitializerExpression(InitializerExpression::Type::ref_func,
 									 resolveRef(moduleState->parseState,
@@ -552,11 +553,20 @@ static void parseData(CursorState* cursor)
 
 struct UnresolvedElem
 {
-	Reference ref;
+	union
+	{
+		Reference ref;
+		ReferenceType nullReferenceType;
+	};
 	ElemExpr::Type type;
 	UnresolvedElem(Reference&& inRef = Reference(),
 				   ElemExpr::Type inType = ElemExpr::Type::ref_null)
 	: ref(std::move(inRef)), type(inType)
+	{
+	}
+
+	UnresolvedElem(ReferenceType inNullReferenceType)
+	: nullReferenceType(inNullReferenceType), type(ElemExpr::Type::ref_null)
 	{
 	}
 };
@@ -565,10 +575,12 @@ static UnresolvedElem parseElemSegmentInstr(CursorState* cursor)
 {
 	switch(cursor->nextToken->type)
 	{
-	case t_ref_null:
+	case t_ref_null: {
 		++cursor->nextToken;
-		return UnresolvedElem();
+		const ReferenceType nullReferenceType = parseReferencedType(cursor);
+		return UnresolvedElem(nullReferenceType);
 		break;
+	}
 	case t_ref_func: {
 		++cursor->nextToken;
 
@@ -717,7 +729,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 				{
 				case ElemExpr::Type::ref_null:
 					elemSegment.contents->elemExprs[elementIndex]
-						= ElemExpr(ElemExpr::Type::ref_null);
+						= ElemExpr(unresolvedElem.nullReferenceType);
 					break;
 				case ElemExpr::Type::ref_func:
 					elemSegment.contents->elemExprs[elementIndex]
@@ -727,6 +739,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 											  moduleState->module.functions.size(),
 											  unresolvedElem.ref));
 					break;
+
+				case ElemExpr::Type::invalid:
 				default: WAVM_UNREACHABLE();
 				}
 			}

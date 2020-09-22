@@ -113,7 +113,7 @@ LLVMContext::LLVMContext()
 	default: WAVM_UNREACHABLE();
 	}
 
-	anyrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
+	externrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 
 	i8x8Type = llvm::VectorType::get(i8Type, 8);
 	i16x4Type = llvm::VectorType::get(i16Type, 4);
@@ -148,9 +148,8 @@ LLVMContext::LLVMContext()
 	valueTypes[(Uptr)ValueType::f32] = f32Type;
 	valueTypes[(Uptr)ValueType::f64] = f64Type;
 	valueTypes[(Uptr)ValueType::v128] = i64x2Type;
-	valueTypes[(Uptr)ValueType::anyref] = anyrefType;
-	valueTypes[(Uptr)ValueType::funcref] = anyrefType;
-	valueTypes[(Uptr)ValueType::nullref] = anyrefType;
+	valueTypes[(Uptr)ValueType::externref] = externrefType;
+	valueTypes[(Uptr)ValueType::funcref] = externrefType;
 
 	// Create zero constants of each type.
 	typedZeroConstants[(Uptr)ValueType::none] = nullptr;
@@ -160,8 +159,8 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::f32] = emitLiteral(*this, (F32)0.0f);
 	typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral(*this, (F64)0.0);
 	typedZeroConstants[(Uptr)ValueType::v128] = emitLiteral(*this, V128());
-	typedZeroConstants[(Uptr)ValueType::anyref] = typedZeroConstants[(Uptr)ValueType::funcref]
-		= typedZeroConstants[(Uptr)ValueType::nullref] = llvm::Constant::getNullValue(anyrefType);
+	typedZeroConstants[(Uptr)ValueType::externref] = typedZeroConstants[(Uptr)ValueType::funcref]
+		= llvm::Constant::getNullValue(externrefType);
 }
 
 TargetSpec LLVMJIT::getHostTargetSpec()
@@ -229,5 +228,5 @@ TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
 
 Version LLVMJIT::getVersion()
 {
-	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 2};
+	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 3};
 }

@@ -965,4 +965,3 @@
   (data "") (data "") (data "") (data "") (data "") (data "") (data "") (data "")
   (data "")
   (func (memory.init 64 (i32.const 0) (i32.const 0) (i32.const 0))))
-

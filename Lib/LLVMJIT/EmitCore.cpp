@@ -398,19 +398,19 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 //	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
 
 	// If the function type doesn't match, trap.
-//	emitConditionalTrapIntrinsic(
-//		irBuilder.CreateICmpNE(calleeTypeId, elementTypeId),
-//		"callIndirectFail",
-//		FunctionType(TypeTuple(),
-//					 TypeTuple({ValueType::i32,
-//								inferValueType<Uptr>(),
-//								ValueType::funcref,
-//								inferValueType<Uptr>()}),
-//					 IR::CallingConvention::intrinsic),
-//		{tableElementIndex,
-//		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
-//		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.anyrefType),
-//		 calleeTypeId});
+	//emitConditionalTrapIntrinsic(
+	//	irBuilder.CreateICmpNE(calleeTypeId, elementTypeId),
+	//	"callIndirectFail",
+	//	FunctionType(TypeTuple(),
+	//				 TypeTuple({ValueType::i32,
+	//							inferValueType<Uptr>(),
+	//							ValueType::funcref,
+	//							inferValueType<Uptr>()}),
+	//				 IR::CallingConvention::intrinsic),
+	//	{tableElementIndex,
+	//	 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
+	//	 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.externrefType),
+	//	 calleeTypeId});
 
 	// Call the function loaded from the table.
 	auto functionPointer = irBuilder.CreatePointerCast(

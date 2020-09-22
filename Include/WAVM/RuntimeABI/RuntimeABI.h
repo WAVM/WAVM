@@ -28,6 +28,8 @@ namespace WAVM { namespace Runtime {
 	// values having the same representation in Runtime::ObjectKind.
 	enum class ObjectKind : U8
 	{
+		invalid = (U8)IR::ExternKind::invalid,
+
 		// Standard object kinds that may be imported/exported from WebAssembly modules.
 		function = (U8)IR::ExternKind::function,
 		table = (U8)IR::ExternKind::table,
@@ -36,12 +38,10 @@ namespace WAVM { namespace Runtime {
 		exceptionType = (U8)IR::ExternKind::exceptionType,
 
 		// Runtime-specific object kinds that are only used by transient runtime objects.
-		instance = 5,
-		context = 6,
-		compartment = 7,
-		foreign = 8,
-
-		invalid = 0xff,
+		instance,
+		context,
+		compartment,
+		foreign,
 	};
 	static_assert(Uptr(IR::ExternKind::function) == Uptr(ObjectKind::function),
 				  "IR::ExternKind::function != ObjectKind::function");

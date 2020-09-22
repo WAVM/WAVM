@@ -313,16 +313,15 @@ static constexpr Uptr numNonParametricOps = sizeof(operatorInfos) / sizeof(Opera
 
 static ValueType generateValueType(RandomStream& random)
 {
-	switch(random.get(7))
+	switch(random.get(6))
 	{
 	case 0: return ValueType::i32;
 	case 1: return ValueType::i64;
 	case 2: return ValueType::f32;
 	case 3: return ValueType::f64;
 	case 4: return ValueType::v128;
-	case 5: return ValueType::anyref;
+	case 5: return ValueType::externref;
 	case 6: return ValueType::funcref;
-	case 7: return ValueType::nullref;
 	default: WAVM_UNREACHABLE();
 	}
 }
@@ -344,11 +343,10 @@ static FunctionType generateFunctionType(RandomStream& random)
 
 static ReferenceType generateRefType(RandomStream& random)
 {
-	switch(random.get(2))
+	switch(random.get(1))
 	{
-	case 0: return ReferenceType::anyref;
+	case 0: return ReferenceType::externref;
 	case 1: return ReferenceType::funcref;
-	case 2: return ReferenceType::nullref;
 	default: WAVM_UNREACHABLE();
 	};
 }
@@ -923,39 +921,10 @@ static void generateFunction(RandomStream& random,
 		{
 			const ValueType trueValueType = stack[stack.size() - 3];
 			const ValueType falseValueType = stack[stack.size() - 2];
-			const ValueType joinType = join(trueValueType, falseValueType);
-			if(joinType != ValueType::any)
+			if(trueValueType == falseValueType)
 			{
-				// Typed select
-				if(joinType == ValueType::nullref)
-				{
-					// If selecting between two nullrefs, any of:
-					//    select (result anyref)
-					// or select (result funcref) are valid.
-					// or select (result nullref) are valid.
-					validOpEmitters.push_back([&stack](RandomStream& random,
-													   const ModuleState& moduleState,
-													   CodeStream& codeStream) {
-						stack.resize(stack.size() - 3);
-						stack.push_back(ValueType::anyref);
-						codeStream.select({ValueType::anyref});
-					});
-					validOpEmitters.push_back([&stack](RandomStream& random,
-													   const ModuleState& moduleState,
-													   CodeStream& codeStream) {
-						stack.resize(stack.size() - 3);
-						stack.push_back(ValueType::funcref);
-						codeStream.select({ValueType::funcref});
-					});
-					validOpEmitters.push_back([&stack](RandomStream& random,
-													   const ModuleState& moduleState,
-													   CodeStream& codeStream) {
-						stack.resize(stack.size() - 3);
-						stack.push_back(ValueType::nullref);
-						codeStream.select({ValueType::nullref});
-					});
-				}
-				else
+				const ValueType joinType = trueValueType;
+				if(isReferenceType(joinType))
 				{
 					validOpEmitters.push_back([&stack, joinType](RandomStream& random,
 																 const ModuleState& moduleState,
@@ -965,19 +934,17 @@ static void generateFunction(RandomStream& random,
 						codeStream.select({joinType});
 					});
 				}
-			}
-
-			if(!isReferenceType(trueValueType) && !isReferenceType(falseValueType)
-			   && trueValueType == falseValueType)
-			{
-				// Non-typed select
-				validOpEmitters.push_back([&stack, joinType](RandomStream& random,
-															 const ModuleState& moduleState,
-															 CodeStream& codeStream) {
-					stack.resize(stack.size() - 3);
-					stack.push_back(joinType);
-					codeStream.select({ValueType::any});
-				});
+				else
+				{
+					// Non-typed select
+					validOpEmitters.push_back([&stack, joinType](RandomStream& random,
+																 const ModuleState& moduleState,
+																 CodeStream& codeStream) {
+						stack.resize(stack.size() - 3);
+						stack.push_back(joinType);
+						codeStream.select({ValueType::any});
+					});
+				}
 			}
 		}
 
@@ -1038,6 +1005,25 @@ static void generateFunction(RandomStream& random,
 			}
 		}
 
+		// ref.null
+		validOpEmitters.push_back(
+			[&stack](RandomStream& random, const ModuleState& moduleState, CodeStream& codeStream) {
+				const ReferenceType nullReferenceType = generateRefType(random);
+				codeStream.ref_null({nullReferenceType});
+				stack.push_back(asValueType(nullReferenceType));
+			});
+
+		// ref.is_null
+		if(stack.size() > controlStack.back().outerStackSize && isReferenceType(stack.back()))
+		{
+			validOpEmitters.push_back([&stack](RandomStream& random,
+											   const ModuleState& moduleState,
+											   CodeStream& codeStream) {
+				codeStream.ref_is_null();
+				stack.back() = ValueType::i32;
+			});
+		}
+
 		// Emit a random operator.
 		WAVM_ASSERT(validOpEmitters.size());
 		const Uptr randomOpIndex = random.get(validOpEmitters.size() - 1);
@@ -1066,14 +1052,15 @@ static InitializerExpression generateInitializerExpression(IR::Module& module,
 		v128.u64x2[1] = random.get(UINT64_MAX);
 		return InitializerExpression(v128);
 	}
-	case ValueType::anyref:
+	case ValueType::externref: {
+		return InitializerExpression(ReferenceType::externref);
+	}
 	case ValueType::funcref: {
 		const Uptr functionIndex = random.get(module.functions.size());
 		return functionIndex == module.functions.size()
-				   ? InitializerExpression(nullptr)
+				   ? InitializerExpression(ReferenceType::funcref)
 				   : InitializerExpression(InitializerExpression::Type::ref_func, functionIndex);
 	}
-	case ValueType::nullref: return InitializerExpression(nullptr);
 
 	case ValueType::none:
 	case ValueType::any:
@@ -1222,11 +1209,14 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 			{
 				switch(contents->elemType)
 				{
-				case ReferenceType::funcref:
-				case ReferenceType::anyref: {
+				case ReferenceType::externref: {
+					contents->elemExprs.push_back(ElemExpr(ReferenceType::externref));
+					break;
+				}
+				case ReferenceType::funcref: {
 					const Uptr functionIndex = random.get(module.functions.size());
 					if(functionIndex == module.functions.size())
-					{ contents->elemExprs.push_back(ElemExpr()); }
+					{ contents->elemExprs.push_back(ElemExpr(ReferenceType::funcref)); }
 					else
 					{
 						contents->elemExprs.push_back(
@@ -1236,7 +1226,6 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 					}
 					break;
 				}
-				case ReferenceType::nullref: contents->elemExprs.push_back(ElemExpr()); break;
 
 				case ReferenceType::none:
 				default: WAVM_UNREACHABLE();

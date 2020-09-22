@@ -153,6 +153,11 @@ namespace WAVM { namespace IR {
 		Uptr elemSegmentIndex;
 	};
 
+	struct ReferenceTypeImm
+	{
+		ReferenceType referenceType;
+	};
+
 	enum class Opcode : U16
 	{
 #define VISIT_OPCODE(opcode, name, ...) name = opcode,

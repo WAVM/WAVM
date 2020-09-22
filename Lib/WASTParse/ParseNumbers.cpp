@@ -377,32 +377,28 @@ template<typename UnsignedInt>
 bool tryParseInt(CursorState* cursor,
 				 UnsignedInt& outUnsignedInt,
 				 I64 minSignedValue,
-				 U64 maxUnsignedValue)
+				 U64 maxUnsignedValue,
+				 bool allowSign = true)
 {
-	bool isNegative = false;
-	U64 u64 = 0;
+	if(cursor->nextToken->type != t_decimalInt && cursor->nextToken->type != t_hexInt)
+	{ return false; }
 
 	const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
-	switch(cursor->nextToken->type)
-	{
-	case t_decimalInt:
-		isNegative = parseSign(nextChar);
-		u64 = parseDecimalUnsignedInt(nextChar,
-									  cursor->parseState,
-									  isNegative ? -U64(minSignedValue) : maxUnsignedValue,
-									  "int literal");
-		break;
-	case t_hexInt:
-		isNegative = parseSign(nextChar);
-		u64 = parseHexUnsignedInt(
-			nextChar, cursor->parseState, isNegative ? -U64(minSignedValue) : maxUnsignedValue);
-		break;
-	default: return false;
-	};
+	const bool isNegative = allowSign && parseSign(nextChar);
+	if(!allowSign && (*nextChar == '-' || *nextChar == '+')) { return false; }
+
+	const U64 u64
+		= cursor->nextToken->type == t_decimalInt
+			  ? parseDecimalUnsignedInt(nextChar,
+										cursor->parseState,
+										isNegative ? -U64(minSignedValue) : maxUnsignedValue,
+										"int literal")
+			  : parseHexUnsignedInt(nextChar,
+									cursor->parseState,
+									isNegative ? -U64(minSignedValue) : maxUnsignedValue);
 
 	if(minSignedValue == 0 && isNegative)
 	{
-		isNegative = false;
 		outUnsignedInt = 0;
 		return false;
 	}
@@ -451,10 +447,10 @@ bool WAST::tryParseUptr(CursorState* cursor, Uptr& outUptr)
 	return tryParseInt<Uptr>(cursor, outUptr, 0, UINTPTR_MAX);
 }
 
-U8 WAST::parseU8(CursorState* cursor)
+U8 WAST::parseU8(CursorState* cursor, bool allowSign)
 {
 	U8 result;
-	if(!tryParseInt<U8>(cursor, result, 0, 255))
+	if(!tryParseInt<U8>(cursor, result, 0, 255, allowSign))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected u8 literal");
 		throw RecoverParseException();

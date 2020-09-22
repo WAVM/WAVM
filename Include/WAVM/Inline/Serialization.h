@@ -90,7 +90,7 @@ namespace WAVM { namespace Serialization {
 		// cursor.
 		inline const U8* advance(Uptr numBytes)
 		{
-			if(next + numBytes > end) { getMoreData(numBytes); }
+			if(!next || next + numBytes > end) { getMoreData(numBytes); }
 			const U8* data = next;
 			next += numBytes;
 			return data;

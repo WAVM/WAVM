@@ -159,13 +159,12 @@ Instance* Intrinsics::instantiateModule(
 					initializerExpression.v128 = pair.value->getValue().v128;
 					break;
 
-				case ValueType::anyref:
+				case ValueType::externref:
 				case ValueType::funcref:
 					Errors::fatal("Intrinsic reference-typed globals are not supported");
 
 				case ValueType::none:
 				case ValueType::any:
-				case ValueType::nullref:
 				default: WAVM_UNREACHABLE();
 				};
 

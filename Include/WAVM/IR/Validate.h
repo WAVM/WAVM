@@ -75,7 +75,6 @@ namespace WAVM { namespace IR {
 	WAVM_API void validateStartFunction(ModuleValidationState& state);
 	WAVM_API void validateElemSegments(ModuleValidationState& state);
 	WAVM_API void validateDataSegments(ModuleValidationState& state);
-	WAVM_API void validateDeferred(ModuleValidationState& state);
 
 	inline void validatePreCodeSections(ModuleValidationState& state)
 	{
@@ -96,6 +95,5 @@ namespace WAVM { namespace IR {
 	inline void validatePostCodeSections(ModuleValidationState& state)
 	{
 		validateDataSegments(state);
-		validateDeferred(state);
 	}
 }}

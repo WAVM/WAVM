@@ -112,7 +112,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 			break;
 		}
 		case InitializerExpression::Type::ref_null:
-			value = llvm::Constant::getNullValue(llvmContext.anyrefType);
+			value = llvm::Constant::getNullValue(llvmContext.externrefType);
 			break;
 		case InitializerExpression::Type::ref_func: {
 			llvm::Value* referencedFunction = moduleContext.functions[globalDef.initializer.ref];
@@ -120,8 +120,9 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 				= irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);
 			llvm::Value* functionAddress = irBuilder.CreateSub(
 				codeAddress, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))));
-			llvm::Value* anyref = irBuilder.CreateIntToPtr(functionAddress, llvmContext.anyrefType);
-			value = anyref;
+			llvm::Value* externref
+				= irBuilder.CreateIntToPtr(functionAddress, llvmContext.externrefType);
+			value = externref;
 			break;
 		}
 

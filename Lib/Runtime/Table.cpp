@@ -474,6 +474,8 @@ void Runtime::initElemSegment(Instance* instance,
 			case IR::ElemExpr::Type::ref_func:
 				elemObject = asObject(instance->functions[elemExpr.index]);
 				break;
+
+			case IR::ElemExpr::Type::invalid:
 			default: WAVM_UNREACHABLE();
 			}
 			break;
