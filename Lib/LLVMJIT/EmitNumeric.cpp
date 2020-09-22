@@ -726,6 +726,9 @@ EMIT_SIMD_UNARY_OP(i16x8_any_true,
 EMIT_SIMD_UNARY_OP(i32x4_any_true,
 				   llvmContext.i32x4Type,
 				   emitAnyTrue(irBuilder, operand, llvmContext.i32x4Type))
+EMIT_SIMD_UNARY_OP(i64x2_any_true,
+				   llvmContext.i64x2Type,
+				   emitAnyTrue(irBuilder, operand, llvmContext.i64x2Type))
 
 EMIT_SIMD_UNARY_OP(i8x16_all_true,
 				   llvmContext.i8x16Type,
@@ -736,6 +739,9 @@ EMIT_SIMD_UNARY_OP(i16x8_all_true,
 EMIT_SIMD_UNARY_OP(i32x4_all_true,
 				   llvmContext.i32x4Type,
 				   emitAllTrue(irBuilder, operand, llvmContext.i32x4Type))
+EMIT_SIMD_UNARY_OP(i64x2_all_true,
+				   llvmContext.i64x2Type,
+				   emitAllTrue(irBuilder, operand, llvmContext.i64x2Type))
 
 void EmitFunctionContext::v128_and(IR::NoImm)
 {
