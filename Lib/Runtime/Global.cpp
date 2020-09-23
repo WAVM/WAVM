@@ -24,7 +24,10 @@ Global* Runtime::createGlobal(Compartment* compartment,
 	if(type.isMutable)
 	{
 		mutableGlobalIndex = compartment->globalDataAllocationMask.getSmallestNonMember();
-		if(mutableGlobalIndex == maxMutableGlobals) { return nullptr; }
+		if(mutableGlobalIndex == maxMutableGlobals) { 
+            printf("ERROR: Hit WAVM maxMutableGlobals: %lu\n", maxMutableGlobals);
+            return nullptr; 
+        }
 		compartment->globalDataAllocationMask.add(mutableGlobalIndex);
 
 		// Zero-initialize the global's mutable value for all current and future contexts.
@@ -40,6 +43,7 @@ Global* Runtime::createGlobal(Compartment* compartment,
 		global->id = compartment->globals.add(UINTPTR_MAX, global);
 		if(global->id == UINTPTR_MAX)
 		{
+            printf("ERROR: WAVM unable to add global\n");
 			delete global;
 			return nullptr;
 		}

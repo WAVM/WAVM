@@ -55,14 +55,18 @@ namespace WAVM { namespace Runtime {
 				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
     static constexpr Uptr pageSize = 4096;
-	static constexpr Uptr wavmCompartmentReservedBytes = Uptr(4) * 1024 * 1024 * 1024;
+	
+    // Note the log2 value here must correspond to the one above
+    static constexpr Uptr wavmCompartmentReservedBytes = Uptr(4) * 1024 * 1024 * 1024;    
+    static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 32;
+
 	static constexpr Uptr maxThunkArgAndReturnBytes = 256;
-	static constexpr Uptr contextRuntimeDataAlignment = 2 * pageSize;
+
+	static constexpr Uptr contextRuntimeDataAlignment = 8 * pageSize;
 	static constexpr Uptr maxMutableGlobals
 		= (contextRuntimeDataAlignment - maxThunkArgAndReturnBytes - sizeof(Context*)) / sizeof(IR::UntaggedValue);
 	static constexpr Uptr maxMemories = 255;
 	static constexpr Uptr maxTables = 128 * 1024 - maxMemories * 2 - 1;
-	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
 
 	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
 				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
@@ -92,13 +96,19 @@ namespace WAVM { namespace Runtime {
 										// declaring arrays that large.
 	};
 
-	static constexpr Uptr maxContexts
-		= 512 * 1024 - offsetof(CompartmentRuntimeData, contexts) / sizeof(ContextRuntimeData);
+    static constexpr Uptr maxContexts = (wavmCompartmentReservedBytes -         
+        (offsetof(CompartmentRuntimeData, contexts))) / sizeof(ContextRuntimeData);
+    static constexpr Uptr maxContextSize = U64(maxContexts) * sizeof(ContextRuntimeData);
+
+	//static constexpr Uptr maxContexts
+	//	= (512 * 1024) - (offsetof(CompartmentRuntimeData, contexts) / 
+    //     sizeof(ContextRuntimeData));
 
 	static_assert(offsetof(CompartmentRuntimeData, contexts) % pageSize == 0,
 				  "CompartmentRuntimeData::contexts isn't page-aligned");
+
 	static_assert(U64(offsetof(CompartmentRuntimeData, contexts))
-						  + U64(maxContexts) * sizeof(ContextRuntimeData)
+						  + maxContextSize
 					  == wavmCompartmentReservedBytes,
 				  "CompartmentRuntimeData isn't the expected size");
 
