@@ -104,6 +104,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
 endif()
 
 if(WAVM_ENABLE_RUNTIME)
+    # Find an installed build of LLVM
+	find_package(LLVM REQUIRED CONFIG)
+
 	if(LLVM_VERSION_MAJOR LESS 6)
 		message(FATAL_ERROR "WAVM requires LLVM version 6.0 or newer")
 	endif()
