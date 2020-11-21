@@ -628,7 +628,7 @@ void serializeMemArg(Stream& stream, U8& alignmentLog2, U32& offset, Uptr& memor
 	// Use the lower 6 bits of a varuint32 to encode alignment, and the 7th bit as a flag for
 	// whether a memory index is present.
 	U32 alignmentLog2AndFlags = alignmentLog2;
-	if(memoryIndex != 0) { alignmentLog2AndFlags |= 0x40; }
+	if(!Stream::isInput && memoryIndex != 0) { alignmentLog2AndFlags |= 0x40; }
 	serializeVarUInt32(stream, alignmentLog2AndFlags);
 
 	alignmentLog2 = alignmentLog2AndFlags & 0x3f;
