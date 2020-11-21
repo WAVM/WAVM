@@ -194,7 +194,8 @@ static bool collectGarbageImpl(Compartment* compartment)
 			bool hasRootFunction = false;
 			for(Function* function : instance->functions)
 			{
-				if(function && function->mutableData->numRootReferences)
+				if(function && function->mutableData->numRootReferences
+				   && function->instanceId == instance->id)
 				{
 					hasRootFunction = true;
 					break;
