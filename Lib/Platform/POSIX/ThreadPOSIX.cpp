@@ -137,12 +137,18 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	unsigned long glibcMajorVersion = 0;
 	unsigned long glibcMinorVersion = 0;
 	getGlibcVersion(glibcMajorVersion, glibcMinorVersion);
-	if(glibcMajorVersion >= 2 && glibcMinorVersion >= 27)
+	if(glibcMajorVersion > 2 || (glibcMajorVersion == 2 && glibcMinorVersion >= 27))
 	{ outMinGuardAddr = outMinAddr - numGuardBytes; }
 	else
 	{
 		outMinGuardAddr = outMinAddr;
 		outMinAddr += numGuardBytes;
+
+		// CentOS 7's GLIBC says it's version 2.17, but appears to have the pthread_attr_getstack
+		// patch from GLIBC 2.27. I'm not sure how to precisely detect this situation, so just
+		// make a conservative guess that the guard region extends 1 page both above and below the
+		// returned stack base address.
+		outMinGuardAddr -= numGuardBytes;
 	}
 #elif defined(__APPLE__)
 	// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
