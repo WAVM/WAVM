@@ -1509,7 +1509,9 @@ std::shared_ptr<Emscripten::Process> Emscripten::createProcess(Compartment* comp
 	process->global
 		= Intrinsics::instantiateModule(compartment, {WAVM_INTRINSIC_MODULE_REF(global)}, "global");
 	process->wasi_snapshot_preview1 = Intrinsics::instantiateModule(
-		compartment, {WAVM_INTRINSIC_MODULE_REF(emscripten_wasi_snapshot_preview1)}, "wasi_unstable");
+		compartment,
+		{WAVM_INTRINSIC_MODULE_REF(emscripten_wasi_snapshot_preview1)},
+		"wasi_unstable");
 
 	process->compartment = compartment;
 

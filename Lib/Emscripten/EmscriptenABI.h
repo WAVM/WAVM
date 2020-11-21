@@ -53,8 +53,8 @@ namespace WAVM { namespace Emscripten { namespace emabi {
 	typedef Int Result;
 	static constexpr Int resultMin = intMin;
 	static constexpr Int resultMax = intMax;
-	
-typedef uint32_t __wasi_clockid_t;
+
+	typedef uint32_t __wasi_clockid_t;
 #define __WASI_CLOCK_REALTIME (UINT32_C(0))
 #define __WASI_CLOCK_MONOTONIC (UINT32_C(1))
 #define __WASI_CLOCK_PROCESS_CPUTIME_ID (UINT32_C(2))
