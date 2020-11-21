@@ -138,9 +138,7 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	unsigned long glibcMinorVersion = 0;
 	getGlibcVersion(glibcMajorVersion, glibcMinorVersion);
 	if(glibcMajorVersion >= 2 && glibcMinorVersion >= 27)
-	{
-		outMinGuardAddr = outMinAddr - numGuardBytes;
-	}
+	{ outMinGuardAddr = outMinAddr - numGuardBytes; }
 	else
 	{
 		outMinGuardAddr = outMinAddr;
