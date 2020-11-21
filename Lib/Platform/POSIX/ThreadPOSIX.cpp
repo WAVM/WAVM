@@ -53,7 +53,7 @@ struct CreateThreadArgs
 
 static constexpr Uptr sigAltStackNumBytes = 65536;
 
-#define ALLOCATE_SIGALTSTACK_ON_MAIN_STACK 1
+#define ALLOCATE_SIGALTSTACK_ON_MAIN_STACK WAVM_ENABLE_ASAN
 
 static bool isAlignedLog2(void* pointer, Uptr alignmentLog2)
 {
@@ -103,11 +103,11 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	Uptr numStackBytes = 0;
 	Uptr numGuardBytes = 0;
 	WAVM_ERROR_UNLESS(
-		!pthread_attr_getstack(&threadAttributes, (void**)&outMinGuardAddr, &numStackBytes));
+		!pthread_attr_getstack(&threadAttributes, (void**)&outMinAddr, &numStackBytes));
 	WAVM_ERROR_UNLESS(!pthread_attr_getguardsize(&threadAttributes, &numGuardBytes));
 	WAVM_ERROR_UNLESS(!pthread_attr_destroy(&threadAttributes));
-	outMaxAddr = outMinGuardAddr + numStackBytes;
-	outMinAddr = outMinGuardAddr + numGuardBytes;
+	outMaxAddr = outMinAddr + numStackBytes;
+	outMinGuardAddr = outMinAddr - numGuardBytes;
 #elif defined(__APPLE__)
 	// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
 	// stack.
