@@ -9,7 +9,6 @@ TEST_NAME=$(basename $TEST_CPP .cpp)
 emcc $TEST_CPP \
   -O3 -g3 \
   -std=c++11 \
-  -s EMIT_EMSCRIPTEN_METADATA=1 \
   -s STANDALONE_WASM=1 \
   ${@:2} \
   -o $TEST_DIR/$TEST_NAME.wasm
