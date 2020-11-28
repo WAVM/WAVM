@@ -757,4 +757,5 @@ add_custom_target(RootFiles SOURCES
 	LICENSE.txt
 	README.md
 	VERSION
+	vs-chromium-project.txt
 	WebAssembly.tmLanguage)
