@@ -440,7 +440,7 @@
 	visitOp(0xfd61, i8x16_neg                 , "i8x16.neg"                 , NoImm                     , v128_to_v128              , simd                   )   \
 	visitOp(0xfd62, i8x16_any_true            , "i8x16.any_true"            , NoImm                     , v128_to_i32               , simd                   )   \
 	visitOp(0xfd63, i8x16_all_true            , "i8x16.all_true"            , NoImm                     , v128_to_i32               , simd                   )   \
-	visitOp(0xfd64, i8x16_bitmask             , "i8x16.bitmask"             , NoImm                     , v128_to_i32               , simdBitMask            )   \
+	visitOp(0xfd64, i8x16_bitmask             , "i8x16.bitmask"             , NoImm                     , v128_to_i32               , simd                   )   \
 	visitOp(0xfd65, i8x16_narrow_i16x8_s      , "i8x16.narrow_i16x8_s"      , NoImm                     , v128_v128_to_v128         , simd                   )   \
 	visitOp(0xfd66, i8x16_narrow_i16x8_u      , "i8x16.narrow_i16x8_u"      , NoImm                     , v128_v128_to_v128         , simd                   )   \
 /*  visitOp(0xfd67, i8x16_widen_low_i4x32_s   , "i8x16.widen_low_i4x32_s"   , NoImm                     , v128_v128_to_v128         , simd                   )*/ \
@@ -472,7 +472,7 @@
 	visitOp(0xfd81, i16x8_neg                 , "i16x8.neg"                 , NoImm                     , v128_to_v128              , simd                   )   \
 	visitOp(0xfd82, i16x8_any_true            , "i16x8.any_true"            , NoImm                     , v128_to_i32               , simd                   )   \
 	visitOp(0xfd83, i16x8_all_true            , "i16x8.all_true"            , NoImm                     , v128_to_i32               , simd                   )   \
-	visitOp(0xfd84, i16x8_bitmask             , "i16x8.bitmask"             , NoImm                     , v128_to_i32               , simdBitMask            )   \
+	visitOp(0xfd84, i16x8_bitmask             , "i16x8.bitmask"             , NoImm                     , v128_to_i32               , simd                   )   \
 	visitOp(0xfd85, i16x8_narrow_i32x4_s      , "i16x8.narrow_i32x4_s"      , NoImm                     , v128_v128_to_v128         , simd                   )   \
 	visitOp(0xfd86, i16x8_narrow_i32x4_u      , "i16x8.narrow_i32x4_u"      , NoImm                     , v128_v128_to_v128         , simd                   )   \
 	visitOp(0xfd87, i16x8_widen_low_i8x16_s   , "i16x8.widen_low_i8x16_s"   , NoImm                     , v128_to_v128              , simd                   )   \
@@ -504,7 +504,7 @@
 	visitOp(0xfda1, i32x4_neg                 , "i32x4.neg"                 , NoImm                     , v128_to_v128              , simd                   )   \
 	visitOp(0xfda2, i32x4_any_true            , "i32x4.any_true"            , NoImm                     , v128_to_i32               , simd                   )   \
 	visitOp(0xfda3, i32x4_all_true            , "i32x4.all_true"            , NoImm                     , v128_to_i32               , simd                   )   \
-	visitOp(0xfda4, i32x4_bitmask             , "i32x4.bitmask"             , NoImm                     , v128_to_i32               , simdBitMask            )   \
+	visitOp(0xfda4, i32x4_bitmask             , "i32x4.bitmask"             , NoImm                     , v128_to_i32               , simd                   )   \
 /*  visitOp(0xfda5, i32x4_narrow_i64x2_s      , "i32x4.narrow_i64x2_s"      , NoImm                     , v128_v128_to_v128         , simd                   )*/ \
 /*  visitOp(0xfda6, i32x4_narrow_i64x2_u      , "i32x4.narrow_i64x2_u"      , NoImm                     , v128_v128_to_v128         , simd                   )*/ \
 	visitOp(0xfda7, i32x4_widen_low_i16x8_s   , "i32x4.widen_low_i16x8_s"   , NoImm                     , v128_to_v128              , simd                   )   \

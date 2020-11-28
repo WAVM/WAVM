@@ -18,7 +18,6 @@
 // command-line.
 #define WAVM_ENUM_PROPOSED_FEATURES(V)                                                             \
 	V(simd, "simd", "128-bit SIMD")                                                                \
-	V(simdBitMask, "simd-bitmask", "128-bit SIMD bitmask instructions")                            \
 	V(atomics, "atomics", "Shared memories and atomic instructions")                               \
 	V(exceptionHandling, "exception-handling", "Exception handling")                               \
 	V(multipleResultsAndBlockParams, "multivalue", "Multiple results and block parameters")        \
@@ -37,7 +36,6 @@
 	V(quotedNamesInTextFormat, "quoted-names", "Quoted names in text format")                      \
 	V(customSectionsInTextFormat, "wat-custom-sections", "Custom sections in text format")         \
 	V(interleavedLoadStore, "interleaved-load-store", "Interleaved SIMD load&store instructions")  \
-	V(ltzMask, "ltz-mask", "SIMD less-than-zero mask instruction")                                 \
 	V(table64, "table64", "Tables with 64-bit indices")
 
 // WAVM extensions meant for internal use only (not exposed to users).

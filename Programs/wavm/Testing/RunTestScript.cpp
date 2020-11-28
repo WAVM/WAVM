@@ -1361,7 +1361,6 @@ static I64 threadMain(void* sharedStateVoid)
 		FeatureSpec featureSpec(FeatureLevel::proposed);
 		featureSpec.customSectionsInTextFormat = true;
 		featureSpec.interleavedLoadStore = true;
-		featureSpec.ltzMask = true;
 
 		// Parse the test script.
 		WAST::parseTestCommands((const char*)testScriptBytes.data(),
