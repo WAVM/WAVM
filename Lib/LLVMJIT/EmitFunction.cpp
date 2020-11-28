@@ -354,7 +354,7 @@ void EmitFunctionContext::emit()
 
 	// Create and initialize allocas for the memory and table base parameters.
 	auto llvmArgIt = function->arg_begin();
-	initContextVariables(&*llvmArgIt++);
+	initContextVariables(&*llvmArgIt++, moduleContext.iptrType);
 
 	// Create and initialize allocas for all the locals and parameters.
 	for(Uptr localIndex = 0;
@@ -387,8 +387,8 @@ void EmitFunctionContext::emit()
 			"debugEnterFunction",
 			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
-				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
-				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});
+				llvm::ConstantExpr::getPtrToInt(function, moduleContext.iptrType),
+				emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType))});
 	}
 
 	// Decode the WebAssembly opcodes and emit LLVM IR for them.
@@ -418,8 +418,8 @@ void EmitFunctionContext::emit()
 			"debugExitFunction",
 			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
-				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
-				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});
+				llvm::ConstantExpr::getPtrToInt(function, moduleContext.iptrType),
+				emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType))});
 	}
 
 	// Emit the function return.

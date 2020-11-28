@@ -685,9 +685,10 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// CompartmentRuntimeData to the table's entry in CompartmentRuntimeData::tableBases.
 	for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
 	{
-		importedSymbolMap.addOrFail(getExternalName("tableOffset", tableIndex),
-									offsetof(Runtime::CompartmentRuntimeData, tableBases)
-										+ sizeof(void*) * tables[tableIndex].id);
+		importedSymbolMap.addOrFail(
+			getExternalName("tableOffset", tableIndex),
+			offsetof(Runtime::CompartmentRuntimeData, tables)
+				+ sizeof(Runtime::TableRuntimeData) * tables[tableIndex].id);
 	}
 
 	// Bind the memory symbols. The compiled module uses the symbol's value as an offset into

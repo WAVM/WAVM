@@ -17,6 +17,27 @@ extern "C" int __sigreturn(ucontext_t*, int);
 
 thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 
+struct ScopedSignalContext : SignalContext
+{
+	bool isLinked = false;
+
+	void link()
+	{
+		outerContext = innermostSignalContext;
+		innermostSignalContext = this;
+		isLinked = true;
+	}
+
+	~ScopedSignalContext()
+	{
+		if(isLinked)
+		{
+			innermostSignalContext = outerContext;
+			isLinked = false;
+		}
+	}
+};
+
 static void maskSignals(int how)
 {
 	sigset_t set;
@@ -108,8 +129,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 {
 	initThreadAndGlobalSignals();
 
-	SignalContext signalContext;
-	signalContext.outerContext = innermostSignalContext;
+	ScopedSignalContext signalContext;
 	signalContext.filter = filter;
 	signalContext.filterArgument = argument;
 
@@ -123,7 +143,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 	bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump, 0) != 0;
 	if(!isReturningFromSignalHandler)
 	{
-		innermostSignalContext = &signalContext;
+		signalContext.link();
 
 		// Call the thunk.
 		thunk(argument);
@@ -139,7 +159,6 @@ bool Platform::catchSignals(void (*thunk)(void*),
 		// Unblock the signals that are blocked by the signal handler.
 		maskSignals(SIG_UNBLOCK);
 	}
-	innermostSignalContext = signalContext.outerContext;
 #endif
 
 	return isReturningFromSignalHandler;

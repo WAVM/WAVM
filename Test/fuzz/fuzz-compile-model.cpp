@@ -1,11 +1,13 @@
 #include <string>
 #include <vector>
 #include "FuzzTargetCommonMain.h"
-#include "RandomModule.h"
 #include "WAVM/IR/FeatureSpec.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/RandomModule.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Config.h"
+#include "WAVM/Inline/RandomStream.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 
@@ -45,7 +47,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	RandomStream random(data, numBytes);
 
 	IR::Module module(FeatureLevel::wavm);
-	generateValidModule(module, random);
+	IR::generateValidModule(module, random);
 
 #if !WAVM_ENABLE_LIBFUZZER
 	std::string wastString = WAST::print(module);

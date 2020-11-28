@@ -1,10 +1,13 @@
 #include <string>
 #include <vector>
-#include "./RandomModule.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/RandomModule.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/RandomStream.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
 #include "WAVM/WASM/WASM.h"
@@ -54,8 +57,8 @@ I32 main(int argc, char** argv)
 		{
 			RandomStream random(inputBytes.data(), inputBytes.size());
 
-			IR::Module module(FeatureLevel::wavm);
-			generateValidModule(module, random);
+			IR::Module module(IR::FeatureLevel::wavm);
+			IR::generateValidModule(module, random);
 
 			std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
 			const std::string wasmFilePath

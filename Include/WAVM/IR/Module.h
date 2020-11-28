@@ -312,7 +312,7 @@ namespace WAVM { namespace IR {
 		std::vector<Definition> defs;
 
 		Uptr size() const { return imports.size() + defs.size(); }
-		Type getType(Uptr index) const
+		const Type& getType(Uptr index) const
 		{
 			if(index < imports.size()) { return imports[index].type; }
 			else

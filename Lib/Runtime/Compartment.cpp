@@ -27,7 +27,7 @@ Runtime::Compartment::Compartment(std::string&& inDebugName)
 , foreigns(0, UINTPTR_MAX - 1)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
-		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
+		compartmentReservedBytes >> Platform::getBytesPerPageLog2(),
 		compartmentRuntimeDataAlignmentLog2,
 		unalignedRuntimeData);
 
@@ -51,10 +51,9 @@ Runtime::Compartment::~Compartment()
 	WAVM_ASSERT(!contexts.size());
 	WAVM_ASSERT(!foreigns.size());
 
-	Platform::freeAlignedVirtualPages(
-		unalignedRuntimeData,
-		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
-		compartmentRuntimeDataAlignmentLog2);
+	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
+									  compartmentReservedBytes >> Platform::getBytesPerPageLog2(),
+									  compartmentRuntimeDataAlignmentLog2);
 	Platform::deregisterVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
 	runtimeData = nullptr;
 	unalignedRuntimeData = nullptr;

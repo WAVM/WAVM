@@ -50,6 +50,16 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	};
 }
 
+static Uptr getIndexValue(const Value& value, IndexType indexType)
+{
+	switch(indexType)
+	{
+	case IndexType::i32: WAVM_ASSERT(value.type == ValueType::i32); return value.u32;
+	case IndexType::i64: WAVM_ASSERT(value.type == ValueType::i64); return value.u64;
+	default: WAVM_UNREACHABLE();
+	};
+}
+
 Instance::~Instance()
 {
 	if(id != UINTPTR_MAX)
@@ -411,8 +421,8 @@ Instance* Runtime::instantiateModuleInternal(Compartment* compartment,
 
 			const Value baseOffsetValue
 				= evaluateInitializer(instance->globals, dataSegment.baseOffset);
-			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
+			const MemoryType& memoryType = module->ir.memories.getType(dataSegment.memoryIndex);
+			Uptr baseOffset = getIndexValue(baseOffsetValue, memoryType.indexType);
 
 			initDataSegment(instance,
 							segmentIndex,
@@ -434,8 +444,8 @@ Instance* Runtime::instantiateModuleInternal(Compartment* compartment,
 
 			const Value baseOffsetValue
 				= evaluateInitializer(instance->globals, elemSegment.baseOffset);
-			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
+			const TableType& tableType = module->ir.tables.getType(elemSegment.tableIndex);
+			Uptr baseOffset = getIndexValue(baseOffsetValue, tableType.indexType);
 
 			Uptr numElements = 0;
 			switch(elemSegment.contents->encoding)

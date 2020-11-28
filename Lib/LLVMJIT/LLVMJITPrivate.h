@@ -62,7 +62,6 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* i64Type;
 		llvm::Type* f32Type;
 		llvm::Type* f64Type;
-		llvm::Type* iptrType;
 
 		llvm::PointerType* i8PtrType;
 
@@ -138,10 +137,9 @@ namespace WAVM { namespace LLVMJIT {
 			{llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[0], false)),
 			 llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[1], false))});
 	}
-	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* intOrPointerType)
+	inline llvm::Constant* emitLiteralIptr(U64 iptrValue, llvm::Type* iptrType)
 	{
-		auto pointerInt = llvm::APInt(sizeof(Uptr) == 8 ? 64 : 32, reinterpret_cast<Uptr>(pointer));
-		return llvm::Constant::getIntegerValue(intOrPointerType, pointerInt);
+		return llvm::ConstantInt::get(iptrType, iptrValue);
 	}
 
 	// Converts a WebAssembly type to a LLVM type.
@@ -264,50 +262,49 @@ namespace WAVM { namespace LLVMJIT {
 		}
 	}
 
-	inline llvm::Constant* getMemoryIdFromOffset(LLVMContext& llvmContext,
-												 llvm::Constant* memoryOffset)
+	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant* memoryOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
 				memoryOffset,
-				emitLiteral(llvmContext,
-							Uptr(offsetof(Runtime::CompartmentRuntimeData, memories)))),
-			emitLiteral(llvmContext, Uptr(sizeof(Runtime::MemoryRuntimeData))));
+				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, memories),
+								memoryOffset->getType())),
+			emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), memoryOffset->getType()));
 	}
 
-	inline llvm::Constant* getTableIdFromOffset(LLVMContext& llvmContext,
-												llvm::Constant* tableOffset)
+	inline llvm::Constant* getTableIdFromOffset(llvm::Constant* tableOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
 				tableOffset,
-				emitLiteral(llvmContext,
-							Uptr(offsetof(Runtime::CompartmentRuntimeData, tableBases)))),
-			emitLiteral(llvmContext, Uptr(sizeof(Uptr))));
+				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, tables),
+								tableOffset->getType())),
+			emitLiteralIptr(sizeof(Runtime::TableRuntimeData), tableOffset->getType()));
+	}
+
+	inline llvm::Type* getIptrType(LLVMContext& llvmContext, U32 numPointerBytes)
+	{
+		switch(numPointerBytes)
+		{
+		case 4: return llvmContext.i32Type;
+		case 8: return llvmContext.i64Type;
+		default: Errors::fatalf("Unexpected pointer size: %u bytes", numPointerBytes);
+		};
 	}
 
 	inline void setRuntimeFunctionPrefix(LLVMContext& llvmContext,
+										 llvm::Type* iptrType,
 										 llvm::Function* function,
 										 llvm::Constant* mutableData,
 										 llvm::Constant* instanceId,
 										 llvm::Constant* typeId)
 	{
 		function->setPrefixData(
-			llvm::ConstantArray::get(llvm::ArrayType::get(llvmContext.iptrType, 4),
-									 {emitLiteral(llvmContext, Uptr(Runtime::ObjectKind::function)),
+			llvm::ConstantArray::get(llvm::ArrayType::get(iptrType, 4),
+									 {emitLiteralIptr(U64(Runtime::ObjectKind::function), iptrType),
 									  mutableData,
 									  instanceId,
 									  typeId}));
-		static_assert(offsetof(Runtime::Function, object) == sizeof(Uptr) * 0,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, mutableData) == sizeof(Uptr) * 1,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, instanceId) == sizeof(Uptr) * 2,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, encodedType) == sizeof(Uptr) * 3,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, code) == sizeof(Uptr) * 4,
-					  "Function prefix must match Runtime::Function layout");
 	}
 
 	inline void setFunctionAttributes(llvm::TargetMachine* targetMachine, llvm::Function* function)

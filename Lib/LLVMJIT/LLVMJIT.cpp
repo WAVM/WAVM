@@ -106,12 +106,6 @@ LLVMContext::LLVMContext()
 	f32Type = llvm::Type::getFloatTy(*this);
 	f64Type = llvm::Type::getDoubleTy(*this);
 	i8PtrType = i8Type->getPointerTo();
-	switch(sizeof(Uptr))
-	{
-	case 4: iptrType = i32Type; break;
-	case 8: iptrType = i64Type; break;
-	default: WAVM_UNREACHABLE();
-	}
 
 	externrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 
@@ -214,6 +208,8 @@ TargetValidationResult LLVMJIT::validateTargetMachine(
 	else
 	{
 		if(featureSpec.simd) { return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+		if(featureSpec.memory64) { return TargetValidationResult::memory64Requires64bitTarget; }
+		if(featureSpec.table64) { return TargetValidationResult::table64Requires64bitTarget; }
 		return TargetValidationResult::unsupportedArchitecture;
 	}
 }
@@ -228,5 +224,5 @@ TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
 
 Version LLVMJIT::getVersion()
 {
-	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 3};
+	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 4};
 }

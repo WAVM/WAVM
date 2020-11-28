@@ -1033,6 +1033,20 @@ static void processCommand(TestScriptState& state, const Command* command)
 		const FunctionType invokeFunctionSig(getFunctionType(invokeFunction).results(),
 											 TypeTuple(argTypes));
 
+		// Check the actual signature of the invoked function.
+		if(getFunctionType(invokeFunction) != invokeFunctionSig)
+		{
+			if(Log::isCategoryEnabled(Log::debug))
+			{
+				Log::printf(
+					Log::debug,
+					"Invoke signature mismatch:\n  Invoke signature: %s\n  Invoked function type: %s\n",
+					asString(invokeFunctionSig).c_str(),
+					asString(getFunctionType(invokeFunction)).c_str());
+			}
+			throwException(ExceptionTypes::invokeSignatureMismatch);
+		}
+
 		// Generate a WASM module that imports the function being invoked.
 		const FunctionType benchmarkFunctionSig({}, {ValueType::i32});
 		IR::Module benchmarkModule(IR::FeatureLevel::wavm);
@@ -1290,18 +1304,19 @@ WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 0
 WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 0.0f)
 WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
 
-WAVM_DEFINE_INTRINSIC_TABLE(spectest,
-							spectest_table,
-							table,
-							TableType(ReferenceType::funcref, false, SizeConstraints{10, 20}))
+WAVM_DEFINE_INTRINSIC_TABLE(
+	spectest,
+	spectest_table,
+	table,
+	TableType(ReferenceType::funcref, false, IndexType::i32, SizeConstraints{10, 20}))
 WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
 							 spectest_memory,
 							 memory,
-							 MemoryType(false, SizeConstraints{1, 2}))
+							 MemoryType(false, IndexType::i32, SizeConstraints{1, 2}))
 WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
 							 spectest_shared_memory,
 							 shared_memory,
-							 MemoryType(true, SizeConstraints{1, 2}))
+							 MemoryType(true, IndexType::i32, SizeConstraints{1, 2}))
 
 struct SharedState
 {

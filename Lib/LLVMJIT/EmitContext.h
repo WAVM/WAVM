@@ -4,6 +4,7 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Constant.h>
@@ -27,7 +28,13 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::IRBuilder<> irBuilder;
 
 		llvm::Value* contextPointerVariable;
-		std::vector<llvm::Value*> memoryBasePointerVariables;
+
+		struct MemoryInfo
+		{
+			llvm::Value* basePointerVariable;
+			llvm::Value* endAddressVariable;
+		};
+		std::vector<MemoryInfo> memoryInfos;
 
 		EmitContext(LLVMContext& inLLVMContext, const std::vector<llvm::Constant*>& inMemoryOffsets)
 		: llvmContext(inLLVMContext)
@@ -70,44 +77,46 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
 
-			// Load the memory base pointer values from the CompartmentRuntimeData.
+			// Reload the memory base pointer and num reserved bytes values from the
+			// CompartmentRuntimeData.
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
+				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
+
 				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
-				llvm::Value* memoryBasePointerVariable = memoryBasePointerVariables[memoryIndex];
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(compartmentAddress, {memoryOffset}),
 						llvmContext.i8PtrType,
 						sizeof(U8*)),
-					memoryBasePointerVariable);
+					memoryInfo.basePointerVariable);
+
+				llvm::Value* memoryNumReservedBytesOffset = llvm::ConstantExpr::getAdd(
+					memoryOffset,
+					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, endAddress),
+									memoryOffset->getType()));
+				irBuilder.CreateStore(
+					loadFromUntypedPointer(irBuilder.CreateInBoundsGEP(
+											   compartmentAddress, {memoryNumReservedBytesOffset}),
+										   memoryOffset->getType()),
+					memoryInfo.endAddressVariable);
 			}
 		}
 
-		llvm::Value* getMemoryNumPages(llvm::Value* memoryOffset)
+		void initContextVariables(llvm::Value* initialContextPointer, llvm::Type* iptrType)
 		{
-			// Load the number of memory pages from the compartment runtime data.
-			llvm::LoadInst* memoryNumPagesLoad = loadFromUntypedPointer(
-				irBuilder.CreateInBoundsGEP(
-					getCompartmentAddress(),
-					{irBuilder.CreateAdd(
-						memoryOffset,
-						emitLiteral(llvmContext,
-									Uptr(offsetof(Runtime::MemoryRuntimeData, numPages))))}),
-				llvmContext.iptrType,
-				alignof(Uptr));
-			memoryNumPagesLoad->setAtomic(llvm::AtomicOrdering::Acquire);
-
-			return memoryNumPagesLoad;
-		}
-
-		void initContextVariables(llvm::Value* initialContextPointer)
-		{
-			memoryBasePointerVariables.resize(memoryOffsets.size());
+			memoryInfos.resize(memoryOffsets.size());
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
-				memoryBasePointerVariables[memoryIndex] = irBuilder.CreateAlloca(
+				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
+
+				memoryInfo.basePointerVariable = irBuilder.CreateAlloca(
 					llvmContext.i8PtrType, nullptr, "memoryBase" + llvm::Twine(memoryIndex));
+
+				memoryInfo.endAddressVariable = irBuilder.CreateAlloca(
+					iptrType,
+					nullptr,
+					"memoryNumReservedBytesMinusGuardBytes" + llvm::Twine(memoryIndex));
 			}
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");

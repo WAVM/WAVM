@@ -183,9 +183,7 @@ namespace WAVM {
 			if(aModule.types[a.type.index] != bModule.types[b.type.index]) { failVerification(); }
 		}
 
-		template<Uptr naturalAlignmentLog2>
-		void verifyMatches(LoadOrStoreImm<naturalAlignmentLog2> a,
-						   LoadOrStoreImm<naturalAlignmentLog2> b)
+		void verifyMatches(BaseLoadOrStoreImm a, BaseLoadOrStoreImm b)
 		{
 			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset
 			   || a.memoryIndex != b.memoryIndex)
@@ -204,15 +202,6 @@ namespace WAVM {
 			{
 				if(a.laneIndices[laneIndex] != b.laneIndices[laneIndex]) { failVerification(); }
 			}
-		}
-
-		template<Uptr naturalAlignmentLog2>
-		void verifyMatches(AtomicLoadOrStoreImm<naturalAlignmentLog2> a,
-						   AtomicLoadOrStoreImm<naturalAlignmentLog2> b)
-		{
-			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset
-			   || a.memoryIndex != b.memoryIndex)
-			{ failVerification(); }
 		}
 
 		void verifyMatches(AtomicFenceImm a, AtomicFenceImm b)

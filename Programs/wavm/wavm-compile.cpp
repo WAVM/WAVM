@@ -238,6 +238,16 @@ int execCompileCommand(int argc, char** argv)
 	case LLVMJIT::TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
 		Log::printf(Log::error, "WAVM does not support SIMD on the target CPU architecture.\n");
 		return EXIT_FAILURE;
+	case LLVMJIT::TargetValidationResult::memory64Requires64bitTarget:
+		Log::printf(Log::error,
+					"Target CPU (%s) does not support 64-bit memories.\n",
+					targetSpec.cpu.c_str());
+		return EXIT_FAILURE;
+	case LLVMJIT::TargetValidationResult::table64Requires64bitTarget:
+		Log::printf(Log::error,
+					"Target CPU (%s) does not support 64-bit tables.\n",
+					targetSpec.cpu.c_str());
+		return EXIT_FAILURE;
 
 	default: WAVM_UNREACHABLE();
 	};

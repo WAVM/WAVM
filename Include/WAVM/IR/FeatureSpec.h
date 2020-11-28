@@ -24,7 +24,8 @@
 	V(multipleResultsAndBlockParams, "multivalue", "Multiple results and block parameters")        \
 	V(referenceTypes, "ref-types", "Reference types")                                              \
 	V(extendedNameSection, "extended-name-section", "Extended name section")                       \
-	V(multipleMemories, "multi-memory", "Multiple memories")
+	V(multipleMemories, "multi-memory", "Multiple memories")                                       \
+	V(memory64, "memory64", "Memories with 64-bit addresses")
 
 // Non-standard extensions. These are disabled by default, but may be enabled on the command-line.
 #define WAVM_ENUM_NONSTANDARD_FEATURES(V)                                                          \
@@ -36,7 +37,8 @@
 	V(quotedNamesInTextFormat, "quoted-names", "Quoted names in text format")                      \
 	V(customSectionsInTextFormat, "wat-custom-sections", "Custom sections in text format")         \
 	V(interleavedLoadStore, "interleaved-load-store", "Interleaved SIMD load&store instructions")  \
-	V(ltzMask, "ltz-mask", "SIMD less-than-zero mask instruction")
+	V(ltzMask, "ltz-mask", "SIMD less-than-zero mask instruction")                                 \
+	V(table64, "table64", "Tables with 64-bit indices")
 
 // WAVM extensions meant for internal use only (not exposed to users).
 #define WAVM_ENUM_INTERNAL_FEATURES(V)                                                             \

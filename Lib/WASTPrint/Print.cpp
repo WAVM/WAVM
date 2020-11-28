@@ -219,9 +219,24 @@ static void print(std::string& string, ReferenceType type)
 	}
 }
 
+static void print(std::string& string, IndexType type)
+{
+	switch(type)
+	{
+	case IndexType::i32: string += "i32"; break;
+	case IndexType::i64: string += "i64"; break;
+	default: WAVM_UNREACHABLE();
+	}
+}
+
 static void print(std::string& string, const TableType& type)
 {
 	string += ' ';
+	if(type.indexType != IndexType::i32)
+	{
+		print(string, type.indexType);
+		string += ' ';
+	}
 	print(string, type.size);
 	if(type.isShared) { string += " shared"; }
 	string += ' ';
@@ -231,6 +246,11 @@ static void print(std::string& string, const TableType& type)
 static void print(std::string& string, const MemoryType& type)
 {
 	string += ' ';
+	if(type.indexType != IndexType::i32)
+	{
+		print(string, type.indexType);
+		string += ' ';
+	}
 	print(string, type.size);
 	if(type.isShared) { string += " shared"; }
 }
@@ -766,6 +786,7 @@ struct FunctionPrintContext
 		printImm(imm);                                                                             \
 	}
 	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
+	WAVM_ENUM_INDEX_POLYMORPHIC_OPERATORS(PRINT_OP)
 #undef VALIDATE_OP
 
 private:

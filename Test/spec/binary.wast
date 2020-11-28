@@ -45,7 +45,7 @@
 (assert_malformed (module binary "\00asm\00\00\00\01") "unknown binary version")
 
 ;; Invalid section id.
-(assert_malformed (module binary "\00asm" "\01\00\00\00" "\0c\00") "malformed section id")
+(assert_malformed (module binary "\00asm" "\01\00\00\00" "\0d\00") "malformed section id")
 (assert_malformed (module binary "\00asm" "\01\00\00\00" "\7f\00") "malformed section id")
 (assert_malformed (module binary "\00asm" "\01\00\00\00" "\80\00\01\00") "malformed section id")
 (assert_malformed (module binary "\00asm" "\01\00\00\00" "\81\00\01\00") "malformed section id")
@@ -327,19 +327,19 @@
 (assert_malformed
   (module binary
     "\00asm" "\01\00\00\00"
-    "\01\04\01\60\00\00"       ;; Type section
-    "\03\02\01\00"             ;; Function section
-    "\05\03\01\00\01"          ;; Memory section
-    "\0a\11\01"                ;; Code section
+    "\01\04\01\60\00\00"                ;; Type section
+    "\03\02\01\00"                      ;; Function section
+    "\05\03\01\00\01"                   ;; Memory section
+    "\0a\11\01"                         ;; Code section
     ;; function 0
-    "\0f\01\01"                ;; local type count
-    "\7f"                      ;; i32
-    "\41\00"                   ;; i32.const 0
-    "\28"                      ;; i32.load
-    "\02"                      ;; alignment 2
-    "\82\80\80\80\80\00"       ;; offset 2 with one byte too many
-    "\1a"                      ;; drop
-    "\0b"                      ;; end
+    "\0f\01\01"                         ;; local type count
+    "\7f"                               ;; i32
+    "\41\00"                            ;; i32.const 0
+    "\28"                               ;; i32.load
+    "\02"                               ;; alignment 2
+    "\82\80\80\80\80\80\80\80\80\80\00" ;; offset 2 with one byte too many
+    "\1a"                               ;; drop
+    "\0b"                               ;; end
   )
   "integer representation too long"
 )
@@ -384,19 +384,19 @@
 (assert_malformed
   (module binary
     "\00asm" "\01\00\00\00"
-    "\01\04\01\60\00\00"       ;; Type section
-    "\03\02\01\00"             ;; Function section
-    "\05\03\01\00\01"          ;; Memory section
-    "\0a\12\01"                ;; Code section
+    "\01\04\01\60\00\00"                ;; Type section
+    "\03\02\01\00"                      ;; Function section
+    "\05\03\01\00\01"                   ;; Memory section
+    "\0a\12\01"                         ;; Code section
     ;; function 0
-    "\10\01\01"                ;; local type count
-    "\7f"                      ;; i32
-    "\41\00"                   ;; i32.const 0
-    "\41\03"                   ;; i32.const 3
-    "\36"                      ;; i32.store
-    "\02"                      ;; alignment 2
-    "\82\80\80\80\80\00"       ;; offset 2 with one byte too many
-    "\0b"                      ;; end
+    "\10\01\01"                         ;; local type count
+    "\7f"                               ;; i32
+    "\41\00"                            ;; i32.const 0
+    "\41\03"                            ;; i32.const 3
+    "\36"                               ;; i32.store
+    "\02"                               ;; alignment 2
+    "\82\80\80\80\80\80\80\80\80\80\00" ;; offset 2 with one byte too many
+    "\0b"                               ;; end
   )
   "integer representation too long"
 )
@@ -1050,7 +1050,7 @@
 (assert_malformed
   (module binary
       "\00asm" "\01\00\00\00"
-      "\04\03\01"                           ;; table section with one entry
+      "\05\03\01"                           ;; table section with one entry
       "\70"                                 ;; anyfunc
       "\02"                                 ;; malformed table limits flag
   )
@@ -1059,7 +1059,7 @@
 (assert_malformed
   (module binary
       "\00asm" "\01\00\00\00"
-      "\04\04\01"                           ;; table section with one entry
+      "\05\04\01"                           ;; table section with one entry
       "\70"                                 ;; anyfunc
       "\02"                                 ;; malformed table limits flag
       "\00"                                 ;; dummy byte
@@ -1069,7 +1069,7 @@
 (assert_malformed
   (module binary
       "\00asm" "\01\00\00\00"
-      "\04\06\01"                           ;; table section with one entry
+      "\05\06\01"                           ;; table section with one entry
       "\70"                                 ;; anyfunc
       "\81\00"                              ;; malformed table limits flag as LEB128
       "\00\00"                              ;; dummy bytes

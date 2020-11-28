@@ -163,6 +163,13 @@ enum wasm_shared_enum
 	WASM_SHARED,
 };
 
+typedef uint8_t wasm_index_t;
+enum wasm_index_enum
+{
+	WASM_INDEX_I32,
+	WASM_INDEX_I64,
+};
+
 typedef struct wasm_limits_t
 {
 	uint32_t min;
@@ -240,20 +247,25 @@ WASM_DECLARE_TYPE(tabletype)
 
 WASM_C_API own wasm_tabletype_t* wasm_tabletype_new(own wasm_valtype_t*,
 													const wasm_limits_t*,
-													wasm_shared_t);
+													wasm_shared_t,
+													wasm_index_t);
 
 WASM_C_API const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t*);
 WASM_C_API const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_t*);
 WASM_C_API wasm_shared_t wasm_tabletype_shared(const wasm_tabletype_t*);
+WASM_C_API wasm_index_t wasm_tabletype_index(const wasm_tabletype_t*);
 
 // Memory Types
 
 WASM_DECLARE_TYPE(memorytype)
 
-WASM_C_API own wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t*, wasm_shared_t);
+WASM_C_API own wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t*,
+													  wasm_shared_t,
+													  wasm_index_t);
 
 WASM_C_API const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t*);
 WASM_C_API wasm_shared_t wasm_memorytype_shared(const wasm_memorytype_t*);
+WASM_C_API wasm_index_t wasm_memorytype_index(const wasm_memorytype_t*);
 
 // Extern Types
 

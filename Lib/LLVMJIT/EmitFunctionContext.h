@@ -205,6 +205,16 @@ namespace WAVM { namespace LLVMJIT {
 			return irBuilder.CreateTrunc(value, type);
 		}
 
+		llvm::Value* coerceIptrToIndex(IR::IndexType indexType, llvm::Value* iptrValue)
+		{
+			switch(indexType)
+			{
+			case IR::IndexType::i32: return irBuilder.CreateTrunc(iptrValue, llvmContext.i32Type);
+			case IR::IndexType::i64: return zext(iptrValue, moduleContext.iptrType);
+			default: WAVM_UNREACHABLE();
+			};
+		}
+
 		template<int numElements> llvm::Value* splat(llvm::Value* scalar, llvm::Type*)
 		{
 			return irBuilder.CreateVectorSplat(numElements, scalar);

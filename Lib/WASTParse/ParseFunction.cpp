@@ -424,7 +424,7 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	{
 		++cursor->nextToken;
 		require(cursor, t_equals);
-		outImm.offset = parseU32(cursor);
+		outImm.offset = parseU64(cursor);
 	}
 
 	const U32 naturalAlignment = 1 << naturalAlignmentLog2;

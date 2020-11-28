@@ -185,11 +185,16 @@ static std::unique_ptr<llvm::TargetMachine> getAndValidateTargetMachine(
 					   targetSpec.cpu.c_str());
 	case TargetValidationResult::x86CPUDoesNotSupportSSE41:
 		Errors::fatalf(
-			"Target X86 CPU (% s) does not support SSE 4.1, which"
+			"Target X86 CPU (%s) does not support SSE 4.1, which"
 			" WAVM requires for WebAssembly SIMD code.\n",
 			targetSpec.cpu.c_str());
 	case TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
 		Errors::fatalf("WAVM does not support SIMD on the host CPU architecture.\n");
+	case TargetValidationResult::memory64Requires64bitTarget:
+		Errors::fatalf("Target CPU (%s) does not support 64-bit memories.\n",
+					   targetSpec.cpu.c_str());
+	case TargetValidationResult::table64Requires64bitTarget:
+		Errors::fatalf("Target CPU (%s) does not support 64-bit tables.\n", targetSpec.cpu.c_str());
 
 	default: WAVM_UNREACHABLE();
 	};

@@ -1,6 +1,8 @@
 ADD_WAST_TESTS(
 	SOURCES address.wast
+			address64.wast
 			align.wast
+			align64.wast
 			atomic.wast
 			binary.wast
 			binary-leb128.wast
@@ -9,6 +11,7 @@ ADD_WAST_TESTS(
 			br_if.wast
 			br_table.wast
 			bulk.wast
+			bulk64.wast
 			call.wast
 			call_indirect.wast
 			comments.wast
@@ -18,6 +21,7 @@ ADD_WAST_TESTS(
 			data.wast
 			elem.wast
 			endianness.wast
+			endianness64.wast
 			exports.wast
 			f32.wast
 			f32_bitwise.wast
@@ -29,6 +33,7 @@ ADD_WAST_TESTS(
 			float_exprs.wast
 			float_literals.wast
 			float_memory.wast
+			float_memory64.wast
 			float_misc.wast
 			forward.wast
 			func.wast
@@ -45,6 +50,7 @@ ADD_WAST_TESTS(
 			left-to-right.wast
 			linking.wast
 			load.wast
+			load64.wast
 			local_get.wast
 			local_set.wast
 			local_tee.wast
@@ -53,10 +59,14 @@ ADD_WAST_TESTS(
 			memory_copy.wast
 			memory_fill.wast
 			memory_grow.wast
+			memory_grow64.wast
 			memory_init.wast
 			memory_redundancy.wast
+			memory_redundancy64.wast
 			memory_size.wast
 			memory_trap.wast
+			memory_trap64.wast
+			memory64.wast
 			names.wast
 			nop.wast
 			ref_func.wast
