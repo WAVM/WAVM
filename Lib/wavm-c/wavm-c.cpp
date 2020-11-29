@@ -677,16 +677,16 @@ wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,
 bool wasm_trap_message(const wasm_trap_t* trap, char* out_message, size_t* inout_num_message_bytes)
 {
 	const std::string description = describeExceptionType(getExceptionType(trap));
-	if(*inout_num_message_bytes < description.size() + 1)
+	if(*inout_num_message_bytes < description.size())
 	{
-		*inout_num_message_bytes = description.size() + 1;
+		*inout_num_message_bytes = description.size();
 		return false;
 	}
 	else
 	{
 		WAVM_ASSERT(out_message);
-		memcpy(out_message, description.c_str(), description.size() + 1);
-		*inout_num_message_bytes = description.size() + 1;
+		memcpy(out_message, description.c_str(), description.size());
+		*inout_num_message_bytes = description.size();
 		return true;
 	}
 }
