@@ -416,7 +416,7 @@ namespace WAVM { namespace IR {
 		{
 			return left.min != right.min || left.max != right.max;
 		}
-		friend bool isSubset(const SizeConstraints& super, const SizeConstraints& sub)
+		friend bool isSubset(const SizeConstraints& sub, const SizeConstraints& super)
 		{
 			return sub.min >= super.min && sub.max <= super.max;
 		}
@@ -462,7 +462,7 @@ namespace WAVM { namespace IR {
 		friend bool isSubtype(const TableType& sub, const TableType& super)
 		{
 			return super.elementType == sub.elementType && super.isShared == sub.isShared
-				   && super.indexType == sub.indexType && isSubset(super.size, sub.size);
+				   && super.indexType == sub.indexType && isSubset(sub.size, super.size);
 		}
 	};
 
@@ -506,7 +506,7 @@ namespace WAVM { namespace IR {
 		friend bool isSubtype(const MemoryType& sub, const MemoryType& super)
 		{
 			return super.isShared == sub.isShared && super.indexType == sub.indexType
-				   && isSubset(super.size, sub.size);
+				   && isSubset(sub.size, super.size);
 		}
 	};
 
