@@ -154,11 +154,6 @@ namespace WAVM { namespace LLVMJIT {
 										arguments);
 		}
 
-		// Emits a call to a WAVM intrinsic function.
-		ValueVector emitRuntimeIntrinsic(const char* intrinsicName,
-										 IR::FunctionType intrinsicType,
-										 const std::initializer_list<llvm::Value*>& args);
-
 		// A helper function to emit a conditional call to a non-returning intrinsic function.
 		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,
 										  const char* intrinsicName,
@@ -259,11 +254,6 @@ namespace WAVM { namespace LLVMJIT {
 
 		void trapIfMisalignedAtomic(llvm::Value* address, U32 naturalAlignmentLog2);
 
-		struct TryContext
-		{
-			llvm::BasicBlock* unwindToBlock;
-		};
-
 		struct CatchContext
 		{
 			// Only used for Windows SEH.
@@ -278,14 +268,11 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::Value* exceptionTypeId;
 		};
 
-		std::vector<TryContext> tryStack;
 		std::vector<CatchContext> catchStack;
 
 		void endTryWithoutCatch();
 		void endTryCatch();
 		void exitCatch();
-
-		llvm::BasicBlock* getInnermostUnwindToBlock();
 
 #define VISIT_OPCODE(encoding, name, nameString, Imm, ...) void name(IR::Imm imm);
 		WAVM_ENUM_OPERATORS(VISIT_OPCODE)

@@ -113,7 +113,7 @@ void EmitFunctionContext::exitCatch()
 	}
 }
 
-llvm::BasicBlock* EmitFunctionContext::getInnermostUnwindToBlock()
+llvm::BasicBlock* EmitContext::getInnermostUnwindToBlock()
 {
 	if(tryStack.size()) { return tryStack.back().unwindToBlock; }
 	else

@@ -36,6 +36,12 @@ namespace WAVM { namespace LLVMJIT {
 		};
 		std::vector<MemoryInfo> memoryInfos;
 
+		struct TryContext
+		{
+			llvm::BasicBlock* unwindToBlock;
+		};
+		std::vector<TryContext> tryStack;
+
 		EmitContext(LLVMContext& inLLVMContext, const std::vector<llvm::Constant*>& inMemoryOffsets)
 		: llvmContext(inLLVMContext)
 		, irBuilder(inLLVMContext)
@@ -122,6 +128,29 @@ namespace WAVM { namespace LLVMJIT {
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");
 			irBuilder.CreateStore(initialContextPointer, contextPointerVariable);
 			reloadMemoryBases();
+		}
+
+		// Emits a call to a WAVM intrinsic function.
+		ValueVector emitRuntimeIntrinsic(const char* intrinsicName,
+										 IR::FunctionType intrinsicType,
+										 const std::initializer_list<llvm::Value*>& args)
+		{
+			WAVM_ASSERT(intrinsicType.callingConvention() == IR::CallingConvention::intrinsic);
+
+			llvm::Module* llvmModule = irBuilder.GetInsertBlock()->getParent()->getParent();
+			llvm::Function* intrinsicFunction = llvmModule->getFunction(intrinsicName);
+			if(!intrinsicFunction)
+			{
+				intrinsicFunction = llvm::Function::Create(asLLVMType(llvmContext, intrinsicType),
+														   llvm::Function::ExternalLinkage,
+														   intrinsicName,
+														   llvmModule);
+				intrinsicFunction->setCallingConv(
+					asLLVMCallingConv(intrinsicType.callingConvention()));
+			}
+
+			return emitCallOrInvoke(
+				intrinsicFunction, args, intrinsicType, getInnermostUnwindToBlock());
 		}
 
 		// Creates either a call or an invoke if the call occurs inside a try.
@@ -269,7 +298,19 @@ namespace WAVM { namespace LLVMJIT {
 					returnBlock,
 					trapBlock);
 
+				// If the call returned and Exception, throw it.
 				irBuilder.SetInsertPoint(trapBlock);
+				llvm::Module* llvmModule = irBuilder.GetInsertBlock()->getParent()->getParent();
+				llvm::Type* iptrType
+					= llvmModule->getDataLayout().getIntPtrType(exception->getType());
+				IR::ValueType iptrValueType = iptrType->getIntegerBitWidth() == 32
+												  ? IR::ValueType::i32
+												  : IR::ValueType::i64;
+				emitRuntimeIntrinsic("throwException",
+									 IR::FunctionType(IR::TypeTuple{},
+													  IR::TypeTuple{iptrValueType},
+													  IR::CallingConvention::intrinsic),
+									 {irBuilder.CreatePtrToInt(exception, iptrType)});
 				irBuilder.CreateUnreachable();
 
 				// Load the results from the results array.
@@ -339,6 +380,8 @@ namespace WAVM { namespace LLVMJIT {
 
 			irBuilder.CreateRet(returnStruct);
 		}
+
+		llvm::BasicBlock* getInnermostUnwindToBlock();
 
 	private:
 		std::vector<llvm::Constant*> memoryOffsets;
