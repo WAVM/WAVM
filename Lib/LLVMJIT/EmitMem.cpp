@@ -92,13 +92,18 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		numBytes = irBuilder.CreateZExt(numBytes, functionContext.moduleContext.iptrType);
 	}
 
-	// Add the offset to the byte index.
-	if(offset)
+	// If the offset is greater than the size of the guard region, add it before bounds checking,
+	// and check for overflow.
+	if(offset && offset >= Runtime::memoryNumGuardBytes)
 	{
 		llvm::Constant* offsetConstant
 			= emitLiteralIptr(offset, functionContext.moduleContext.iptrType);
 
-		if(is32bitMemoryOn64bitHost) { address = irBuilder.CreateAdd(address, offsetConstant); }
+		if(is32bitMemoryOn64bitHost)
+		{
+			// This is a 64-bit add of two numbers zero-extended from 32-bit, so it can't overflow.
+			address = irBuilder.CreateAdd(address, offsetConstant);
+		}
 		else
 		{
 			llvm::Value* addressPlusOffsetAndOverflow
@@ -157,6 +162,18 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 			= irBuilder.CreateLoad(functionContext.memoryInfos[memoryIndex].endAddressVariable);
 		address = irBuilder.CreateSelect(
 			irBuilder.CreateICmpULT(address, endAddress), address, endAddress);
+	}
+
+	// If the offset is less than the size of the guard region, then add it after bounds checking.
+	// This avoids the need to check the addition for overflow, and allows it to be used as the
+	// displacement in x86 addresses. Additionally, it allows the LLVM optimizer to reuse the bounds
+	// checking code for consecutive loads/stores to the same address.
+	if(offset && offset < Runtime::memoryNumGuardBytes)
+	{
+		llvm::Constant* offsetConstant
+			= emitLiteralIptr(offset, functionContext.moduleContext.iptrType);
+
+		address = irBuilder.CreateAdd(address, offsetConstant);
 	}
 
 	return address;
@@ -827,3 +844,4 @@ EMIT_ATOMIC_RMW(i64, atomic_rmw8_xor_u, Xor, llvmContext.i8Type, 0, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw16_xor_u, Xor, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw32_xor_u, Xor, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw_xor, Xor, llvmContext.i64Type, 3, identity, identity)
+

@@ -81,6 +81,8 @@ namespace WAVM { namespace Runtime {
 		Uptr endAddress;
 	};
 
+	constexpr Uptr memoryNumGuardBytes = 65536;
+
 	static_assert(sizeof(MemoryRuntimeData) == sizeof(Uptr) * 3,
 				  "MemoryRuntimeData isn't the expected size");
 

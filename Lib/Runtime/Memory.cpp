@@ -26,8 +26,6 @@ namespace WAVM { namespace Runtime {
 static Platform::RWMutex memoriesMutex;
 static std::vector<Memory*> memories;
 
-static constexpr Uptr numGuardPages = 1;
-
 static constexpr U64 maxMemory64WASMPages =
 #if WAVM_ENABLE_TSAN
 	(U64(8) * 1024 * 1024 * 1024) >> IR::numBytesPerPageLog2; // 8GB
@@ -70,6 +68,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 		memoryMaxPages <<= getPlatformPagesPerWebAssemblyPageLog2();
 	}
 
+	const Uptr numGuardPages = memoryNumGuardBytes >> pageBytesLog2;
 	memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
 	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
 	if(!memory->baseAddress)
@@ -189,7 +188,7 @@ Runtime::Memory::~Memory()
 	if(numReservedBytes > 0)
 	{
 		Platform::freeVirtualPages(baseAddress,
-								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
+								   (numReservedBytes + memoryNumGuardBytes) >> pageBytesLog2);
 
 		Platform::deregisterVirtualAllocation(numPages >> pageBytesLog2);
 	}
@@ -200,15 +199,13 @@ Runtime::Memory::~Memory()
 
 bool Runtime::isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outMemoryAddress)
 {
-	const Uptr numGuardBytes = numGuardPages << Platform::getBytesPerPageLog2();
-
 	// Iterate over all memories and check if the address is within the reserved address space for
 	// each.
 	Platform::RWMutex::ShareableLock memoriesLock(memoriesMutex);
 	for(auto memory : memories)
 	{
 		U8* startAddress = memory->baseAddress;
-		U8* endAddress = memory->baseAddress + memory->numReservedBytes + numGuardBytes;
+		U8* endAddress = memory->baseAddress + memory->numReservedBytes + memoryNumGuardBytes;
 		if(address >= startAddress && address < endAddress)
 		{
 			outMemory = memory;
