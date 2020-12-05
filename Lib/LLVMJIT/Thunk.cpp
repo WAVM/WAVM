@@ -102,7 +102,11 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 													 llvmContext.i8PtrType,
 													 llvmContext.i8PtrType},
 													false);
+#if LLVM_VERSION_MAJOR >= 7
 	llvm::Type* iptrType = getIptrType(llvmContext, targetMachine->getProgramPointerSize());
+#else
+	llvm::Type* iptrType = getIptrType(llvmContext, targetMachine->getPointerSize());
+#endif
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
 	setRuntimeFunctionPrefix(llvmContext,

@@ -46,7 +46,11 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 	targetArch = targetMachine->getTargetTriple().getArch();
 	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
 
+#if LLVM_VERSION_MAJOR >= 7
 	const U32 numPointerBytes = targetMachine->getProgramPointerSize();
+#else
+	const U32 numPointerBytes = targetMachine->getPointerSize();
+#endif
 	iptrAlignment = numPointerBytes;
 	iptrType = getIptrType(llvmContext, numPointerBytes);
 	switch(iptrAlignment)
