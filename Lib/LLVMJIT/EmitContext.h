@@ -26,7 +26,7 @@ POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #define LLVM_ELEMENT_COUNT(numElements) llvm::ElementCount(numElements, false)
 #define LLVM_LANE_INDEX_TYPE int
 #else
-#define LLVM_ELEMENT_COUNT(numElements) numElements
+#define LLVM_ELEMENT_COUNT(numElements) ((unsigned int)(numElements))
 #define LLVM_LANE_INDEX_TYPE uint32_t
 #endif
 
