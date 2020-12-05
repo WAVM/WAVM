@@ -409,6 +409,9 @@ GrowResult Runtime::growTable(Table* table,
 							  Uptr* outOldNumElements,
 							  Object* initialElement)
 {
+	// If the initial value is null, write the uninitialized sentinel value instead.
+	if(!initialElement) { initialElement = getUninitializedElement(); }
+
 	return growTableImpl(table, numElementsToGrow, outOldNumElements, true, initialElement);
 }
 
