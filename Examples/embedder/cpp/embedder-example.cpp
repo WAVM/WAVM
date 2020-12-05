@@ -56,7 +56,7 @@ int main(int argc, char** argv)
 
 	// Create a WAVM compartment and context.
 	GCPointer<Compartment> compartment = createCompartment();
-	Context* context = createContext(compartment);
+	GCPointer<Context> context = createContext(compartment);
 
 	// Create an instance that encapsulates the intrinsic function in a way that allows it to be
 	// imported by WASM instances.
@@ -69,7 +69,7 @@ int main(int argc, char** argv)
 	catchRuntimeExceptions(
 		[&]() {
 			// Instantiate the WASM module using the intrinsic function as its import.
-			Instance* instance
+			GCPointer<Instance> instance
 				= instantiateModule(compartment, module, {asObject(intrinsicFunction)}, "hello");
 
 			// Extract exports.
@@ -113,6 +113,7 @@ int main(int argc, char** argv)
 		});
 
 	// Clean up the WAVM runtime objects.
+	context = nullptr;
 	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 
 	return 0;

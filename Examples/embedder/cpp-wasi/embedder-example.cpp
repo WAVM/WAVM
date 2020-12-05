@@ -98,7 +98,7 @@ int main(int argc, char** argv)
 
 	// Create a WAVM compartment and context.
 	GCPointer<Compartment> compartment = createCompartment();
-	Context* context = createContext(compartment);
+	GCPointer<Context> context = createContext(compartment);
 
 	// Create the WASI process.
 	std::vector<std::string> wasiArgs;
@@ -156,6 +156,7 @@ int main(int argc, char** argv)
 	// Clean up the WAVM runtime objects.
 	process.reset();
 	instance = nullptr;
+	context = nullptr;
 	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 
 	return exitCode;
