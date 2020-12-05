@@ -34,18 +34,13 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/Scalar.h>
 #if LLVM_VERSION_MAJOR >= 7
+#include <llvm/Transforms/InstCombine/InstCombine.h>
 #include <llvm/Transforms/Utils.h>
 #endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
 	class MCContext;
-
-#if LLVM_VERSION_MAJOR >= 7
-	// Instead of including llvm/Transforms/InstCombine/InstCombine.h, which doesn't compile on
-	// Windows, just declare the one function we call.
-	FunctionPass* createInstructionCombiningPass(bool ExpensiveCombines = true);
-#endif
 }
 
 using namespace WAVM;
@@ -255,7 +250,12 @@ std::string LLVMJIT::disassembleObject(const TargetSpec& targetSpec,
 		llvm::object::SymbolRef symbol = symbolSizePair.first;
 
 		// Only process global symbols, which excludes SEH funclets.
+#if LLVM_VERSION_MAJOR >= 11
+		auto maybeFlags = symbol.getFlags();
+		if(!(maybeFlags && *maybeFlags & llvm::object::SymbolRef::SF_Global)) { continue; }
+#else
 		if(!(symbol.getFlags() & llvm::object::SymbolRef::SF_Global)) { continue; }
+#endif
 
 		// Get the type, name, and address of the symbol. Need to be careful not to get the
 		// Expected<T> for each value unless it will be checked for success before continuing.

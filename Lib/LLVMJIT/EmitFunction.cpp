@@ -68,7 +68,8 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 {
 	if(value->getType()->isVectorTy())
 	{
-		switch(value->getType()->getScalarSizeInBits() * value->getType()->getVectorNumElements())
+		switch(value->getType()->getScalarSizeInBits()
+			   * static_cast<FixedVectorType*>(value->getType())->getNumElements())
 		{
 		case 128: return irBuilder.CreateBitCast(value, llvmContext.i64x2Type);
 		default: WAVM_UNREACHABLE();

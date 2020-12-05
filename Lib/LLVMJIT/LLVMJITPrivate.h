@@ -18,7 +18,8 @@
 // Disable all VC warnings in the LLVM headers
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
 	__pragma(warning(push, 0));                                                                    \
-	__pragma(warning(disable : 4702));
+	__pragma(warning(disable : 4702));                                                             \
+	__pragma(warning(disable : 4244));
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
 #else
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
@@ -50,6 +51,12 @@ namespace llvm {
 	}
 }
 
+#if LLVM_VERSION_MAJOR >= 11
+using FixedVectorType = llvm::FixedVectorType;
+#else
+using FixedVectorType = llvm::VectorType;
+#endif
+
 namespace WAVM { namespace LLVMJIT {
 	typedef llvm::SmallVector<llvm::Value*, 1> ValueVector;
 	typedef llvm::SmallVector<llvm::PHINode*, 1> PHIVector;
@@ -65,32 +72,33 @@ namespace WAVM { namespace LLVMJIT {
 
 		llvm::PointerType* i8PtrType;
 
-		llvm::Type* i8x8Type;
-		llvm::Type* i16x4Type;
-		llvm::Type* i32x2Type;
-		llvm::Type* i64x1Type;
+		FixedVectorType* i8x8Type;
+		FixedVectorType* i16x4Type;
+		FixedVectorType* i32x2Type;
+		FixedVectorType* i64x1Type;
 
-		llvm::Type* i8x16Type;
-		llvm::Type* i16x8Type;
-		llvm::Type* i32x4Type;
-		llvm::Type* i64x2Type;
-		llvm::Type* f32x4Type;
-		llvm::Type* f64x2Type;
+		FixedVectorType* i8x16Type;
+		FixedVectorType* i16x8Type;
+		FixedVectorType* i32x4Type;
+		FixedVectorType* i64x2Type;
+		FixedVectorType* f32x4Type;
+		FixedVectorType* f64x2Type;
 
-		llvm::Type* i8x32Type;
-		llvm::Type* i16x16Type;
-		llvm::Type* i32x8Type;
-		llvm::Type* i64x4Type;
+		FixedVectorType* i8x32Type;
+		FixedVectorType* i16x16Type;
+		FixedVectorType* i32x8Type;
+		FixedVectorType* i64x4Type;
 
-		llvm::Type* i8x48Type;
-		llvm::Type* i16x24Type;
-		llvm::Type* i32x12Type;
-		llvm::Type* i64x6Type;
+		FixedVectorType* i8x48Type;
+		FixedVectorType* i16x24Type;
+		FixedVectorType* i32x12Type;
+		FixedVectorType* i64x6Type;
 
-		llvm::Type* i8x64Type;
-		llvm::Type* i16x32Type;
-		llvm::Type* i32x16Type;
-		llvm::Type* i64x8Type;
+		FixedVectorType* i8x64Type;
+		FixedVectorType* i16x32Type;
+		FixedVectorType* i32x16Type;
+		FixedVectorType* i64x8Type;
+
 		llvm::Type* externrefType;
 
 		// Zero constants of each type.

@@ -437,11 +437,11 @@ EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 #define EMIT_SIMD_SHIFT_OP(name, llvmType, createShift)                                            \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
-		llvm::Type* vectorType = llvmType;                                                         \
+		FixedVectorType* vectorType = llvmType;                                                    \
 		llvm::Type* scalarType = llvmType->getScalarType();                                        \
 		WAVM_SUPPRESS_UNUSED(vectorType);                                                          \
 		auto right = irBuilder.CreateVectorSplat(                                                  \
-			vectorType->getVectorNumElements(),                                                    \
+			(unsigned int)vectorType->getNumElements(),                                            \
 			irBuilder.CreateZExtOrTrunc(                                                           \
 				emitShiftCountMask(*this, pop(), scalarType->getIntegerBitWidth()), scalarType));  \
 		WAVM_SUPPRESS_UNUSED(right);                                                               \
@@ -601,16 +601,17 @@ llvm::Value* EmitFunctionContext::emitVectorSelect(llvm::Value* condition,
 												   llvm::Value* trueValue,
 												   llvm::Value* falseValue)
 {
+	WAVM_ASSERT(condition->getType()->isVectorTy());
+	const Uptr numElements = static_cast<llvm::VectorType*>(condition->getType())->getNumElements();
+
 	llvm::Type* maskType;
-	switch(condition->getType()->getVectorNumElements())
+	switch(numElements)
 	{
 	case 2: maskType = llvmContext.i64x2Type; break;
 	case 4: maskType = llvmContext.i32x4Type; break;
 	case 8: maskType = llvmContext.i16x8Type; break;
 	case 16: maskType = llvmContext.i8x16Type; break;
-	default:
-		Errors::fatalf("unsupported vector length %u",
-					   condition->getType()->getVectorNumElements());
+	default: Errors::fatalf("unsupported vector length %u", numElements);
 	};
 	llvm::Value* mask = sext(condition, maskType);
 
@@ -674,12 +675,12 @@ EMIT_SIMD_FP_UNARY_OP(sqrt,
 
 static llvm::Value* emitAnyTrue(llvm::IRBuilder<>& irBuilder,
 								llvm::Value* vector,
-								llvm::Type* vectorType)
+								FixedVectorType* vectorType)
 {
 	vector = irBuilder.CreateBitCast(vector, vectorType);
 
 	const U32 numScalarBits = vectorType->getScalarSizeInBits();
-	const Uptr numLanes = vectorType->getVectorNumElements();
+	const Uptr numLanes = vectorType->getNumElements();
 	llvm::Constant* zero
 		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
 
@@ -696,12 +697,12 @@ static llvm::Value* emitAnyTrue(llvm::IRBuilder<>& irBuilder,
 
 static llvm::Value* emitAllTrue(llvm::IRBuilder<>& irBuilder,
 								llvm::Value* vector,
-								llvm::Type* vectorType)
+								FixedVectorType* vectorType)
 {
 	vector = irBuilder.CreateBitCast(vector, vectorType);
 
 	const U32 numScalarBits = vectorType->getScalarSizeInBits();
-	const Uptr numLanes = vectorType->getVectorNumElements();
+	const Uptr numLanes = vectorType->getNumElements();
 	llvm::Constant* zero
 		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
 
@@ -832,11 +833,11 @@ void EmitFunctionContext::v8x16_swizzle(NoImm)
 		// saturated add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16
 		// unchanged.
 		auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
-		auto saturatedIndexVector
-			= emitAddUnsignedSaturated(irBuilder,
-									   indexVector,
-									   llvm::ConstantVector::getSplat(16, constant112),
-									   llvmContext.i8x16Type);
+		auto saturatedIndexVector = emitAddUnsignedSaturated(
+			irBuilder,
+			indexVector,
+			llvm::ConstantVector::getSplat(LLVM_ELEMENT_COUNT(16), constant112),
+			llvmContext.i8x16Type);
 
 		push(callLLVMIntrinsic(
 			{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
@@ -853,10 +854,11 @@ void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
-	unsigned int laneIndices[16];
+	LLVM_LANE_INDEX_TYPE laneIndices[16];
 	for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
-	{ laneIndices[laneIndex] = imm.laneIndices[laneIndex]; }
-	push(irBuilder.CreateShuffleVector(left, right, llvm::ArrayRef<unsigned int>(laneIndices, 16)));
+	{ laneIndices[laneIndex] = LLVM_LANE_INDEX_TYPE(imm.laneIndices[laneIndex]); }
+	push(irBuilder.CreateShuffleVector(
+		left, right, llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>(laneIndices, 16)));
 }
 
 void EmitFunctionContext::v128_bitselect(IR::NoImm)
@@ -875,8 +877,8 @@ void EmitFunctionContext::v128_bitselect(IR::NoImm)
 		auto rightZExt = irBuilder.CreateZExt(right, llvmContext.doubleWidthType##Type);           \
 		auto leftZExt = irBuilder.CreateZExt(left, llvmContext.doubleWidthType##Type);             \
 		auto oneZExt = llvm::ConstantVector::getSplat(                                             \
-			llvmContext.type##Type->getVectorNumElements(),                                        \
-			llvm::ConstantInt::get(llvmContext.doubleWidthType##Type->getVectorElementType(), 1)); \
+			LLVM_ELEMENT_COUNT(llvmContext.type##Type->getNumElements()),                          \
+			llvm::ConstantInt::get(llvmContext.doubleWidthType##Type->getElementType(), 1));       \
 		push(irBuilder.CreateTrunc(                                                                \
 			irBuilder.CreateLShr(                                                                  \
 				irBuilder.CreateAdd(irBuilder.CreateAdd(leftZExt, rightZExt), oneZExt), oneZExt),  \

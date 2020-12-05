@@ -428,14 +428,14 @@ void EmitFunctionContext::i8x16_bitmask(NoImm)
 																					 constant32,
 																					 constant64,
 																					 constant128}));
-		auto i8x8OriginalBitMaskA
-			= irBuilder.CreateShuffleVector(i8x16OrthogonalBitMask,
-											llvm::UndefValue::get(llvmContext.i8x16Type),
-											{0, 1, 2, 3, 4, 5, 6, 7});
-		auto i8x8OriginalBitMaskB
-			= irBuilder.CreateShuffleVector(i8x16OrthogonalBitMask,
-											llvm::UndefValue::get(llvmContext.i8x16Type),
-											{8, 9, 10, 11, 12, 13, 14, 15});
+		auto i8x8OriginalBitMaskA = irBuilder.CreateShuffleVector(
+			i8x16OrthogonalBitMask,
+			llvm::UndefValue::get(llvmContext.i8x16Type),
+			llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>{0, 1, 2, 3, 4, 5, 6, 7});
+		auto i8x8OriginalBitMaskB = irBuilder.CreateShuffleVector(
+			i8x16OrthogonalBitMask,
+			llvm::UndefValue::get(llvmContext.i8x16Type),
+			llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>{8, 9, 10, 11, 12, 13, 14, 15});
 		auto i8CombinedBitMaskA = callLLVMIntrinsic({llvmContext.i8x8Type},
 													llvm::Intrinsic::experimental_vector_reduce_add,
 													{i8x8OriginalBitMaskA});

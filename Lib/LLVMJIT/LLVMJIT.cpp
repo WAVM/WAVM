@@ -109,32 +109,32 @@ LLVMContext::LLVMContext()
 
 	externrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 
-	i8x8Type = llvm::VectorType::get(i8Type, 8);
-	i16x4Type = llvm::VectorType::get(i16Type, 4);
-	i32x2Type = llvm::VectorType::get(i32Type, 2);
-	i64x1Type = llvm::VectorType::get(i64Type, 1);
+	i8x8Type = FixedVectorType::get(i8Type, 8);
+	i16x4Type = FixedVectorType::get(i16Type, 4);
+	i32x2Type = FixedVectorType::get(i32Type, 2);
+	i64x1Type = FixedVectorType::get(i64Type, 1);
 
-	i8x16Type = llvm::VectorType::get(i8Type, 16);
-	i16x8Type = llvm::VectorType::get(i16Type, 8);
-	i32x4Type = llvm::VectorType::get(i32Type, 4);
-	i64x2Type = llvm::VectorType::get(i64Type, 2);
-	f32x4Type = llvm::VectorType::get(f32Type, 4);
-	f64x2Type = llvm::VectorType::get(f64Type, 2);
+	i8x16Type = FixedVectorType::get(i8Type, 16);
+	i16x8Type = FixedVectorType::get(i16Type, 8);
+	i32x4Type = FixedVectorType::get(i32Type, 4);
+	i64x2Type = FixedVectorType::get(i64Type, 2);
+	f32x4Type = FixedVectorType::get(f32Type, 4);
+	f64x2Type = FixedVectorType::get(f64Type, 2);
 
-	i8x32Type = llvm::VectorType::get(i8Type, 32);
-	i16x16Type = llvm::VectorType::get(i16Type, 16);
-	i32x8Type = llvm::VectorType::get(i32Type, 8);
-	i64x4Type = llvm::VectorType::get(i64Type, 4);
+	i8x32Type = FixedVectorType::get(i8Type, 32);
+	i16x16Type = FixedVectorType::get(i16Type, 16);
+	i32x8Type = FixedVectorType::get(i32Type, 8);
+	i64x4Type = FixedVectorType::get(i64Type, 4);
 
-	i8x48Type = llvm::VectorType::get(i8Type, 48);
-	i16x24Type = llvm::VectorType::get(i16Type, 24);
-	i32x12Type = llvm::VectorType::get(i32Type, 12);
-	i64x6Type = llvm::VectorType::get(i64Type, 6);
+	i8x48Type = FixedVectorType::get(i8Type, 48);
+	i16x24Type = FixedVectorType::get(i16Type, 24);
+	i32x12Type = FixedVectorType::get(i32Type, 12);
+	i64x6Type = FixedVectorType::get(i64Type, 6);
 
-	i8x64Type = llvm::VectorType::get(i8Type, 64);
-	i16x32Type = llvm::VectorType::get(i16Type, 32);
-	i32x16Type = llvm::VectorType::get(i32Type, 16);
-	i64x8Type = llvm::VectorType::get(i64Type, 8);
+	i8x64Type = FixedVectorType::get(i8Type, 64);
+	i16x32Type = FixedVectorType::get(i16Type, 32);
+	i32x16Type = FixedVectorType::get(i32Type, 16);
+	i64x8Type = FixedVectorType::get(i64Type, 8);
 
 	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any] = nullptr;
 	valueTypes[(Uptr)ValueType::i32] = i32Type;
@@ -161,7 +161,7 @@ TargetSpec LLVMJIT::getHostTargetSpec()
 {
 	TargetSpec result;
 	result.triple = llvm::sys::getProcessTriple();
-	result.cpu = llvm::sys::getHostCPUName();
+	result.cpu = std::string(llvm::sys::getHostCPUName());
 	return result;
 }
 

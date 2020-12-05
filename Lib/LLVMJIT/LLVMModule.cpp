@@ -541,7 +541,12 @@ Module::Module(const std::vector<U8>& objectBytes,
 		llvm::object::SymbolRef symbol = symbolSizePair.first;
 
 		// Only process global symbols, which excludes SEH funclets.
+#if LLVM_VERSION_MAJOR >= 11
+		auto maybeFlags = symbol.getFlags();
+		if(!(maybeFlags && *maybeFlags & llvm::object::SymbolRef::SF_Global)) { continue; }
+#else
 		if(!(symbol.getFlags() & llvm::object::SymbolRef::SF_Global)) { continue; }
+#endif
 
 		// Get the type, name, and address of the symbol. Need to be careful not to get the
 		// Expected<T> for each value unless it will be checked for success before continuing.
@@ -580,7 +585,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 		WAVM_ASSERT(symbolSizePair.second <= UINTPTR_MAX);
 		Runtime::Function* function
 			= (Runtime::Function*)(loadedAddress - offsetof(Runtime::Function, code));
-		nameToFunctionMap.addOrFail(*name, function);
+		nameToFunctionMap.addOrFail(std::string(*name), function);
 		addressToFunctionMap.emplace(Uptr(loadedAddress + symbolSizePair.second), function);
 
 		// Initialize the function mutable data.
@@ -793,7 +798,7 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
 		llvm::object::SectionedAddress{address, llvm::object::SectionedAddress::UndefSection},
-		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
+		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::None,
 								  llvm::DINameKind::None));
 
 	outSource.instructionIndex = Uptr(lineInfo.Line);

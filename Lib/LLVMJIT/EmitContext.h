@@ -14,10 +14,20 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
-#if LLVM_VERSION_MAJOR > 9
+#if LLVM_VERSION_MAJOR >= 11
+#define LLVM_ALIGNMENT(alignment) llvm::Align(alignment)
+#elif LLVM_VERSION_MAJOR >= 10
 #define LLVM_ALIGNMENT(alignment) llvm::MaybeAlign(alignment)
 #else
 #define LLVM_ALIGNMENT(alignment) alignment
+#endif
+
+#if LLVM_VERSION_MAJOR >= 11
+#define LLVM_ELEMENT_COUNT(numElements) llvm::ElementCount(numElements, false)
+#define LLVM_LANE_INDEX_TYPE int
+#else
+#define LLVM_ELEMENT_COUNT(numElements) numElements
+#define LLVM_LANE_INDEX_TYPE uint32_t
 #endif
 
 namespace WAVM { namespace LLVMJIT {
@@ -203,9 +213,10 @@ namespace WAVM { namespace LLVMJIT {
 
 			// Call or invoke the callee.
 			llvm::Value* returnValue;
+			llvm::FunctionType* llvmCalleeType = asLLVMType(llvmContext, calleeType);
 			if(!unwindToBlock)
 			{
-				auto call = irBuilder.CreateCall(callee, callArgs);
+				auto call = irBuilder.CreateCall(llvmCalleeType, callee, callArgs);
 				call->setCallingConv(asLLVMCallingConv(callingConvention));
 				returnValue = call;
 			}
@@ -213,7 +224,12 @@ namespace WAVM { namespace LLVMJIT {
 			{
 				auto returnBlock = llvm::BasicBlock::Create(
 					llvmContext, "invokeReturn", irBuilder.GetInsertBlock()->getParent());
+#if LLVM_VERSION_MAJOR >= 8
+				auto invoke = irBuilder.CreateInvoke(
+					llvmCalleeType, callee, returnBlock, unwindToBlock, callArgs);
+#else
 				auto invoke = irBuilder.CreateInvoke(callee, returnBlock, unwindToBlock, callArgs);
+#endif
 				invoke->setCallingConv(asLLVMCallingConv(callingConvention));
 				irBuilder.SetInsertPoint(returnBlock);
 				returnValue = invoke;
