@@ -374,24 +374,109 @@ EMIT_STORE_OP(f64_store, llvmContext.f64Type, 3, identity)
 EMIT_STORE_OP(v128_store, value->getType(), 4, identity)
 EMIT_LOAD_OP(llvmContext.i64x2Type, v128_load, llvmContext.i64x2Type, 4, identity)
 
-EMIT_LOAD_OP(llvmContext.i8x16Type, v8x16_load_splat, llvmContext.i8Type, 0, splat<16>)
-EMIT_LOAD_OP(llvmContext.i16x8Type, v16x8_load_splat, llvmContext.i16Type, 1, splat<8>)
-EMIT_LOAD_OP(llvmContext.i32x4Type, v32x4_load_splat, llvmContext.i32Type, 2, splat<4>)
-EMIT_LOAD_OP(llvmContext.i64x2Type, v64x2_load_splat, llvmContext.i64Type, 3, splat<2>)
+EMIT_LOAD_OP(llvmContext.i8x16Type, v128_load8_splat, llvmContext.i8Type, 0, splat<16>)
+EMIT_LOAD_OP(llvmContext.i16x8Type, v128_load16_splat, llvmContext.i16Type, 1, splat<8>)
+EMIT_LOAD_OP(llvmContext.i32x4Type, v128_load32_splat, llvmContext.i32Type, 2, splat<4>)
+EMIT_LOAD_OP(llvmContext.i64x2Type, v128_load64_splat, llvmContext.i64Type, 3, splat<2>)
 
-EMIT_LOAD_OP(llvmContext.i16x8Type, i16x8_load8x8_s, llvmContext.i8x8Type, 3, sext)
-EMIT_LOAD_OP(llvmContext.i16x8Type, i16x8_load8x8_u, llvmContext.i8x8Type, 3, zext)
-EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_s, llvmContext.i16x4Type, 3, sext)
-EMIT_LOAD_OP(llvmContext.i32x4Type, i32x4_load16x4_u, llvmContext.i16x4Type, 3, zext)
-EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_s, llvmContext.i32x2Type, 3, sext)
-EMIT_LOAD_OP(llvmContext.i64x2Type, i64x2_load32x2_u, llvmContext.i32x2Type, 3, zext)
+EMIT_LOAD_OP(llvmContext.i16x8Type, v128_load8x8_s, llvmContext.i8x8Type, 3, sext)
+EMIT_LOAD_OP(llvmContext.i16x8Type, v128_load8x8_u, llvmContext.i8x8Type, 3, zext)
+EMIT_LOAD_OP(llvmContext.i32x4Type, v128_load16x4_s, llvmContext.i16x4Type, 3, sext)
+EMIT_LOAD_OP(llvmContext.i32x4Type, v128_load16x4_u, llvmContext.i16x4Type, 3, zext)
+EMIT_LOAD_OP(llvmContext.i64x2Type, v128_load32x2_s, llvmContext.i32x2Type, 3, sext)
+EMIT_LOAD_OP(llvmContext.i64x2Type, v128_load32x2_u, llvmContext.i32x2Type, 3, zext)
+
+EMIT_LOAD_OP(llvmContext.i32x4Type,
+			 v128_load32_zero,
+			 llvmContext.i32Type,
+			 2,
+			 insertInZeroedVector<4>)
+EMIT_LOAD_OP(llvmContext.i64x2Type,
+			 v128_load64_zero,
+			 llvmContext.i64Type,
+			 3,
+			 insertInZeroedVector<2>)
+
+static void emitLoadLane(EmitFunctionContext& functionContext,
+						 llvm::Type* llvmVectorType,
+						 const BaseLoadOrStoreImm& loadOrStoreImm,
+						 Uptr laneIndex,
+						 Uptr numBytesLog2)
+{
+	llvm::Value* vector = functionContext.pop();
+	vector = functionContext.irBuilder.CreateBitCast(vector, llvmVectorType);
+
+	llvm::Value* address = functionContext.pop();
+	llvm::Value* boundedAddress = getOffsetAndBoundedAddress(
+		functionContext,
+		loadOrStoreImm.memoryIndex,
+		address,
+		llvm::ConstantInt::get(address->getType(), U64(1) << numBytesLog2),
+		loadOrStoreImm.offset,
+		BoundsCheckOp::clampToGuardRegion);
+	llvm::Value* pointer = functionContext.coerceAddressToPointer(
+		boundedAddress, llvmVectorType->getScalarType(), loadOrStoreImm.memoryIndex);
+	llvm::LoadInst* load = functionContext.irBuilder.CreateLoad(pointer);
+	// Don't trust the alignment hint provided by the WebAssembly code, since the load can't trap if
+	// it's wrong.
+	load->setAlignment(LLVM_ALIGNMENT(1));
+	load->setVolatile(true);
+
+	vector = functionContext.irBuilder.CreateInsertElement(vector, load, laneIndex);
+	functionContext.push(vector);
+}
+
+static void emitStoreLane(EmitFunctionContext& functionContext,
+						  llvm::Type* llvmVectorType,
+						  const BaseLoadOrStoreImm& loadOrStoreImm,
+						  Uptr laneIndex,
+						  Uptr numBytesLog2)
+{
+	llvm::Value* vector = functionContext.pop();
+	vector = functionContext.irBuilder.CreateBitCast(vector, llvmVectorType);
+
+	auto lane = functionContext.irBuilder.CreateExtractElement(vector, laneIndex);
+
+	llvm::Value* address = functionContext.pop();
+	llvm::Value* boundedAddress = getOffsetAndBoundedAddress(
+		functionContext,
+		loadOrStoreImm.memoryIndex,
+		address,
+		llvm::ConstantInt::get(address->getType(), U64(1) << numBytesLog2),
+		loadOrStoreImm.offset,
+		BoundsCheckOp::clampToGuardRegion);
+	llvm::Value* pointer = functionContext.coerceAddressToPointer(
+		boundedAddress, lane->getType(), loadOrStoreImm.memoryIndex);
+	llvm::StoreInst* store = functionContext.irBuilder.CreateStore(lane, pointer);
+	// Don't trust the alignment hint provided by the WebAssembly code, since the load can't trap if
+	// it's wrong.
+	store->setAlignment(LLVM_ALIGNMENT(1));
+	store->setVolatile(true);
+}
+
+#define EMIT_LOAD_LANE_OP(name, llvmVectorType, naturalAlignmentLog2, numLanes)                    \
+	void EmitFunctionContext::name(LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> imm)         \
+	{                                                                                              \
+		emitLoadLane(*this, llvmVectorType, imm, imm.laneIndex, U64(1) << naturalAlignmentLog2);   \
+	}
+#define EMIT_STORE_LANE_OP(name, llvmVectorType, naturalAlignmentLog2, numLanes)                   \
+	void EmitFunctionContext::name(LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> imm)         \
+	{                                                                                              \
+		emitStoreLane(*this, llvmVectorType, imm, imm.laneIndex, U64(1) << naturalAlignmentLog2);  \
+	}
+EMIT_LOAD_LANE_OP(v128_load8_lane, llvmContext.i8x16Type, 0, 16)
+EMIT_LOAD_LANE_OP(v128_load16_lane, llvmContext.i16x8Type, 1, 8)
+EMIT_LOAD_LANE_OP(v128_load32_lane, llvmContext.i32x4Type, 2, 4)
+EMIT_LOAD_LANE_OP(v128_load64_lane, llvmContext.i64x2Type, 3, 2)
+EMIT_STORE_LANE_OP(v128_store8_lane, llvmContext.i8x16Type, 0, 16)
+EMIT_STORE_LANE_OP(v128_store16_lane, llvmContext.i16x8Type, 1, 8)
+EMIT_STORE_LANE_OP(v128_store32_lane, llvmContext.i32x4Type, 2, 4)
+EMIT_STORE_LANE_OP(v128_store64_lane, llvmContext.i64x2Type, 3, 2)
 
 static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 								llvm::Type* llvmValueType,
 								llvm::Intrinsic::ID aarch64IntrinsicID,
-								U8 alignmentLog2,
-								U64 offset,
-								Uptr memoryIndex,
+								const BaseLoadOrStoreImm& imm,
 								U32 numVectors,
 								U32 numLanes,
 								U64 numBytes)
@@ -404,13 +489,13 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 	auto address = functionContext.pop();
 	auto boundedAddress
 		= getOffsetAndBoundedAddress(functionContext,
-									 memoryIndex,
+									 imm.memoryIndex,
 									 address,
 									 llvm::ConstantInt::get(address->getType(), numBytes),
-									 offset,
+									 imm.offset,
 									 BoundsCheckOp::clampToGuardRegion);
 	auto pointer
-		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
+		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex);
 	if(functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
 	{
 		auto results = functionContext.callLLVMIntrinsic(
@@ -456,9 +541,7 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 								 llvm::Type* llvmValueType,
 								 llvm::Intrinsic::ID aarch64IntrinsicID,
-								 U8 alignmentLog2,
-								 U64 offset,
-								 Uptr memoryIndex,
+								 const IR::BaseLoadOrStoreImm& imm,
 								 U32 numVectors,
 								 U32 numLanes,
 								 U64 numBytes)
@@ -475,13 +558,13 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 	auto address = functionContext.pop();
 	auto boundedAddress
 		= getOffsetAndBoundedAddress(functionContext,
-									 memoryIndex,
+									 imm.memoryIndex,
 									 address,
 									 llvm::ConstantInt::get(address->getType(), numBytes),
-									 offset,
+									 imm.offset,
 									 BoundsCheckOp::clampToGuardRegion);
 	auto pointer
-		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, memoryIndex);
+		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex);
 	if(functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
 	{
 		llvm::Value* args[maxVectors + 1];
@@ -526,9 +609,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 		emitLoadInterleaved(*this,                                                                 \
 							llvmValueType,                                                         \
 							llvm::Intrinsic::aarch64_neon_ld##numVectors,                          \
-							imm.alignmentLog2,                                                     \
-							imm.offset,                                                            \
-							imm.memoryIndex,                                                       \
+							imm,                                                                   \
 							numVectors,                                                            \
 							numLanes,                                                              \
 							U64(1 << naturalAlignmentLog2) * numVectors);                          \
@@ -540,9 +621,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 		emitStoreInterleaved(*this,                                                                \
 							 llvmValueType,                                                        \
 							 llvm::Intrinsic::aarch64_neon_st##numVectors,                         \
-							 imm.alignmentLog2,                                                    \
-							 imm.offset,                                                           \
-							 imm.memoryIndex,                                                      \
+							 imm,                                                                  \
 							 numVectors,                                                           \
 							 numLanes,                                                             \
 							 U64(1 << naturalAlignmentLog2) * numVectors);                         \

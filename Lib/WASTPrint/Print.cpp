@@ -690,6 +690,14 @@ struct FunctionPrintContext
 		}
 	}
 
+	template<Uptr naturalAlignmentLog2, Uptr numLanes>
+	void printImm(LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> imm)
+	{
+		printImm(static_cast<LoadOrStoreImm<naturalAlignmentLog2>&>(imm));
+		string += ' ';
+		string += std::to_string(imm.laneIndex);
+	}
+
 	void printImm(LiteralImm<V128> imm)
 	{
 		string += ' ';

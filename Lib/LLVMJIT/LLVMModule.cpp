@@ -752,6 +752,11 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// Bind the tableReferenceBias symbol to the tableReferenceBias.
 	importedSymbolMap.addOrFail("tableReferenceBias", tableReferenceBias);
 
+#if LLVM_VERSION_MAJOR < 10
+	// Bind the unoptimizableOne symbol to 1.
+	importedSymbolMap.addOrFail("unoptimizableOne", 1);
+#endif
+
 #if !USE_WINDOWS_SEH
 	// Use __cxxabiv1::__cxa_current_exception_type to get a reference to the std::type_info for
 	// Runtime::Exception* without enabling RTTI.

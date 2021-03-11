@@ -493,8 +493,6 @@ struct FunctionValidationContext
 
 		const TypeTuple defaultTargetParams = getBranchTargetByDepth(imm.defaultTargetDepth).params;
 
-		popAndValidateTypeTuple("br_table argument", defaultTargetParams);
-
 		// Validate that each target has the same number of parameters as the default target, and
 		// that the parameters for each target match the arguments provided.
 		WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
@@ -508,27 +506,13 @@ struct FunctionValidationContext
 				throw ValidationException(
 					"br_table targets must all take the same number of parameters");
 			}
-			else if(defaultTargetParams != targetParams)
+			else
 			{
-				std::string defaultTargetParameterString;
-				std::string targetParameterString;
-				for(Uptr paramIndex = 0; paramIndex < targetParams.size(); ++paramIndex)
-				{
-					if(paramIndex != 0)
-					{
-						defaultTargetParameterString += ',';
-						targetParameterString += ',';
-					}
-					defaultTargetParameterString += asString(defaultTargetParams[paramIndex]);
-					targetParameterString += asString(targetParams[paramIndex]);
-				}
-
-				throw ValidationException(
-					"type mismatch: br_table case " + std::to_string(targetIndex) + "'s arguments("
-					+ targetParameterString + ") don't match the default case's arguments("
-					+ defaultTargetParameterString + ").");
+				peekAndValidateTypeTuple("br_table case argument", targetParams);
 			}
 		}
+
+		popAndValidateTypeTuple("br_table argument", defaultTargetParams);
 
 		enterUnreachable();
 	}
@@ -698,15 +682,26 @@ struct FunctionValidationContext
 		VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",
 						imm.alignmentLog2 > naturalAlignmentLog2);
 		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
-		switch(module.memories.getType(imm.memoryIndex).indexType)
+		const MemoryType& memoryType = module.memories.getType(imm.memoryIndex);
+		switch(memoryType.indexType)
 		{
 		case IndexType::i32:
 			VALIDATE_UNLESS("load or store offset too large for i32 address",
 							imm.offset > UINT32_MAX);
 			break;
-		case IndexType::i64: break;
+		case IndexType::i64:
+			VALIDATE_UNLESS("load or store offset too large for i64 address",
+							imm.offset > UINT64_MAX);
+			break;
 		default: WAVM_UNREACHABLE();
 		};
+	}
+
+	template<Uptr naturalAlignmentLog2, Uptr numLanes>
+	void validateImm(LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> imm)
+	{
+		validateImm(static_cast<LoadOrStoreImm<naturalAlignmentLog2>&>(imm));
+		VALIDATE_UNLESS("invalid lane index: ", imm.laneIndex >= numLanes);
 	}
 
 	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
@@ -735,7 +730,7 @@ struct FunctionValidationContext
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
 	{
-		VALIDATE_UNLESS("swizzle invalid lane index: ", imm.laneIndex >= numLanes);
+		VALIDATE_UNLESS("invalid lane index: ", imm.laneIndex >= numLanes);
 	}
 
 	template<Uptr numLanes> void validateImm(ShuffleImm<numLanes> imm)
@@ -1212,11 +1207,11 @@ void IR::validateElemSegments(ModuleValidationState& state)
 										  + asString(tableElemType) + ")");
 			}
 
-			validateInitializer(state,
-								elemSegment.baseOffset,
-								asValueType(tableType.indexType),
-								"elem segment base initializer");
-
+			validateInitializer(
+				state,
+				elemSegment.baseOffset,
+				segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(tableType.indexType),
+				"elem segment base initializer");
 			break;
 		}
 		case ElemSegment::Type::passive: break;
@@ -1289,10 +1284,11 @@ void IR::validateDataSegments(ModuleValidationState& state)
 		{
 			VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
 			const MemoryType& memoryType = module.memories.getType(dataSegment.memoryIndex);
-			validateInitializer(state,
-								dataSegment.baseOffset,
-								asValueType(memoryType.indexType),
-								"data segment base initializer");
+			validateInitializer(
+				state,
+				dataSegment.baseOffset,
+				segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(memoryType.indexType),
+				"data segment base initializer");
 		}
 	}
 }

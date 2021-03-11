@@ -76,6 +76,8 @@ namespace WAVM { namespace LLVMJIT {
 		FixedVectorType* i16x4Type;
 		FixedVectorType* i32x2Type;
 		FixedVectorType* i64x1Type;
+		FixedVectorType* f32x2Type;
+		FixedVectorType* f64x1Type;
 
 		FixedVectorType* i8x16Type;
 		FixedVectorType* i16x8Type;

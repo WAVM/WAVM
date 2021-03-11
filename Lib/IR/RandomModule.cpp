@@ -389,6 +389,40 @@ void getValidEmitters(FunctionState& state,
 	}
 }
 
+template<Uptr naturalAlignmentLog2, Uptr numLanes>
+void getValidEmitters(
+	FunctionState& state,
+	std::vector<OperatorEmitFunc>& outValidOpEmitters,
+	void (CodeStream::*emitOp)(LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>),
+	OpSignature (*sigFromImm)(const Module&,
+							  const LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>&))
+{
+	for(Uptr memoryIndex = 0; memoryIndex < state.module.memories.size(); ++memoryIndex)
+	{
+		LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> sigImm;
+		sigImm.memoryIndex = memoryIndex;
+		sigImm.alignmentLog2 = 0;
+		sigImm.offset = 0;
+		sigImm.laneIndex = 0;
+		const OpSignature sig = (*sigFromImm)(state.module, sigImm);
+		if(state.isOpSignatureAllowed(sig))
+		{
+			outValidOpEmitters.push_back([&state, emitOp, sig, memoryIndex](RandomStream& random) {
+				LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> imm;
+				imm.memoryIndex = memoryIndex;
+				imm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
+				imm.offset = random.get(state.module.memories.getType(imm.memoryIndex).indexType
+												== IndexType::i32
+											? UINT32_MAX
+											: UINT64_MAX);
+				imm.laneIndex = random.get<U8>(numLanes - 1);
+				(state.codeStream.*emitOp)(imm);
+				state.applyOpSignature(sig);
+			});
+		}
+	}
+}
+
 template<Uptr naturalAlignmentLog2>
 void getValidEmitters(FunctionState& state,
 					  std::vector<OperatorEmitFunc>& outValidOpEmitters,
@@ -1117,7 +1151,10 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 			module.dataSegments.push_back(
 				{true,
 				 memoryIndex,
-				 generateInitializerExpression(module, random, asValueType(memoryType.indexType)),
+				 generateInitializerExpression(
+					 module,
+					 random,
+					 segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(memoryType.indexType)),
 				 std::make_shared<std::vector<U8>>(std::move(bytes))});
 		}
 	};
@@ -1285,7 +1322,10 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 			module.elemSegments.push_back(
 				{ElemSegment::Type::active,
 				 validTableIndices[validTableIndex],
-				 generateInitializerExpression(module, random, asValueType(tableType.indexType)),
+				 generateInitializerExpression(
+					 module,
+					 random,
+					 segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(tableType.indexType)),
 				 std::move(contents)});
 			break;
 		}

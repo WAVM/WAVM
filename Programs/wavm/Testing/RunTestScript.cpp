@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "../wavm.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Validate.h"
@@ -48,6 +49,7 @@ struct Config
 	bool traceTests{false};
 	bool traceLLVMIR{false};
 	bool traceAssembly{false};
+	FeatureSpec featureSpec{FeatureLevel::standard};
 };
 
 struct TestScriptState
@@ -1300,9 +1302,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(spectest,
 }
 
 WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i32", I32, spectest_global_i32, 666)
-WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 0)
-WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 0.0f)
-WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 666)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 666.0f)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 666.0)
 
 WAVM_DEFINE_INTRINSIC_TABLE(
 	spectest,
@@ -1357,15 +1359,10 @@ static I64 threadMain(void* sharedStateVoid)
 		TestScriptState testScriptState(filename, sharedState->config);
 		std::vector<std::unique_ptr<Command>> testCommands;
 
-		// Use a WebAssembly standard-compliant feature spec that includes all proposed extensions.
-		FeatureSpec featureSpec(FeatureLevel::proposed);
-		featureSpec.customSectionsInTextFormat = true;
-		featureSpec.interleavedLoadStore = true;
-
 		// Parse the test script.
 		WAST::parseTestCommands((const char*)testScriptBytes.data(),
 								testScriptBytes.size(),
-								featureSpec,
+								testScriptState.config.featureSpec,
 								testCommands,
 								testScriptState.errors);
 		if(!testScriptState.errors.size())
@@ -1484,6 +1481,28 @@ int execRunTestScript(int argc, char** argv)
 		else if(!strcmp(argv[argIndex], "--trace-assembly"))
 		{
 			config.traceAssembly = true;
+		}
+		else if(!strcmp(argv[argIndex], "--enable") || !strcmp(argv[argIndex], "--disable"))
+		{
+			const bool enableFeature = !strcmp(argv[argIndex], "--enable");
+
+			++argIndex;
+			if(!argv[argIndex])
+			{
+				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+				return EXIT_FAILURE;
+			}
+
+			if(!parseAndSetFeature(argv[argIndex], config.featureSpec, enableFeature))
+			{
+				Log::printf(Log::error,
+							"Unknown feature '%s'. Supported features:\n"
+							"%s"
+							"\n",
+							argv[argIndex],
+							getFeatureListHelpText().c_str());
+				return EXIT_FAILURE;
+			}
 		}
 		else
 		{

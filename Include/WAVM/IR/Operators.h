@@ -101,6 +101,17 @@ namespace WAVM { namespace IR {
 	{
 	};
 
+	template<Uptr naturalAlignmentLog2, Uptr numLanes>
+	struct LoadOrStoreLaneImm : LoadOrStoreImm<naturalAlignmentLog2>
+	{
+		U8 laneIndex;
+	};
+
+	using LoadOrStoreI8x16LaneImm = LoadOrStoreLaneImm<0, 16>;
+	using LoadOrStoreI16x8LaneImm = LoadOrStoreLaneImm<1, 8>;
+	using LoadOrStoreI32x4LaneImm = LoadOrStoreLaneImm<2, 4>;
+	using LoadOrStoreI64x2LaneImm = LoadOrStoreLaneImm<3, 2>;
+
 	template<Uptr numLanes> struct LaneIndexImm
 	{
 		U8 laneIndex;

@@ -36,6 +36,10 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Constant* instanceId;
 		llvm::Constant* tableReferenceBias;
 
+#if LLVM_VERSION_MAJOR < 10
+		llvm::Constant* unoptimizableOne;
+#endif
+
 		llvm::DIBuilder diBuilder;
 		llvm::DICompileUnit* diCompileUnit;
 		llvm::DIFile* diModuleScope;

@@ -215,8 +215,22 @@ namespace WAVM { namespace LLVMJIT {
 			return irBuilder.CreateVectorSplat(numElements, scalar);
 		}
 
+		template<int numElements>
+		llvm::Value* insertInZeroedVector(llvm::Value* scalar, llvm::VectorType* destType)
+		{
+			llvm::Constant* zeroVector = llvm::Constant::getNullValue(destType);
+			return irBuilder.CreateInsertElement(zeroVector, scalar, U64(0));
+		}
+
+		llvm::Value* extendHalfOfIntVector(
+			llvm::Value* vector,
+			Uptr baseSourceElementIndex,
+			llvm::Value* (EmitFunctionContext::*extend)(llvm::Value*, llvm::Type*));
+
+		llvm::Value* insertIntoHalfZeroVector(llvm::Value* halfVector);
+
 		llvm::Value* emitSRem(IR::ValueType type, llvm::Value* left, llvm::Value* right);
-		llvm::Value* emitF64Promote(llvm::Value* operand);
+		llvm::Value* emitF64Promote(llvm::Value* operand, llvm::Type* destType);
 
 		template<typename Float>
 		llvm::Value* emitTruncFloatToInt(IR::ValueType destType,

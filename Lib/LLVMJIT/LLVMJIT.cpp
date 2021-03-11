@@ -113,6 +113,8 @@ LLVMContext::LLVMContext()
 	i16x4Type = FixedVectorType::get(i16Type, 4);
 	i32x2Type = FixedVectorType::get(i32Type, 2);
 	i64x1Type = FixedVectorType::get(i64Type, 1);
+	f32x2Type = FixedVectorType::get(f32Type, 2);
+	f64x1Type = FixedVectorType::get(f64Type, 1);
 
 	i8x16Type = FixedVectorType::get(i8Type, 16);
 	i16x8Type = FixedVectorType::get(i16Type, 8);

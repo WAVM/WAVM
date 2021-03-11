@@ -97,6 +97,8 @@ std::string getFeatureListHelpText()
 
 #define VISIT_STANDARD_FEATURE(_, name, desc) formatFeature(name, desc, false);
 #define VISIT_NONSTANDARD_FEATURE(_, name, desc) formatFeature(name, desc, true);
+	WAVM_ENUM_STANDARD_FEATURES(VISIT_STANDARD_FEATURE)
+	WAVM_ENUM_MATURE_FEATURES(VISIT_STANDARD_FEATURE)
 	WAVM_ENUM_PROPOSED_FEATURES(VISIT_STANDARD_FEATURE)
 	formatFeature("all-proposed", "All features proposed for standardization", false);
 	formatFeature("", "", false);
@@ -139,6 +141,8 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	}
 	WAVM_ENUM_PROPOSED_FEATURES(VISIT_FEATURE)
 	WAVM_ENUM_NONSTANDARD_FEATURES(VISIT_FEATURE)
+	WAVM_ENUM_MATURE_FEATURES(VISIT_FEATURE)
+	WAVM_ENUM_STANDARD_FEATURES(VISIT_FEATURE)
 #undef VISIT_FEATURE
 
 	return false;

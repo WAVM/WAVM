@@ -83,3 +83,19 @@
 #else
 #define WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(code) code
 #endif
+
+// Suppress warnings when falling through to another case level in a switch statement.
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(fallthrough)
+#define WAVM_FALLTHROUGH [[fallthrough]]
+#elif defined(__has_attribute)
+#if __has_attribute(__fallthrough__)
+#define WAVM_FALLTHROUGH __attribute__((fallthrough))
+#endif
+#endif
+
+#ifndef WAVM_FALLTHROUGH
+#define WAVM_FALLTHROUGH                                                                           \
+	do                                                                                             \
+	{                                                                                              \
+	} while(0) /* fallthrough */
+#endif

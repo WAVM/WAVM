@@ -201,6 +201,12 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
 		createImportedConstant(outLLVMModule, "tableReferenceBias"), moduleContext.iptrType);
 
+#if LLVM_VERSION_MAJOR < 10
+	// Create a LLVM external global that will be a constant Iptr 1 that is opaque to the optimizer.
+	moduleContext.unoptimizableOne = llvm::ConstantExpr::getPtrToInt(
+		createImportedConstant(outLLVMModule, "unoptimizableOne"), moduleContext.iptrType);
+#endif
+
 	// Create a LLVM external global that will point to the std::type_info for Runtime::Exception.
 	if(moduleContext.useWindowsSEH)
 	{

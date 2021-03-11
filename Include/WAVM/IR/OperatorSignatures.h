@@ -144,6 +144,15 @@ namespace WAVM { namespace IR {
 		{
 			return load(module, imm, ValueType::v128);
 		}
+		template<Uptr naturalAlignmentLog2, Uptr numLanes>
+		inline OpSignature load_v128_lane(
+			const Module& module,
+			const LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>& imm)
+		{
+			return OpSignature(
+				{ValueType::v128},
+				{asValueType(module.memories.getType(imm.memoryIndex).indexType), ValueType::v128});
+		}
 
 		inline OpSignature store(const Module& module,
 								 const BaseLoadOrStoreImm& imm,
@@ -169,6 +178,13 @@ namespace WAVM { namespace IR {
 			return store(module, imm, ValueType::f64);
 		}
 		inline OpSignature store_v128(const Module& module, const BaseLoadOrStoreImm& imm)
+		{
+			return store(module, imm, ValueType::v128);
+		}
+		template<Uptr naturalAlignmentLog2, Uptr numLanes>
+		inline OpSignature store_v128_lane(
+			const Module& module,
+			const LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>& imm)
 		{
 			return store(module, imm, ValueType::v128);
 		}
