@@ -39,7 +39,9 @@ namespace LLVMRuntimeSymbols {
 	// LLVM's memset intrinsic lowers to calling __bzero on MacOS when writing a constant zero.
 	extern "C" void __bzero();
 #endif
+#if defined(__i386__) || defined(__x86_64__)
 	extern "C" void wavm_probe_stack();
+#endif
 	extern "C" int __gxx_personality_v0();
 	extern "C" void* __cxa_begin_catch(void*) throw();
 	extern "C" void __cxa_end_catch();
@@ -55,7 +57,9 @@ namespace LLVMRuntimeSymbols {
 #if defined(__APPLE__)
 		{"__bzero", (void*)&__bzero},
 #endif
+#if defined(__i386__) || defined(__x86_64__)
 		{"wavm_probe_stack", (void*)&wavm_probe_stack},
+#endif
 		{"__gxx_personality_v0", (void*)&__gxx_personality_v0},
 		{"__cxa_begin_catch", (void*)&__cxa_begin_catch},
 		{"__cxa_end_catch", (void*)&__cxa_end_catch},

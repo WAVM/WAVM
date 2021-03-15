@@ -54,12 +54,12 @@ namespace WAVM { namespace Runtime {
 	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
 				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
-	static constexpr Uptr contextNumBytes = 4096;
+	static constexpr Uptr contextNumBytes = 16384;
 	static constexpr Uptr maxThunkArgAndReturnBytes = 256;
 	static constexpr Uptr maxMutableGlobals
 		= (contextNumBytes - maxThunkArgAndReturnBytes - sizeof(Context*))
 		  / sizeof(IR::UntaggedValue);
-	static constexpr Uptr contextRuntimeDataAlignment = 4096;
+	static constexpr Uptr contextRuntimeDataAlignment = 16384;
 
 	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
 				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
@@ -72,7 +72,8 @@ namespace WAVM { namespace Runtime {
 		IR::UntaggedValue mutableGlobals[maxMutableGlobals];
 	};
 
-	static_assert(sizeof(ContextRuntimeData) == 4096, "ContextRuntimeData isn't the expected size");
+	static_assert(sizeof(ContextRuntimeData) == contextNumBytes,
+				  "ContextRuntimeData isn't the expected size");
 
 	struct MemoryRuntimeData
 	{
