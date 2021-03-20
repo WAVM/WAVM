@@ -119,6 +119,8 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	if(!strcmp(featureName, "all-proposed"))
 	{
 #define VISIT_FEATURE(cName, ...) featureSpec.cName = true;
+		WAVM_ENUM_STANDARD_FEATURES(VISIT_FEATURE)
+		WAVM_ENUM_MATURE_FEATURES(VISIT_FEATURE)
 		WAVM_ENUM_PROPOSED_FEATURES(VISIT_FEATURE)
 #undef VISIT_FEATURE
 		return true;
@@ -127,6 +129,8 @@ bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, b
 	if(!strcmp(featureName, "all"))
 	{
 #define VISIT_FEATURE(cName, ...) featureSpec.cName = true;
+		WAVM_ENUM_STANDARD_FEATURES(VISIT_FEATURE)
+		WAVM_ENUM_MATURE_FEATURES(VISIT_FEATURE)
 		WAVM_ENUM_PROPOSED_FEATURES(VISIT_FEATURE)
 		WAVM_ENUM_NONSTANDARD_FEATURES(VISIT_FEATURE)
 #undef VISIT_FEATURE
