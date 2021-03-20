@@ -49,13 +49,19 @@ ADD_WAST_TESTS(
 		local_set.wast
 		local_tee.wast
 		loop.wast
+		memory_copy.wast
+		memory_fill.wast
 		memory_grow.wast
+		memory_init.wast
 		memory_redundancy.wast
 		memory_size.wast
 		memory_trap.wast
 		memory.wast
 		names.wast
 		nop.wast
+		ref_func.wast
+		ref_is_null.wast
+		ref_null.wast
 		return.wast
 		select.wast
 		simd/simd_address.wast
@@ -120,6 +126,14 @@ ADD_WAST_TESTS(
 		store.wast
 		switch.wast
 		table.wast
+		table_copy.wast
+		table_fill.wast
+		table_get.wast
+		table_grow.wast
+		table_init.wast
+		table_set.wast
+		table_size.wast
+		table-sub.wast
 		token.wast
 		traps.wast
 		type.wast
@@ -130,4 +144,4 @@ ADD_WAST_TESTS(
 		utf8-import-field.wast
 		utf8-import-module.wast
 		utf8-invalid-encoding.wast
-	WAVM_ARGS --test-cloning --disable ref-types)
+	WAVM_ARGS --test-cloning)
