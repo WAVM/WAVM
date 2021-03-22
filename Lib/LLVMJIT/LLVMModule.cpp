@@ -803,8 +803,13 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
 		llvm::object::SectionedAddress{address, llvm::object::SectionedAddress::UndefSection},
-		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::RawValue,
-								  llvm::DINameKind::None));
+		llvm::DILineInfoSpecifier(
+#if LLVM_VERSION_MAJOR >= 11
+			llvm::DILineInfoSpecifier::FileLineInfoKind::RawValue,
+#else
+			llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
+#endif
+			llvm::DINameKind::None));
 
 	outSource.instructionIndex = Uptr(lineInfo.Line);
 	return true;
