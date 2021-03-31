@@ -351,9 +351,6 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	// VFD+DirEntStream even if there was an error.
 	const VFS::Result result = fde->close();
 
-	// Remove the fd from the fds map.
-	process->fdMap.removeOrFail(fd);
-
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
