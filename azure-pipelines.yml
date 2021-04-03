@@ -24,7 +24,7 @@ stages:
           vsVersion: '2019'
           platform: 'x64'
           llvmBuildBaseName: 'Win64'
-          llvmVersion: '10.x'
+          llvmVersion: '11.x'
 
       # Win32 VS2019
       - template: Build/azure-pipelines/windows-build-job-template.yml
@@ -33,7 +33,7 @@ stages:
           vsVersion: '2019'
           platform: 'x86'
           llvmBuildBaseName: 'Win32'
-          llvmVersion: '10.x'
+          llvmVersion: '11.x'
 
       # Ubuntu 19.10 GCC
       - template: Build/azure-pipelines/posix-build-job-template.yml
@@ -42,7 +42,7 @@ stages:
           vmImage: 'ubuntu-16.04'
           container: 'wavm/ubuntu19.10-builder:latest'
           llvmBuildBaseName: 'Ubuntu1910'
-          llvmVersion: '10.x'
+          llvmVersion: '11.x'
           cpackGenerators: 'TGZ;DEB'
           compiler: 'gcc'
 
@@ -53,7 +53,7 @@ stages:
           vmImage: 'ubuntu-16.04'
           container: 'wavm/ubuntu16.04-builder:latest'
           llvmBuildBaseName: 'Ubuntu1604'
-          llvmVersion: '10.x'
+          llvmVersion: '11.x'
           cpackGenerators: 'TGZ;DEB'
           compiler: 'gcc'
 
@@ -64,7 +64,7 @@ stages:
           vmImage: 'ubuntu-16.04'
           container: 'wavm/ubuntu16.04-builder:latest'
           llvmBuildBaseName: 'Ubuntu1604'
-          llvmVersion: '10.x'
+          llvmVersion: '11.x'
           cpackGenerators: 'TGZ;DEB'
           compiler: 'clang'
 
@@ -75,7 +75,7 @@ stages:
           vmImage: 'ubuntu-16.04'
           container: 'wavm/centos8.x-builder:latest'
           llvmBuildBaseName: 'Centos8x'
-          llvmVersion: '10.x'
+          llvmVersion: '11.x'
           cpackGenerators: 'TGZ;RPM'
           compiler: 'clang'
 
@@ -85,7 +85,7 @@ stages:
           name: MacOS
           vmImage: 'macOS-10.14'
           llvmBuildBaseName: 'MacOS'
-          llvmVersion: '10.x'
+          llvmVersion: '11.x'
           cpackGenerators: 'TGZ'
           compiler: 'appleClang'
           toolchainInstallSteps:
