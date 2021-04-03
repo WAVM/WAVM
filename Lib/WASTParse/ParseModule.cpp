@@ -1000,9 +1000,8 @@ static void parseTable(CursorState* cursor)
 						elemRefType,
 						Name(),
 						Reference(tableIndex),
-						segmentOffsetIsAlwaysI32 || indexType == IndexType::i32
-							? UnresolvedInitializerExpression(I32(0))
-							: UnresolvedInitializerExpression(I64(0)),
+						indexType == IndexType::i32 ? UnresolvedInitializerExpression(I32(0))
+													: UnresolvedInitializerExpression(I64(0)),
 						cursor->nextToken - 1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
@@ -1053,9 +1052,8 @@ static void parseMemory(CursorState* cursor)
 				cursor->moduleState->module.dataSegments.push_back(
 					{true,
 					 cursor->moduleState->module.memories.size(),
-					 segmentOffsetIsAlwaysI32 || indexType == IndexType::i32
-						 ? InitializerExpression(I32(0))
-						 : InitializerExpression(I64(0)),
+					 indexType == IndexType::i32 ? InitializerExpression(I32(0))
+												 : InitializerExpression(I64(0)),
 					 std::make_shared<std::vector<U8>>(std::move(dataVector))});
 				cursor->moduleState->disassemblyNames.dataSegments.push_back(std::string());
 			}

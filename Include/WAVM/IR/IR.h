@@ -10,5 +10,4 @@ namespace WAVM { namespace IR {
 	static constexpr Uptr numBytesPerPage = 65536;
 	static constexpr Uptr numBytesPerPageLog2 = 16;
 	static constexpr Uptr maxReturnValues = 16;
-	static constexpr bool segmentOffsetIsAlwaysI32 = true;
 }}

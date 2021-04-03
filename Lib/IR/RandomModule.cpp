@@ -1151,10 +1151,7 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 			module.dataSegments.push_back(
 				{true,
 				 memoryIndex,
-				 generateInitializerExpression(
-					 module,
-					 random,
-					 segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(memoryType.indexType)),
+				 generateInitializerExpression(module, random, asValueType(memoryType.indexType)),
 				 std::make_shared<std::vector<U8>>(std::move(bytes))});
 		}
 	};
@@ -1322,10 +1319,7 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 			module.elemSegments.push_back(
 				{ElemSegment::Type::active,
 				 validTableIndices[validTableIndex],
-				 generateInitializerExpression(
-					 module,
-					 random,
-					 segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(tableType.indexType)),
+				 generateInitializerExpression(module, random, asValueType(tableType.indexType)),
 				 std::move(contents)});
 			break;
 		}

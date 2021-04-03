@@ -1207,11 +1207,10 @@ void IR::validateElemSegments(ModuleValidationState& state)
 										  + asString(tableElemType) + ")");
 			}
 
-			validateInitializer(
-				state,
-				elemSegment.baseOffset,
-				segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(tableType.indexType),
-				"elem segment base initializer");
+			validateInitializer(state,
+								elemSegment.baseOffset,
+								asValueType(tableType.indexType),
+								"elem segment base initializer");
 			break;
 		}
 		case ElemSegment::Type::passive: break;
@@ -1284,11 +1283,10 @@ void IR::validateDataSegments(ModuleValidationState& state)
 		{
 			VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
 			const MemoryType& memoryType = module.memories.getType(dataSegment.memoryIndex);
-			validateInitializer(
-				state,
-				dataSegment.baseOffset,
-				segmentOffsetIsAlwaysI32 ? ValueType::i32 : asValueType(memoryType.indexType),
-				"data segment base initializer");
+			validateInitializer(state,
+								dataSegment.baseOffset,
+								asValueType(memoryType.indexType),
+								"data segment base initializer");
 		}
 	}
 }

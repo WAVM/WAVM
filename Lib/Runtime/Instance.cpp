@@ -52,7 +52,6 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 
 static Uptr getIndexValue(const Value& value, IndexType indexType)
 {
-	if(segmentOffsetIsAlwaysI32) { indexType = IndexType::i32; }
 	switch(indexType)
 	{
 	case IndexType::i32: WAVM_ASSERT(value.type == ValueType::i32); return value.u32;
