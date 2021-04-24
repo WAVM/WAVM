@@ -568,12 +568,10 @@ void EmitFunctionContext::i8x16_bitmask(NoImm)
 			i8x16OrthogonalBitMask,
 			llvm::UndefValue::get(llvmContext.i8x16Type),
 			llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>{8, 9, 10, 11, 12, 13, 14, 15});
-		auto i8CombinedBitMaskA = callLLVMIntrinsic({llvmContext.i8x8Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i8x8OriginalBitMaskA});
-		auto i8CombinedBitMaskB = callLLVMIntrinsic({llvmContext.i8x8Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i8x8OriginalBitMaskB});
+		auto i8CombinedBitMaskA = callLLVMIntrinsic(
+			{llvmContext.i8x8Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i8x8OriginalBitMaskA});
+		auto i8CombinedBitMaskB = callLLVMIntrinsic(
+			{llvmContext.i8x8Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i8x8OriginalBitMaskB});
 		auto i32CombinedBitMask = irBuilder.CreateOr(
 			irBuilder.CreateZExt(i8CombinedBitMaskA, llvmContext.i32Type),
 			irBuilder.CreateShl(irBuilder.CreateZExt(i8CombinedBitMaskB, llvmContext.i32Type),
@@ -613,9 +611,8 @@ void EmitFunctionContext::i16x8_bitmask(NoImm)
 																					 constant32,
 																					 constant64,
 																					 constant128}));
-		auto i16CombinedBitMask = callLLVMIntrinsic({llvmContext.i16x8Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i16x8OrthogonalBitMask});
+		auto i16CombinedBitMask = callLLVMIntrinsic(
+			{llvmContext.i16x8Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i16x8OrthogonalBitMask});
 		push(irBuilder.CreateZExt(i16CombinedBitMask, llvmContext.i32Type));
 	}
 }
@@ -646,9 +643,8 @@ void EmitFunctionContext::i32x4_bitmask(NoImm)
 															  constant4,
 															  constant8,
 														  }));
-		auto i32CombinedBitMask = callLLVMIntrinsic({llvmContext.i32x4Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i32x4OrthogonalBitMask});
+		auto i32CombinedBitMask = callLLVMIntrinsic(
+			{llvmContext.i32x4Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i32x4OrthogonalBitMask});
 		push(i32CombinedBitMask);
 	}
 }
@@ -675,9 +671,8 @@ void EmitFunctionContext::i64x2_bitmask(NoImm)
 															  constant1,
 															  constant2,
 														  }));
-		auto i64CombinedBitMask = callLLVMIntrinsic({llvmContext.i64x2Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i64x2OrthogonalBitMask});
+		auto i64CombinedBitMask = callLLVMIntrinsic(
+			{llvmContext.i64x2Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i64x2OrthogonalBitMask});
 		push(irBuilder.CreateTrunc(i64CombinedBitMask, llvmContext.i32Type));
 	}
 }

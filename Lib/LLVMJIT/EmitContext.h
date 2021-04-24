@@ -22,12 +22,21 @@ POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #define LLVM_ALIGNMENT(alignment) alignment
 #endif
 
-#if LLVM_VERSION_MAJOR >= 11
+#if LLVM_VERSION_MAJOR >= 12
+#define LLVM_ELEMENT_COUNT(numElements) llvm::ElementCount::getFixed(numElements)
+#define LLVM_LANE_INDEX_TYPE int
+#elif LLVM_VERSION_MAJOR >= 11
 #define LLVM_ELEMENT_COUNT(numElements) llvm::ElementCount(numElements, false)
 #define LLVM_LANE_INDEX_TYPE int
 #else
 #define LLVM_ELEMENT_COUNT(numElements) ((unsigned int)(numElements))
 #define LLVM_LANE_INDEX_TYPE uint32_t
+#endif
+
+#if LLVM_VERSION_MAJOR >= 12
+#define LLVM_INTRINSIC_VECTOR_REDUCE_ADD llvm::Intrinsic::vector_reduce_add
+#else
+#define LLVM_INTRINSIC_VECTOR_REDUCE_ADD llvm::Intrinsic::experimental_vector_reduce_add
 #endif
 
 namespace WAVM { namespace LLVMJIT {
