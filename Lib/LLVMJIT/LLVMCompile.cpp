@@ -94,7 +94,14 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 	fpm.add(llvm::createInstructionCombiningPass());
 	fpm.add(llvm::createCFGSimplificationPass());
 	fpm.add(llvm::createJumpThreadingPass());
+#if LLVM_VERSION_MAJOR >= 12
+	// LLVM 12 removed the constant propagation pass in favor of the instsimplify pass, which is
+	// itself marked as legacy.
+	// TODO: evaluate if this is the best pass configuration in LLVM 12.
+	fpm.add(llvm::createInstSimplifyLegacyPass());
+#else
 	fpm.add(llvm::createConstantPropagationPass());
+#endif
 
 	// This DCE pass is necessary to work around a bug in LLVM's CodeGenPrepare that's triggered
 	// if there's a dead div/rem with limited-range divisor:
