@@ -689,6 +689,7 @@ struct WindowsFS : HostFS
 
 	virtual Result openDir(const std::string& path, DirEntStream*& outStream) override;
 
+	virtual Result renameFile(const std::string& oldPath, const std::string& newPath) override;
 	virtual Result unlinkFile(const std::string& path) override;
 	virtual Result removeDir(const std::string& path) override;
 	virtual Result createDir(const std::string& path) override;
@@ -778,7 +779,7 @@ Result WindowsFS::getFileInfo(const std::string& path, FileInfo& outInfo)
 								FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 								nullptr,
 								OPEN_EXISTING,
-								0,
+								FILE_FLAG_BACKUP_SEMANTICS,
 								nullptr);
 	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
 
@@ -806,7 +807,7 @@ Result WindowsFS::setFileTimes(const std::string& path,
 								FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 								nullptr,
 								OPEN_EXISTING,
-								0,
+								FILE_FLAG_BACKUP_SEMANTICS,
 								nullptr);
 	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
 
@@ -827,6 +828,18 @@ Result WindowsFS::setFileTimes(const std::string& path,
 	{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 
 	return result;
+}
+
+Result WindowsFS::renameFile(const std::string& oldPath, const std::string& newPath)
+{
+	// Convert the paths from UTF-8 VFS paths (with /) to UTF-16 Windows paths (with \).
+	std::wstring oldWindowsPath;
+	if(!getWindowsPath(oldPath, oldWindowsPath)) { return Result::invalidNameCharacter; }
+	std::wstring newWindowsPath;
+	if(!getWindowsPath(newPath, newWindowsPath)) { return Result::invalidNameCharacter; }
+
+	return MoveFileW(oldWindowsPath.c_str(), newWindowsPath.c_str()) ? Result::success
+																	 : asVFSResult(GetLastError());
 }
 
 Result WindowsFS::unlinkFile(const std::string& path)

@@ -1107,14 +1107,41 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   WASIAddress newPathAddress,
 							   WASIAddress numNewPathBytes)
 {
-	UNIMPLEMENTED_SYSCALL("path_rename",
-						  "(%u, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
-						  oldFD,
-						  oldPathAddress,
-						  numOldPathBytes,
-						  newFD,
-						  newPathAddress,
-						  numNewPathBytes);
+	TRACE_SYSCALL("path_rename",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
+				  oldFD,
+				  oldPathAddress,
+				  numOldPathBytes,
+				  newFD,
+				  newPathAddress,
+				  numNewPathBytes);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	std::string canonicalOldPath;
+	const __wasi_errno_t oldPathError = validatePath(process,
+													 oldFD,
+													 0,
+													 __WASI_RIGHT_PATH_RENAME_SOURCE,
+													 0,
+													 oldPathAddress,
+													 numOldPathBytes,
+													 canonicalOldPath);
+	if(oldPathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(oldPathError); }
+
+	std::string canonicalNewPath;
+	const __wasi_errno_t newPathError = validatePath(process,
+													 newFD,
+													 0,
+													 __WASI_RIGHT_PATH_RENAME_TARGET,
+													 0,
+													 newPathAddress,
+													 numNewPathBytes,
+													 canonicalNewPath);
+	if(newPathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(newPathError); }
+
+	return TRACE_SYSCALL_RETURN(
+		asWASIErrNo(process->fileSystem->renameFile(canonicalOldPath, canonicalNewPath)));
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,

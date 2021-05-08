@@ -255,6 +255,7 @@ namespace WAVM { namespace VFS {
 
 		virtual Result openDir(const std::string& path, DirEntStream*& outStream) = 0;
 
+		virtual Result renameFile(const std::string& oldPath, const std::string& newPath) = 0;
 		virtual Result unlinkFile(const std::string& path) = 0;
 		virtual Result removeDir(const std::string& path) = 0;
 		virtual Result createDir(const std::string& path) = 0;

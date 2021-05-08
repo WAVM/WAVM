@@ -621,6 +621,7 @@ struct POSIXFS : HostFS
 
 	virtual Result openDir(const std::string& path, DirEntStream*& outStream) override;
 
+	virtual Result renameFile(const std::string& oldPath, const std::string& newPath) override;
 	virtual Result unlinkFile(const std::string& path) override;
 	virtual Result removeDir(const std::string& path) override;
 	virtual Result createDir(const std::string& path) override;
@@ -740,6 +741,11 @@ Result POSIXFS::openDir(const std::string& path, DirEntStream*& outStream)
 
 	outStream = new POSIXDirEntStream(dir);
 	return Result::success;
+}
+
+Result POSIXFS::renameFile(const std::string& oldPath, const std::string& newPath)
+{
+	return !rename(oldPath.c_str(), newPath.c_str()) ? VFS::Result::success : asVFSResult(errno);
 }
 
 Result POSIXFS::unlinkFile(const std::string& path)

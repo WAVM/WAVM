@@ -43,6 +43,11 @@ struct SandboxFS : FileSystem
 		return innerFS->openDir(getInnerPath(path), outStream);
 	}
 
+	virtual Result renameFile(const std::string& oldPath, const std::string& newPath) override
+	{
+		return innerFS->renameFile(getInnerPath(oldPath), getInnerPath(newPath));
+	}
+
 	virtual Result unlinkFile(const std::string& path) override
 	{
 		return innerFS->unlinkFile(getInnerPath(path));
