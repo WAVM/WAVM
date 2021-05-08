@@ -207,6 +207,17 @@ static bool stringStartsWith(const char* string, const char (&prefix)[numPrefixC
 	return !strncmp(string, prefix, numPrefixChars - 1);
 }
 
+static std::string getFilenameAndExtension(const char* path)
+{
+	const char* filenameBegin = path;
+	for(Uptr charIndex = 0; path[charIndex]; ++charIndex)
+	{
+		if(path[charIndex] == '/' || path[charIndex] == '\\' || path[charIndex] == ':')
+		{ filenameBegin = path + charIndex + 1; }
+	}
+	return std::string(filenameBegin);
+}
+
 enum class ABI
 {
 	detect,
@@ -568,7 +579,7 @@ struct State
 		if(abi == ABI::emscripten)
 		{
 			std::vector<std::string> args = runArgs;
-			args.insert(args.begin(), "/proc/1/exe");
+			args.insert(args.begin(), getFilenameAndExtension(filename));
 
 			// Instantiate the Emscripten environment.
 			emscriptenProcess
@@ -582,7 +593,7 @@ struct State
 		else if(abi == ABI::wasi)
 		{
 			std::vector<std::string> args = runArgs;
-			args.insert(args.begin(), "/proc/1/exe");
+			args.insert(args.begin(), getFilenameAndExtension(filename));
 
 			// Create the WASI process.
 			wasiProcess = WASI::createProcess(compartment,
