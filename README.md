@@ -10,10 +10,6 @@
 
 ##### WAVM is a WebAssembly virtual machine, designed for use in non-web applications.
 
-> This is a version of WAVM modified for use in [Hunter](https://github.com/soramitsu/soramitsu-hunter)
-> 
-> Examples and tests are made optional and [HunterGate](cmake/HunterGate.cmake) is added to allow adding hunterized dependencies to WAVM
-
 ### Fast
 
 WAVM uses [LLVM](https://llvm.org/) to compile WebAssembly code to machine code with close to

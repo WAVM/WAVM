@@ -12,12 +12,6 @@ set(WAVM_VERSION_MINOR  ${CMAKE_MATCH_2})
 set(WAVM_VERSION_PATCH  ${CMAKE_MATCH_3})
 set(WAVM_VERSION_SUFFIX ${CMAKE_MATCH_4})
 
-include("cmake/HunterGate.cmake")
-HunterGate(
-    URL "https://github.com/soramitsu/soramitsu-hunter/archive/830c69c05a12832679109968517912ad0da2c0c2.zip"
-    SHA1 "81e2674c6d3da1faabbbef2527cf6e3f3583d121"
-)
-
 # Declare the CMake project
 project(
 	WAVM
