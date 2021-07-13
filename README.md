@@ -60,3 +60,4 @@ WAVM's runtime requires a 64-bit virtual address space, and so is not portable t
 However, WAVM's assembler and disassembler work on 32-bit hosts.
 
 [Portability Matrix](Doc/PortabilityMatrix.md)
+
