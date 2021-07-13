@@ -721,7 +721,7 @@ if (WAVM_BUILD_PROGRAMS)
   add_subdirectory(Programs/wavm)
 endif()
 
-  option(WAVM_BUILD_TESTS "Build tests" OFF)
+option(WAVM_BUILD_TESTS "Build tests" OFF)
 if (WAVM_BUILD_TESTS)
 	add_subdirectory(Test)
 endif()
