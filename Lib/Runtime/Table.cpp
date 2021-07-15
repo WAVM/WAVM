@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <vector>
+#include <algorithm>
 #include "RuntimePrivate.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
