@@ -4,6 +4,7 @@
 #include <atomic>
 #include <memory>
 #include <vector>
+#include <algorithm>
 #include "RuntimePrivate.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
