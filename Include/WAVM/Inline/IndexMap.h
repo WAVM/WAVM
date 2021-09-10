@@ -23,7 +23,7 @@ namespace WAVM {
 		template<typename... Args> Index add(Index failIndex, Args&&... args)
 		{
 			// If all possible indices are allocated, return failure.
-			if(map.size() > Uptr(maxIndex - minIndex + 1)) { return failIndex; }
+			if(map.size() >= Uptr(maxIndex - minIndex + 1)) { return failIndex; }
 
 			// Starting from the index after the last index to be allocated, check indices
 			// sequentially until one is found that isn't allocated.
