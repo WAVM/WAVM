@@ -12,6 +12,13 @@ set(WAVM_VERSION_MINOR  ${CMAKE_MATCH_2})
 set(WAVM_VERSION_PATCH  ${CMAKE_MATCH_3})
 set(WAVM_VERSION_SUFFIX ${CMAKE_MATCH_4})
 
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/HunterGate.cmake)
+
+HunterGate(
+    URL  https://github.com/sanblch/hunter/archive/refs/tags/v0.23.318.tar.gz
+    SHA1 3db469844fd12206fe16ff74007e9a7568d5ef5e
+)
+
 # Declare the CMake project
 project(
 	WAVM
@@ -104,8 +111,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
 endif()
 
 if(WAVM_ENABLE_RUNTIME)
-  # TODO(Harrm): seems like LLVM version in Hunter is currently ancient so this doesn't work
-	# hunter_add_package(LLVM)
+	hunter_add_package(LLVM)
 
 	# Find an installed build of LLVM
 	find_package(LLVM REQUIRED CONFIG)
