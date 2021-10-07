@@ -72,7 +72,7 @@ static std::string getModuleName(HMODULE module)
 static std::string trimModuleName(std::string moduleName)
 {
 	const std::string thisModuleName = getModuleName(getCurrentModule());
-	Uptr lastBackslashOffset = thisModuleName.find_last_of("\\");
+	Uptr lastBackslashOffset = thisModuleName.find_last_of('\\');
 	if(lastBackslashOffset != UINTPTR_MAX && moduleName.size() >= lastBackslashOffset
 	   && moduleName.substr(0, lastBackslashOffset)
 			  == thisModuleName.substr(0, lastBackslashOffset))

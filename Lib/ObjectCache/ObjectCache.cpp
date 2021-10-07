@@ -46,7 +46,7 @@ WAVM_PACKED_STRUCT(struct ModuleKey {
 		U64 moduleHashU64s[2];
 	};
 
-	ModuleKey() {}
+	ModuleKey() = default;
 	ModuleKey(U64 codeKey, U8 inModuleHashBytes[16])
 	{
 		memcpy(codeKeyBytes, &codeKey, sizeof(codeKeyBytes));
@@ -67,7 +67,7 @@ WAVM_PACKED_STRUCT(struct ModuleKey {
 WAVM_PACKED_STRUCT(struct TimeKey {
 	U8 bytes[16];
 
-	TimeKey() {}
+	TimeKey() = default;
 	TimeKey(const Time& time)
 	{
 		WAVM_ASSERT(time.ns >= 0);

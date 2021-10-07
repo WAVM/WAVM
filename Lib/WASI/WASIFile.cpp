@@ -127,7 +127,7 @@ static bool readUserString(Memory* memory,
 						   WASIAddress numStringBytes,
 						   std::string& outString)
 {
-	outString = "";
+	outString.clear();
 
 	bool succeeded = true;
 	catchRuntimeExceptions(

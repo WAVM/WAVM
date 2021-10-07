@@ -59,13 +59,13 @@ namespace WAVM { namespace Platform {
 
 		struct ExclusiveLock : Lock
 		{
-			ExclusiveLock() {}
+			ExclusiveLock() = default;
 			ExclusiveLock(RWMutex& inMutex) : Lock(inMutex, exclusive) {}
 		};
 
 		struct ShareableLock : Lock
 		{
-			ShareableLock() {}
+			ShareableLock() = default;
 			ShareableLock(RWMutex& inMutex) : Lock(inMutex, shareable) {}
 		};
 
