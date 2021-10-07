@@ -81,7 +81,7 @@ struct GlobalUniqueTypeTuples
 	}
 
 private:
-	GlobalUniqueTypeTuples() {}
+	GlobalUniqueTypeTuples() = default;
 };
 
 const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueType* inElems)
@@ -130,7 +130,7 @@ struct GlobalUniqueFunctionTypes
 	}
 
 private:
-	GlobalUniqueFunctionTypes() {}
+	GlobalUniqueFunctionTypes() = default;
 };
 
 IR::FunctionType::Impl::Impl(TypeTuple inResults,

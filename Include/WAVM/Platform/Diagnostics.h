@@ -23,7 +23,7 @@ namespace WAVM { namespace Platform {
 
 		InlineArray<Frame, maxFrames> frames;
 
-		~CallStack() {}
+		~CallStack() = default;
 	};
 
 	// Describes the source of an instruction in a native module.

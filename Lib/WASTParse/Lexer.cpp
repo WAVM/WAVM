@@ -226,7 +226,7 @@ static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
 
 	if(DUMP_DFA_GRAPH)
 	{
-		std::string dfaGraphVizString = nfaMachine.dumpDFAGraphViz().c_str();
+		std::string dfaGraphVizString = nfaMachine.dumpDFAGraphViz();
 		WAVM_ERROR_UNLESS(
 			saveFile("dfaGraph.dot", dfaGraphVizString.data(), dfaGraphVizString.size()));
 	}

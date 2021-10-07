@@ -217,7 +217,7 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 			while(tryParseValueType(cursor, parameterType))
 			{
 				parameters.push_back(parameterType);
-				outLocalDisassemblyNames.push_back(std::string());
+				outLocalDisassemblyNames.emplace_back();
 			};
 		}
 	}))
@@ -337,7 +337,7 @@ IndexedFunctionType WAST::getUniqueFunctionTypeIndex(ModuleState* moduleState,
 	{
 		functionTypeIndex = moduleState->module.types.size();
 		moduleState->module.types.push_back(functionType);
-		moduleState->disassemblyNames.types.push_back(std::string());
+		moduleState->disassemblyNames.types.emplace_back();
 	}
 	return IndexedFunctionType{functionTypeIndex};
 }

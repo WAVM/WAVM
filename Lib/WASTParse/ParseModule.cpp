@@ -1055,7 +1055,7 @@ static void parseMemory(CursorState* cursor)
 					 indexType == IndexType::i32 ? InitializerExpression(I32(0))
 												 : InitializerExpression(I64(0)),
 					 std::make_shared<std::vector<U8>>(std::move(dataVector))});
-				cursor->moduleState->disassemblyNames.dataSegments.push_back(std::string());
+				cursor->moduleState->disassemblyNames.dataSegments.emplace_back();
 			}
 
 			const bool isShared = parseOptionalSharedDeclaration(cursor);

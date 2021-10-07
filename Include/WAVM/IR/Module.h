@@ -296,7 +296,7 @@ namespace WAVM { namespace IR {
 		std::string name;
 		std::vector<U8> data;
 
-		CustomSection() {}
+		CustomSection() = default;
 		CustomSection(OrderedSectionID inAfterSection,
 					  std::string&& inName,
 					  std::vector<U8>&& inData)
