@@ -50,10 +50,31 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 {
 	const Uptr pageSizeLog2 = getBytesPerPageLog2();
 	const Uptr numBytes = numPages << pageSizeLog2;
-	void* result = VirtualAlloc(nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS);
-	if(result == nullptr) { return nullptr; }
-	return (U8*)result;
+	return (U8*)VirtualAlloc(nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS);
 }
+
+#define ENABLE_VIRTUALALLOC2 defined(MEM_EXTENDED_PARAMETER_TYPE_BITS)
+
+#if ENABLE_VIRTUALALLOC2
+typedef void*(
+	__stdcall* VirtualAlloc2PointerType)(HANDLE, PVOID, size_t, ULONG, ULONG, PVOID, ULONG);
+static VirtualAlloc2PointerType loadVirtualAlloc2()
+{
+	// VirtualAlloc2 is only available on Windows 10+ and Windows Server 2016+. Try to dynamically
+	// look it up by name from the API DLL.
+	HMODULE kernelBaseHandle = LoadLibraryA("kernelbase.dll");
+	if(!kernelBaseHandle) { return nullptr; }
+	VirtualAlloc2PointerType virtualAlloc2 = reinterpret_cast<VirtualAlloc2PointerType>(
+		::GetProcAddress(kernelBaseHandle, "VirtualAlloc2"));
+	WAVM_ERROR_UNLESS(FreeLibrary(kernelBaseHandle));
+	return virtualAlloc2;
+}
+static VirtualAlloc2PointerType getVirtualAlloc2()
+{
+	static const VirtualAlloc2PointerType virtualAlloc2 = loadVirtualAlloc2();
+	return virtualAlloc2;
+}
+#endif
 
 U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 										  Uptr alignmentLog2,
@@ -61,47 +82,68 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 {
 	const Uptr pageSizeLog2 = getBytesPerPageLog2();
 	const Uptr numBytes = numPages << pageSizeLog2;
-	if(alignmentLog2 > pageSizeLog2)
+
+#if ENABLE_VIRTUALALLOC2
+	// If VirtualAlloc2 is available on the host Windows version, use it to allocate aligned memory.
+	if(const VirtualAlloc2PointerType virtualAlloc2 = getVirtualAlloc2())
 	{
-		Uptr numTries = 0;
-		while(true)
-		{
-			// Call VirtualAlloc with enough padding added to the size to align the allocation
-			// within the unaligned mapping.
-			const Uptr alignmentBytes = 1ull << alignmentLog2;
-			void* probeResult
-				= VirtualAlloc(nullptr, numBytes + alignmentBytes, MEM_RESERVE, PAGE_NOACCESS);
-			if(!probeResult) { return nullptr; }
-
-			const Uptr address = reinterpret_cast<Uptr>(probeResult);
-			const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);
-
-			if(numTries < 10)
-			{
-				// Free the unaligned+padded allocation, and try to immediately reserve just the
-				// aligned middle part again. This can fail due to races with other threads, so
-				// handle the VirtualAlloc failing by just retrying with a new unaligned+padded
-				// allocation.
-				WAVM_ERROR_UNLESS(VirtualFree(probeResult, 0, MEM_RELEASE));
-				outUnalignedBaseAddress = (U8*)VirtualAlloc(
-					reinterpret_cast<void*>(alignedAddress), numBytes, MEM_RESERVE, PAGE_NOACCESS);
-				if(outUnalignedBaseAddress) { return outUnalignedBaseAddress; }
-
-				++numTries;
-			}
-			else
-			{
-				// If the below free and re-alloc of the aligned address fails too many times,
-				// just return the padded allocation.
-				outUnalignedBaseAddress = (U8*)probeResult;
-				return reinterpret_cast<U8*>(alignedAddress);
-			}
-		}
+		MEM_ADDRESS_REQUIREMENTS addressRequirements = {0};
+		addressRequirements.Alignment = Uptr(1) << alignmentLog2;
+		MEM_EXTENDED_PARAMETER alignmentParam = {0};
+		alignmentParam.Type = MemExtendedParameterAddressRequirements;
+		alignmentParam.Pointer = &addressRequirements;
+		outUnalignedBaseAddress = (U8*)(*virtualAlloc2)(
+			GetCurrentProcess(), nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS, &alignmentParam, 1);
+		return outUnalignedBaseAddress;
 	}
 	else
+#endif
 	{
-		outUnalignedBaseAddress = allocateVirtualPages(numPages);
-		return outUnalignedBaseAddress;
+		if(alignmentLog2 > pageSizeLog2)
+		{
+			Uptr numTries = 0;
+			while(true)
+			{
+				// Call VirtualAlloc with enough padding added to the size to align the allocation
+				// within the unaligned mapping.
+				const Uptr alignmentBytes = 1ull << alignmentLog2;
+				void* probeResult
+					= VirtualAlloc(nullptr, numBytes + alignmentBytes, MEM_RESERVE, PAGE_NOACCESS);
+				if(!probeResult) { return nullptr; }
+
+				const Uptr address = reinterpret_cast<Uptr>(probeResult);
+				const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);
+
+				if(numTries < 10)
+				{
+					// Free the unaligned+padded allocation, and try to immediately reserve just the
+					// aligned middle part again. This can fail due to races with other threads, so
+					// handle the VirtualAlloc failing by just retrying with a new unaligned+padded
+					// allocation.
+					WAVM_ERROR_UNLESS(VirtualFree(probeResult, 0, MEM_RELEASE));
+					outUnalignedBaseAddress
+						= (U8*)VirtualAlloc(reinterpret_cast<void*>(alignedAddress),
+											numBytes,
+											MEM_RESERVE,
+											PAGE_NOACCESS);
+					if(outUnalignedBaseAddress) { return outUnalignedBaseAddress; }
+
+					++numTries;
+				}
+				else
+				{
+					// If the below free and re-alloc of the aligned address fails too many times,
+					// just return the padded allocation.
+					outUnalignedBaseAddress = (U8*)probeResult;
+					return reinterpret_cast<U8*>(alignedAddress);
+				}
+			}
+		}
+		else
+		{
+			outUnalignedBaseAddress = allocateVirtualPages(numPages);
+			return outUnalignedBaseAddress;
+		}
 	}
 }
 
