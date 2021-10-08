@@ -1,7 +1,7 @@
 jobs:
   - job: UploadGitHubRelease
     pool:
-      vmImage: ubuntu-16.04
+      vmImage: ubuntu-latest
 
     # Only upload a "nightly" build if this is the scheduled build of the master branch.
     # Even if not uploading a release, do the rest of the release job to ensure that breakage will
