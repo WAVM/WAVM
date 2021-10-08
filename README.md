@@ -8,7 +8,7 @@
 
 [Getting Started](Doc/GettingStarted.md) | [Building WAVM from Source](Doc/Building.md) | [Exploring the WAVM source](Doc/CodeOrganization.md)
 
-##### WAVM is a WebAssembly virtual machine, designed for use in non-web applications.
+##### WAVM is a WebAssembly virtual machine, designed for use in non-browser applications.
 
 ### Fast
 
