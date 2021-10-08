@@ -29,6 +29,8 @@ namespace WAVM { namespace WAST {
 			assert_malformed,
 			assert_unlinkable,
 			benchmark,
+			thread,
+			wait,
 		};
 		const Type type;
 		const TextFileLocus locus;
@@ -171,21 +173,23 @@ namespace WAVM { namespace WAST {
 	{
 		enum class Type
 		{
-			i32,
-			i64,
-			i8x16,
-			i16x8,
-			i32x4,
-			i64x2,
+			i32_const,
+			i64_const,
+			i8x16_const,
+			i16x8_const,
+			i32x4_const,
+			i64x2_const,
 
-			f32,
-			f64,
-			f32x4,
-			f64x2,
+			f32_const,
+			f64_const,
+			f32x4_const,
+			f64x2_const,
 
-			specificObject,
-			anyFunction,
-			nullref,
+			ref_extern,
+			ref_func,
+			ref_null,
+
+			either,
 		};
 
 		Type type;
@@ -206,7 +210,82 @@ namespace WAVM { namespace WAST {
 
 			Runtime::Object* object;
 			IR::ReferenceType nullReferenceType;
+
+			std::vector<std::shared_ptr<ResultSet>> alternatives;
 		};
+
+		ResultSet() : type(Type::i32_const), i32(0) {}
+		ResultSet(const ResultSet& copyee) { copyFrom(copyee); }
+		ResultSet(ResultSet&& movee) { moveFrom(std::move(movee)); }
+
+		ResultSet& operator=(const ResultSet& copyee)
+		{
+			this->~ResultSet();
+			copyFrom(copyee);
+			return *this;
+		}
+		ResultSet& operator=(ResultSet&& movee)
+		{
+			this->~ResultSet();
+			moveFrom(std::move(movee));
+			return *this;
+		}
+
+		~ResultSet()
+		{
+			if(type == Type::either) { alternatives.~vector<std::shared_ptr<ResultSet>>(); }
+		}
+
+	private:
+		void copyFrom(const ResultSet& copyee)
+		{
+			type = copyee.type;
+			switch(type)
+			{
+			case Type::i32_const: i32 = copyee.i32; break;
+			case Type::i64_const: i64 = copyee.i64; break;
+			case Type::i8x16_const: memcpy(i8x16, copyee.i8x16, sizeof(i8x16)); break;
+			case Type::i16x8_const: memcpy(i16x8, copyee.i16x8, sizeof(i16x8)); break;
+			case Type::i32x4_const: memcpy(i32x4, copyee.i32x4, sizeof(i32x4)); break;
+			case Type::i64x2_const: memcpy(i64x2, copyee.i64x2, sizeof(i64x2)); break;
+			case Type::f32_const: f32 = copyee.f32; break;
+			case Type::f64_const: f64 = copyee.f64; break;
+			case Type::f32x4_const: memcpy(f32x4, copyee.f32x4, sizeof(f32x4)); break;
+			case Type::f64x2_const: memcpy(f64x2, copyee.f64x2, sizeof(f64x2)); break;
+			case Type::ref_extern: object = copyee.object; break;
+			case Type::ref_func: break;
+			case Type::ref_null: nullReferenceType = copyee.nullReferenceType; break;
+			case Type::either:
+				new(&alternatives) std::vector<std::shared_ptr<ResultSet>>(copyee.alternatives);
+				break;
+			default: WAVM_UNREACHABLE();
+			};
+		}
+		void moveFrom(ResultSet&& movee)
+		{
+			type = movee.type;
+			switch(type)
+			{
+			case Type::i32_const: i32 = movee.i32; break;
+			case Type::i64_const: i64 = movee.i64; break;
+			case Type::i8x16_const: memcpy(i8x16, movee.i8x16, sizeof(i8x16)); break;
+			case Type::i16x8_const: memcpy(i16x8, movee.i16x8, sizeof(i16x8)); break;
+			case Type::i32x4_const: memcpy(i32x4, movee.i32x4, sizeof(i32x4)); break;
+			case Type::i64x2_const: memcpy(i64x2, movee.i64x2, sizeof(i64x2)); break;
+			case Type::f32_const: f32 = movee.f32; break;
+			case Type::f64_const: f64 = movee.f64; break;
+			case Type::f32x4_const: memcpy(f32x4, movee.f32x4, sizeof(f32x4)); break;
+			case Type::f64x2_const: memcpy(f64x2, movee.f64x2, sizeof(f64x2)); break;
+			case Type::ref_extern: object = movee.object; break;
+			case Type::ref_func: break;
+			case Type::ref_null: nullReferenceType = movee.nullReferenceType; break;
+			case Type::either:
+				new(&alternatives)
+					std::vector<std::shared_ptr<ResultSet>>(std::move(movee.alternatives));
+				break;
+			default: WAVM_UNREACHABLE();
+			};
+		}
 	};
 
 	struct AssertReturnCommand : Command
@@ -331,6 +410,34 @@ namespace WAVM { namespace WAST {
 		: Command(Command::benchmark, std::move(inLocus))
 		, name(std::move(inName))
 		, invokeAction(std::move(inInvokeAction))
+		{
+		}
+	};
+
+	struct ThreadCommand : Command
+	{
+		std::string threadName;
+		std::vector<std::string> sharedModuleInternalNames;
+		std::vector<std::unique_ptr<Command>> commands;
+
+		ThreadCommand(TextFileLocus&& inLocus,
+					  std::string&& inThreadName,
+					  std::vector<std::string> inSharedModuleInternalNames,
+					  std::vector<std::unique_ptr<Command>>&& inCommands)
+		: Command(Command::thread, std::move(inLocus))
+		, threadName(inThreadName)
+		, sharedModuleInternalNames(inSharedModuleInternalNames)
+		, commands(std::move(inCommands))
+		{
+		}
+	};
+
+	struct WaitCommand : Command
+	{
+		std::string threadName;
+
+		WaitCommand(TextFileLocus&& inLocus, std::string&& inThreadName)
+		: Command(Command::wait, std::move(inLocus)), threadName(inThreadName)
 		{
 		}
 	};

@@ -71,13 +71,11 @@ static Table* createTableImpl(Compartment* compartment,
 {
 	Table* table = new Table(compartment, type, std::move(debugName), resourceQuota);
 
-	// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds
-	// checking, or 16MB (4M elements) if the host is 32-bit.
-	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
 	const U64 tableMaxElements = std::min(
 		type.size.max, type.indexType == IR::IndexType::i32 ? maxTable32Elems : maxTable64Elems);
 	const U64 tableMaxBytes = sizeof(Table::Element) * tableMaxElements;
-	const U64 tableMaxPages = tableMaxBytes >> pageBytesLog2;
+	const U64 tableMaxPages
+		= (tableMaxBytes + Platform::getBytesPerPage() - 1) >> Platform::getBytesPerPageLog2();
 
 	table->elements
 		= (Table::Element*)Platform::allocateVirtualPages(tableMaxPages + numGuardPages);
@@ -118,9 +116,9 @@ static GrowResult growTableImpl(Table* table,
 		// If the growth would cause the table's size to exceed its maximum, return
 		// GrowResult::outOfMaxSize.
 		const U64 maxTableElems
-			= table->type.indexType == IR::IndexType::i32 ? IR::maxTable32Elems : ::maxTable64Elems;
-		if(numElementsToGrow > table->type.size.max
-		   || oldNumElements > table->type.size.max - numElementsToGrow
+			= table->indexType == IR::IndexType::i32 ? IR::maxTable32Elems : ::maxTable64Elems;
+		if(numElementsToGrow > table->maxElements
+		   || oldNumElements > table->maxElements - numElementsToGrow
 		   || numElementsToGrow > maxTableElems
 		   || oldNumElements > maxTableElems - numElementsToGrow)
 		{
@@ -211,22 +209,22 @@ Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 	Platform::RWMutex::ExclusiveLock resizingLock(table->resizingMutex);
 
 	// Create the new table.
-	const Uptr numElements = table->numElements.load(std::memory_order_acquire);
+	const IR::TableType tableType = getTableType(table);
 	std::string debugName = table->debugName;
 	Table* newTable
-		= createTableImpl(newCompartment, table->type, std::move(debugName), table->resourceQuota);
+		= createTableImpl(newCompartment, tableType, std::move(debugName), table->resourceQuota);
 	if(!newTable) { return nullptr; }
 
 	// Grow the table to the same size as the original, without initializing the new elements since
 	// they will be written immediately following this.
-	if(growTableImpl(newTable, numElements, nullptr, false) != GrowResult::success)
+	if(growTableImpl(newTable, tableType.size.min, nullptr, false) != GrowResult::success)
 	{
 		delete newTable;
 		return nullptr;
 	}
 
 	// Copy the original table's elements to the new table.
-	for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
+	for(Uptr elementIndex = 0; elementIndex < tableType.size.min; ++elementIndex)
 	{
 		newTable->elements[elementIndex].biasedValue.store(
 			table->elements[elementIndex].biasedValue.load(std::memory_order_acquire),
@@ -278,7 +276,7 @@ Table::~Table()
 
 	// Free the virtual address space.
 	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
-	if(numReservedBytes > 0)
+	if(elements && numReservedBytes > 0)
 	{
 		Platform::freeVirtualPages((U8*)elements,
 								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
@@ -402,7 +400,13 @@ Uptr Runtime::getTableNumElements(const Table* table)
 	return table->numElements.load(std::memory_order_acquire);
 }
 
-IR::TableType Runtime::getTableType(const Table* table) { return table->type; }
+IR::TableType Runtime::getTableType(const Table* table)
+{
+	return IR::TableType(table->elementType,
+						 table->isShared,
+						 table->indexType,
+						 IR::SizeConstraints{getTableNumElements(table), table->maxElements});
+}
 
 GrowResult Runtime::growTable(Table* table,
 							  Uptr numElementsToGrow,
@@ -452,10 +456,10 @@ void Runtime::initElemSegment(Instance* instance,
 	switch(contents->encoding)
 	{
 	case IR::ElemSegment::Encoding::expr:
-		WAVM_ASSERT(isSubtype(contents->elemType, table->type.elementType));
+		WAVM_ASSERT(isSubtype(contents->elemType, table->elementType));
 		break;
 	case IR::ElemSegment::Encoding::index:
-		WAVM_ASSERT(isSubtype(asReferenceType(contents->externKind), table->type.elementType));
+		WAVM_ASSERT(isSubtype(asReferenceType(contents->externKind), table->elementType));
 		break;
 
 	default: WAVM_UNREACHABLE();

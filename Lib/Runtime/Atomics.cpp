@@ -235,7 +235,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
-	if(!memory->type.isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
+	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
 
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 3));
@@ -257,7 +257,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
-	if(!memory->type.isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
+	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
 
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 7));

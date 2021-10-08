@@ -14,9 +14,12 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
-Runtime::Compartment::Compartment(std::string&& inDebugName)
+Runtime::Compartment::Compartment(std::string&& inDebugName,
+								  struct CompartmentRuntimeData* inRuntimeData,
+								  U8* inUnalignedRuntimeData)
 : GCObject(ObjectKind::compartment, this, std::move(inDebugName))
-, unalignedRuntimeData(nullptr)
+, runtimeData(inRuntimeData)
+, unalignedRuntimeData(inUnalignedRuntimeData)
 , tables(0, maxTables - 1)
 , memories(0, maxMemories - 1)
 // Use UINTPTR_MAX as an invalid ID for globals, exception types, and instances.
@@ -26,16 +29,6 @@ Runtime::Compartment::Compartment(std::string&& inDebugName)
 , contexts(0, maxContexts - 1)
 , foreigns(0, UINTPTR_MAX - 1)
 {
-	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
-		compartmentReservedBytes >> Platform::getBytesPerPageLog2(),
-		compartmentRuntimeDataAlignmentLog2,
-		unalignedRuntimeData);
-
-	WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
-		(U8*)runtimeData,
-		offsetof(CompartmentRuntimeData, contexts) >> Platform::getBytesPerPageLog2()));
-	Platform::registerVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
-
 	runtimeData->compartment = this;
 }
 
@@ -55,64 +48,102 @@ Runtime::Compartment::~Compartment()
 									  compartmentReservedBytes >> Platform::getBytesPerPageLog2(),
 									  compartmentRuntimeDataAlignmentLog2);
 	Platform::deregisterVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
-	runtimeData = nullptr;
-	unalignedRuntimeData = nullptr;
+}
+
+static CompartmentRuntimeData* initCompartmentRuntimeData(U8*& outUnalignedRuntimeData)
+{
+	CompartmentRuntimeData* runtimeData
+		= (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
+			compartmentReservedBytes >> Platform::getBytesPerPageLog2(),
+			compartmentRuntimeDataAlignmentLog2,
+			outUnalignedRuntimeData);
+
+	WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
+		(U8*)runtimeData,
+		offsetof(CompartmentRuntimeData, contexts) >> Platform::getBytesPerPageLog2()));
+	Platform::registerVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
+
+	return runtimeData;
 }
 
 Compartment* Runtime::createCompartment(std::string&& debugName)
 {
-	return new Compartment(std::move(debugName));
+	U8* unalignedRuntimeData = nullptr;
+	CompartmentRuntimeData* runtimeData = initCompartmentRuntimeData(unalignedRuntimeData);
+	if(!runtimeData) { return nullptr; }
+
+	return new Compartment(std::move(debugName), runtimeData, unalignedRuntimeData);
 }
 
 Compartment* Runtime::cloneCompartment(const Compartment* compartment, std::string&& debugName)
 {
 	Timing::Timer timer;
 
-	Compartment* newCompartment = new Compartment(std::move(debugName));
-	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
+	U8* unalignedRuntimeData = nullptr;
+	CompartmentRuntimeData* runtimeData = initCompartmentRuntimeData(unalignedRuntimeData);
+	if(!runtimeData) { return nullptr; }
 
-	// Clone tables.
-	for(Table* table : compartment->tables)
+	Compartment* newCompartment
+		= new Compartment(std::move(debugName), runtimeData, unalignedRuntimeData);
+	if(!newCompartment) { goto error; }
+	else
 	{
-		Table* newTable = cloneTable(table, newCompartment);
-		WAVM_ASSERT(newTable->id == table->id);
+		Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
+
+		// Clone tables.
+		for(Table* table : compartment->tables)
+		{
+			Table* newTable = cloneTable(table, newCompartment);
+			if(!newTable) { goto error; }
+			WAVM_ASSERT(newTable->id == table->id);
+		}
+
+		// Clone memories.
+		for(Memory* memory : compartment->memories)
+		{
+			Memory* newMemory = cloneMemory(memory, newCompartment);
+			if(!newMemory) { goto error; }
+			WAVM_ASSERT(newMemory->id == memory->id);
+		}
+
+		// Clone globals.
+		newCompartment->globalDataAllocationMask = compartment->globalDataAllocationMask;
+		memcpy(newCompartment->initialContextMutableGlobals,
+			   compartment->initialContextMutableGlobals,
+			   sizeof(newCompartment->initialContextMutableGlobals));
+		for(Global* global : compartment->globals)
+		{
+			Global* newGlobal = cloneGlobal(global, newCompartment);
+			if(!newGlobal) { goto error; }
+			WAVM_ASSERT(newGlobal->id == global->id);
+			WAVM_ASSERT(newGlobal->mutableGlobalIndex == global->mutableGlobalIndex);
+		}
+
+		// Clone exception types.
+		for(ExceptionType* exceptionType : compartment->exceptionTypes)
+		{
+			ExceptionType* newExceptionType = cloneExceptionType(exceptionType, newCompartment);
+			if(!newExceptionType) { goto error; }
+			WAVM_ASSERT(newExceptionType->id == exceptionType->id);
+		}
+
+		// Clone instances.
+		for(Instance* instance : compartment->instances)
+		{
+			Instance* newInstance = cloneInstance(instance, newCompartment);
+			if(!newInstance) { goto error; }
+			WAVM_ASSERT(newInstance->id == instance->id);
+		}
+
+		Timing::logTimer("Cloned compartment", timer);
+		return newCompartment;
 	}
 
-	// Clone memories.
-	for(Memory* memory : compartment->memories)
-	{
-		Memory* newMemory = cloneMemory(memory, newCompartment);
-		WAVM_ASSERT(newMemory->id == memory->id);
-	}
-
-	// Clone globals.
-	newCompartment->globalDataAllocationMask = compartment->globalDataAllocationMask;
-	memcpy(newCompartment->initialContextMutableGlobals,
-		   compartment->initialContextMutableGlobals,
-		   sizeof(newCompartment->initialContextMutableGlobals));
-	for(Global* global : compartment->globals)
-	{
-		Global* newGlobal = cloneGlobal(global, newCompartment);
-		WAVM_ASSERT(newGlobal->id == global->id);
-		WAVM_ASSERT(newGlobal->mutableGlobalIndex == global->mutableGlobalIndex);
-	}
-
-	// Clone exception types.
-	for(ExceptionType* exceptionType : compartment->exceptionTypes)
-	{
-		ExceptionType* newExceptionType = cloneExceptionType(exceptionType, newCompartment);
-		WAVM_ASSERT(newExceptionType->id == exceptionType->id);
-	}
-
-	// Clone instances.
-	for(Instance* instance : compartment->instances)
-	{
-		Instance* newInstance = cloneInstance(instance, newCompartment);
-		WAVM_ASSERT(newInstance->id == instance->id);
-	}
-
-	Timing::logTimer("Cloned compartment", timer);
-	return newCompartment;
+error:
+	// If there was an error, clean up the partially created compartment.
+	if(newCompartment)
+	{ WAVM_ERROR_UNLESS(tryCollectCompartment(GCPointer<Compartment>(newCompartment))); }
+	return nullptr;
 }
 
 Object* Runtime::remapToClonedCompartment(const Object* object, const Compartment* newCompartment)

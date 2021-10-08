@@ -139,6 +139,7 @@ ADD_WAST_TESTS(
 		type.wast
 		unreachable.wast
 		unreached-invalid.wast
+		unreached-valid.wast
 		unwind.wast
 		utf8-custom-section-id.wast
 		utf8-import-field.wast

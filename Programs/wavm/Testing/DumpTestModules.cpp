@@ -116,6 +116,12 @@ static void dumpCommandModules(const char* filename,
 
 		break;
 	}
+	case Command::thread: {
+		auto threadCommand = (ThreadCommand*)command;
+		for(auto& innerCommand : threadCommand->commands)
+		{ dumpCommandModules(filename, innerCommand.get(), outputDir, dumpFormat); }
+		break;
+	}
 
 	case Command::_register:
 	case Command::assert_return:
@@ -129,6 +135,7 @@ static void dumpCommandModules(const char* filename,
 	case Command::assert_trap:
 	case Command::assert_throws:
 	case Command::benchmark:
+	case Command::wait:
 	default: break;
 	};
 }

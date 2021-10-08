@@ -104,14 +104,15 @@ Instance* Runtime::instantiateModule(Compartment* compartment,
 		}
 		case ExternKind::table: {
 			Table* table = asTable(importObject);
-			WAVM_ERROR_UNLESS(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
+			WAVM_ERROR_UNLESS(
+				isSubtype(getTableType(table), module->ir.tables.getType(kindIndex.index)));
 			tableImports.push_back(table);
 			break;
 		}
 		case ExternKind::memory: {
 			Memory* memory = asMemory(importObject);
 			WAVM_ERROR_UNLESS(
-				isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
+				isSubtype(getMemoryType(memory), module->ir.memories.getType(kindIndex.index)));
 			memoryImports.push_back(memory);
 			break;
 		}
@@ -586,7 +587,7 @@ Table* Runtime::getTypedInstanceExport(const Instance* instance,
 	WAVM_ASSERT(instance);
 	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::table
-				   && isSubtype(asTable(*exportedObjectPtr)->type, type)
+				   && isSubtype(getTableType(asTable(*exportedObjectPtr)), type)
 			   ? asTable(*exportedObjectPtr)
 			   : nullptr;
 }
@@ -598,7 +599,7 @@ Memory* Runtime::getTypedInstanceExport(const Instance* instance,
 	WAVM_ASSERT(instance);
 	Object* const* exportedObjectPtr = instance->exportMap.get(name);
 	return exportedObjectPtr && (*exportedObjectPtr)->kind == ObjectKind::memory
-				   && isSubtype(asMemory(*exportedObjectPtr)->type, type)
+				   && isSubtype(getMemoryType(asMemory(*exportedObjectPtr)), type)
 			   ? asMemory(*exportedObjectPtr)
 			   : nullptr;
 }

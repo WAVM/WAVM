@@ -56,12 +56,15 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 	void* result = mmap(nullptr, numBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if(result == MAP_FAILED)
 	{
-		fprintf(stderr,
-				"mmap(0, %" WAVM_PRIuPTR
-				", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
-				numBytes,
-				strerror(errno));
-		dumpErrorCallStack(0);
+		if(errno != ENOMEM)
+		{
+			fprintf(stderr,
+					"mmap(0, %" WAVM_PRIuPTR
+					", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
+					numBytes,
+					strerror(errno));
+			dumpErrorCallStack(0);
+		}
 		return nullptr;
 	}
 	return (U8*)result;
@@ -80,7 +83,19 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 		const Uptr alignmentBytes = 1ull << alignmentLog2;
 		U8* unalignedBaseAddress = (U8*)mmap(
 			nullptr, numBytes + alignmentBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if(unalignedBaseAddress == MAP_FAILED) { return nullptr; }
+		if(unalignedBaseAddress == MAP_FAILED)
+		{
+			if(errno != ENOMEM)
+			{
+				fprintf(stderr,
+						"mmap(0, %" WAVM_PRIuPTR
+						", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
+						numBytes + alignmentBytes,
+						strerror(errno));
+				dumpErrorCallStack(0);
+			}
+			return nullptr;
+		}
 
 		const Uptr address = reinterpret_cast<Uptr>(unalignedBaseAddress);
 		const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);

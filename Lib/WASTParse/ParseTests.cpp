@@ -156,37 +156,37 @@ static ResultSet parseV128ResultSet(CursorState* cursor)
 	{
 	case t_i8x16:
 		++cursor->nextToken;
-		result.type = ResultSet::Type::i8x16;
+		result.type = ResultSet::Type::i8x16_const;
 		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
 		{ result.i8x16[laneIndex] = parseI8(cursor); }
 		break;
 	case t_i16x8:
 		++cursor->nextToken;
-		result.type = ResultSet::Type::i16x8;
+		result.type = ResultSet::Type::i16x8_const;
 		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
 		{ result.i16x8[laneIndex] = parseI16(cursor); }
 		break;
 	case t_i32x4:
 		++cursor->nextToken;
-		result.type = ResultSet::Type::i32x4;
+		result.type = ResultSet::Type::i32x4_const;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
 		{ result.i32x4[laneIndex] = parseI32(cursor); }
 		break;
 	case t_i64x2:
 		++cursor->nextToken;
-		result.type = ResultSet::Type::i64x2;
+		result.type = ResultSet::Type::i64x2_const;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
 		{ result.i64x2[laneIndex] = parseI64(cursor); }
 		break;
 	case t_f32x4:
 		++cursor->nextToken;
-		result.type = ResultSet::Type::f32x4;
+		result.type = ResultSet::Type::f32x4_const;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
 		{ result.f32x4[laneIndex] = parseFloatResultSet<F32>(cursor); }
 		break;
 	case t_f64x2:
 		++cursor->nextToken;
-		result.type = ResultSet::Type::f64x2;
+		result.type = ResultSet::Type::f64x2_const;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
 		{ result.f64x2[laneIndex] = parseFloatResultSet<F64>(cursor); }
 		break;
@@ -208,25 +208,25 @@ static ResultSet parseResultSet(CursorState* cursor)
 		{
 		case t_i32_const: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::i32;
+			result.type = ResultSet::Type::i32_const;
 			result.i32 = parseI32(cursor);
 			break;
 		}
 		case t_i64_const: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::i64;
+			result.type = ResultSet::Type::i64_const;
 			result.i64 = parseI64(cursor);
 			break;
 		}
 		case t_f32_const: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::f32;
+			result.type = ResultSet::Type::f32_const;
 			result.f32 = parseFloatResultSet<F32>(cursor);
 			break;
 		}
 		case t_f64_const: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::f64;
+			result.type = ResultSet::Type::f64_const;
 			result.f64 = parseFloatResultSet<F64>(cursor);
 			break;
 		}
@@ -237,19 +237,30 @@ static ResultSet parseResultSet(CursorState* cursor)
 		}
 		case t_ref_extern: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::specificObject;
+			result.type = ResultSet::Type::ref_extern;
 			result.object = &makeHostRef(parseU32(cursor))->object;
 			break;
 		}
 		case t_ref_func: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::anyFunction;
+			result.type = ResultSet::Type::ref_func;
 			break;
 		}
 		case t_ref_null: {
 			++cursor->nextToken;
-			result.type = ResultSet::Type::nullref;
+			result.type = ResultSet::Type::ref_null;
 			result.nullReferenceType = parseReferencedType(cursor);
+			break;
+		}
+		case t_either: {
+			++cursor->nextToken;
+			result.type = ResultSet::Type::either;
+			new(&result.alternatives) std::vector<std::shared_ptr<ResultSet>>();
+			while(cursor->nextToken->type != t_rightParenthesis)
+			{
+				result.alternatives.emplace_back(
+					std::make_shared<ResultSet>(parseResultSet(cursor)));
+			};
 			break;
 		}
 		default:
@@ -731,6 +742,67 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 
 				result = std::unique_ptr<Command>(new BenchmarkCommand(
 					std::move(locus), std::move(name), std::move(invokeAction)));
+
+				break;
+			}
+			case t_thread: {
+				++cursor->nextToken;
+
+				Name threadName;
+				if(!tryParseName(cursor, threadName))
+				{
+					parseErrorf(cursor->parseState, cursor->nextToken, "expected thread name");
+					throw RecoverParseException();
+				}
+
+				std::vector<std::string> sharedModuleInternalNames;
+				if(cursor->nextToken[0].type == t_leftParenthesis
+				   && cursor->nextToken[1].type == t_shared)
+				{
+					parseParenthesized(cursor, [&] {
+						++cursor->nextToken;
+						while(cursor->nextToken->type == t_leftParenthesis)
+						{
+							parseParenthesized(cursor, [&] {
+								require(cursor, t_module);
+								Name internalModuleName;
+								if(!tryParseName(cursor, internalModuleName))
+								{
+									parseErrorf(cursor->parseState,
+												cursor->nextToken,
+												"expected module name");
+									throw RecoverParseException();
+								}
+								sharedModuleInternalNames.push_back(internalModuleName.getString());
+							});
+						};
+					});
+				}
+
+				std::vector<std::unique_ptr<Command>> commands;
+				while(cursor->nextToken->type == t_leftParenthesis)
+				{ commands.emplace_back(parseCommand(cursor, featureSpec)); };
+
+				result = std::unique_ptr<Command>(
+					new ThreadCommand(std::move(locus),
+									  threadName.getString(),
+									  std::move(sharedModuleInternalNames),
+									  std::move(commands)));
+
+				break;
+			}
+			case t_wait: {
+				++cursor->nextToken;
+
+				Name threadName;
+				if(!tryParseName(cursor, threadName))
+				{
+					parseErrorf(cursor->parseState, cursor->nextToken, "expected thread name");
+					throw RecoverParseException();
+				}
+
+				result = std::unique_ptr<Command>(
+					new WaitCommand(std::move(locus), threadName.getString()));
 
 				break;
 			}

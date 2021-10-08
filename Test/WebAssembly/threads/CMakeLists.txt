@@ -66,6 +66,7 @@ ADD_WAST_TESTS(
 		switch.wast
 		table.wast
 		token.wast
+		thread.wast
 		traps.wast
 		type.wast
 		unreachable.wast

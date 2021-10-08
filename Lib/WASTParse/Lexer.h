@@ -39,6 +39,9 @@
 	VISIT_LITERAL_TOKEN(assert_malformed)                                                          \
 	VISIT_LITERAL_TOKEN(assert_exhaustion)                                                         \
 	VISIT_LITERAL_TOKEN(benchmark)                                                                 \
+	VISIT_LITERAL_TOKEN(thread)                                                                    \
+	VISIT_LITERAL_TOKEN(wait)                                                                      \
+	VISIT_LITERAL_TOKEN(either)                                                                    \
 	VISIT_LITERAL_TOKEN(invoke)                                                                    \
 	VISIT_LITERAL_TOKEN(get)                                                                       \
 	VISIT_LITERAL_TOKEN(align)                                                                     \
