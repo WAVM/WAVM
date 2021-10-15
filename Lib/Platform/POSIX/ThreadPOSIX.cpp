@@ -16,6 +16,10 @@
 #include <sanitizer/asan_interface.h>
 #endif
 
+#ifdef __linux__
+#include <gnu/libc-version.h>
+#endif
+
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -53,7 +57,7 @@ struct CreateThreadArgs
 
 static constexpr Uptr sigAltStackNumBytes = 65536;
 
-#define ALLOCATE_SIGALTSTACK_ON_MAIN_STACK 1
+#define ALLOCATE_SIGALTSTACK_ON_MAIN_STACK WAVM_ENABLE_ASAN
 
 static bool isAlignedLog2(void* pointer, Uptr alignmentLog2)
 {
@@ -92,6 +96,26 @@ void SigAltStack::deinit()
 	}
 }
 
+#ifdef __linux__
+static void getGlibcVersion(unsigned long& outMajor, unsigned long& outMinor)
+{
+	const char* versionString = gnu_get_libc_version();
+
+	char* majorEnd;
+	outMajor = strtoul(versionString, &majorEnd, 10);
+	WAVM_ERROR_UNLESS(outMajor != 0 && outMajor != ULONG_MAX);
+	WAVM_ASSERT(majorEnd > versionString);
+
+	WAVM_ERROR_UNLESS(*majorEnd == '.');
+
+	const char* minorStart = majorEnd + 1;
+	char* minorEnd;
+	outMinor = strtoul(minorStart, &minorEnd, 10);
+	WAVM_ERROR_UNLESS(outMinor != 0 && outMinor != ULONG_MAX);
+	WAVM_ASSERT(minorEnd > minorStart);
+}
+#endif
+
 static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr)
 {
 #ifdef __linux__
@@ -103,11 +127,29 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	Uptr numStackBytes = 0;
 	Uptr numGuardBytes = 0;
 	WAVM_ERROR_UNLESS(
-		!pthread_attr_getstack(&threadAttributes, (void**)&outMinGuardAddr, &numStackBytes));
+		!pthread_attr_getstack(&threadAttributes, (void**)&outMinAddr, &numStackBytes));
 	WAVM_ERROR_UNLESS(!pthread_attr_getguardsize(&threadAttributes, &numGuardBytes));
 	WAVM_ERROR_UNLESS(!pthread_attr_destroy(&threadAttributes));
-	outMaxAddr = outMinGuardAddr + numStackBytes;
-	outMinAddr = outMinGuardAddr + numGuardBytes;
+
+	outMaxAddr = outMinAddr + numStackBytes;
+
+	// Before GLIBC 2.27, pthread_attr_getstack erroneously included the guard page in the result.
+	unsigned long glibcMajorVersion = 0;
+	unsigned long glibcMinorVersion = 0;
+	getGlibcVersion(glibcMajorVersion, glibcMinorVersion);
+	if(glibcMajorVersion > 2 || (glibcMajorVersion == 2 && glibcMinorVersion >= 27))
+	{ outMinGuardAddr = outMinAddr - numGuardBytes; }
+	else
+	{
+		outMinGuardAddr = outMinAddr;
+		outMinAddr += numGuardBytes;
+
+		// CentOS 7's GLIBC says it's version 2.17, but appears to have the pthread_attr_getstack
+		// patch from GLIBC 2.27. I'm not sure how to precisely detect this situation, so just
+		// make a conservative guess that the guard region extends 1 page both above and below the
+		// returned stack base address.
+		outMinGuardAddr -= numGuardBytes;
+	}
 #elif defined(__APPLE__)
 	// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
 	// stack.

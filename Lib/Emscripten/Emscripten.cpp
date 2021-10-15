@@ -47,7 +47,7 @@ WAVM_DEFINE_INTRINSIC_MODULE(env)
 WAVM_DEFINE_INTRINSIC_MODULE(asm2wasm)
 WAVM_DEFINE_INTRINSIC_MODULE(global)
 
-WAVM_DEFINE_INTRINSIC_MODULE(emscripten_wasi_unstable)
+WAVM_DEFINE_INTRINSIC_MODULE(emscripten_wasi_snapshot_preview1)
 
 static emabi::Result asEmscriptenErrNo(VFS::Result result)
 {
@@ -112,7 +112,8 @@ emabi::Address Emscripten::dynamicAlloc(Emscripten::Process* process,
 										Context* context,
 										emabi::Size numBytes)
 {
-	WAVM_ASSERT(process->malloc);
+	if(!process->malloc) { return 0; }
+
 	static FunctionType mallocSignature({ValueType::i32}, {ValueType::i32});
 
 	UntaggedValue args[1] = {numBytes};
@@ -264,9 +265,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", emabi::Address, emscripten
 	static emabi::Address vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(
-			process->memory,
-			dynamicAlloc(process, getContextFromRuntimeData(contextRuntimeData), sizeof(data)));
+		emabi::Address allocAddress
+			= dynamicAlloc(process, getContextFromRuntimeData(contextRuntimeData), sizeof(data));
+		if(!allocAddress) { return 0; }
+		vmAddress = coerce32bitAddress(process->memory, allocAddress);
 		memcpy(memoryArrayPtr<U8>(process->memory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(short) * 128;
@@ -303,9 +305,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	static emabi::Address vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(
-			process->memory,
-			dynamicAlloc(process, getContextFromRuntimeData(contextRuntimeData), sizeof(data)));
+		emabi::Address allocAddress
+			= dynamicAlloc(process, getContextFromRuntimeData(contextRuntimeData), sizeof(data));
+		if(!allocAddress) { return 0; }
+		vmAddress = coerce32bitAddress(process->memory, allocAddress);
 		memcpy(memoryArrayPtr<U8>(process->memory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -342,9 +345,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	static emabi::Address vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(
-			process->memory,
-			dynamicAlloc(process, getContextFromRuntimeData(contextRuntimeData), sizeof(data)));
+		emabi::Address allocAddress
+			= dynamicAlloc(process, getContextFromRuntimeData(contextRuntimeData), sizeof(data));
+		if(!allocAddress) { return 0; }
+		vmAddress = coerce32bitAddress(process->memory, allocAddress);
 		memcpy(memoryArrayPtr<U8>(process->memory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -444,7 +448,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 	Log::printf(Log::error, "env.abort(%i)\n", code);
 	throwException(Runtime::ExceptionTypes::calledAbort);
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "proc_exit",
 							   void,
 							   wasi_proc_exit,
@@ -910,7 +914,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	return result;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "fd_close",
 							   __wasi_errno_return_t,
 							   emscripten_fd_close,
@@ -925,7 +929,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
 	return __WASI_ESUCCESS;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "fd_write",
 							   __wasi_errno_return_t,
 							   emscripten_fd_write,
@@ -947,7 +951,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
 	return (__wasi_errno_t)-emscriptenResult;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "fd_seek",
 							   __wasi_errno_return_t,
 							   wasi_fd_seek,
@@ -1056,21 +1060,24 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "gmtime", emabi::Address, emscripten_gmtime,
 	{
 		struct tm hostTM = *tmPtr;
 
-		emabi::Address emTMAddress = dynamicAlloc(
+		const emabi::Address emTMAddress = dynamicAlloc(
 			process, getContextFromRuntimeData(contextRuntimeData), sizeof(emabi::tm));
-		emabi::tm& emTM = memoryRef<emabi::tm>(process->memory, emTMAddress);
+		if(emTMAddress)
+		{
+			emabi::tm& emTM = memoryRef<emabi::tm>(process->memory, emTMAddress);
 
-		emTM.tm_sec = hostTM.tm_sec;
-		emTM.tm_min = hostTM.tm_min;
-		emTM.tm_hour = hostTM.tm_hour;
-		emTM.tm_mday = hostTM.tm_mday;
-		emTM.tm_mon = hostTM.tm_mon;
-		emTM.tm_year = hostTM.tm_year;
-		emTM.tm_wday = hostTM.tm_wday;
-		emTM.tm_yday = hostTM.tm_yday;
-		emTM.tm_isdst = hostTM.tm_isdst;
-		emTM.__tm_gmtoff = 0;
-		emTM.__tm_zone = 0;
+			emTM.tm_sec = hostTM.tm_sec;
+			emTM.tm_min = hostTM.tm_min;
+			emTM.tm_hour = hostTM.tm_hour;
+			emTM.tm_mday = hostTM.tm_mday;
+			emTM.tm_mon = hostTM.tm_mon;
+			emTM.tm_year = hostTM.tm_year;
+			emTM.tm_wday = hostTM.tm_wday;
+			emTM.tm_yday = hostTM.tm_yday;
+			emTM.tm_isdst = hostTM.tm_isdst;
+			emTM.__tm_gmtoff = 0;
+			emTM.__tm_zone = 0;
+		}
 
 		return emTMAddress;
 	}
@@ -1185,6 +1192,40 @@ WAVM_DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
 											 U32);
 WAVM_DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_atexit", emabi::Result, _atexit, U32);
 
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
+							   "clock_time_get",
+							   __wasi_errno_return_t,
+							   __wasi_clock_time_get,
+							   __wasi_clockid_t clockId,
+							   __wasi_timestamp_t precision,
+							   emabi::Address timeAddress)
+{
+	Process* process = getProcess(contextRuntimeData);
+
+	Platform::Clock platformClock;
+	Time platformClockOrigin;
+	switch(clockId)
+	{
+	case __WASI_CLOCK_REALTIME: platformClock = Platform::Clock::realtime; break;
+	case __WASI_CLOCK_MONOTONIC: platformClock = Platform::Clock::monotonic; break;
+	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+	case __WASI_CLOCK_THREAD_CPUTIME_ID:
+		platformClock = Platform::Clock::processCPUTime;
+		platformClockOrigin = process->processClockOrigin;
+		break;
+	default: return __WASI_EINVAL;
+	}
+
+	Time clockTime = Platform::getClockTime(platformClock);
+
+	clockTime.ns -= platformClockOrigin.ns;
+
+	__wasi_timestamp_t wasiClockTime = __wasi_timestamp_t(clockTime.ns);
+	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = wasiClockTime;
+
+	return __WASI_ESUCCESS;
+}
+
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "clock_gettime",
 							   emabi::Result,
@@ -1272,7 +1313,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 }
 // WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_tzset", void, _tzset) { }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "args_sizes_get",
 							   __wasi_errno_return_t,
 							   wasi_args_sizes_get,
@@ -1293,7 +1334,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
 	return __WASI_ESUCCESS;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "args_get",
 							   __wasi_errno_return_t,
 							   wasi_args_get,
@@ -1327,7 +1368,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
 	return __WASI_ESUCCESS;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "environ_sizes_get",
 							   __wasi_errno_return_t,
 							   wasi_environ_sizes_get,
@@ -1349,7 +1390,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
 	return __WASI_ESUCCESS;
 }
 
-WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_unstable,
+WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "environ_get",
 							   __wasi_errno_return_t,
 							   wasi_environ_get,
@@ -1441,10 +1482,6 @@ static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMet
 			}
 		}
 	}
-
-	Log::printf(Log::error,
-				"Module did not contain Emscripten module metadata section: WAVM only supports"
-				" Emscripten modules compiled with '-s EMIT_EMSCRIPTEN_METADATA=1'.\n");
 	return false;
 }
 
@@ -1471,8 +1508,10 @@ std::shared_ptr<Emscripten::Process> Emscripten::createProcess(Compartment* comp
 		compartment, {WAVM_INTRINSIC_MODULE_REF(asm2wasm)}, "asm2wasm");
 	process->global
 		= Intrinsics::instantiateModule(compartment, {WAVM_INTRINSIC_MODULE_REF(global)}, "global");
-	process->wasi_unstable = Intrinsics::instantiateModule(
-		compartment, {WAVM_INTRINSIC_MODULE_REF(emscripten_wasi_unstable)}, "wasi_unstable");
+	process->wasi_snapshot_preview1 = Intrinsics::instantiateModule(
+		compartment,
+		{WAVM_INTRINSIC_MODULE_REF(emscripten_wasi_snapshot_preview1)},
+		"wasi_unstable");
 
 	process->compartment = compartment;
 
@@ -1489,23 +1528,26 @@ bool Emscripten::initializeProcess(Process& process,
 	process.instance = instance;
 
 	// Read the module metadata.
-	if(!loadEmscriptenMetadata(module, process.metadata)) { return false; }
-
-	// Check the ABI version used by the module.
-	if(process.metadata.abiVersionMajor != 0)
+	EmscriptenModuleMetadata metadata;
+	if(loadEmscriptenMetadata(module, metadata))
 	{
-		Log::printf(Log::error,
-					"Unsupported Emscripten ABI major version (%u)\n",
-					process.metadata.abiVersionMajor);
-		return false;
-	}
+		// Check the ABI version used by the module.
+		if(metadata.abiVersionMajor != 0)
+		{
+			Log::printf(Log::error,
+						"Unsupported Emscripten ABI major version (%u)\n",
+						metadata.abiVersionMajor);
+			return false;
+		}
 
-	// Check whether the module was compiled as "standalone".
-	if(!process.metadata.standaloneWASM)
-	{
-		Log::printf(Log::error,
-					"WAVM only supports Emscripten modules compiled with '-s STANDALONE_WASM=1'.");
-		return false;
+		// Check whether the module was compiled as "standalone".
+		if(!metadata.standaloneWASM)
+		{
+			Log::printf(
+				Log::error,
+				"WAVM only supports Emscripten modules compiled with '-s STANDALONE_WASM=1'.");
+			return false;
+		}
 	}
 
 	// Find the various Emscripten ABI objects exported by the module.
@@ -1521,11 +1563,6 @@ bool Emscripten::initializeProcess(Process& process,
 
 	process.malloc = getTypedInstanceExport(
 		instance, "malloc", FunctionType({ValueType::i32}, {ValueType::i32}));
-	if(!process.malloc)
-	{
-		Log::printf(Log::error, "Emscripten module does not export malloc.\n");
-		return false;
-	}
 	process.free = getTypedInstanceExport(
 		instance, "free", FunctionType({ValueType::i32}, {ValueType::i32}));
 
@@ -1549,6 +1586,8 @@ bool Emscripten::initializeProcess(Process& process,
 	// Initialize the Emscripten "thread local" state.
 	initThreadLocals(process.mainThread);
 
+	process.processClockOrigin = Platform::getClockTime(Platform::Clock::processCPUTime);
+
 	return true;
 }
 
@@ -1569,9 +1608,9 @@ bool Emscripten::Process::resolve(const std::string& moduleName,
 	{
 		intrinsicInstance = global;
 	}
-	else if(moduleName == "wasi_unstable")
+	else if(moduleName == "wasi_snapshot_preview1")
 	{
-		intrinsicInstance = wasi_unstable;
+		intrinsicInstance = wasi_snapshot_preview1;
 	}
 
 	if(intrinsicInstance)

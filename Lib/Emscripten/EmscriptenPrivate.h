@@ -7,6 +7,7 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Inline/IntrusiveSharedPtr.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
@@ -82,14 +83,13 @@ namespace WAVM { namespace Emscripten {
 	{
 		Runtime::GCPointer<Runtime::Compartment> compartment;
 
-		Runtime::GCPointer<Runtime::Instance> wasi_unstable;
+		Runtime::GCPointer<Runtime::Instance> wasi_snapshot_preview1;
 		Runtime::GCPointer<Runtime::Instance> env;
 		Runtime::GCPointer<Runtime::Instance> asm2wasm;
 		Runtime::GCPointer<Runtime::Instance> global;
 
 		IntrusiveSharedPtr<Thread> mainThread;
 
-		EmscriptenModuleMetadata metadata;
 		Runtime::GCPointer<Runtime::Instance> instance;
 		Runtime::GCPointer<Runtime::Memory> memory;
 		Runtime::GCPointer<Runtime::Table> table;
@@ -115,6 +115,8 @@ namespace WAVM { namespace Emscripten {
 		VFS::VFD* stdIn{nullptr};
 		VFS::VFD* stdOut{nullptr};
 		VFS::VFD* stdErr{nullptr};
+
+		Time processClockOrigin;
 
 		~Process();
 

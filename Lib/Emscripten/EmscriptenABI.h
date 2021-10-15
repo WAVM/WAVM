@@ -54,6 +54,12 @@ namespace WAVM { namespace Emscripten { namespace emabi {
 	static constexpr Int resultMin = intMin;
 	static constexpr Int resultMax = intMax;
 
+	typedef uint32_t __wasi_clockid_t;
+#define __WASI_CLOCK_REALTIME (UINT32_C(0))
+#define __WASI_CLOCK_MONOTONIC (UINT32_C(1))
+#define __WASI_CLOCK_PROCESS_CPUTIME_ID (UINT32_C(2))
+#define __WASI_CLOCK_THREAD_CPUTIME_ID (UINT32_C(3))
+
 	// Emscripten uses the WASI ABI error codes for errors that are common to both ABIs.
 	static constexpr Result esuccess = __WASI_ESUCCESS;
 	static constexpr Result eperm = -__WASI_EPERM;
