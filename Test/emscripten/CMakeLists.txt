@@ -29,6 +29,12 @@ if(WAVM_ENABLE_RUNTIME)
 		NAME emscripten_stdout
 		COMMAND $<TARGET_FILE:wavm> run --abi=emscripten ${CMAKE_CURRENT_LIST_DIR}/stdout.wasm)
 	set_tests_properties(emscripten_stdout PROPERTIES PASS_REGULAR_EXPRESSION "Hello world!")
+			
+	# Test emscripten_stdout without an explicit ABI specified on the command-line.
+	add_test(
+		NAME emscripten_stdout_detected_abi
+		COMMAND $<TARGET_FILE:wavm> run ${CMAKE_CURRENT_LIST_DIR}/stdout.wasm)
+	set_tests_properties(emscripten_stdout_detected_abi PROPERTIES PASS_REGULAR_EXPRESSION "Hello world!")
 endif()
 
 add_custom_target(EmscriptenTests SOURCES ${TestSources})
