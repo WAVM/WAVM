@@ -7,23 +7,3 @@ Redistribution and use in source and binary forms, with or without modification,
 * Neither the name of WAVM nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-Third Party Software
-====================
-
-Parts of the I128 code are derived from LLVM's compiler-rt library (https://github.com/llvm/llvm-project/tree/master/compiler-rt), which is covered by the license in https://github.com/WAVM/WAVM/blob/master/Include/WAVM/Inline/Impl/I128Impl.LICENSE.
-
-The WebAssembly spec test suite (https://github.com/WAVM/WAVM/tree/master/Test/WebAssembly) are covered by the license in https://github.com/WAVM/WAVM/blob/master/Test/WebAssembly/LICENSE.
-
-The libunwind library (https://github.com/WAVM/WAVM/tree/master/ThirdParty/libunwind) is covered by the license in https://github.com/WAVM/WAVM/blob/master/ThirdParty/libunwind/LICENSE.TXT.
-
-The liblmdb library (https://github.com/WAVM/WAVM/tree/master/ThirdParty/liblmdb) is covered by the license in https://github.com/WAVM/WAVM/blob/master/ThirdParty/liblmdb/LICENSE.
-
-The xxhash library (https://github.com/WAVM/WAVM/tree/master/Include/WAVM/Inline/xxhash) is covered by the license in https://github.com/WAVM/WAVM/blob/master/Include/WAVM/Inline/xxhash/LICENSE.
-
-The WASI ABI header (https://github.com/WAVM/WAVM/blob/master/Include/WAVM/WASI/WASIABI.h) is covered by the license in https://github.com/WAVM/WAVM/blob/master/Include/WAVM/WASI/WASIABI.LICENSE.
-
-The WAVM C API (https://github.com/WAVM/WAVM/blob/master/Include/WAVM/wavm-c/wavm-c.h) is based on wasm-c-api (https://github.com/WebAssembly/wasm-c-api), which is covered by the license in https://github.com/WAVM/WAVM/blob/master/Include/WAVM/wavm-c/wasm-c-api.LICENSE.
-
-The BLAKE2 library (https://github.com/WAVM/WAVM/tree/master/ThirdParty/BLAKE2) is covered by the license in https://github.com/WAVM/WAVM/blob/master/ThirdParty/BLAKE2/COPYING.
