@@ -70,7 +70,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 		}
 		else
 		{
-			char demangledBuffer[1024];
+			char* demangledBuffer = (char*)malloc(1024);
 			const char* demangledSymbolName = symbolInfo.dli_sname;
 			if(symbolInfo.dli_sname[0] == '_')
 			{
