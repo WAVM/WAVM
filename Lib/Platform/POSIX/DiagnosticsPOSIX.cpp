@@ -70,7 +70,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 		}
 		else
 		{
-			char* demangledBuffer = nullptr;
+			char* demangledBuffer = nullptr; // will be allocated by __cxa_demangle
 			const char* demangledSymbolName = symbolInfo.dli_sname;
 			if(symbolInfo.dli_sname[0] == '_')
 			{
@@ -83,6 +83,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 				{ demangledSymbolName = demangledBuffer; }
 			}
 			outSource.function = demangledSymbolName;
+			free(demangledBuffer); // was copied to outSource.function
 			outSource.instructionOffset = ip - reinterpret_cast<Uptr>(symbolInfo.dli_saddr);
 		}
 		return true;
