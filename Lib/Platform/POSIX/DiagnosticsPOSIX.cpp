@@ -77,9 +77,9 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 				Uptr numDemangledChars = sizeof(demangledBuffer);
 				I32 demangleStatus = 0;
 				demangledBuffer = abi::__cxa_demangle(symbolInfo.dli_sname,
-									   demangledBuffer,
-									   (size_t*)&numDemangledChars,
-									   &demangleStatus);
+								                      demangledBuffer,
+									                  (size_t*)&numDemangledChars,
+									                  &demangleStatus);
 				if(demangledBuffer) { demangledSymbolName = demangledBuffer; }
 			}
 			outSource.function = demangledSymbolName;
