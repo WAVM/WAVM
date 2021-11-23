@@ -80,8 +80,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 									   demangledBuffer,
 									   (size_t*)&numDemangledChars,
 									   &demangleStatus);
-				if(demangledBuffer)
-				{ demangledSymbolName = demangledBuffer; }
+				if(demangledBuffer) { demangledSymbolName = demangledBuffer; }
 			}
 			outSource.function = demangledSymbolName;
 			free(demangledBuffer); // was copied to outSource.function
