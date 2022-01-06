@@ -22,7 +22,7 @@ static void maskSignals(int how)
 	sigset_t set;
 	sigemptyset(&set);
 	sigaddset(&set, SIGFPE);
-    // Faasm uses segfault signal handling to implement dirty page tracking
+    // Faasm needs to control the segfault handler for dirty tracking
     // sigaddset(&set, SIGSEGV);
 	sigaddset(&set, SIGBUS);
 	pthread_sigmask(how, &set, nullptr);
@@ -96,7 +96,8 @@ bool Platform::initGlobalSignalsOnce()
 	signalAction.sa_sigaction = signalHandler;
 	signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
 	sigemptyset(&signalAction.sa_mask);
-	WAVM_ERROR_UNLESS(!sigaction(SIGSEGV, &signalAction, nullptr));
+	// Faasm needs to control the segfault signal handler for dirty tracking
+    // WAVM_ERROR_UNLESS(!sigaction(SIGSEGV, &signalAction, nullptr));
 	WAVM_ERROR_UNLESS(!sigaction(SIGBUS, &signalAction, nullptr));
 	WAVM_ERROR_UNLESS(!sigaction(SIGFPE, &signalAction, nullptr));
 
