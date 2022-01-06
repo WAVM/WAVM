@@ -22,7 +22,8 @@ static void maskSignals(int how)
 	sigset_t set;
 	sigemptyset(&set);
 	sigaddset(&set, SIGFPE);
-	sigaddset(&set, SIGSEGV);
+    // Faasm uses segfault signal handling to implement dirty page tracking
+    // sigaddset(&set, SIGSEGV);
 	sigaddset(&set, SIGBUS);
 	pthread_sigmask(how, &set, nullptr);
 }
