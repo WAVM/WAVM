@@ -83,7 +83,7 @@ stages:
       - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
           name: MacOS
-          vmImage: 'macOS-10.14'
+          vmImage: 'macOS-10.15'
           llvmBuildBaseName: 'MacOS'
           llvmVersion: '9.x'
           cpackGenerators: 'TGZ'
@@ -194,7 +194,7 @@ stages:
         parameters:
           name: 'MacOSTGZ'
           matrix:
-            MacOS1014: {vmImage: 'macOS-10.14', container: ''}
+            MacOS1014: {vmImage: 'macOS-10.15', container: ''}
           examplesDir: '/usr/local/share/wavm/examples'
           artifactName: 'MacOS_StaticLTO'
           installSteps:
@@ -219,7 +219,7 @@ stages:
     jobs:
       - job: NotifyDiscordSuccess
         displayName: Notify Discord (succeeded)
-        pool: { vmImage: macOS-10.14 }
+        pool: { vmImage: macOS-10.15 }
         steps:
         - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh success $DISCORD_WEBHOOK_URL
           displayName: Notify Discord
@@ -230,7 +230,7 @@ stages:
     jobs:
       - job: NotifyDiscordFailure
         displayName: Notify Discord (failed)
-        pool: { vmImage: macOS-10.14 }
+        pool: { vmImage: macOS-10.15 }
         steps:
         - bash: $(Build.SourcesDirectory)/Build/notify-discord.sh failure $DISCORD_WEBHOOK_URL
           displayName: Notify Discord
