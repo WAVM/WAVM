@@ -219,13 +219,13 @@ HashMapPair<Key, Value>::HashMapPair(Key&& inKey, ValueArgs&&... valueArgs)
 }
 
 template<typename Key, typename Value>
-bool HashMapIterator<Key, Value>::operator!=(const HashMapIterator& other)
+bool HashMapIterator<Key, Value>::operator!=(const HashMapIterator& other) const
 {
 	return bucket != other.bucket;
 }
 
 template<typename Key, typename Value>
-bool HashMapIterator<Key, Value>::operator==(const HashMapIterator& other)
+bool HashMapIterator<Key, Value>::operator==(const HashMapIterator& other) const
 {
 	return bucket == other.bucket;
 }

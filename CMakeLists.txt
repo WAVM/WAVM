@@ -448,7 +448,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 			   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/Include>
 	)
 
-	# Target C++11.
+	# Target C++14.
 	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_14)
 	
 	# Set sanitizer options.

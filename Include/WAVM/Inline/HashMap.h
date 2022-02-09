@@ -23,8 +23,8 @@ namespace WAVM {
 
 		typedef HashMapPair<Key, Value> Pair;
 
-		bool operator!=(const HashMapIterator& other);
-		bool operator==(const HashMapIterator& other);
+		bool operator!=(const HashMapIterator& other) const;
+		bool operator==(const HashMapIterator& other) const;
 		operator bool() const;
 		void operator++();
 
