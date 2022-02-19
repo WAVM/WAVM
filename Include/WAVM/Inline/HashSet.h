@@ -11,8 +11,8 @@ namespace WAVM {
 	{
 		template<typename, typename> friend struct HashSet;
 
-		bool operator!=(const HashSetIterator& other);
-		bool operator==(const HashSetIterator& other);
+		bool operator!=(const HashSetIterator& other) const;
+		bool operator==(const HashSetIterator& other) const;
 		operator bool() const;
 
 		void operator++();

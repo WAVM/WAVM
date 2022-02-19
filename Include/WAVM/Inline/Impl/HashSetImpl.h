@@ -1,12 +1,12 @@
 // IWYU pragma: private, include "WAVM/Inline/HashSet.h"
 // You should only include this file indirectly by including HashMap.h.
 
-template<typename Element> bool HashSetIterator<Element>::operator!=(const HashSetIterator& other)
+template<typename Element> bool HashSetIterator<Element>::operator!=(const HashSetIterator& other) const
 {
 	return bucket != other.bucket;
 }
 
-template<typename Element> bool HashSetIterator<Element>::operator==(const HashSetIterator& other)
+template<typename Element> bool HashSetIterator<Element>::operator==(const HashSetIterator& other) const
 {
 	return bucket == other.bucket;
 }

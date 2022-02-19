@@ -107,8 +107,8 @@ namespace WAVM {
 		{
 			template<typename, typename> friend struct IndexMap;
 
-			bool operator!=(const Iterator& other) { return mapIt != other.mapIt; }
-			bool operator==(const Iterator& other) { return mapIt == other.mapIt; }
+			bool operator!=(const Iterator& other) const { return mapIt != other.mapIt; }
+			bool operator==(const Iterator& other) const { return mapIt == other.mapIt; }
 			operator bool() const { return bool(mapIt); }
 			void operator++() { ++mapIt; }
 
