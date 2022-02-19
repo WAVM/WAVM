@@ -31,7 +31,7 @@ foreach(TestName ${TestNames})
 	#endif()
 endforeach()
 
-# Run the stdout test as a basic test of "wavm run" and the WASI subsystem.
+# Run some of the tests as a basic test of "wavm run" and the WASI subsystem.
 if(WAVM_ENABLE_RUNTIME)
 	add_test(
 		NAME wasi_args
@@ -55,6 +55,12 @@ if(WAVM_ENABLE_RUNTIME)
 		NAME wasi_stdout
 		COMMAND $<TARGET_FILE:wavm> run --abi=wasi ${CMAKE_CURRENT_LIST_DIR}/stdout.wasm)
 	set_tests_properties(wasi_stdout PROPERTIES PASS_REGULAR_EXPRESSION "Hello world!")
+	
+	# Test wasi_stdout without an explicit ABI specified on the command-line.
+	add_test(
+		NAME wasi_stdout_detected_abi
+		COMMAND $<TARGET_FILE:wavm> run ${CMAKE_CURRENT_LIST_DIR}/stdout.wasm)
+	set_tests_properties(wasi_stdout_detected_abi PROPERTIES PASS_REGULAR_EXPRESSION "Hello world!")
 endif()
 
 add_custom_target(WASITests SOURCES ${TestSources})

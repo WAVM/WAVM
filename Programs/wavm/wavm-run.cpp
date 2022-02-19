@@ -510,40 +510,35 @@ struct State
 			}
 		}
 
-		// Otherwise, check whether it has any WASI or non-WASI imports.
+		// Otherwise, check whether it has any WASI or Emscripten ABI specific imports.
 		bool hasWASIImports = false;
-		bool hasNonWASIImports = false;
+		bool hasEmscriptenImports = false;
 		for(const auto& import : irModule.functions.imports)
 		{
 			if(stringStartsWith(import.moduleName.c_str(), "wasi_")) { hasWASIImports = true; }
-			else
+			else if(import.moduleName == "env" || import.moduleName == "asm2wasm"
+					|| import.moduleName == "global")
 			{
-				hasNonWASIImports = true;
+				hasEmscriptenImports = true;
 			}
 		}
 
-		if(hasNonWASIImports)
+		if(hasEmscriptenImports)
 		{
-			// If there are any non-WASI imports, it might be an Emscripten module. However, since
-			// it didn't have the 'emscripten_metadata' section, WAVM can't use it.
-			Log::printf(
-				Log::error,
-				"Module appears to be an Emscripten module, but does not have an"
-				" 'emscripten_metadata' section. WAVM only supports Emscripten modules compiled"
-				" with '-s EMIT_EMSCRIPTEN_METADATA=1'.\n"
-				"If this is not an Emscripten module, please use '--abi=<ABI>' on the WAVM"
-				" command line to specify the correct ABI.\n");
-			return false;
+			Log::printf(Log::debug, "Module has emscripten imports: using emscripten ABI.\n");
+			abi = ABI::emscripten;
+			return true;
 		}
 		else if(hasWASIImports)
 		{
-			Log::printf(Log::debug, "Module has only WASI imports: using WASI ABI.\n");
+			Log::printf(Log::debug,
+						"Module has WASI imports and no emscripten imports: using WASI ABI.\n");
 			abi = ABI::wasi;
 			return true;
 		}
 		else
 		{
-			Log::printf(Log::debug, "Module has no imports: using bare ABI.\n");
+			Log::printf(Log::debug, "Module has no recognized imports: using bare ABI.\n");
 			abi = ABI::bare;
 			return true;
 		}
