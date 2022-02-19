@@ -46,6 +46,20 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 	targetArch = targetMachine->getTargetTriple().getArch();
 	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
 
+#if LLVM_VERSION_MAJOR >= 7
+	const U32 numPointerBytes = targetMachine->getProgramPointerSize();
+#else
+	const U32 numPointerBytes = targetMachine->getPointerSize();
+#endif
+	iptrAlignment = numPointerBytes;
+	iptrType = getIptrType(llvmContext, numPointerBytes);
+	switch(iptrAlignment)
+	{
+	case 4: iptrValueType = ValueType::i32; break;
+	case 8: iptrValueType = ValueType::i64; break;
+	default: Errors::fatalf("Unexpected pointer size: %u bytes", numPointerBytes);
+	};
+
 	diModuleScope = diBuilder.createFile("unknown", "unknown");
 #if LLVM_VERSION_MAJOR >= 9
 	diCompileUnit
@@ -131,7 +145,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	{
 		moduleContext.typeIds.push_back(llvm::ConstantExpr::getPtrToInt(
 			createImportedConstant(outLLVMModule, getExternalName("typeId", typeIndex)),
-			llvmContext.iptrType));
+			moduleContext.iptrType));
 	}
 
 	// Create LLVM external globals corresponding to offsets to table base pointers in
@@ -140,7 +154,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	{
 		moduleContext.tableOffsets.push_back(llvm::ConstantExpr::getPtrToInt(
 			createImportedConstant(outLLVMModule, getExternalName("tableOffset", tableIndex)),
-			llvmContext.iptrType));
+			moduleContext.iptrType));
 	}
 	if(moduleContext.tableOffsets.size())
 	{ moduleContext.defaultTableOffset = moduleContext.tableOffsets[0]; }
@@ -151,7 +165,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	{
 		moduleContext.memoryOffsets.push_back(llvm::ConstantExpr::getPtrToInt(
 			createImportedConstant(outLLVMModule, getExternalName("memoryOffset", memoryIndex)),
-			llvmContext.iptrType));
+			moduleContext.iptrType));
 	}
 
 	// Create LLVM external globals for the module's globals.
@@ -168,10 +182,10 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	{
 		llvm::Constant* biasedExceptionTypeIdAsPointer = createImportedConstant(
 			outLLVMModule, getExternalName("biasedExceptionTypeId", exceptionTypeIndex));
-		llvm::Constant* biasedExceptionTypeId
-			= llvm::ConstantExpr::getPtrToInt(biasedExceptionTypeIdAsPointer, llvmContext.iptrType);
-		llvm::Constant* exceptionTypeId
-			= llvm::ConstantExpr::getSub(biasedExceptionTypeId, emitLiteral(llvmContext, Uptr(1)));
+		llvm::Constant* biasedExceptionTypeId = llvm::ConstantExpr::getPtrToInt(
+			biasedExceptionTypeIdAsPointer, moduleContext.iptrType);
+		llvm::Constant* exceptionTypeId = llvm::ConstantExpr::getSub(
+			biasedExceptionTypeId, emitLiteralIptr(1, moduleContext.iptrType));
 		moduleContext.exceptionTypeIds.push_back(exceptionTypeId);
 	}
 
@@ -179,13 +193,19 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	llvm::Constant* biasedInstanceIdAsPointer
 		= createImportedConstant(outLLVMModule, "biasedInstanceId");
 	llvm::Constant* biasedInstanceId
-		= llvm::ConstantExpr::getPtrToInt(biasedInstanceIdAsPointer, llvmContext.iptrType);
+		= llvm::ConstantExpr::getPtrToInt(biasedInstanceIdAsPointer, moduleContext.iptrType);
 	moduleContext.instanceId
-		= llvm::ConstantExpr::getSub(biasedInstanceId, emitLiteral(llvmContext, Uptr(1)));
+		= llvm::ConstantExpr::getSub(biasedInstanceId, emitLiteralIptr(1, moduleContext.iptrType));
 
 	// Create a LLVM external global that will be a bias applied to all references in a table.
 	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
-		createImportedConstant(outLLVMModule, "tableReferenceBias"), llvmContext.iptrType);
+		createImportedConstant(outLLVMModule, "tableReferenceBias"), moduleContext.iptrType);
+
+#if LLVM_VERSION_MAJOR < 10
+	// Create a LLVM external global that will be a constant Iptr 1 that is opaque to the optimizer.
+	moduleContext.unoptimizableOne = llvm::ConstantExpr::getPtrToInt(
+		createImportedConstant(outLLVMModule, "unoptimizableOne"), moduleContext.iptrType);
+#endif
 
 	// Create a LLVM external global that will point to the std::type_info for Runtime::Exception.
 	if(moduleContext.useWindowsSEH)
@@ -252,9 +272,10 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		llvm::Constant* functionDefMutableData = createImportedConstant(
 			outLLVMModule, getExternalName("functionDefMutableDatas", functionDefIndex));
 		llvm::Constant* functionDefMutableDataAsIptr
-			= llvm::ConstantExpr::getPtrToInt(functionDefMutableData, llvmContext.iptrType);
+			= llvm::ConstantExpr::getPtrToInt(functionDefMutableData, moduleContext.iptrType);
 
 		setRuntimeFunctionPrefix(llvmContext,
+								 moduleContext.iptrType,
 								 function,
 								 functionDefMutableDataAsIptr,
 								 moduleContext.instanceId,

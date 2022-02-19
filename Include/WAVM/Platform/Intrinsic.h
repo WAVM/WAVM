@@ -84,14 +84,13 @@ namespace WAVM {
 		return value <= 1 ? 0 : 31 - countLeadingZeroes(value * 2 - 1);
 	}
 
-	inline U64 branchlessMin(U64 value, U64 maxValue)
+	constexpr inline U64 branchlessMin(U64 value, U64 maxValue)
 	{
-		return U64(value + ((I64(maxValue - value) >> 63) & (maxValue - value)));
+		return value < maxValue ? value : maxValue;
 	}
-
-	inline U32 branchlessMin(U32 value, U32 maxValue)
+	constexpr inline U32 branchlessMin(U32 value, U32 maxValue)
 	{
-		return U32(value + ((I32(maxValue - value) >> 31) & (maxValue - value)));
+		return value < maxValue ? value : maxValue;
 	}
 
 #if __GNUC__ >= 5 || __has_builtin(__builtin_add_overflow)

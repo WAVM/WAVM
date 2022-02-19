@@ -8,6 +8,7 @@
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/OperatorPrinter.h"
+#include "WAVM/IR/OperatorSignatures.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
@@ -108,22 +109,26 @@ static void validate(const IR::Module& module, ReferenceType type)
 static void validate(const Module& module, TableType type)
 {
 	validate(module, type.elementType);
-	validate(type.size, IR::maxTableElems);
+	validate(type.size,
+			 type.indexType == IndexType::i32 ? IR::maxTable32Elems : IR::maxTable64Elems);
 	if(type.isShared)
 	{
 		VALIDATE_FEATURE("shared table", sharedTables);
 		VALIDATE_UNLESS("shared tables must have a maximum size: ", type.size.max == UINT64_MAX);
 	}
+	if(type.indexType != IndexType::i32) { VALIDATE_FEATURE("64-bit table indices", table64); }
 }
 
 static void validate(const Module& module, MemoryType type)
 {
-	validate(type.size, IR::maxMemoryPages);
+	validate(type.size,
+			 type.indexType == IndexType::i32 ? IR::maxMemory32Pages : IR::maxMemory64Pages);
 	if(type.isShared)
 	{
 		VALIDATE_FEATURE("shared memory", atomics);
 		VALIDATE_UNLESS("shared memories must have a maximum size: ", type.size.max == UINT64_MAX);
 	}
+	if(type.indexType != IndexType::i32) { VALIDATE_FEATURE("64-bit memory addresses", memory64); }
 }
 
 static void validate(const Module& module, GlobalType type) { validate(module, type.valueType); }
@@ -461,7 +466,7 @@ struct FunctionValidationContext
 	{
 		VALIDATE_FEATURE("catch", exceptionHandling);
 		VALIDATE_INDEX(imm.exceptionTypeIndex, module.exceptionTypes.size());
-		ExceptionType type = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+		const ExceptionType& type = module.exceptionTypes.getType(imm.exceptionTypeIndex);
 		validateCatch();
 		for(auto param : type.params) { pushOperand(param); }
 	}
@@ -488,8 +493,6 @@ struct FunctionValidationContext
 
 		const TypeTuple defaultTargetParams = getBranchTargetByDepth(imm.defaultTargetDepth).params;
 
-		popAndValidateTypeTuple("br_table argument", defaultTargetParams);
-
 		// Validate that each target has the same number of parameters as the default target, and
 		// that the parameters for each target match the arguments provided.
 		WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
@@ -503,27 +506,13 @@ struct FunctionValidationContext
 				throw ValidationException(
 					"br_table targets must all take the same number of parameters");
 			}
-			else if(defaultTargetParams != targetParams)
+			else
 			{
-				std::string defaultTargetParameterString;
-				std::string targetParameterString;
-				for(Uptr paramIndex = 0; paramIndex < targetParams.size(); ++paramIndex)
-				{
-					if(paramIndex != 0)
-					{
-						defaultTargetParameterString += ',';
-						targetParameterString += ',';
-					}
-					defaultTargetParameterString += asString(defaultTargetParams[paramIndex]);
-					targetParameterString += asString(targetParams[paramIndex]);
-				}
-
-				throw ValidationException(
-					"type mismatch: br_table case " + std::to_string(targetIndex) + "'s arguments("
-					+ targetParameterString + ") don't match the default case's arguments("
-					+ defaultTargetParameterString + ").");
+				peekAndValidateTypeTuple("br_table case argument", targetParams);
 			}
 		}
+
+		popAndValidateTypeTuple("br_table argument", defaultTargetParams);
 
 		enterUnreachable();
 	}
@@ -603,35 +592,39 @@ struct FunctionValidationContext
 	{
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 		const TableType& tableType = module.tables.getType(imm.tableIndex);
-		popAndValidateOperand("table.get", ValueType::i32);
+		popAndValidateOperand("table.get", asValueType(tableType.indexType));
 		pushOperand(asValueType(tableType.elementType));
 	}
 	void table_set(TableImm imm)
 	{
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 		const TableType& tableType = module.tables.getType(imm.tableIndex);
-		popAndValidateOperands("table.get", ValueType::i32, asValueType(tableType.elementType));
+		popAndValidateOperands(
+			"table.get", asValueType(tableType.indexType), asValueType(tableType.elementType));
 	}
 	void table_grow(TableImm imm)
 	{
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 		const TableType& tableType = module.tables.getType(imm.tableIndex);
-		popAndValidateOperands("table.grow", asValueType(tableType.elementType), ValueType::i32);
+		popAndValidateOperands(
+			"table.grow", asValueType(tableType.elementType), asValueType(tableType.indexType));
 		pushOperand(ValueType::i32);
 	}
 	void table_fill(TableImm imm)
 	{
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 		const TableType& tableType = module.tables.getType(imm.tableIndex);
-		popAndValidateOperands(
-			"table.fill", ValueType::i32, asValueType(tableType.elementType), ValueType::i32);
+		popAndValidateOperands("table.fill",
+							   ValueType::i32,
+							   asValueType(tableType.elementType),
+							   asValueType(tableType.indexType));
 	}
 
 	void throw_(ExceptionTypeImm imm)
 	{
 		VALIDATE_FEATURE("throw", exceptionHandling);
 		VALIDATE_INDEX(imm.exceptionTypeIndex, module.exceptionTypes.size());
-		ExceptionType exceptionType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+		const ExceptionType& exceptionType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
 		popAndValidateTypeTuple("exception arguments", exceptionType.params);
 		enterUnreachable();
 	}
@@ -671,11 +664,11 @@ struct FunctionValidationContext
 	void call_indirect(CallIndirectImm imm)
 	{
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
-		VALIDATE_UNLESS(
-			"call_indirect requires a table element type of funcref: ",
-			module.tables.getType(imm.tableIndex).elementType != ReferenceType::funcref);
+		const TableType& tableType = module.tables.getType(imm.tableIndex);
+		VALIDATE_UNLESS("call_indirect requires a table element type of funcref: ",
+						tableType.elementType != ReferenceType::funcref);
 		FunctionType calleeType = validateFunctionType(module, imm.type);
-		popAndValidateOperand("call_indirect function index", ValueType::i32);
+		popAndValidateOperand("call_indirect function index", asValueType(tableType.indexType));
 		popAndValidateTypeTuple("call_indirect arguments", calleeType.params());
 		pushOperandTuple(calleeType.results());
 	}
@@ -689,6 +682,26 @@ struct FunctionValidationContext
 		VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",
 						imm.alignmentLog2 > naturalAlignmentLog2);
 		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
+		const MemoryType& memoryType = module.memories.getType(imm.memoryIndex);
+		switch(memoryType.indexType)
+		{
+		case IndexType::i32:
+			VALIDATE_UNLESS("load or store offset too large for i32 address",
+							imm.offset > UINT32_MAX);
+			break;
+		case IndexType::i64:
+			VALIDATE_UNLESS("load or store offset too large for i64 address",
+							imm.offset > UINT64_MAX);
+			break;
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
+	template<Uptr naturalAlignmentLog2, Uptr numLanes>
+	void validateImm(LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> imm)
+	{
+		validateImm(static_cast<LoadOrStoreImm<naturalAlignmentLog2>&>(imm));
+		VALIDATE_UNLESS("invalid lane index: ", imm.laneIndex >= numLanes);
 	}
 
 	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
@@ -717,7 +730,7 @@ struct FunctionValidationContext
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
 	{
-		VALIDATE_UNLESS("swizzle invalid lane index: ", imm.laneIndex >= numLanes);
+		VALIDATE_UNLESS("invalid lane index: ", imm.laneIndex >= numLanes);
 	}
 
 	template<Uptr numLanes> void validateImm(ShuffleImm<numLanes> imm)
@@ -782,18 +795,33 @@ struct FunctionValidationContext
 		VALIDATE_INDEX(imm.elemSegmentIndex, module.elemSegments.size());
 	}
 
-#define VALIDATE_OP(opcode, name, nameString, Imm, signatureInitializer, requiredFeature)          \
+#define VALIDATE_OP(_1, name, nameString, Imm, Signature, requiredFeature)                         \
 	void name(Imm imm)                                                                             \
 	{                                                                                              \
 		VALIDATE_FEATURE(nameString, requiredFeature);                                             \
 		const char* operatorName = nameString;                                                     \
 		WAVM_SUPPRESS_UNUSED(operatorName);                                                        \
 		validateImm(imm);                                                                          \
-		popAndValidateTypeTuple(nameString, IR::getNonParametricOpSigs().name.params());           \
-		pushOperandTuple(IR::getNonParametricOpSigs().name.results());                             \
+		const OpSignature& signature = IR::OpSignatures::Signature;                                \
+		popAndValidateOpParams(nameString, signature.params);                                      \
+		pushOpResults(signature.results);                                                          \
 	}
 	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
 #undef VALIDATE_OP
+
+#define VALIDATE_POLYMORPHIC_OP(_1, name, nameString, Imm, Signature, requiredFeature)             \
+	void name(Imm imm)                                                                             \
+	{                                                                                              \
+		VALIDATE_FEATURE(nameString, requiredFeature);                                             \
+		const char* operatorName = nameString;                                                     \
+		WAVM_SUPPRESS_UNUSED(operatorName);                                                        \
+		validateImm(imm);                                                                          \
+		const OpSignature& signature = IR::OpSignatures::Signature(module, imm);                   \
+		popAndValidateOpParams(nameString, signature.params);                                      \
+		pushOpResults(signature.results);                                                          \
+	}
+	WAVM_ENUM_INDEX_POLYMORPHIC_OPERATORS(VALIDATE_POLYMORPHIC_OP)
+#undef DUMMY_VALIDATE_OP
 
 private:
 	struct ControlContext
@@ -913,7 +941,7 @@ private:
 		return actualType;
 	}
 
-	void popAndValidateOperands(const char* context, const ValueType* expectedTypes, Uptr num)
+	void popAndValidateOperandArray(const char* context, const ValueType* expectedTypes, Uptr num)
 	{
 		for(Uptr operandIndexFromEnd = 0; operandIndexFromEnd < num; ++operandIndexFromEnd)
 		{
@@ -923,16 +951,16 @@ private:
 	}
 
 	template<Uptr num>
-	void popAndValidateOperands(const char* context, const ValueType (&expectedTypes)[num])
+	void popAndValidateOperandArray(const char* context, const ValueType (&expectedTypes)[num])
 	{
-		popAndValidateOperands(context, expectedTypes, num);
+		popAndValidateOperandArray(context, expectedTypes, num);
 	}
 
 	template<typename... OperandTypes>
 	void popAndValidateOperands(const char* context, OperandTypes... operands)
 	{
 		ValueType operandTypes[] = {operands...};
-		popAndValidateOperands(context, operandTypes);
+		popAndValidateOperandArray(context, operandTypes);
 	}
 
 	ValueType popAndValidateOperand(const char* context, const ValueType expectedType)
@@ -945,9 +973,14 @@ private:
 		return actualType;
 	}
 
-	void popAndValidateTypeTuple(const char* context, TypeTuple expectedType)
+	void popAndValidateTypeTuple(const char* context, TypeTuple expectedTypes)
 	{
-		popAndValidateOperands(context, expectedType.data(), expectedType.size());
+		popAndValidateOperandArray(context, expectedTypes.data(), expectedTypes.size());
+	}
+
+	void popAndValidateOpParams(const char* context, OpTypeTuple expectedTypes)
+	{
+		popAndValidateOperandArray(context, expectedTypes.data(), expectedTypes.size());
 	}
 
 	void peekAndValidateTypeTuple(const char* context, TypeTuple expectedTypes)
@@ -963,6 +996,10 @@ private:
 	void pushOperandTuple(TypeTuple typeTuple)
 	{
 		for(ValueType type : typeTuple) { pushOperand(type); }
+	}
+	void pushOpResults(OpTypeTuple results)
+	{
+		for(ValueType type : results) { pushOperand(type); }
 	}
 };
 
@@ -1170,9 +1207,10 @@ void IR::validateElemSegments(ModuleValidationState& state)
 										  + asString(tableElemType) + ")");
 			}
 
-			validateInitializer(
-				state, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
-
+			validateInitializer(state,
+								elemSegment.baseOffset,
+								asValueType(tableType.indexType),
+								"elem segment base initializer");
 			break;
 		}
 		case ElemSegment::Type::passive: break;
@@ -1244,8 +1282,11 @@ void IR::validateDataSegments(ModuleValidationState& state)
 		if(dataSegment.isActive)
 		{
 			VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
-			validateInitializer(
-				state, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
+			const MemoryType& memoryType = module.memories.getType(dataSegment.memoryIndex);
+			validateInitializer(state,
+								dataSegment.baseOffset,
+								asValueType(memoryType.indexType),
+								"data segment base initializer");
 		}
 	}
 }

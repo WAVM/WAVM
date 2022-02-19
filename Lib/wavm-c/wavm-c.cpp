@@ -118,6 +118,15 @@ struct wasm_module_t
 	wasm_module_t(ModuleRef inModule) : module(inModule) {}
 };
 
+static wasm_index_t as_index(IndexType indexType)
+{
+	switch(indexType)
+	{
+	case IndexType::i32: return WASM_INDEX_I32;
+	case IndexType::i64: return WASM_INDEX_I64;
+	default: WAVM_UNREACHABLE();
+	};
+}
 static wasm_limits_t as_limits(const SizeConstraints& size)
 {
 	WAVM_ERROR_UNLESS(size.min <= UINT32_MAX);
@@ -154,6 +163,15 @@ static wasm_externtype_t* as_externtype(ExternType type)
 	}
 }
 
+static IndexType asIndexType(wasm_index_t index)
+{
+	switch(index)
+	{
+	case WASM_INDEX_I32: return IndexType::i32;
+	case WASM_INDEX_I64: return IndexType::i64;
+	default: WAVM_UNREACHABLE();
+	};
+}
 static ValueType asValueType(wasm_valkind_t kind)
 {
 	switch(kind)
@@ -389,11 +407,13 @@ wasm_tabletype_t* wasm_tabletype_copy(wasm_tabletype_t* type)
 }
 wasm_tabletype_t* wasm_tabletype_new(wasm_valtype_t* element,
 									 const wasm_limits_t* limits,
-									 wasm_shared_t shared)
+									 wasm_shared_t shared,
+									 wasm_index_t index)
 {
 	WAVM_ERROR_UNLESS(isReferenceType(element->type));
 	return new wasm_tabletype_t(TableType(ReferenceType(element->type),
 										  shared == WASM_SHARED,
+										  asIndexType(index),
 										  SizeConstraints{limits->min, limits->max}),
 								element,
 								*limits);
@@ -404,6 +424,10 @@ wasm_shared_t wasm_tabletype_shared(const wasm_tabletype_t* type)
 {
 	return wasm_shared_t(type->type.isShared ? WASM_SHARED : WASM_NOTSHARED);
 }
+wasm_index_t wasm_tabletype_index(const wasm_tabletype_t* type)
+{
+	return as_index(type->type.indexType);
+}
 
 // wasm_memorytype_t
 void wasm_memorytype_delete(wasm_memorytype_t* type) { delete type; }
@@ -411,15 +435,23 @@ wasm_memorytype_t* wasm_memorytype_copy(wasm_memorytype_t* type)
 {
 	return new wasm_memorytype_t(type->type, type->limits);
 }
-wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits, wasm_shared_t shared)
+wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits,
+									   wasm_shared_t shared,
+									   wasm_index_t index)
 {
 	return new wasm_memorytype_t(
-		MemoryType(shared == WASM_SHARED, SizeConstraints{limits->min, limits->max}), *limits);
+		MemoryType(
+			shared == WASM_SHARED, asIndexType(index), SizeConstraints{limits->min, limits->max}),
+		*limits);
 }
 const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* type) { return &type->limits; }
 wasm_shared_t wasm_memorytype_shared(const wasm_memorytype_t* type)
 {
 	return wasm_shared_t(type->type.isShared ? WASM_SHARED : WASM_NOTSHARED);
+}
+wasm_index_t wasm_memorytype_index(const wasm_memorytype_t* type)
+{
+	return as_index(type->type.indexType);
 }
 
 // wasm_externtype_t
@@ -645,16 +677,16 @@ wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,
 bool wasm_trap_message(const wasm_trap_t* trap, char* out_message, size_t* inout_num_message_bytes)
 {
 	const std::string description = describeExceptionType(getExceptionType(trap));
-	if(*inout_num_message_bytes < description.size() + 1)
+	if(*inout_num_message_bytes < description.size())
 	{
-		*inout_num_message_bytes = description.size() + 1;
+		*inout_num_message_bytes = description.size();
 		return false;
 	}
 	else
 	{
 		WAVM_ASSERT(out_message);
-		memcpy(out_message, description.c_str(), description.size() + 1);
-		*inout_num_message_bytes = description.size() + 1;
+		memcpy(out_message, description.c_str(), description.size());
+		*inout_num_message_bytes = description.size();
 		return true;
 	}
 }

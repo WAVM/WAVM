@@ -3,7 +3,6 @@
 #include <string.h>
 #include <vector>
 #include "WAVM/IR/IR.h"
-#include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -13,6 +12,9 @@
 #include "OperatorTable.h"
 
 namespace WAVM { namespace IR {
+	// Forward declarations.
+	struct Module;
+
 	// Structures for operator immediates
 
 	struct NoImm
@@ -88,12 +90,27 @@ namespace WAVM { namespace IR {
 		Uptr tableIndex;
 	};
 
-	template<Uptr naturalAlignmentLog2> struct LoadOrStoreImm
+	struct BaseLoadOrStoreImm
 	{
 		U8 alignmentLog2;
-		U32 offset;
+		U64 offset;
 		Uptr memoryIndex;
 	};
+
+	template<Uptr naturalAlignmentLog2> struct LoadOrStoreImm : BaseLoadOrStoreImm
+	{
+	};
+
+	template<Uptr naturalAlignmentLog2, Uptr numLanes>
+	struct LoadOrStoreLaneImm : LoadOrStoreImm<naturalAlignmentLog2>
+	{
+		U8 laneIndex;
+	};
+
+	using LoadOrStoreI8x16LaneImm = LoadOrStoreLaneImm<0, 16>;
+	using LoadOrStoreI16x8LaneImm = LoadOrStoreLaneImm<1, 8>;
+	using LoadOrStoreI32x4LaneImm = LoadOrStoreLaneImm<2, 4>;
+	using LoadOrStoreI64x2LaneImm = LoadOrStoreLaneImm<3, 2>;
 
 	template<Uptr numLanes> struct LaneIndexImm
 	{
@@ -105,11 +122,8 @@ namespace WAVM { namespace IR {
 		U8 laneIndices[numLanes];
 	};
 
-	template<Uptr naturalAlignmentLog2> struct AtomicLoadOrStoreImm
+	template<Uptr naturalAlignmentLog2> struct AtomicLoadOrStoreImm : BaseLoadOrStoreImm
 	{
-		U8 alignmentLog2;
-		U32 offset;
-		Uptr memoryIndex;
 	};
 
 	enum class MemoryOrder
@@ -167,10 +181,11 @@ namespace WAVM { namespace IR {
 
 	static constexpr U64 maxSingleByteOpcode = 0xdf;
 
-	WAVM_PACKED_STRUCT(template<typename Imm> struct OpcodeAndImm {
+	template<typename Imm> struct OpcodeAndImm
+	{
 		Opcode opcode;
 		Imm imm;
-	});
+	};
 
 	// Specialize for the empty immediate struct so they don't take an extra byte of space.
 	template<> struct OpcodeAndImm<NoImm>
@@ -251,12 +266,4 @@ namespace WAVM { namespace IR {
 	};
 
 	WAVM_API const char* getOpcodeName(Opcode opcode);
-
-	struct NonParametricOpSignatures
-	{
-#define VISIT_OP(_1, name, ...) FunctionType name;
-		WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)
-#undef VISIT_OP
-	};
-	WAVM_API const NonParametricOpSignatures& getNonParametricOpSigs();
 }}

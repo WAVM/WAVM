@@ -207,6 +207,17 @@ static bool stringStartsWith(const char* string, const char (&prefix)[numPrefixC
 	return !strncmp(string, prefix, numPrefixChars - 1);
 }
 
+static std::string getFilenameAndExtension(const char* path)
+{
+	const char* filenameBegin = path;
+	for(Uptr charIndex = 0; path[charIndex]; ++charIndex)
+	{
+		if(path[charIndex] == '/' || path[charIndex] == '\\' || path[charIndex] == ':')
+		{ filenameBegin = path + charIndex + 1; }
+	}
+	return std::string(filenameBegin);
+}
+
 enum class ABI
 {
 	detect,
@@ -397,6 +408,12 @@ struct State
 		case LLVMJIT::TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
 			Log::printf(Log::error, "WAVM does not support SIMD on the host CPU architecture.\n");
 			return false;
+		case LLVMJIT::TargetValidationResult::memory64Requires64bitTarget:
+			Log::printf(Log::error, "Host CPU does not support 64-bit memories.\n");
+			return false;
+		case LLVMJIT::TargetValidationResult::table64Requires64bitTarget:
+			Log::printf(Log::error, "Host CPU does not support 64-bit tables.\n");
+			return false;
 
 		case LLVMJIT::TargetValidationResult::invalidTargetSpec:
 		default: WAVM_UNREACHABLE();
@@ -562,7 +579,7 @@ struct State
 		if(abi == ABI::emscripten)
 		{
 			std::vector<std::string> args = runArgs;
-			args.insert(args.begin(), "/proc/1/exe");
+			args.insert(args.begin(), getFilenameAndExtension(filename));
 
 			// Instantiate the Emscripten environment.
 			emscriptenProcess
@@ -576,7 +593,7 @@ struct State
 		else if(abi == ABI::wasi)
 		{
 			std::vector<std::string> args = runArgs;
-			args.insert(args.begin(), "/proc/1/exe");
+			args.insert(args.begin(), getFilenameAndExtension(filename));
 
 			// Create the WASI process.
 			wasiProcess = WASI::createProcess(compartment,
@@ -710,10 +727,8 @@ struct State
 		untaggedInvokeResults.resize(invokeSig.results().size());
 
 		// Invoke the function.
-		Timing::Timer executionTimer;
 		invokeFunction(
 			context, function, invokeSig, untaggedInvokeArgs.data(), untaggedInvokeResults.data());
-		Timing::logTimer("Invoked function", executionTimer);
 
 		if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
 		{ return untaggedInvokeResults[0].i32; }
@@ -809,6 +824,7 @@ struct State
 		}
 
 		// Execute the program.
+		Timing::Timer executionTimer;
 		auto executeThunk = [&] { return execute(irModule, instance); };
 		int result;
 		if(emscriptenProcess) { result = Emscripten::catchExit(std::move(executeThunk)); }
@@ -820,6 +836,7 @@ struct State
 		{
 			result = executeThunk();
 		}
+		Timing::logTimer("Executed program", executionTimer);
 
 		// Log the peak memory usage.
 		Uptr peakMemoryUsage = Platform::getPeakMemoryUsageBytes();

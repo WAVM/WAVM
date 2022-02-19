@@ -5,7 +5,7 @@ stages:
       # clang-format checker
       - job: CheckClangFormat
         displayName: Check clang-format
-        pool: {vmImage: 'ubuntu-16.04'}
+        pool: {vmImage: 'ubuntu-latest'}
         container: 'wavm/clang-format-check:latest'
         steps:
           - script: |
@@ -39,7 +39,7 @@ stages:
       - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
           name: Ubuntu1910_GCC
-          vmImage: 'ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
           container: 'wavm/ubuntu19.10-builder:latest'
           llvmBuildBaseName: 'Ubuntu1910'
           llvmVersion: '9.x'
@@ -50,7 +50,7 @@ stages:
       - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
           name: Ubuntu1604_GCC
-          vmImage: 'ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
           container: 'wavm/ubuntu16.04-builder:latest'
           llvmBuildBaseName: 'Ubuntu1604'
           llvmVersion: '9.x'
@@ -61,7 +61,7 @@ stages:
       - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
           name: Ubuntu1604_Clang
-          vmImage: 'ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
           container: 'wavm/ubuntu16.04-builder:latest'
           llvmBuildBaseName: 'Ubuntu1604'
           llvmVersion: '9.x'
@@ -72,7 +72,7 @@ stages:
       - template: Build/azure-pipelines/posix-build-job-template.yml
         parameters:
           name: CentOS70_Clang
-          vmImage: 'ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
           container: 'wavm/centos7.0-builder:latest'
           llvmBuildBaseName: 'Centos70'
           llvmVersion: '9.x'
@@ -123,11 +123,11 @@ stages:
         parameters:
           name: 'LinuxDEB'
           matrix:
-            Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
-            Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
-            Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
-            Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
-            Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
+            Ubuntu1604: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:ubuntu16.04'}
+            Ubuntu1804: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:ubuntu18.04'}
+            Ubuntu1904: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:ubuntu19.04'}
+            Debian9:    {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:debian9'}
+            Debian10:   {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:debian10'}
           useContainer: true
           examplesDir: '/usr/share/wavm/examples'
           artifactName: 'Ubuntu1604_Clang_LTO'
@@ -144,14 +144,14 @@ stages:
         parameters:
           name: 'LinuxRPM'
           matrix:
-            CentOS7x:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
-            CentOS70:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
-            CentOS8x:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos8'}
-            Fedora29:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora29'}
-            Fedora30:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora30'}
-            Fedora31:        {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:fedora31'}
-            OpenSUSELeap150: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.0'}
-            OpenSUSELeap151: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:opensuseleap15.1'}
+            CentOS7x:        {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:centos7'}
+            CentOS70:        {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:centos7.0'}
+            CentOS8x:        {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:centos8'}
+            Fedora29:        {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:fedora29'}
+            Fedora30:        {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:fedora30'}
+            Fedora31:        {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:fedora31'}
+            OpenSUSELeap150: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:opensuseleap15.0'}
+            OpenSUSELeap151: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:opensuseleap15.1'}
           useContainer: true
           examplesDir: '/usr/share/wavm/examples'
           artifactName: 'CentOS70_Clang_LTO'
@@ -168,16 +168,16 @@ stages:
         parameters:
           name: 'LinuxTGZ'
           matrix:
-            CentOS7x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7'}
-            CentOS70:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos7.0'}
-            CentOS8x:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-rpm:centos8'}
-            Ubuntu1604: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu16.04'}
-            Ubuntu1804: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu18.04'}
-            Ubuntu1904: {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:ubuntu19.04'}
-            Debian8:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian8'}
-            Debian9:    {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian9'}
-            Debian10:   {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-deb:debian10'}
-            ArchLinux:  {vmImage: 'ubuntu-16.04', container: 'wavm/package-tester-pacman:archlinux'}
+            CentOS7x:   {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:centos7'}
+            CentOS70:   {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:centos7.0'}
+            CentOS8x:   {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-rpm:centos8'}
+            Ubuntu1604: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:ubuntu16.04'}
+            Ubuntu1804: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:ubuntu18.04'}
+            Ubuntu1904: {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:ubuntu19.04'}
+            Debian8:    {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:debian8'}
+            Debian9:    {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:debian9'}
+            Debian10:   {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-deb:debian10'}
+            ArchLinux:  {vmImage: 'ubuntu-latest', container: 'wavm/package-tester-pacman:archlinux'}
           useContainer: true
           examplesDir: '/opt/wavm/share/wavm/examples'
           executable: '/opt/wavm/bin/wavm'

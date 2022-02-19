@@ -102,13 +102,19 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 													 llvmContext.i8PtrType,
 													 llvmContext.i8PtrType},
 													false);
+#if LLVM_VERSION_MAJOR >= 7
+	llvm::Type* iptrType = getIptrType(llvmContext, targetMachine->getProgramPointerSize());
+#else
+	llvm::Type* iptrType = getIptrType(llvmContext, targetMachine->getPointerSize());
+#endif
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
 	setRuntimeFunctionPrefix(llvmContext,
+							 iptrType,
 							 function,
-							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
-							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
-							 emitLiteral(llvmContext, functionType.getEncoding().impl));
+							 emitLiteralIptr(reinterpret_cast<Uptr>(functionMutableData), iptrType),
+							 emitLiteralIptr(UINTPTR_MAX, iptrType),
+							 emitLiteralIptr(functionType.getEncoding().impl, iptrType));
 	setFunctionAttributes(targetMachine.get(), function);
 
 	llvm::Value* calleeFunction = &*(function->args().begin() + 0);
@@ -119,7 +125,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	EmitContext emitContext(llvmContext, {});
 	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
 
-	emitContext.initContextVariables(contextPointer);
+	emitContext.initContextVariables(contextPointer, iptrType);
 
 	// Load the function's arguments from the argument array.
 	std::vector<llvm::Value*> arguments;
@@ -136,7 +142,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	// Call the function.
 	llvm::Value* functionCode = emitContext.irBuilder.CreateInBoundsGEP(
-		calleeFunction, {emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code)))});
+		calleeFunction, {emitLiteralIptr(offsetof(Runtime::Function, code), iptrType)});
 	ValueVector results = emitContext.emitCallOrInvoke(
 		emitContext.irBuilder.CreatePointerCast(
 			functionCode, asLLVMType(llvmContext, functionType)->getPointerTo()),

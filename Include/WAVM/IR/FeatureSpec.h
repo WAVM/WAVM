@@ -3,28 +3,30 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 
-// Standardized features, or extensions that are expected to be standardized without breaking
-// backward compatibility. These are enabled by default.
-#define WAVM_ENUM_MATURE_FEATURES(V)                                                               \
+// Features that have been standardized by the W3C WebAssembly Working Group.
+#define WAVM_ENUM_STANDARD_FEATURES(V)                                                             \
 	V(mvp, "mvp", "WebAssembly MVP")                                                               \
 	V(importExportMutableGlobals,                                                                  \
 	  "import-export-mutable-globals",                                                             \
 	  "Allows importing and exporting mutable globals")                                            \
 	V(nonTrappingFloatToInt, "non-trapping-float-to-int", "Non-trapping float-to-int conversion")  \
 	V(signExtension, "sign-extension", "Sign-extension")                                           \
-	V(bulkMemoryOperations, "bulk-memory", "Bulk memory")
+	V(multipleResultsAndBlockParams, "multivalue", "Multiple results and block parameters")        \
+	V(bulkMemoryOperations, "bulk-memory", "Bulk memory")                                          \
+	V(referenceTypes, "ref-types", "Reference types")
+
+// Extensions that are expected to be standardized without breaking backward compatibility. These
+// are enabled by default.
+#define WAVM_ENUM_MATURE_FEATURES(V) V(simd, "simd", "128-bit SIMD")
 
 // Proposed standard extensions. These are disabled by default, but may be enabled on the
 // command-line.
 #define WAVM_ENUM_PROPOSED_FEATURES(V)                                                             \
-	V(simd, "simd", "128-bit SIMD")                                                                \
-	V(simdBitMask, "simd-bitmask", "128-bit SIMD bitmask instructions")                            \
 	V(atomics, "atomics", "Shared memories and atomic instructions")                               \
 	V(exceptionHandling, "exception-handling", "Exception handling")                               \
-	V(multipleResultsAndBlockParams, "multivalue", "Multiple results and block parameters")        \
-	V(referenceTypes, "ref-types", "Reference types")                                              \
 	V(extendedNameSection, "extended-name-section", "Extended name section")                       \
-	V(multipleMemories, "multi-memory", "Multiple memories")
+	V(multipleMemories, "multi-memory", "Multiple memories")                                       \
+	V(memory64, "memory64", "Memories with 64-bit addresses")
 
 // Non-standard extensions. These are disabled by default, but may be enabled on the command-line.
 #define WAVM_ENUM_NONSTANDARD_FEATURES(V)                                                          \
@@ -36,13 +38,14 @@
 	V(quotedNamesInTextFormat, "quoted-names", "Quoted names in text format")                      \
 	V(customSectionsInTextFormat, "wat-custom-sections", "Custom sections in text format")         \
 	V(interleavedLoadStore, "interleaved-load-store", "Interleaved SIMD load&store instructions")  \
-	V(ltzMask, "ltz-mask", "SIMD less-than-zero mask instruction")
+	V(table64, "table64", "Tables with 64-bit indices")
 
 // WAVM extensions meant for internal use only (not exposed to users).
 #define WAVM_ENUM_INTERNAL_FEATURES(V)                                                             \
 	V(nonWASMFunctionTypes, "non-wasm-func-types", "Non-WebAssembly function calling conventions")
 
 #define WAVM_ENUM_FEATURES(V)                                                                      \
+	WAVM_ENUM_STANDARD_FEATURES(V)                                                                 \
 	WAVM_ENUM_MATURE_FEATURES(V)                                                                   \
 	WAVM_ENUM_PROPOSED_FEATURES(V)                                                                 \
 	WAVM_ENUM_NONSTANDARD_FEATURES(V)                                                              \
@@ -61,6 +64,7 @@ namespace WAVM { namespace IR {
 	enum class FeatureLevel
 	{
 		mvp,      // Only the WebAssembly MVP.
+		standard, // The above + standard extensions.
 		mature,   // The above + mature proposed standard extensions.
 		proposed, // The above + all proposed standard extensions.
 		wavm,     // The above + non-standard WAVM extensions.
@@ -71,6 +75,7 @@ namespace WAVM { namespace IR {
 		// Declare a bool member for each feature.
 #define VISIT_FEATURE_DEFAULT_ON(name, ...) bool name;
 #define VISIT_FEATURE_DEFAULT_OFF(name, ...) bool name;
+		WAVM_ENUM_STANDARD_FEATURES(VISIT_FEATURE_DEFAULT_ON)
 		WAVM_ENUM_MATURE_FEATURES(VISIT_FEATURE_DEFAULT_ON)
 		WAVM_ENUM_PROPOSED_FEATURES(VISIT_FEATURE_DEFAULT_OFF)
 		WAVM_ENUM_NONSTANDARD_FEATURES(VISIT_FEATURE_DEFAULT_OFF)

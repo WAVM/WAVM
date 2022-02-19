@@ -44,7 +44,11 @@ namespace WAVM { namespace Runtime {
 		};
 
 		Uptr id = UINTPTR_MAX;
-		const IR::TableType type;
+
+		const IR::ReferenceType elementType;
+		const bool isShared;
+		const IR::IndexType indexType;
+		const U64 maxElements;
 
 		Element* elements = nullptr;
 		Uptr numReservedBytes = 0;
@@ -60,7 +64,10 @@ namespace WAVM { namespace Runtime {
 			  std::string&& inDebugName,
 			  ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::table, inCompartment, std::move(inDebugName))
-		, type(inType)
+		, elementType(inType.elementType)
+		, isShared(inType.isShared)
+		, indexType(inType.indexType)
+		, maxElements(inType.size.max)
 		, resourceQuota(inResourceQuota)
 		{
 		}
@@ -76,7 +83,10 @@ namespace WAVM { namespace Runtime {
 	struct Memory : GCObject
 	{
 		Uptr id = UINTPTR_MAX;
-		IR::MemoryType type;
+
+		const bool isShared;
+		const IR::IndexType indexType;
+		const U64 maxPages;
 
 		U8* baseAddress = nullptr;
 		Uptr numReservedBytes = 0;
@@ -91,7 +101,9 @@ namespace WAVM { namespace Runtime {
 			   std::string&& inDebugName,
 			   ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::memory, inCompartment, std::move(inDebugName))
-		, type(inType)
+		, isShared(inType.isShared)
+		, indexType(inType.indexType)
+		, maxPages(inType.size.max)
 		, resourceQuota(inResourceQuota)
 		{
 		}
@@ -232,8 +244,8 @@ namespace WAVM { namespace Runtime {
 	{
 		mutable Platform::RWMutex mutex;
 
-		struct CompartmentRuntimeData* runtimeData;
-		U8* unalignedRuntimeData;
+		struct CompartmentRuntimeData* const runtimeData;
+		U8* const unalignedRuntimeData;
 
 		IndexMap<Uptr, Table*> tables;
 		IndexMap<Uptr, Memory*> memories;
@@ -246,7 +258,9 @@ namespace WAVM { namespace Runtime {
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
 		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
 
-		Compartment(std::string&& inDebugName);
+		Compartment(std::string&& inDebugName,
+					struct CompartmentRuntimeData* inRuntimeData,
+					U8* inUnalignedRuntimeData);
 		~Compartment();
 	};
 

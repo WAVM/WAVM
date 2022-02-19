@@ -91,9 +91,9 @@
         loop $copyLoop
           (br_if $exitCopyLoop (i32.eq (local.get $numBytes) (i32.const 0)))
           (local.set $numBytes (i32.sub (local.get $numBytes) (i32.const 1)))
-          (i64.store
+          (i32.store8
             (i32.add (local.get $dest) (local.get $numBytes))
-            (i64.load (i32.add (local.get $source) (local.get $numBytes))))
+            (i32.load8_u (i32.add (local.get $source) (local.get $numBytes))))
           (br $copyLoop)
         end
       ) (else

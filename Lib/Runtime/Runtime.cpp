@@ -112,8 +112,8 @@ bool Runtime::isA(const Object* object, const ExternType& type)
 	{
 	case ExternKind::function: return asFunction(object)->encodedType == asFunctionType(type);
 	case ExternKind::global: return isSubtype(asGlobal(object)->type, asGlobalType(type));
-	case ExternKind::table: return isSubtype(asTable(object)->type, asTableType(type));
-	case ExternKind::memory: return isSubtype(asMemory(object)->type, asMemoryType(type));
+	case ExternKind::table: return isSubtype(getTableType(asTable(object)), asTableType(type));
+	case ExternKind::memory: return isSubtype(getMemoryType(asMemory(object)), asMemoryType(type));
 	case ExternKind::exceptionType:
 		return isSubtype(asExceptionType(type).params, asExceptionType(object)->sig.params);
 
@@ -128,8 +128,8 @@ ExternType Runtime::getExternType(const Object* object)
 	{
 	case ObjectKind::function: return FunctionType(asFunction(object)->encodedType);
 	case ObjectKind::global: return asGlobal(object)->type;
-	case ObjectKind::table: return asTable(object)->type;
-	case ObjectKind::memory: return asMemory(object)->type;
+	case ObjectKind::table: return getTableType(asTable(object));
+	case ObjectKind::memory: return getMemoryType(asMemory(object));
 	case ObjectKind::exceptionType: return asExceptionType(object)->sig;
 
 	case ObjectKind::instance:

@@ -110,7 +110,7 @@ static I64 threadEntry(void* threadVoid)
 							   &resultValue);
 				result = resultValue.i64;
 			}
-			catch(ExitThreadException exitThreadException)
+			catch(ExitThreadException& exitThreadException)
 			{
 				result = exitThreadException.code;
 			}

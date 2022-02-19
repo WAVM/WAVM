@@ -68,7 +68,8 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 {
 	if(value->getType()->isVectorTy())
 	{
-		switch(value->getType()->getScalarSizeInBits() * value->getType()->getVectorNumElements())
+		switch(value->getType()->getScalarSizeInBits()
+			   * static_cast<FixedVectorType*>(value->getType())->getNumElements())
 		{
 		case 128: return irBuilder.CreateBitCast(value, llvmContext.i64x2Type);
 		default: WAVM_UNREACHABLE();
@@ -150,27 +151,6 @@ void EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(ValueType type,
 		"divideByZeroOrIntegerOverflowTrap",
 		FunctionType({}, {}, IR::CallingConvention::intrinsic),
 		{});
-}
-
-// Emits a call to a WAVM intrinsic function.
-ValueVector EmitFunctionContext::emitRuntimeIntrinsic(
-	const char* intrinsicName,
-	FunctionType intrinsicType,
-	const std::initializer_list<llvm::Value*>& args)
-{
-	WAVM_ASSERT(intrinsicType.callingConvention() == CallingConvention::intrinsic);
-
-	llvm::Function* intrinsicFunction = moduleContext.llvmModule->getFunction(intrinsicName);
-	if(!intrinsicFunction)
-	{
-		intrinsicFunction = llvm::Function::Create(asLLVMType(llvmContext, intrinsicType),
-												   llvm::Function::ExternalLinkage,
-												   intrinsicName,
-												   moduleContext.llvmModule);
-		intrinsicFunction->setCallingConv(asLLVMCallingConv(intrinsicType.callingConvention()));
-	}
-
-	return emitCallOrInvoke(intrinsicFunction, args, intrinsicType, getInnermostUnwindToBlock());
 }
 
 // A helper function to emit a conditional call to a non-returning intrinsic function.
@@ -354,7 +334,7 @@ void EmitFunctionContext::emit()
 
 	// Create and initialize allocas for the memory and table base parameters.
 	auto llvmArgIt = function->arg_begin();
-	initContextVariables(&*llvmArgIt++);
+	initContextVariables(&*llvmArgIt++, moduleContext.iptrType);
 
 	// Create and initialize allocas for all the locals and parameters.
 	for(Uptr localIndex = 0;
@@ -387,8 +367,8 @@ void EmitFunctionContext::emit()
 			"debugEnterFunction",
 			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
-				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
-				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});
+				llvm::ConstantExpr::getPtrToInt(function, moduleContext.iptrType),
+				emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType))});
 	}
 
 	// Decode the WebAssembly opcodes and emit LLVM IR for them.
@@ -418,8 +398,8 @@ void EmitFunctionContext::emit()
 			"debugExitFunction",
 			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
-				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
-				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});
+				llvm::ConstantExpr::getPtrToInt(function, moduleContext.iptrType),
+				emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType))});
 	}
 
 	// Emit the function return.

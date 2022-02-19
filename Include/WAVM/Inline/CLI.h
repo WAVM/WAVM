@@ -37,7 +37,6 @@ namespace WAVM {
 			}
 
 			const Uptr numFileBytes = Uptr(numFileBytes64);
-			std::vector<U8> fileContents;
 			outFileContents.resize(numFileBytes);
 
 			result = vfd->seek(0, VFS::SeekOrigin::begin);

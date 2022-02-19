@@ -206,7 +206,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 							   "memory.atomic.notify",
 							   I32,
 							   atomic_notify,
-							   U32 address,
+							   Uptr address,
 							   I32 numToWake,
 							   Uptr memoryId)
 {
@@ -227,7 +227,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 							   "memory.atomic.wait32",
 							   I32,
 							   atomic_wait_I32,
-							   U32 address,
+							   Uptr address,
 							   I32 expectedValue,
 							   I64 timeout,
 							   Uptr memoryId)
@@ -235,7 +235,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
-	if(!memory->type.isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
+	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
 
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 3));
@@ -249,7 +249,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 							   "memory.atomic.wait64",
 							   I32,
 							   atomic_wait_i64,
-							   I32 address,
+							   Uptr address,
 							   I64 expectedValue,
 							   I64 timeout,
 							   Uptr memoryId)
@@ -257,7 +257,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
-	if(!memory->type.isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
+	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
 
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 7));

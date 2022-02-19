@@ -424,7 +424,8 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	{
 		++cursor->nextToken;
 		require(cursor, t_equals);
-		outImm.offset = parseU32(cursor);
+		outImm.offset = cursor->moduleState->module.featureSpec.memory64 ? parseU64(cursor)
+																		 : parseU32(cursor);
 	}
 
 	const U32 naturalAlignment = 1 << naturalAlignmentLog2;
@@ -448,6 +449,68 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	}
 
 	outImm.alignmentLog2 = (U8)floorLogTwo(alignment);
+}
+
+template<Uptr naturalAlignmentLog2, Uptr numLanes>
+static void parseImm(CursorState* cursor,
+					 LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>& outImm)
+{
+#if 1
+	// It's ambiguous whether an initial integer should be interpreted as the memory index or lane
+	// index. Until the ambiguity is resolved, assume it's the lane index and always use memory
+	// index 0 for the load/store lane instructions.
+	// See https://github.com/WebAssembly/multi-memory/issues/17
+	outImm.memoryIndex = 0;
+#else
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->memoryNameToIndexMap,
+										 cursor->moduleState->module.memories.size(),
+										 "memory",
+										 outImm.memoryIndex))
+	{ outImm.memoryIndex = 0; }
+#endif
+
+	outImm.offset = 0;
+	if(cursor->nextToken->type == t_offset)
+	{
+		++cursor->nextToken;
+		require(cursor, t_equals);
+		outImm.offset = cursor->moduleState->module.featureSpec.memory64 ? parseU64(cursor)
+																		 : parseU32(cursor);
+	}
+
+	const U32 naturalAlignment = 1 << naturalAlignmentLog2;
+	U32 alignment = naturalAlignment;
+	if(cursor->nextToken->type == t_align)
+	{
+		++cursor->nextToken;
+		require(cursor, t_equals);
+		const Token* alignmentToken = cursor->nextToken;
+		alignment = parseU32(cursor);
+
+		if(!alignment || alignment & (alignment - 1))
+		{ parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2"); }
+		else if(alignment > naturalAlignment)
+		{
+			parseErrorf(cursor->parseState,
+						alignmentToken,
+						"validation error: alignment must be <= natural alignment");
+			alignment = naturalAlignment;
+		}
+	}
+
+	outImm.alignmentLog2 = (U8)floorLogTwo(alignment);
+
+	U8 laneIndex = parseU8(cursor, false);
+	if(Uptr(laneIndex) >= numLanes)
+	{
+		parseErrorf(cursor->parseState,
+					cursor->nextToken - 1,
+					"validation error: lane index must be in the range 0..%" WAVM_PRIuPTR,
+					numLanes - 1);
+		laneIndex = 0;
+	}
+	outImm.laneIndex = laneIndex;
 }
 
 static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)

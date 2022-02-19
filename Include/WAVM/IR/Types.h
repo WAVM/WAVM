@@ -384,6 +384,23 @@ namespace WAVM { namespace IR {
 		}
 	}
 
+	// The index type for a memory or table.
+	enum class IndexType : U8
+	{
+		i32 = U8(ValueType::i32),
+		i64 = U8(ValueType::i64),
+	};
+
+	inline ValueType asValueType(IndexType indexType)
+	{
+		switch(indexType)
+		{
+		case IndexType::i32: return ValueType::i32;
+		case IndexType::i64: return ValueType::i64;
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
 	// A size constraint: a range of expected sizes for some size-constrained type.
 	// If max==UINT64_MAX, the maximum size is unbounded.
 	struct SizeConstraints
@@ -399,7 +416,7 @@ namespace WAVM { namespace IR {
 		{
 			return left.min != right.min || left.max != right.max;
 		}
-		friend bool isSubset(const SizeConstraints& super, const SizeConstraints& sub)
+		friend bool isSubset(const SizeConstraints& sub, const SizeConstraints& super)
 		{
 			return sub.min >= super.min && sub.max <= super.max;
 		}
@@ -417,65 +434,94 @@ namespace WAVM { namespace IR {
 	{
 		ReferenceType elementType;
 		bool isShared;
+		IndexType indexType;
 		SizeConstraints size;
 
-		TableType() : elementType(ReferenceType::none) {}
-		TableType(ReferenceType inElementType, bool inIsShared, SizeConstraints inSize)
-		: elementType(inElementType), isShared(inIsShared), size(inSize)
+		TableType()
+		: elementType(ReferenceType::none), isShared(false), indexType(IndexType::i32), size()
+		{
+		}
+		TableType(ReferenceType inElementType,
+				  bool inIsShared,
+				  IndexType inIndexType,
+				  SizeConstraints inSize)
+		: elementType(inElementType), isShared(inIsShared), indexType(inIndexType), size(inSize)
 		{
 		}
 
 		friend bool operator==(const TableType& left, const TableType& right)
 		{
 			return left.elementType == right.elementType && left.isShared == right.isShared
-				   && left.size == right.size;
+				   && left.indexType == right.indexType && left.size == right.size;
 		}
 		friend bool operator!=(const TableType& left, const TableType& right)
 		{
 			return left.elementType != right.elementType || left.isShared != right.isShared
-				   || left.size != right.size;
+				   || left.indexType != right.indexType || left.size != right.size;
 		}
 		friend bool isSubtype(const TableType& sub, const TableType& super)
 		{
 			return super.elementType == sub.elementType && super.isShared == sub.isShared
-				   && isSubset(super.size, sub.size);
+				   && super.indexType == sub.indexType && isSubset(sub.size, super.size);
 		}
 	};
 
 	inline std::string asString(const TableType& tableType)
 	{
-		return asString(tableType.size) + (tableType.isShared ? " shared funcref" : " funcref");
+		const char* indexString;
+		switch(tableType.indexType)
+		{
+		case IndexType::i32: indexString = ""; break;
+		case IndexType::i64: indexString = "i64 "; break;
+		default: WAVM_UNREACHABLE();
+		};
+
+		return std::string(indexString) + asString(tableType.size)
+			   + (tableType.isShared ? " shared funcref" : " funcref");
 	}
 
 	// The type of a memory
 	struct MemoryType
 	{
 		bool isShared;
+		IndexType indexType;
 		SizeConstraints size;
 
-		MemoryType() : isShared(false), size({0, UINT64_MAX}) {}
-		MemoryType(bool inIsShared, const SizeConstraints& inSize)
-		: isShared(inIsShared), size(inSize)
+		MemoryType() : isShared(false), indexType(IndexType::i32), size({0, UINT64_MAX}) {}
+		MemoryType(bool inIsShared, IndexType inIndexType, const SizeConstraints& inSize)
+		: isShared(inIsShared), indexType(inIndexType), size(inSize)
 		{
 		}
 
 		friend bool operator==(const MemoryType& left, const MemoryType& right)
 		{
-			return left.isShared == right.isShared && left.size == right.size;
+			return left.isShared == right.isShared && left.indexType == right.indexType
+				   && left.size == right.size;
 		}
 		friend bool operator!=(const MemoryType& left, const MemoryType& right)
 		{
-			return left.isShared != right.isShared || left.size != right.size;
+			return left.isShared != right.isShared || left.indexType != right.indexType
+				   || left.size != right.size;
 		}
 		friend bool isSubtype(const MemoryType& sub, const MemoryType& super)
 		{
-			return super.isShared == sub.isShared && isSubset(super.size, sub.size);
+			return super.isShared == sub.isShared && super.indexType == sub.indexType
+				   && isSubset(sub.size, super.size);
 		}
 	};
 
 	inline std::string asString(const MemoryType& memoryType)
 	{
-		return asString(memoryType.size) + (memoryType.isShared ? " shared" : "");
+		const char* indexString;
+		switch(memoryType.indexType)
+		{
+		case IndexType::i32: indexString = ""; break;
+		case IndexType::i64: indexString = "i64 "; break;
+		default: WAVM_UNREACHABLE();
+		};
+
+		return std::string(indexString) + asString(memoryType.size)
+			   + (memoryType.isShared ? " shared" : "");
 	}
 
 	// The type of a global

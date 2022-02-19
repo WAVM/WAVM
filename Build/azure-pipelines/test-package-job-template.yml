@@ -50,7 +50,7 @@ jobs:
         condition: always()
 
       - script: |
-          "${{parameters.executable}}" run --enable simd "${{parameters.examplesDir}}/blake2b.wast"
+          "${{parameters.executable}}" run "${{parameters.examplesDir}}/blake2b.wast"
         displayName: "wavm run blake2b"
         condition: always()
 

@@ -154,11 +154,6 @@ namespace WAVM { namespace LLVMJIT {
 										arguments);
 		}
 
-		// Emits a call to a WAVM intrinsic function.
-		ValueVector emitRuntimeIntrinsic(const char* intrinsicName,
-										 IR::FunctionType intrinsicType,
-										 const std::initializer_list<llvm::Value*>& args);
-
 		// A helper function to emit a conditional call to a non-returning intrinsic function.
 		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,
 										  const char* intrinsicName,
@@ -205,13 +200,37 @@ namespace WAVM { namespace LLVMJIT {
 			return irBuilder.CreateTrunc(value, type);
 		}
 
+		llvm::Value* coerceIptrToIndex(IR::IndexType indexType, llvm::Value* iptrValue)
+		{
+			switch(indexType)
+			{
+			case IR::IndexType::i32: return irBuilder.CreateTrunc(iptrValue, llvmContext.i32Type);
+			case IR::IndexType::i64: return zext(iptrValue, moduleContext.iptrType);
+			default: WAVM_UNREACHABLE();
+			};
+		}
+
 		template<int numElements> llvm::Value* splat(llvm::Value* scalar, llvm::Type*)
 		{
 			return irBuilder.CreateVectorSplat(numElements, scalar);
 		}
 
+		template<int numElements>
+		llvm::Value* insertInZeroedVector(llvm::Value* scalar, llvm::VectorType* destType)
+		{
+			llvm::Constant* zeroVector = llvm::Constant::getNullValue(destType);
+			return irBuilder.CreateInsertElement(zeroVector, scalar, U64(0));
+		}
+
+		llvm::Value* extendHalfOfIntVector(
+			llvm::Value* vector,
+			Uptr baseSourceElementIndex,
+			llvm::Value* (EmitFunctionContext::*extend)(llvm::Value*, llvm::Type*));
+
+		llvm::Value* insertIntoHalfZeroVector(llvm::Value* halfVector);
+
 		llvm::Value* emitSRem(IR::ValueType type, llvm::Value* left, llvm::Value* right);
-		llvm::Value* emitF64Promote(llvm::Value* operand);
+		llvm::Value* emitF64Promote(llvm::Value* operand, llvm::Type* destType);
 
 		template<typename Float>
 		llvm::Value* emitTruncFloatToInt(IR::ValueType destType,
@@ -249,11 +268,6 @@ namespace WAVM { namespace LLVMJIT {
 
 		void trapIfMisalignedAtomic(llvm::Value* address, U32 naturalAlignmentLog2);
 
-		struct TryContext
-		{
-			llvm::BasicBlock* unwindToBlock;
-		};
-
 		struct CatchContext
 		{
 			// Only used for Windows SEH.
@@ -268,14 +282,11 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::Value* exceptionTypeId;
 		};
 
-		std::vector<TryContext> tryStack;
 		std::vector<CatchContext> catchStack;
 
 		void endTryWithoutCatch();
 		void endTryCatch();
 		void exitCatch();
-
-		llvm::BasicBlock* getInnermostUnwindToBlock();
 
 #define VISIT_OPCODE(encoding, name, nameString, Imm, ...) void name(IR::Imm imm);
 		WAVM_ENUM_OPERATORS(VISIT_OPCODE)

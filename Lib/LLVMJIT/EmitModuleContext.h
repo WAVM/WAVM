@@ -2,6 +2,7 @@
 
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/DIBuilder.h>
@@ -19,6 +20,10 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Triple::ArchType targetArch;
 		bool useWindowsSEH;
 
+		llvm::Type* iptrType;
+		IR::ValueType iptrValueType;
+		U32 iptrAlignment;
+
 		std::vector<llvm::Constant*> typeIds;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;
@@ -30,6 +35,10 @@ namespace WAVM { namespace LLVMJIT {
 
 		llvm::Constant* instanceId;
 		llvm::Constant* tableReferenceBias;
+
+#if LLVM_VERSION_MAJOR < 10
+		llvm::Constant* unoptimizableOne;
+#endif
 
 		llvm::DIBuilder diBuilder;
 		llvm::DICompileUnit* diCompileUnit;

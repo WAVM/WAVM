@@ -18,7 +18,8 @@
 // Disable all VC warnings in the LLVM headers
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
 	__pragma(warning(push, 0));                                                                    \
-	__pragma(warning(disable : 4702));
+	__pragma(warning(disable : 4702));                                                             \
+	__pragma(warning(disable : 4244));
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
 #else
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
@@ -50,6 +51,12 @@ namespace llvm {
 	}
 }
 
+#if LLVM_VERSION_MAJOR >= 11
+using FixedVectorType = llvm::FixedVectorType;
+#else
+using FixedVectorType = llvm::VectorType;
+#endif
+
 namespace WAVM { namespace LLVMJIT {
 	typedef llvm::SmallVector<llvm::Value*, 1> ValueVector;
 	typedef llvm::SmallVector<llvm::PHINode*, 1> PHIVector;
@@ -62,36 +69,38 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* i64Type;
 		llvm::Type* f32Type;
 		llvm::Type* f64Type;
-		llvm::Type* iptrType;
 
 		llvm::PointerType* i8PtrType;
 
-		llvm::Type* i8x8Type;
-		llvm::Type* i16x4Type;
-		llvm::Type* i32x2Type;
-		llvm::Type* i64x1Type;
+		FixedVectorType* i8x8Type;
+		FixedVectorType* i16x4Type;
+		FixedVectorType* i32x2Type;
+		FixedVectorType* i64x1Type;
+		FixedVectorType* f32x2Type;
+		FixedVectorType* f64x1Type;
 
-		llvm::Type* i8x16Type;
-		llvm::Type* i16x8Type;
-		llvm::Type* i32x4Type;
-		llvm::Type* i64x2Type;
-		llvm::Type* f32x4Type;
-		llvm::Type* f64x2Type;
+		FixedVectorType* i8x16Type;
+		FixedVectorType* i16x8Type;
+		FixedVectorType* i32x4Type;
+		FixedVectorType* i64x2Type;
+		FixedVectorType* f32x4Type;
+		FixedVectorType* f64x2Type;
 
-		llvm::Type* i8x32Type;
-		llvm::Type* i16x16Type;
-		llvm::Type* i32x8Type;
-		llvm::Type* i64x4Type;
+		FixedVectorType* i8x32Type;
+		FixedVectorType* i16x16Type;
+		FixedVectorType* i32x8Type;
+		FixedVectorType* i64x4Type;
 
-		llvm::Type* i8x48Type;
-		llvm::Type* i16x24Type;
-		llvm::Type* i32x12Type;
-		llvm::Type* i64x6Type;
+		FixedVectorType* i8x48Type;
+		FixedVectorType* i16x24Type;
+		FixedVectorType* i32x12Type;
+		FixedVectorType* i64x6Type;
 
-		llvm::Type* i8x64Type;
-		llvm::Type* i16x32Type;
-		llvm::Type* i32x16Type;
-		llvm::Type* i64x8Type;
+		FixedVectorType* i8x64Type;
+		FixedVectorType* i16x32Type;
+		FixedVectorType* i32x16Type;
+		FixedVectorType* i64x8Type;
+
 		llvm::Type* externrefType;
 
 		// Zero constants of each type.
@@ -138,10 +147,9 @@ namespace WAVM { namespace LLVMJIT {
 			{llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[0], false)),
 			 llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64x2[1], false))});
 	}
-	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* intOrPointerType)
+	inline llvm::Constant* emitLiteralIptr(U64 iptrValue, llvm::Type* iptrType)
 	{
-		auto pointerInt = llvm::APInt(sizeof(Uptr) == 8 ? 64 : 32, reinterpret_cast<Uptr>(pointer));
-		return llvm::Constant::getIntegerValue(intOrPointerType, pointerInt);
+		return llvm::ConstantInt::get(iptrType, iptrValue);
 	}
 
 	// Converts a WebAssembly type to a LLVM type.
@@ -264,50 +272,49 @@ namespace WAVM { namespace LLVMJIT {
 		}
 	}
 
-	inline llvm::Constant* getMemoryIdFromOffset(LLVMContext& llvmContext,
-												 llvm::Constant* memoryOffset)
+	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant* memoryOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
 				memoryOffset,
-				emitLiteral(llvmContext,
-							Uptr(offsetof(Runtime::CompartmentRuntimeData, memories)))),
-			emitLiteral(llvmContext, Uptr(sizeof(Runtime::MemoryRuntimeData))));
+				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, memories),
+								memoryOffset->getType())),
+			emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), memoryOffset->getType()));
 	}
 
-	inline llvm::Constant* getTableIdFromOffset(LLVMContext& llvmContext,
-												llvm::Constant* tableOffset)
+	inline llvm::Constant* getTableIdFromOffset(llvm::Constant* tableOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
 				tableOffset,
-				emitLiteral(llvmContext,
-							Uptr(offsetof(Runtime::CompartmentRuntimeData, tableBases)))),
-			emitLiteral(llvmContext, Uptr(sizeof(Uptr))));
+				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, tables),
+								tableOffset->getType())),
+			emitLiteralIptr(sizeof(Runtime::TableRuntimeData), tableOffset->getType()));
+	}
+
+	inline llvm::Type* getIptrType(LLVMContext& llvmContext, U32 numPointerBytes)
+	{
+		switch(numPointerBytes)
+		{
+		case 4: return llvmContext.i32Type;
+		case 8: return llvmContext.i64Type;
+		default: Errors::fatalf("Unexpected pointer size: %u bytes", numPointerBytes);
+		};
 	}
 
 	inline void setRuntimeFunctionPrefix(LLVMContext& llvmContext,
+										 llvm::Type* iptrType,
 										 llvm::Function* function,
 										 llvm::Constant* mutableData,
 										 llvm::Constant* instanceId,
 										 llvm::Constant* typeId)
 	{
 		function->setPrefixData(
-			llvm::ConstantArray::get(llvm::ArrayType::get(llvmContext.iptrType, 4),
-									 {emitLiteral(llvmContext, Uptr(Runtime::ObjectKind::function)),
+			llvm::ConstantArray::get(llvm::ArrayType::get(iptrType, 4),
+									 {emitLiteralIptr(U64(Runtime::ObjectKind::function), iptrType),
 									  mutableData,
 									  instanceId,
 									  typeId}));
-		static_assert(offsetof(Runtime::Function, object) == sizeof(Uptr) * 0,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, mutableData) == sizeof(Uptr) * 1,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, instanceId) == sizeof(Uptr) * 2,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, encodedType) == sizeof(Uptr) * 3,
-					  "Function prefix must match Runtime::Function layout");
-		static_assert(offsetof(Runtime::Function, code) == sizeof(Uptr) * 4,
-					  "Function prefix must match Runtime::Function layout");
 	}
 
 	inline void setFunctionAttributes(llvm::TargetMachine* targetMachine, llvm::Function* function)

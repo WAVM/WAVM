@@ -8,9 +8,13 @@ TEST_DIR=$(dirname $TEST_CPP)
 TEST_NAME=$(basename $TEST_CPP .cpp)
 
 $WASI_SDK_DIR/bin/clang \
+  -D_WASI_EMULATED_MMAN \
+  -lwasi-emulated-mman \
   -O3 -g3 \
   -fdebug-prefix-map=$TEST_DIR=/ \
   -fdebug-prefix-map=$WASI_SDK_DIR=/wasi-sdk \
   --sysroot $WASI_SDK_DIR/share/wasi-sysroot/ \
   -o $TEST_DIR/$TEST_NAME.wasm \
   $TEST_CPP
+
+rm $TEST_DIR/$TEST_NAME.wasm.tmp*

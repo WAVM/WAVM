@@ -34,18 +34,13 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/Scalar.h>
 #if LLVM_VERSION_MAJOR >= 7
+#include <llvm/Transforms/InstCombine/InstCombine.h>
 #include <llvm/Transforms/Utils.h>
 #endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
 	class MCContext;
-
-#if LLVM_VERSION_MAJOR >= 7
-	// Instead of including llvm/Transforms/InstCombine/InstCombine.h, which doesn't compile on
-	// Windows, just declare the one function we call.
-	FunctionPass* createInstructionCombiningPass(bool ExpensiveCombines = true);
-#endif
 }
 
 using namespace WAVM;
@@ -99,7 +94,14 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 	fpm.add(llvm::createInstructionCombiningPass());
 	fpm.add(llvm::createCFGSimplificationPass());
 	fpm.add(llvm::createJumpThreadingPass());
+#if LLVM_VERSION_MAJOR >= 12
+	// LLVM 12 removed the constant propagation pass in favor of the instsimplify pass, which is
+	// itself marked as legacy.
+	// TODO: evaluate if this is the best pass configuration in LLVM 12.
+	fpm.add(llvm::createInstSimplifyLegacyPass());
+#else
 	fpm.add(llvm::createConstantPropagationPass());
+#endif
 
 	// This DCE pass is necessary to work around a bug in LLVM's CodeGenPrepare that's triggered
 	// if there's a dead div/rem with limited-range divisor:
@@ -185,11 +187,16 @@ static std::unique_ptr<llvm::TargetMachine> getAndValidateTargetMachine(
 					   targetSpec.cpu.c_str());
 	case TargetValidationResult::x86CPUDoesNotSupportSSE41:
 		Errors::fatalf(
-			"Target X86 CPU (% s) does not support SSE 4.1, which"
+			"Target X86 CPU (%s) does not support SSE 4.1, which"
 			" WAVM requires for WebAssembly SIMD code.\n",
 			targetSpec.cpu.c_str());
 	case TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
 		Errors::fatalf("WAVM does not support SIMD on the host CPU architecture.\n");
+	case TargetValidationResult::memory64Requires64bitTarget:
+		Errors::fatalf("Target CPU (%s) does not support 64-bit memories.\n",
+					   targetSpec.cpu.c_str());
+	case TargetValidationResult::table64Requires64bitTarget:
+		Errors::fatalf("Target CPU (%s) does not support 64-bit tables.\n", targetSpec.cpu.c_str());
 
 	default: WAVM_UNREACHABLE();
 	};
@@ -250,7 +257,12 @@ std::string LLVMJIT::disassembleObject(const TargetSpec& targetSpec,
 		llvm::object::SymbolRef symbol = symbolSizePair.first;
 
 		// Only process global symbols, which excludes SEH funclets.
+#if LLVM_VERSION_MAJOR >= 11
+		auto maybeFlags = symbol.getFlags();
+		if(!(maybeFlags && *maybeFlags & llvm::object::SymbolRef::SF_Global)) { continue; }
+#else
 		if(!(symbol.getFlags() & llvm::object::SymbolRef::SF_Global)) { continue; }
+#endif
 
 		// Get the type, name, and address of the symbol. Need to be careful not to get the
 		// Expected<T> for each value unless it will be checked for success before continuing.

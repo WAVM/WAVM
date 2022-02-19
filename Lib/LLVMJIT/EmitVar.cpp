@@ -70,7 +70,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		// If the global is mutable, the symbol will be bound to an offset into the
 		// ContextRuntimeData::globalData that its value is stored at.
 		llvm::Value* globalDataOffset = irBuilder.CreatePtrToInt(
-			moduleContext.globals[imm.variableIndex], llvmContext.iptrType);
+			moduleContext.globals[imm.variableIndex], moduleContext.iptrType);
 		llvm::Value* globalPointer = irBuilder.CreateInBoundsGEP(
 			irBuilder.CreateLoad(contextPointerVariable), {globalDataOffset});
 		value = loadFromUntypedPointer(globalPointer,
@@ -117,9 +117,10 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		case InitializerExpression::Type::ref_func: {
 			llvm::Value* referencedFunction = moduleContext.functions[globalDef.initializer.ref];
 			llvm::Value* codeAddress
-				= irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);
+				= irBuilder.CreatePtrToInt(referencedFunction, moduleContext.iptrType);
 			llvm::Value* functionAddress = irBuilder.CreateSub(
-				codeAddress, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))));
+				codeAddress,
+				emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType));
 			llvm::Value* externref
 				= irBuilder.CreateIntToPtr(functionAddress, llvmContext.externrefType);
 			value = externref;
@@ -144,8 +145,8 @@ void EmitFunctionContext::global_set(GetOrSetVariableImm<true> imm)
 
 	// If the global is mutable, the symbol will be bound to an offset into the
 	// ContextRuntimeData::globalData that its value is stored at.
-	llvm::Value* globalDataOffset
-		= irBuilder.CreatePtrToInt(moduleContext.globals[imm.variableIndex], llvmContext.iptrType);
+	llvm::Value* globalDataOffset = irBuilder.CreatePtrToInt(
+		moduleContext.globals[imm.variableIndex], moduleContext.iptrType);
 	llvm::Value* globalPointer = irBuilder.CreateInBoundsGEP(
 		irBuilder.CreateLoad(contextPointerVariable), {globalDataOffset});
 	storeToUntypedPointer(value, globalPointer);

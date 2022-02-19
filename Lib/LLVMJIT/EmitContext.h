@@ -4,6 +4,7 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Constant.h>
@@ -13,10 +14,29 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
-#if LLVM_VERSION_MAJOR > 9
+#if LLVM_VERSION_MAJOR >= 11
+#define LLVM_ALIGNMENT(alignment) llvm::Align(alignment)
+#elif LLVM_VERSION_MAJOR >= 10
 #define LLVM_ALIGNMENT(alignment) llvm::MaybeAlign(alignment)
 #else
 #define LLVM_ALIGNMENT(alignment) alignment
+#endif
+
+#if LLVM_VERSION_MAJOR >= 12
+#define LLVM_ELEMENT_COUNT(numElements) llvm::ElementCount::getFixed(numElements)
+#define LLVM_LANE_INDEX_TYPE int
+#elif LLVM_VERSION_MAJOR >= 11
+#define LLVM_ELEMENT_COUNT(numElements) llvm::ElementCount(numElements, false)
+#define LLVM_LANE_INDEX_TYPE int
+#else
+#define LLVM_ELEMENT_COUNT(numElements) ((unsigned int)(numElements))
+#define LLVM_LANE_INDEX_TYPE uint32_t
+#endif
+
+#if LLVM_VERSION_MAJOR >= 12
+#define LLVM_INTRINSIC_VECTOR_REDUCE_ADD llvm::Intrinsic::vector_reduce_add
+#else
+#define LLVM_INTRINSIC_VECTOR_REDUCE_ADD llvm::Intrinsic::experimental_vector_reduce_add
 #endif
 
 namespace WAVM { namespace LLVMJIT {
@@ -27,7 +47,19 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::IRBuilder<> irBuilder;
 
 		llvm::Value* contextPointerVariable;
-		std::vector<llvm::Value*> memoryBasePointerVariables;
+
+		struct MemoryInfo
+		{
+			llvm::Value* basePointerVariable;
+			llvm::Value* endAddressVariable;
+		};
+		std::vector<MemoryInfo> memoryInfos;
+
+		struct TryContext
+		{
+			llvm::BasicBlock* unwindToBlock;
+		};
+		std::vector<TryContext> tryStack;
 
 		EmitContext(LLVMContext& inLLVMContext, const std::vector<llvm::Constant*>& inMemoryOffsets)
 		: llvmContext(inLLVMContext)
@@ -70,49 +102,74 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
 
-			// Load the memory base pointer values from the CompartmentRuntimeData.
+			// Reload the memory base pointer and num reserved bytes values from the
+			// CompartmentRuntimeData.
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
+				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
+
 				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
-				llvm::Value* memoryBasePointerVariable = memoryBasePointerVariables[memoryIndex];
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(compartmentAddress, {memoryOffset}),
 						llvmContext.i8PtrType,
 						sizeof(U8*)),
-					memoryBasePointerVariable);
+					memoryInfo.basePointerVariable);
+
+				llvm::Value* memoryNumReservedBytesOffset = llvm::ConstantExpr::getAdd(
+					memoryOffset,
+					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, endAddress),
+									memoryOffset->getType()));
+				irBuilder.CreateStore(
+					loadFromUntypedPointer(irBuilder.CreateInBoundsGEP(
+											   compartmentAddress, {memoryNumReservedBytesOffset}),
+										   memoryOffset->getType()),
+					memoryInfo.endAddressVariable);
 			}
 		}
 
-		llvm::Value* getMemoryNumPages(llvm::Value* memoryOffset)
+		void initContextVariables(llvm::Value* initialContextPointer, llvm::Type* iptrType)
 		{
-			// Load the number of memory pages from the compartment runtime data.
-			llvm::LoadInst* memoryNumPagesLoad = loadFromUntypedPointer(
-				irBuilder.CreateInBoundsGEP(
-					getCompartmentAddress(),
-					{irBuilder.CreateAdd(
-						memoryOffset,
-						emitLiteral(llvmContext,
-									Uptr(offsetof(Runtime::MemoryRuntimeData, numPages))))}),
-				llvmContext.iptrType,
-				alignof(Uptr));
-			memoryNumPagesLoad->setAtomic(llvm::AtomicOrdering::Acquire);
-
-			return memoryNumPagesLoad;
-		}
-
-		void initContextVariables(llvm::Value* initialContextPointer)
-		{
-			memoryBasePointerVariables.resize(memoryOffsets.size());
+			memoryInfos.resize(memoryOffsets.size());
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
-				memoryBasePointerVariables[memoryIndex] = irBuilder.CreateAlloca(
+				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
+
+				memoryInfo.basePointerVariable = irBuilder.CreateAlloca(
 					llvmContext.i8PtrType, nullptr, "memoryBase" + llvm::Twine(memoryIndex));
+
+				memoryInfo.endAddressVariable = irBuilder.CreateAlloca(
+					iptrType,
+					nullptr,
+					"memoryNumReservedBytesMinusGuardBytes" + llvm::Twine(memoryIndex));
 			}
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");
 			irBuilder.CreateStore(initialContextPointer, contextPointerVariable);
 			reloadMemoryBases();
+		}
+
+		// Emits a call to a WAVM intrinsic function.
+		ValueVector emitRuntimeIntrinsic(const char* intrinsicName,
+										 IR::FunctionType intrinsicType,
+										 const std::initializer_list<llvm::Value*>& args)
+		{
+			WAVM_ASSERT(intrinsicType.callingConvention() == IR::CallingConvention::intrinsic);
+
+			llvm::Module* llvmModule = irBuilder.GetInsertBlock()->getParent()->getParent();
+			llvm::Function* intrinsicFunction = llvmModule->getFunction(intrinsicName);
+			if(!intrinsicFunction)
+			{
+				intrinsicFunction = llvm::Function::Create(asLLVMType(llvmContext, intrinsicType),
+														   llvm::Function::ExternalLinkage,
+														   intrinsicName,
+														   llvmModule);
+				intrinsicFunction->setCallingConv(
+					asLLVMCallingConv(intrinsicType.callingConvention()));
+			}
+
+			return emitCallOrInvoke(
+				intrinsicFunction, args, intrinsicType, getInnermostUnwindToBlock());
 		}
 
 		// Creates either a call or an invoke if the call occurs inside a try.
@@ -165,9 +222,10 @@ namespace WAVM { namespace LLVMJIT {
 
 			// Call or invoke the callee.
 			llvm::Value* returnValue;
+			llvm::FunctionType* llvmCalleeType = asLLVMType(llvmContext, calleeType);
 			if(!unwindToBlock)
 			{
-				auto call = irBuilder.CreateCall(callee, callArgs);
+				auto call = irBuilder.CreateCall(llvmCalleeType, callee, callArgs);
 				call->setCallingConv(asLLVMCallingConv(callingConvention));
 				returnValue = call;
 			}
@@ -175,7 +233,12 @@ namespace WAVM { namespace LLVMJIT {
 			{
 				auto returnBlock = llvm::BasicBlock::Create(
 					llvmContext, "invokeReturn", irBuilder.GetInsertBlock()->getParent());
+#if LLVM_VERSION_MAJOR >= 8
+				auto invoke = irBuilder.CreateInvoke(
+					llvmCalleeType, callee, returnBlock, unwindToBlock, callArgs);
+#else
 				auto invoke = irBuilder.CreateInvoke(callee, returnBlock, unwindToBlock, callArgs);
+#endif
 				invoke->setCallingConv(asLLVMCallingConv(callingConvention));
 				irBuilder.SetInsertPoint(returnBlock);
 				returnValue = invoke;
@@ -260,7 +323,19 @@ namespace WAVM { namespace LLVMJIT {
 					returnBlock,
 					trapBlock);
 
+				// If the call returned and Exception, throw it.
 				irBuilder.SetInsertPoint(trapBlock);
+				llvm::Module* llvmModule = irBuilder.GetInsertBlock()->getParent()->getParent();
+				llvm::Type* iptrType
+					= llvmModule->getDataLayout().getIntPtrType(exception->getType());
+				IR::ValueType iptrValueType = iptrType->getIntegerBitWidth() == 32
+												  ? IR::ValueType::i32
+												  : IR::ValueType::i64;
+				emitRuntimeIntrinsic("throwException",
+									 IR::FunctionType(IR::TypeTuple{},
+													  IR::TypeTuple{iptrValueType},
+													  IR::CallingConvention::intrinsic),
+									 {irBuilder.CreatePtrToInt(exception, iptrType)});
 				irBuilder.CreateUnreachable();
 
 				// Load the results from the results array.
@@ -330,6 +405,8 @@ namespace WAVM { namespace LLVMJIT {
 
 			irBuilder.CreateRet(returnStruct);
 		}
+
+		llvm::BasicBlock* getInnermostUnwindToBlock();
 
 	private:
 		std::vector<llvm::Constant*> memoryOffsets;

@@ -88,7 +88,7 @@ The `wavm` executable provides command-line access to WAVM. It has several sub-c
   wavm run examples/trap.wast
   wavm run examples/echo.wast "Hello, world!"
   wavm run examples/helloworld.wast | wavm run examples/tee.wast
-  wavm run --enable simd examples/blake2b.wast
+  wavm run examples/blake2b.wast
   ```
 
 ## Disassemble a WebAssembly module

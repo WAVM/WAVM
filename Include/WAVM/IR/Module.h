@@ -296,7 +296,7 @@ namespace WAVM { namespace IR {
 		std::string name;
 		std::vector<U8> data;
 
-		CustomSection() {}
+		CustomSection() = default;
 		CustomSection(OrderedSectionID inAfterSection,
 					  std::string&& inName,
 					  std::vector<U8>&& inData)
@@ -312,7 +312,7 @@ namespace WAVM { namespace IR {
 		std::vector<Definition> defs;
 
 		Uptr size() const { return imports.size() + defs.size(); }
-		Type getType(Uptr index) const
+		const Type& getType(Uptr index) const
 		{
 			if(index < imports.size()) { return imports[index].type; }
 			else

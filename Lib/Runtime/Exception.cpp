@@ -92,8 +92,8 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 				  && describedIPs.contains(callStack.frames[frameIndex + numOmittedFrames].ip))
 			{ ++numOmittedFrames; }
 
-			frameDescriptions.push_back("<" + std::to_string(numOmittedFrames)
-										+ " redundant frames omitted>");
+			frameDescriptions.emplace_back("<" + std::to_string(numOmittedFrames)
+										   + " redundant frames omitted>");
 
 			frameIndex += numOmittedFrames;
 		}

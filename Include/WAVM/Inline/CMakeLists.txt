@@ -16,6 +16,7 @@ set(PublicHeaders
 	IntrusiveSharedPtr.h
 	IsNameChar.h
 	Impl/OptionalStorage.h Impl/OptionalStorage.natvis
+	RandomStream.h
 	Serialization.h
 	Time.h
 	Timing.h

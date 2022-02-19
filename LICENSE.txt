@@ -14,11 +14,7 @@ Third Party Software
 
 Parts of the I128 code are derived from LLVM's compiler-rt library (https://github.com/llvm/llvm-project/tree/master/compiler-rt), which is covered by the license in https://github.com/WAVM/WAVM/blob/master/Include/WAVM/Inline/Impl/I128Impl.LICENSE.
 
-The WebAssembly spec test suite (https://github.com/WAVM/WAVM/tree/master/Test/spec) are covered by the license in https://github.com/WAVM/WAVM/blob/master/Test/spec/LICENSE.
-
-The Binaryen test suite (https://github.com/WAVM/WAVM/tree/master/Test/binaryen) are covered by the license in https://github.com/WAVM/WAVM/blob/master/Test/binaryen/LICENSE.
-
-The wabt test suite (https://github.com/WAVM/WAVM/tree/master/Test/wabt) are covered by the license in https://github.com/WAVM/WAVM/blob/master/Test/wabt/LICENSE.
+The WebAssembly spec test suite (https://github.com/WAVM/WAVM/tree/master/Test/WebAssembly) are covered by the license in https://github.com/WAVM/WAVM/blob/master/Test/WebAssembly/LICENSE.
 
 The libunwind library (https://github.com/WAVM/WAVM/tree/master/ThirdParty/libunwind) is covered by the license in https://github.com/WAVM/WAVM/blob/master/ThirdParty/libunwind/LICENSE.TXT.
 

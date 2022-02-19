@@ -29,9 +29,13 @@ Context* Runtime::createContext(Compartment* compartment, std::string&& debugNam
 		context->runtimeData = &compartment->runtimeData->contexts[context->id];
 
 		// Commit the page(s) for the context's runtime data.
-		WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
-			(U8*)context->runtimeData,
-			sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2()));
+		if(!Platform::commitVirtualPages(
+			   (U8*)context->runtimeData,
+			   sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2()))
+		{
+			delete context;
+			return nullptr;
+		}
 		Platform::registerVirtualAllocation(sizeof(ContextRuntimeData));
 
 		// Initialize the context's global data.
@@ -48,7 +52,7 @@ Context* Runtime::createContext(Compartment* compartment, std::string&& debugNam
 Runtime::Context::~Context()
 {
 	WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
-	compartment->contexts.removeOrFail(id);
+	if(id != UINTPTR_MAX) { compartment->contexts.removeOrFail(id); }
 
 	Platform::decommitVirtualPages((U8*)runtimeData,
 								   sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2());
@@ -61,8 +65,11 @@ Context* Runtime::cloneContext(const Context* context, Compartment* newCompartme
 {
 	// Create a new context and initialize its runtime data with the values from the source context.
 	Context* clonedContext = createContext(newCompartment);
-	memcpy(clonedContext->runtimeData->mutableGlobals,
-		   context->runtimeData->mutableGlobals,
-		   maxMutableGlobals * sizeof(IR::UntaggedValue));
+	if(clonedContext)
+	{
+		memcpy(clonedContext->runtimeData->mutableGlobals,
+			   context->runtimeData->mutableGlobals,
+			   maxMutableGlobals * sizeof(IR::UntaggedValue));
+	}
 	return clonedContext;
 }

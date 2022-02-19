@@ -98,6 +98,8 @@ static LockedFDE getLockedFDE(Process* process,
 	   || ((*fde)->inheritingRights & requiredInheritingRights) != requiredInheritingRights)
 	{ return LockedFDE(__WASI_ENOTCAPABLE); }
 
+	TRACE_SYSCALL_FLOW("Locked FDE: %s", (*fde)->originalPath.c_str());
+
 	// Lock the FDE and return a reference to it.
 	return LockedFDE(*fde, lockShareability);
 }
@@ -125,7 +127,7 @@ static bool readUserString(Memory* memory,
 						   WASIAddress numStringBytes,
 						   std::string& outString)
 {
-	outString = "";
+	outString.clear();
 
 	bool succeeded = true;
 	catchRuntimeExceptions(
@@ -217,8 +219,12 @@ static __wasi_errno_t validatePath(Process* process,
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
 	{ return __WASI_EFAULT; }
 
+	TRACE_SYSCALL_FLOW("Read path from process memory: %s", relativePath.c_str());
+
 	if(!getCanonicalPath(lockedDirFDE.fde->originalPath, relativePath, outCanonicalPath))
 	{ return __WASI_ENOTCAPABLE; }
+
+	TRACE_SYSCALL_FLOW("Canonical path: %s", outCanonicalPath.c_str());
 
 	return __WASI_ESUCCESS;
 }
@@ -351,9 +357,6 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	// VFD+DirEntStream even if there was an error.
 	const VFS::Result result = fde->close();
 
-	// Remove the fd from the fds map.
-	process->fdMap.removeOrFail(fd);
-
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
@@ -401,6 +404,10 @@ static __wasi_errno_t readImpl(Process* process,
 			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 			{
 				__wasi_iovec_t iov = iovs[iovIndex];
+				TRACE_SYSCALL_FLOW("IOV[%u]=(buf=" WASIADDRESS_FORMAT ", buf_len=%u)",
+								   iovIndex,
+								   iov.buf,
+								   iov.buf_len);
 				vfsReadBuffers[iovIndex].data
 					= memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len);
 				vfsReadBuffers[iovIndex].numBytes = iov.buf_len;
@@ -459,6 +466,10 @@ static __wasi_errno_t writeImpl(Process* process,
 			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 			{
 				__wasi_ciovec_t iov = iovs[iovIndex];
+				TRACE_SYSCALL_FLOW("IOV[%u]=(buf=" WASIADDRESS_FORMAT ", buf_len=%u)",
+								   iovIndex,
+								   iov.buf,
+								   iov.buf_len);
 				vfsWriteBuffers[iovIndex].data
 					= memoryArrayPtr<const U8>(process->memory, iov.buf, iov.buf_len);
 				vfsWriteBuffers[iovIndex].numBytes = iov.buf_len;
@@ -517,7 +528,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesRead <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
+	return TRACE_SYSCALL_RETURN(result, "(numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -548,7 +559,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesWritten <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
+	return TRACE_SYSCALL_RETURN(result, "(numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -577,7 +588,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesRead <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
+	return TRACE_SYSCALL_RETURN(result, "(numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -606,7 +617,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesWritten <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
+	return TRACE_SYSCALL_RETURN(result, "(numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -654,6 +665,17 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
+static std::string describeSeekWhence(U32 whence)
+{
+	switch(whence)
+	{
+	case __WASI_WHENCE_CUR: return "__WASI_WHENCE_CUR"; break;
+	case __WASI_WHENCE_END: return "__WASI_WHENCE_END"; break;
+	case __WASI_WHENCE_SET: return "__WASI_WHENCE_SET"; break;
+	default: return std::to_string(whence);
+	};
+}
+
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   "fd_seek",
 							   __wasi_errno_return_t,
@@ -664,10 +686,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   WASIAddress newOffsetAddress)
 {
 	TRACE_SYSCALL("fd_seek",
-				  "(%u, %" PRIi64 ", %u, " WASIADDRESS_FORMAT ")",
+				  "(%u, %" PRIi64 ", %s, " WASIADDRESS_FORMAT ")",
 				  fd,
 				  offset,
-				  whence,
+				  describeSeekWhence(whence).c_str(),
 				  newOffsetAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
@@ -993,7 +1015,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	memoryRef<__wasi_fd_t>(process->memory, fdAddress) = fd;
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, " (%u)", fd);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%u)", fd);
 }
 
 static Uptr truncatingMemcpy(void* dest, const void* source, Uptr numSourceBytes, Uptr numDestBytes)
@@ -1110,14 +1132,41 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   WASIAddress newPathAddress,
 							   WASIAddress numNewPathBytes)
 {
-	UNIMPLEMENTED_SYSCALL("path_rename",
-						  "(%u, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
-						  oldFD,
-						  oldPathAddress,
-						  numOldPathBytes,
-						  newFD,
-						  newPathAddress,
-						  numNewPathBytes);
+	TRACE_SYSCALL("path_rename",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
+				  oldFD,
+				  oldPathAddress,
+				  numOldPathBytes,
+				  newFD,
+				  newPathAddress,
+				  numNewPathBytes);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	std::string canonicalOldPath;
+	const __wasi_errno_t oldPathError = validatePath(process,
+													 oldFD,
+													 0,
+													 __WASI_RIGHT_PATH_RENAME_SOURCE,
+													 0,
+													 oldPathAddress,
+													 numOldPathBytes,
+													 canonicalOldPath);
+	if(oldPathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(oldPathError); }
+
+	std::string canonicalNewPath;
+	const __wasi_errno_t newPathError = validatePath(process,
+													 newFD,
+													 0,
+													 __WASI_RIGHT_PATH_RENAME_TARGET,
+													 0,
+													 newPathAddress,
+													 numNewPathBytes,
+													 canonicalNewPath);
+	if(newPathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(newPathError); }
+
+	return TRACE_SYSCALL_RETURN(
+		asWASIErrNo(process->fileSystem->renameFile(canonicalOldPath, canonicalNewPath)));
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1149,7 +1198,19 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime.ns);
 	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime.ns);
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS,
+								"(st_dev=%" PRIu64 ", st_ino=%" PRIu64
+								", st_filetype=%u"
+								", st_nlink=%" PRIu64 ", st_size=%" PRIu64 ", st_atim=%" PRIu64
+								", st_mtim=%" PRIu64 ", st_ctim=%" PRIu64 ")",
+								fileStat.st_dev,
+								fileStat.st_ino,
+								fileStat.st_filetype,
+								fileStat.st_nlink,
+								fileStat.st_size,
+								fileStat.st_atim,
+								fileStat.st_mtim,
+								fileStat.st_ctim);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1270,7 +1331,19 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime.ns);
 	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime.ns);
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS,
+								"(st_dev=%" PRIu64 ", st_ino=%" PRIu64
+								", st_filetype=%u"
+								", st_nlink=%" PRIu64 ", st_size=%" PRIu64 ", st_atim=%" PRIu64
+								", st_mtim=%" PRIu64 ", st_ctim=%" PRIu64 ")",
+								fileStat.st_dev,
+								fileStat.st_ino,
+								fileStat.st_filetype,
+								fileStat.st_nlink,
+								fileStat.st_size,
+								fileStat.st_atim,
+								fileStat.st_mtim,
+								fileStat.st_ctim);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,

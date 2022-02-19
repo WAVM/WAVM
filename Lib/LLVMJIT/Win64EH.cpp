@@ -123,7 +123,12 @@ static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo& loadedOb
 			const auto symbol = relocIt.getSymbol();
 
 			U64 symbolAddress;
+#if LLVM_VERSION_MAJOR >= 11
+			auto maybeFlags = symbol->getFlags();
+			if(maybeFlags && *maybeFlags & llvm::object::SymbolRef::SF_Undefined)
+#else
 			if(symbol->getFlags() & llvm::object::SymbolRef::SF_Undefined)
+#endif
 			{
 				// Resolve __CxxFrameHandler3 to the trampoline previously created in the image's
 				// 32-bit address space.

@@ -469,6 +469,17 @@ U32 WAST::parseU32(CursorState* cursor)
 	return result;
 }
 
+U64 WAST::parseU64(CursorState* cursor)
+{
+	U64 result;
+	if(!tryParseInt<U64>(cursor, result, 0, UINT64_MAX))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected u64 literal");
+		throw RecoverParseException();
+	}
+	return result;
+}
+
 I8 WAST::parseI8(CursorState* cursor)
 {
 	U32 result;

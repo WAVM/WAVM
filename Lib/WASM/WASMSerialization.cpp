@@ -126,11 +126,23 @@ namespace WAVM { namespace IR {
 		for(ValueType elem : typeTuple) { serialize(stream, elem); }
 	}
 
-	template<typename Stream>
-	void serialize(Stream& stream, SizeConstraints& sizeConstraints, bool hasMax)
+	template<typename Stream> void serializeIndex(Stream& stream, U64& size, IndexType sizeType)
 	{
-		serializeVarUInt32(stream, sizeConstraints.min);
-		if(hasMax) { serializeVarUInt32(stream, sizeConstraints.max); }
+		if(sizeType == IndexType::i32) { serializeVarUInt32(stream, size); }
+		else
+		{
+			serializeVarUInt64(stream, size);
+		}
+	}
+
+	template<typename Stream>
+	void serialize(Stream& stream,
+				   SizeConstraints& sizeConstraints,
+				   bool hasMax,
+				   IndexType sizeType)
+	{
+		serializeIndex(stream, sizeConstraints.min, sizeType);
+		if(hasMax) { serializeIndex(stream, sizeConstraints.max, sizeType); }
 		else if(Stream::isInput)
 		{
 			sizeConstraints.max = UINT64_MAX;
@@ -172,13 +184,15 @@ namespace WAVM { namespace IR {
 		U8 flags = 0;
 		if(!Stream::isInput && tableType.size.max != UINT64_MAX) { flags |= 0x01; }
 		if(!Stream::isInput && tableType.isShared) { flags |= 0x02; }
+		if(!Stream::isInput && tableType.indexType == IndexType::i64) { flags |= 0x04; }
 		serializeVarUInt7(stream, flags);
 		if(Stream::isInput)
 		{
 			tableType.isShared = (flags & 0x02) != 0;
-			if(flags & ~0x03) { throw FatalSerializationException("unknown table type flag"); }
+			tableType.indexType = (flags & 0x04) ? IndexType::i64 : IndexType::i32;
+			if(flags & ~0x07) { throw FatalSerializationException("unknown table type flag"); }
 		}
-		serialize(stream, tableType.size, flags & 0x01);
+		serialize(stream, tableType.size, flags & 0x01, tableType.indexType);
 	}
 
 	template<typename Stream> void serialize(Stream& stream, MemoryType& memoryType)
@@ -186,13 +200,15 @@ namespace WAVM { namespace IR {
 		U8 flags = 0;
 		if(!Stream::isInput && memoryType.size.max != UINT64_MAX) { flags |= 0x01; }
 		if(!Stream::isInput && memoryType.isShared) { flags |= 0x02; }
+		if(!Stream::isInput && memoryType.indexType == IndexType::i64) { flags |= 0x04; }
 		serializeVarUInt7(stream, flags);
 		if(Stream::isInput)
 		{
 			memoryType.isShared = (flags & 0x02) != 0;
-			if(flags & ~0x03) { throw FatalSerializationException("unknown memory type flag"); }
+			memoryType.indexType = (flags & 0x04) ? IndexType::i64 : IndexType::i32;
+			if(flags & ~0x07) { throw FatalSerializationException("unknown memory type flag"); }
 		}
-		serialize(stream, memoryType.size, flags & 0x01);
+		serialize(stream, memoryType.size, flags & 0x01, memoryType.indexType);
 	}
 
 	template<typename Stream> void serialize(Stream& stream, GlobalType& globalType)
@@ -476,6 +492,9 @@ struct ModuleSerializationState
 {
 	bool hadDataCountSection = false;
 	std::shared_ptr<ModuleValidationState> validationState;
+	const Module& module;
+
+	ModuleSerializationState(const Module& inModule) : module(inModule) {}
 };
 
 template<typename Stream>
@@ -622,64 +641,102 @@ void serialize(Stream& stream,
 	serializeVarUInt32(stream, imm.tableIndex);
 }
 
-template<typename Stream, Uptr naturalAlignmentLog2>
-void serializeMemArg(Stream& stream, U8& alignmentLog2, U32& offset, Uptr& memoryIndex)
+template<typename Stream>
+void serialize(Stream& stream,
+			   BaseLoadOrStoreImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState& moduleState)
 {
 	// Use the lower 6 bits of a varuint32 to encode alignment, and the 7th bit as a flag for
 	// whether a memory index is present.
-	U32 alignmentLog2AndFlags = alignmentLog2;
-	if(!Stream::isInput && memoryIndex != 0) { alignmentLog2AndFlags |= 0x40; }
+	U32 alignmentLog2AndFlags = imm.alignmentLog2;
+	if(!Stream::isInput && imm.memoryIndex != 0) { alignmentLog2AndFlags |= 0x40; }
 	serializeVarUInt32(stream, alignmentLog2AndFlags);
 
-	alignmentLog2 = alignmentLog2AndFlags & 0x3f;
-	if(alignmentLog2 >= 16) { throw FatalSerializationException("Invalid alignment"); }
-	alignmentLog2 = (U8)(alignmentLog2AndFlags & 0x3f);
+	imm.alignmentLog2 = alignmentLog2AndFlags & 0x3f;
+	if(imm.alignmentLog2 >= 16) { throw FatalSerializationException("Invalid alignment"); }
+	imm.alignmentLog2 = (U8)(alignmentLog2AndFlags & 0x3f);
 
-	serializeVarUInt32(stream, offset);
-
-	if(alignmentLog2AndFlags & 0x40) { serializeVarUInt32(stream, memoryIndex); }
+	if(moduleState.module.featureSpec.memory64) { serializeVarUInt64(stream, imm.offset); }
 	else
 	{
-		memoryIndex = 0;
+		serializeVarUInt32(stream, imm.offset);
+	}
+
+	if(alignmentLog2AndFlags & 0x40) { serializeVarUInt32(stream, imm.memoryIndex); }
+	else
+	{
+		imm.memoryIndex = 0;
 	}
 }
 
-template<typename Stream, Uptr naturalAlignmentLog2>
+template<typename Stream, Uptr naturalAlignmentLog2, Uptr numLanes>
 void serialize(Stream& stream,
-			   LoadOrStoreImm<naturalAlignmentLog2>& imm,
-			   const FunctionDef&,
-			   const ModuleSerializationState&)
+			   LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>& imm,
+			   const FunctionDef& functionDef,
+			   const ModuleSerializationState& state)
 {
-	serializeMemArg<Stream, naturalAlignmentLog2>(
-		stream, imm.alignmentLog2, imm.offset, imm.memoryIndex);
+	serialize(stream, static_cast<BaseLoadOrStoreImm&>(imm), functionDef, state);
+	serializeNativeValue(stream, imm.laneIndex);
+}
+
+template<typename Stream>
+void serializeMemoryIndex(Stream& stream, Uptr& memoryIndex, const FeatureSpec& featureSpec)
+{
+	// Without the multipleMemories feature, the memory index byte must be serialized as a single
+	// zero byte rather than any ULEB128 encoding that denotes zero.
+	if(featureSpec.multipleMemories) { serializeVarUInt32(stream, memoryIndex); }
+	else
+	{
+		serializeConstant<U8>(stream, "memory index reserved byte must be zero", 0);
+		if(Stream::isInput) { memoryIndex = 0; }
+	}
 }
 template<typename Stream>
-void serialize(Stream& stream, MemoryImm& imm, const FunctionDef&, const ModuleSerializationState&)
+void serialize(Stream& stream,
+			   MemoryImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState& state)
 {
-	serializeVarUInt32(stream, imm.memoryIndex);
+	serializeMemoryIndex(stream, imm.memoryIndex, state.module.featureSpec);
 }
 template<typename Stream>
 void serialize(Stream& stream,
 			   MemoryCopyImm& imm,
 			   const FunctionDef&,
-			   const ModuleSerializationState&)
+			   const ModuleSerializationState& state)
 {
-	serializeVarUInt32(stream, imm.destMemoryIndex);
-	serializeVarUInt32(stream, imm.sourceMemoryIndex);
+	serializeMemoryIndex(stream, imm.destMemoryIndex, state.module.featureSpec);
+	serializeMemoryIndex(stream, imm.sourceMemoryIndex, state.module.featureSpec);
 }
 template<typename Stream>
-void serialize(Stream& stream, TableImm& imm, const FunctionDef&, const ModuleSerializationState&)
+void serializeTableIndex(Stream& stream, Uptr& tableIndex, const FeatureSpec& featureSpec)
 {
-	serializeVarUInt32(stream, imm.tableIndex);
+	// Without the referenceTypes feature, the memory index byte must be serialized as a single zero
+	// byte rather than any ULEB128 encoding that denotes zero.
+	if(featureSpec.referenceTypes) { serializeVarUInt32(stream, tableIndex); }
+	else
+	{
+		serializeConstant<U8>(stream, "table index reserved byte must be zero", 0);
+		if(Stream::isInput) { tableIndex = 0; }
+	}
+}
+template<typename Stream>
+void serialize(Stream& stream,
+			   TableImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState& state)
+{
+	serializeTableIndex(stream, imm.tableIndex, state.module.featureSpec);
 }
 template<typename Stream>
 void serialize(Stream& stream,
 			   TableCopyImm& imm,
 			   const FunctionDef&,
-			   const ModuleSerializationState&)
+			   const ModuleSerializationState& state)
 {
-	serializeVarUInt32(stream, imm.destTableIndex);
-	serializeVarUInt32(stream, imm.sourceTableIndex);
+	serializeTableIndex(stream, imm.destTableIndex, state.module.featureSpec);
+	serializeTableIndex(stream, imm.sourceTableIndex, state.module.featureSpec);
 }
 
 namespace WAVM {
@@ -706,16 +763,6 @@ void serialize(Stream& stream,
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{ serializeNativeValue(stream, imm.laneIndices[laneIndex]); }
-}
-
-template<typename Stream, Uptr naturalAlignmentLog2>
-void serialize(Stream& stream,
-			   AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm,
-			   const FunctionDef&,
-			   const ModuleSerializationState&)
-{
-	serializeMemArg<Stream, naturalAlignmentLog2>(
-		stream, imm.alignmentLog2, imm.offset, imm.memoryIndex);
 }
 
 template<typename Stream>
@@ -1421,7 +1468,7 @@ void serializeCustomSectionsAfterKnownSection(OutputStream& moduleStream,
 
 static void serializeModule(OutputStream& moduleStream, Module& module)
 {
-	ModuleSerializationState moduleState;
+	ModuleSerializationState moduleState(module);
 
 	serializeConstant(moduleStream, "magic number", U32(magicNumber));
 	serializeConstant(moduleStream, "version", U32(currentVersion));
@@ -1465,7 +1512,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	serializeConstant(moduleStream, "magic number", U32(magicNumber));
 	serializeConstant(moduleStream, "version", U32(currentVersion));
 
-	ModuleSerializationState moduleState;
+	ModuleSerializationState moduleState(module);
 	moduleState.validationState = IR::createModuleValidationState(module);
 
 	OrderedSectionID lastKnownOrderedSectionID = OrderedSectionID::moduleBeginning;

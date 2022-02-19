@@ -557,7 +557,12 @@ Module::Module(const std::vector<U8>& objectBytes,
 		llvm::object::SymbolRef symbol = symbolSizePair.first;
 
 		// Only process global symbols, which excludes SEH funclets.
+#if LLVM_VERSION_MAJOR >= 11
+		auto maybeFlags = symbol.getFlags();
+		if(!(maybeFlags && *maybeFlags & llvm::object::SymbolRef::SF_Global)) { continue; }
+#else
 		if(!(symbol.getFlags() & llvm::object::SymbolRef::SF_Global)) { continue; }
+#endif
 
 		// Get the type, name, and address of the symbol. Need to be careful not to get the
 		// Expected<T> for each value unless it will be checked for success before continuing.
@@ -596,7 +601,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 		WAVM_ASSERT(symbolSizePair.second <= UINTPTR_MAX);
 		Runtime::Function* function
 			= (Runtime::Function*)(loadedAddress - offsetof(Runtime::Function, code));
-		nameToFunctionMap.addOrFail(*name, function);
+		nameToFunctionMap.addOrFail(std::string(*name), function);
 		addressToFunctionMap.emplace(Uptr(loadedAddress + symbolSizePair.second), function);
 
 		// Initialize the function mutable data.
@@ -705,9 +710,10 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// CompartmentRuntimeData to the table's entry in CompartmentRuntimeData::tableBases.
 	for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
 	{
-		importedSymbolMap.addOrFail(getExternalName("tableOffset", tableIndex),
-									offsetof(Runtime::CompartmentRuntimeData, tableBases)
-										+ sizeof(void*) * tables[tableIndex].id);
+		importedSymbolMap.addOrFail(
+			getExternalName("tableOffset", tableIndex),
+			offsetof(Runtime::CompartmentRuntimeData, tables)
+				+ sizeof(Runtime::TableRuntimeData) * tables[tableIndex].id);
 	}
 
 	// Bind the memory symbols. The compiled module uses the symbol's value as an offset into
@@ -766,6 +772,11 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// Bind the tableReferenceBias symbol to the tableReferenceBias.
 	importedSymbolMap.addOrFail("tableReferenceBias", tableReferenceBias);
 
+#if LLVM_VERSION_MAJOR < 10
+	// Bind the unoptimizableOne symbol to 1.
+	importedSymbolMap.addOrFail("unoptimizableOne", 1);
+#endif
+
 #if !USE_WINDOWS_SEH
 	// Use __cxxabiv1::__cxa_current_exception_type to get a reference to the std::type_info for
 	// Runtime::Exception* without enabling RTTI.
@@ -812,8 +823,13 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
 	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
 		llvm::object::SectionedAddress{address, llvm::object::SectionedAddress::UndefSection},
-		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
-								  llvm::DINameKind::None));
+		llvm::DILineInfoSpecifier(
+#if LLVM_VERSION_MAJOR >= 11
+			llvm::DILineInfoSpecifier::FileLineInfoKind::RawValue,
+#else
+			llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
+#endif
+			llvm::DINameKind::None));
 
 	outSource.instructionIndex = Uptr(lineInfo.Line);
 	return true;

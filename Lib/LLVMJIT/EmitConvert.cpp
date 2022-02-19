@@ -29,6 +29,56 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
 
+static llvm::Type* getWithNewIntBitWidth(llvm::Type* type, U32 newBitWidth)
+{
+#if LLVM_VERSION_MAJOR >= 10
+	return type->getWithNewBitWidth(newBitWidth);
+#else
+	WAVM_ASSERT(type->isIntOrIntVectorTy());
+	llvm::Type* newType = llvm::Type::getIntNTy(type->getContext(), newBitWidth);
+	if(type->isVectorTy())
+	{ newType = FixedVectorType::get(newType, type->getVectorNumElements()); }
+	return newType;
+#endif
+}
+
+llvm::Value* EmitFunctionContext::extendHalfOfIntVector(
+	llvm::Value* vector,
+	Uptr baseSourceElementIndex,
+	llvm::Value* (EmitFunctionContext::*extend)(llvm::Value*, llvm::Type*))
+{
+	FixedVectorType* vectorType = static_cast<FixedVectorType*>(vector->getType());
+	FixedVectorType* halfVectorType = FixedVectorType::getHalfElementsVectorType(vectorType);
+
+	llvm::Value* halfVector = llvm::UndefValue::get(halfVectorType);
+	for(U64 index = 0; index < halfVectorType->getNumElements(); ++index)
+	{
+		halfVector = irBuilder.CreateInsertElement(
+			halfVector,
+			irBuilder.CreateExtractElement(vector, baseSourceElementIndex + index),
+			index);
+	}
+
+	llvm::Type* halfExtendedVectorType
+		= getWithNewIntBitWidth(halfVectorType, halfVectorType->getScalarSizeInBits() * 2);
+
+	return (this->*extend)(halfVector, halfExtendedVectorType);
+}
+
+llvm::Value* EmitFunctionContext::insertIntoHalfZeroVector(llvm::Value* halfVector)
+{
+	FixedVectorType* halfVectorType = static_cast<FixedVectorType*>(halfVector->getType());
+	llvm::Type* fullVectorType = FixedVectorType::get(halfVectorType->getScalarType(),
+													  U32(halfVectorType->getNumElements() * 2));
+	llvm::Value* result = llvm::Constant::getNullValue(fullVectorType);
+	for(U32 elementIndex = 0; elementIndex < halfVectorType->getNumElements(); ++elementIndex)
+	{
+		result = irBuilder.CreateInsertElement(
+			result, irBuilder.CreateExtractElement(halfVector, elementIndex), elementIndex);
+	}
+	return result;
+}
+
 #define EMIT_UNARY_OP(name, emitCode)                                                              \
 	void EmitFunctionContext::name(NoImm)                                                          \
 	{                                                                                              \
@@ -56,24 +106,84 @@ EMIT_UNARY_OP(f32x4_convert_i32x4_u,
 			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmContext.i32x4Type),
 									 llvmContext.f32x4Type));
 
-EMIT_UNARY_OP(f32_demote_f64, irBuilder.CreateFPTrunc(operand, llvmContext.f32Type))
-EMIT_UNARY_OP(f64_promote_f32, emitF64Promote(operand))
+#define EMIT_F64x2_CONVERT_LOW_I32x4(_su, ConvertFunction)                                         \
+	void EmitFunctionContext::f64x2_convert_low_i32x4##_su(IR::NoImm)                              \
+	{                                                                                              \
+		llvm::Value* vector = pop();                                                               \
+		vector = irBuilder.CreateBitCast(vector, llvmContext.i32x4Type);                           \
+		llvm::Value* halfVector = llvm::UndefValue::get(llvmContext.i32x2Type);                    \
+		for(U64 laneIndex = 0; laneIndex < 2; ++laneIndex)                                         \
+		{                                                                                          \
+			halfVector = irBuilder.CreateInsertElement(                                            \
+				halfVector, irBuilder.CreateExtractElement(vector, laneIndex), laneIndex);         \
+		}                                                                                          \
+		llvm::Value* result = irBuilder.ConvertFunction(halfVector, llvmContext.f64x2Type);        \
+		push(result);                                                                              \
+	}
+EMIT_F64x2_CONVERT_LOW_I32x4(_s, CreateSIToFP) EMIT_F64x2_CONVERT_LOW_I32x4(_u, CreateUIToFP)
+
+	EMIT_UNARY_OP(f32_demote_f64, irBuilder.CreateFPTrunc(operand, llvmContext.f32Type))
+		EMIT_UNARY_OP(f64_promote_f32, emitF64Promote(operand, llvmContext.f64Type))
+
+			void EmitFunctionContext::f32x4_demote_f64x2_zero(IR::NoImm)
+{
+	llvm::Value* vector = pop();
+	vector = irBuilder.CreateBitCast(vector, llvmContext.f64x2Type);
+
+	llvm::Value* halfResult = irBuilder.CreateFPTrunc(vector, llvmContext.f32x2Type);
+	llvm::Value* result = insertIntoHalfZeroVector(halfResult);
+	push(result);
+}
+void EmitFunctionContext::f64x2_promote_low_f32x4(IR::NoImm)
+{
+	llvm::Value* vector = pop();
+	vector = irBuilder.CreateBitCast(vector, llvmContext.f32x4Type);
+
+	llvm::Value* halfVector
+		= irBuilder.CreateShuffleVector(vector,
+										llvm::UndefValue::get(vector->getType()),
+										llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>{0, 1});
+	llvm::Value* result = emitF64Promote(halfVector, llvmContext.f64x2Type);
+	push(result);
+}
+
 EMIT_UNARY_OP(f32_reinterpret_i32, irBuilder.CreateBitCast(operand, llvmContext.f32Type))
 EMIT_UNARY_OP(f64_reinterpret_i64, irBuilder.CreateBitCast(operand, llvmContext.f64Type))
 EMIT_UNARY_OP(i32_reinterpret_f32, irBuilder.CreateBitCast(operand, llvmContext.i32Type))
 EMIT_UNARY_OP(i64_reinterpret_f64, irBuilder.CreateBitCast(operand, llvmContext.i64Type))
 
-llvm::Value* EmitFunctionContext::emitF64Promote(llvm::Value* operand)
+llvm::Value* EmitFunctionContext::emitF64Promote(llvm::Value* operand, llvm::Type* destType)
 {
-	// Emit an nop experimental.constrained.fadd intrinsic on the result of the promote to make sure
+	llvm::Value* f64Operand = irBuilder.CreateFPExt(operand, destType);
+
+#if LLVM_VERSION_MAJOR >= 10
+	// Emit an nop experimental.constrained.fmul intrinsic on the result of the promote to make sure
 	// the promote can't be optimized away.
-	llvm::Value* f64Operand = irBuilder.CreateFPExt(operand, llvmContext.f64Type);
-	return callLLVMIntrinsic({llvmContext.f64Type},
-							 llvm::Intrinsic::experimental_constrained_fmul,
-							 {f64Operand,
-							  emitLiteral(llvmContext, F64(1.0)),
-							  moduleContext.fpRoundingModeMetadata,
-							  moduleContext.fpExceptionMetadata});
+	llvm::Value* one = emitLiteral(llvmContext, F64(1.0));
+	if(destType->isVectorTy())
+	{
+		one = irBuilder.CreateVectorSplat(
+			U32(static_cast<FixedVectorType*>(destType)->getNumElements()), one);
+	}
+
+	return callLLVMIntrinsic(
+		{destType},
+		llvm::Intrinsic::experimental_constrained_fmul,
+		{f64Operand, one, moduleContext.fpRoundingModeMetadata, moduleContext.fpExceptionMetadata});
+#else
+	// Work around a pre-LLVM 10 bug with the constrained FP arithmetic intrinsics:
+	// https://bugs.llvm.org/show_bug.cgi?id=43510
+
+	llvm::Value* intOne = moduleContext.unoptimizableOne;
+	llvm::Value* one = irBuilder.CreateSIToFP(intOne, llvmContext.f64Type);
+	if(destType->isVectorTy())
+	{
+		one = irBuilder.CreateVectorSplat(
+			U32(static_cast<FixedVectorType*>(destType)->getNumElements()), one);
+	}
+
+	return irBuilder.CreateFMul(f64Operand, one);
+#endif
 }
 
 template<typename Float>
@@ -296,6 +406,28 @@ EMIT_UNARY_OP(
 												irBuilder.CreateBitCast(operand,
 																		llvmContext.f32x4Type)))
 
+EMIT_UNARY_OP(i32x4_trunc_sat_f64x2_s_zero,
+			  insertIntoHalfZeroVector(emitTruncVectorFloatToIntSat<I32, F64, 2>(
+				  llvmContext.i32x2Type,
+				  true,
+				  F64(INT32_MIN),
+				  F64(INT32_MAX),
+				  INT32_MIN,
+				  INT32_MAX,
+				  I32(0),
+				  irBuilder.CreateBitCast(operand, llvmContext.f64x2Type))))
+
+EMIT_UNARY_OP(i32x4_trunc_sat_f64x2_u_zero,
+			  insertIntoHalfZeroVector(emitTruncVectorFloatToIntSat<U32, F64, 2>(
+				  llvmContext.i32x2Type,
+				  false,
+				  F64(0),
+				  F64(UINT32_MAX),
+				  0,
+				  UINT32_MAX,
+				  I32(0),
+				  irBuilder.CreateBitCast(operand, llvmContext.f64x2Type))))
+
 EMIT_UNARY_OP(i32_extend8_s, sext(trunc(operand, llvmContext.i8Type), llvmContext.i32Type))
 EMIT_UNARY_OP(i32_extend16_s, sext(trunc(operand, llvmContext.i16Type), llvmContext.i32Type))
 EMIT_UNARY_OP(i64_extend8_s, sext(trunc(operand, llvmContext.i8Type), llvmContext.i64Type))
@@ -365,29 +497,29 @@ EMIT_SIMD_NARROW(i16x8_narrow_i32x4_u,
 				 llvm::Intrinsic::x86_sse41_packusdw,
 				 llvm::Intrinsic::aarch64_neon_sqxtun)
 
-#define EMIT_SIMD_WIDEN(name, destType, sourceType, baseSourceElementIndex, numElements, extend)   \
+#define EMIT_SIMD_EXTEND(name, sourceType, baseSourceElementIndex, extend)                         \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		auto operand = irBuilder.CreateBitCast(pop(), sourceType);                                 \
-		llvm::Value* result = llvm::UndefValue::get(destType);                                     \
-		for(Uptr index = 0; index < numElements; ++index)                                          \
-		{                                                                                          \
-			auto scalar = irBuilder.CreateExtractElement(operand, baseSourceElementIndex + index); \
-			result = irBuilder.CreateInsertElement(                                                \
-				result, extend(scalar, destType->getScalarType()), index);                         \
-		}                                                                                          \
+		llvm::Value* result = extendHalfOfIntVector(                                               \
+			operand, baseSourceElementIndex, &EmitFunctionContext::extend);                        \
 		push(result);                                                                              \
 	}
 
-EMIT_SIMD_WIDEN(i16x8_widen_low_i8x16_s, llvmContext.i16x8Type, llvmContext.i8x16Type, 0, 8, sext)
-EMIT_SIMD_WIDEN(i16x8_widen_high_i8x16_s, llvmContext.i16x8Type, llvmContext.i8x16Type, 8, 8, sext)
-EMIT_SIMD_WIDEN(i16x8_widen_low_i8x16_u, llvmContext.i16x8Type, llvmContext.i8x16Type, 0, 8, zext)
-EMIT_SIMD_WIDEN(i16x8_widen_high_i8x16_u, llvmContext.i16x8Type, llvmContext.i8x16Type, 8, 8, zext)
+EMIT_SIMD_EXTEND(i16x8_extend_low_i8x16_s, llvmContext.i8x16Type, 0, sext)
+EMIT_SIMD_EXTEND(i16x8_extend_high_i8x16_s, llvmContext.i8x16Type, 8, sext)
+EMIT_SIMD_EXTEND(i16x8_extend_low_i8x16_u, llvmContext.i8x16Type, 0, zext)
+EMIT_SIMD_EXTEND(i16x8_extend_high_i8x16_u, llvmContext.i8x16Type, 8, zext)
 
-EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, sext)
-EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, sext)
-EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, zext)
-EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, zext)
+EMIT_SIMD_EXTEND(i32x4_extend_low_i16x8_s, llvmContext.i16x8Type, 0, sext)
+EMIT_SIMD_EXTEND(i32x4_extend_high_i16x8_s, llvmContext.i16x8Type, 4, sext)
+EMIT_SIMD_EXTEND(i32x4_extend_low_i16x8_u, llvmContext.i16x8Type, 0, zext)
+EMIT_SIMD_EXTEND(i32x4_extend_high_i16x8_u, llvmContext.i16x8Type, 4, zext)
+
+EMIT_SIMD_EXTEND(i64x2_extend_low_i32x4_s, llvmContext.i32x4Type, 0, sext)
+EMIT_SIMD_EXTEND(i64x2_extend_high_i32x4_s, llvmContext.i32x4Type, 2, sext)
+EMIT_SIMD_EXTEND(i64x2_extend_low_i32x4_u, llvmContext.i32x4Type, 0, zext)
+EMIT_SIMD_EXTEND(i64x2_extend_high_i32x4_u, llvmContext.i32x4Type, 2, zext)
 
 void EmitFunctionContext::i8x16_bitmask(NoImm)
 {
@@ -428,20 +560,18 @@ void EmitFunctionContext::i8x16_bitmask(NoImm)
 																					 constant32,
 																					 constant64,
 																					 constant128}));
-		auto i8x8OriginalBitMaskA
-			= irBuilder.CreateShuffleVector(i8x16OrthogonalBitMask,
-											llvm::UndefValue::get(llvmContext.i8x16Type),
-											{0, 1, 2, 3, 4, 5, 6, 7});
-		auto i8x8OriginalBitMaskB
-			= irBuilder.CreateShuffleVector(i8x16OrthogonalBitMask,
-											llvm::UndefValue::get(llvmContext.i8x16Type),
-											{8, 9, 10, 11, 12, 13, 14, 15});
-		auto i8CombinedBitMaskA = callLLVMIntrinsic({llvmContext.i8x8Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i8x8OriginalBitMaskA});
-		auto i8CombinedBitMaskB = callLLVMIntrinsic({llvmContext.i8x8Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i8x8OriginalBitMaskB});
+		auto i8x8OriginalBitMaskA = irBuilder.CreateShuffleVector(
+			i8x16OrthogonalBitMask,
+			llvm::UndefValue::get(llvmContext.i8x16Type),
+			llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>{0, 1, 2, 3, 4, 5, 6, 7});
+		auto i8x8OriginalBitMaskB = irBuilder.CreateShuffleVector(
+			i8x16OrthogonalBitMask,
+			llvm::UndefValue::get(llvmContext.i8x16Type),
+			llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>{8, 9, 10, 11, 12, 13, 14, 15});
+		auto i8CombinedBitMaskA = callLLVMIntrinsic(
+			{llvmContext.i8x8Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i8x8OriginalBitMaskA});
+		auto i8CombinedBitMaskB = callLLVMIntrinsic(
+			{llvmContext.i8x8Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i8x8OriginalBitMaskB});
 		auto i32CombinedBitMask = irBuilder.CreateOr(
 			irBuilder.CreateZExt(i8CombinedBitMaskA, llvmContext.i32Type),
 			irBuilder.CreateShl(irBuilder.CreateZExt(i8CombinedBitMaskB, llvmContext.i32Type),
@@ -481,9 +611,8 @@ void EmitFunctionContext::i16x8_bitmask(NoImm)
 																					 constant32,
 																					 constant64,
 																					 constant128}));
-		auto i16CombinedBitMask = callLLVMIntrinsic({llvmContext.i16x8Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i16x8OrthogonalBitMask});
+		auto i16CombinedBitMask = callLLVMIntrinsic(
+			{llvmContext.i16x8Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i16x8OrthogonalBitMask});
 		push(irBuilder.CreateZExt(i16CombinedBitMask, llvmContext.i32Type));
 	}
 }
@@ -514,9 +643,57 @@ void EmitFunctionContext::i32x4_bitmask(NoImm)
 															  constant4,
 															  constant8,
 														  }));
-		auto i32CombinedBitMask = callLLVMIntrinsic({llvmContext.i32x4Type},
-													llvm::Intrinsic::experimental_vector_reduce_add,
-													{i32x4OrthogonalBitMask});
+		auto i32CombinedBitMask = callLLVMIntrinsic(
+			{llvmContext.i32x4Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i32x4OrthogonalBitMask});
 		push(i32CombinedBitMask);
 	}
 }
+
+void EmitFunctionContext::i64x2_bitmask(NoImm)
+{
+	auto i64x2Operand = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	auto i1x2Mask = irBuilder.CreateICmpSLT(
+		i64x2Operand, llvm::ConstantVector::getNullValue(llvmContext.i64x2Type));
+	if(moduleContext.targetArch == llvm::Triple::x86_64
+	   || moduleContext.targetArch == llvm::Triple::x86)
+	{
+		push(irBuilder.CreateZExt(
+			irBuilder.CreateBitCast(i1x2Mask, llvm::IntegerType::get(llvmContext, 2)),
+			llvmContext.i32Type));
+	}
+	else
+	{
+		auto i64x2Mask = irBuilder.CreateSExt(i1x2Mask, llvmContext.i64x2Type);
+		auto constant1 = llvm::ConstantInt::get(llvmContext.i64Type, 1);
+		auto constant2 = llvm::ConstantInt::get(llvmContext.i64Type, 2);
+		auto i64x2OrthogonalBitMask = irBuilder.CreateAnd(i64x2Mask,
+														  llvm::ConstantVector::get({
+															  constant1,
+															  constant2,
+														  }));
+		auto i64CombinedBitMask = callLLVMIntrinsic(
+			{llvmContext.i64x2Type}, LLVM_INTRINSIC_VECTOR_REDUCE_ADD, {i64x2OrthogonalBitMask});
+		push(irBuilder.CreateTrunc(i64CombinedBitMask, llvmContext.i32Type));
+	}
+}
+
+#define EMIT_SIMD_FP_ROUNDING(type)                                                                \
+	EMIT_UNARY_OP(type##_ceil,                                                                     \
+				  callLLVMIntrinsic({llvmContext.type##Type},                                      \
+									llvm::Intrinsic::ceil,                                         \
+									{irBuilder.CreateBitCast(operand, llvmContext.type##Type)}))   \
+	EMIT_UNARY_OP(type##_floor,                                                                    \
+				  callLLVMIntrinsic({llvmContext.type##Type},                                      \
+									llvm::Intrinsic::floor,                                        \
+									{irBuilder.CreateBitCast(operand, llvmContext.type##Type)}))   \
+	EMIT_UNARY_OP(type##_trunc,                                                                    \
+				  callLLVMIntrinsic({llvmContext.type##Type},                                      \
+									llvm::Intrinsic::trunc,                                        \
+									{irBuilder.CreateBitCast(operand, llvmContext.type##Type)}))   \
+	EMIT_UNARY_OP(type##_nearest,                                                                  \
+				  callLLVMIntrinsic({llvmContext.type##Type},                                      \
+									llvm::Intrinsic::nearbyint,                                    \
+									{irBuilder.CreateBitCast(operand, llvmContext.type##Type)}))
+
+EMIT_SIMD_FP_ROUNDING(f32x4)
+EMIT_SIMD_FP_ROUNDING(f64x2)

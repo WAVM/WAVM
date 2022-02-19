@@ -240,6 +240,15 @@ EMIT_INT_UNARY_OP(ctz,
 									{operand, emitLiteral(llvmContext, false)}))
 EMIT_INT_UNARY_OP(popcnt,
 				  callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ctpop, {operand}))
+void EmitFunctionContext::i8x16_popcnt(NoImm)
+{
+	llvm::Value* operand = pop();
+	operand = irBuilder.CreateBitCast(operand, llvmContext.i8x16Type);
+	llvm::Value* result
+		= callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ctpop, {operand});
+	push(result);
+}
+
 EMIT_INT_UNARY_OP(
 	eqz,
 	coerceBoolToI32(irBuilder.CreateICmpEQ(operand, llvmContext.typedZeroConstants[(Uptr)type])))
@@ -437,11 +446,11 @@ EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 #define EMIT_SIMD_SHIFT_OP(name, llvmType, createShift)                                            \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
-		llvm::Type* vectorType = llvmType;                                                         \
+		FixedVectorType* vectorType = llvmType;                                                    \
 		llvm::Type* scalarType = llvmType->getScalarType();                                        \
 		WAVM_SUPPRESS_UNUSED(vectorType);                                                          \
 		auto right = irBuilder.CreateVectorSplat(                                                  \
-			vectorType->getVectorNumElements(),                                                    \
+			(unsigned int)vectorType->getNumElements(),                                            \
 			irBuilder.CreateZExtOrTrunc(                                                           \
 				emitShiftCountMask(*this, pop(), scalarType->getIntegerBitWidth()), scalarType));  \
 		WAVM_SUPPRESS_UNUSED(right);                                                               \
@@ -461,7 +470,6 @@ EMIT_SIMD_SHIFT(shl, irBuilder.CreateShl)
 EMIT_SIMD_SHIFT(shr_s, irBuilder.CreateAShr)
 EMIT_SIMD_SHIFT(shr_u, irBuilder.CreateLShr)
 
-EMIT_SIMD_BINARY_OP(i8x16_mul, llvmContext.i8x16Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i16x8_mul, llvmContext.i16x8Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i32x4_mul, llvmContext.i32x4Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i64x2_mul, llvmContext.i64x2Type, irBuilder.CreateMul(left, right))
@@ -474,23 +482,28 @@ EMIT_SIMD_BINARY_OP(i64x2_mul, llvmContext.i64x2Type, irBuilder.CreateMul(left, 
 		push(zextOrSext(createICmpWithWorkaround(irBuilder, pred, left, right), llvmDestType));    \
 	}
 
-#define EMIT_INT_COMPARE(name, pred)                                                               \
+#define EMIT_INT_COMPARE_U(name, pred)                                                             \
 	EMIT_INT_COMPARE_OP(i32_##name, llvmContext.i32Type, llvmContext.i32Type, pred, zext)          \
 	EMIT_INT_COMPARE_OP(i64_##name, llvmContext.i64Type, llvmContext.i32Type, pred, zext)          \
 	EMIT_INT_COMPARE_OP(i8x16_##name, llvmContext.i8x16Type, llvmContext.i8x16Type, pred, sext)    \
 	EMIT_INT_COMPARE_OP(i16x8_##name, llvmContext.i16x8Type, llvmContext.i16x8Type, pred, sext)    \
-	EMIT_INT_COMPARE_OP(i32x4_##name, llvmContext.i32x4Type, llvmContext.i32x4Type, pred, sext)
+	EMIT_INT_COMPARE_OP(i32x4_##name, llvmContext.i32x4Type, llvmContext.i32x4Type, pred, sext)    \
+	/* WebAssembly doesn't define unsigned compare ops for i64x2 */
 
-EMIT_INT_COMPARE(eq, llvm::CmpInst::ICMP_EQ)
-EMIT_INT_COMPARE(ne, llvm::CmpInst::ICMP_NE)
-EMIT_INT_COMPARE(lt_s, llvm::CmpInst::ICMP_SLT)
-EMIT_INT_COMPARE(lt_u, llvm::CmpInst::ICMP_ULT)
-EMIT_INT_COMPARE(le_s, llvm::CmpInst::ICMP_SLE)
-EMIT_INT_COMPARE(le_u, llvm::CmpInst::ICMP_ULE)
-EMIT_INT_COMPARE(gt_s, llvm::CmpInst::ICMP_SGT)
-EMIT_INT_COMPARE(gt_u, llvm::CmpInst::ICMP_UGT)
-EMIT_INT_COMPARE(ge_s, llvm::CmpInst::ICMP_SGE)
-EMIT_INT_COMPARE(ge_u, llvm::CmpInst::ICMP_UGE)
+#define EMIT_INT_COMPARE_S(name, pred)                                                             \
+	EMIT_INT_COMPARE_U(name, pred)                                                                 \
+	EMIT_INT_COMPARE_OP(i64x2_##name, llvmContext.i64x2Type, llvmContext.i64x2Type, pred, sext)
+
+EMIT_INT_COMPARE_S(eq, llvm::CmpInst::ICMP_EQ)
+EMIT_INT_COMPARE_S(ne, llvm::CmpInst::ICMP_NE)
+EMIT_INT_COMPARE_S(lt_s, llvm::CmpInst::ICMP_SLT)
+EMIT_INT_COMPARE_U(lt_u, llvm::CmpInst::ICMP_ULT)
+EMIT_INT_COMPARE_S(le_s, llvm::CmpInst::ICMP_SLE)
+EMIT_INT_COMPARE_U(le_u, llvm::CmpInst::ICMP_ULE)
+EMIT_INT_COMPARE_S(gt_s, llvm::CmpInst::ICMP_SGT)
+EMIT_INT_COMPARE_U(gt_u, llvm::CmpInst::ICMP_UGT)
+EMIT_INT_COMPARE_S(ge_s, llvm::CmpInst::ICMP_SGE)
+EMIT_INT_COMPARE_U(ge_u, llvm::CmpInst::ICMP_UGE)
 
 EMIT_SIMD_INT_UNARY_OP(neg, irBuilder.CreateNeg(operand))
 
@@ -519,51 +532,51 @@ static llvm::Value* emitSubUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
 		right);
 }
 
-EMIT_SIMD_BINARY_OP(i8x16_add_saturate_u,
+EMIT_SIMD_BINARY_OP(i8x16_add_sat_u,
 					llvmContext.i8x16Type,
 					emitAddUnsignedSaturated(irBuilder, left, right, llvmContext.i8x16Type))
-EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_u,
+EMIT_SIMD_BINARY_OP(i8x16_sub_sat_u,
 					llvmContext.i8x16Type,
 					emitSubUnsignedSaturated(irBuilder, left, right, llvmContext.i8x16Type))
-EMIT_SIMD_BINARY_OP(i16x8_add_saturate_u,
+EMIT_SIMD_BINARY_OP(i16x8_add_sat_u,
 					llvmContext.i16x8Type,
 					emitAddUnsignedSaturated(irBuilder, left, right, llvmContext.i16x8Type))
-EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,
+EMIT_SIMD_BINARY_OP(i16x8_sub_sat_u,
 					llvmContext.i16x8Type,
 					emitSubUnsignedSaturated(irBuilder, left, right, llvmContext.i16x8Type))
 
 #if LLVM_VERSION_MAJOR >= 8
-EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
+EMIT_SIMD_BINARY_OP(i8x16_add_sat_s,
 					llvmContext.i8x16Type,
 					callLLVMIntrinsic({llvmContext.i8x16Type},
 									  llvm::Intrinsic::sadd_sat,
 									  {left, right}))
-EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,
+EMIT_SIMD_BINARY_OP(i8x16_sub_sat_s,
 					llvmContext.i8x16Type,
 					callLLVMIntrinsic({llvmContext.i8x16Type},
 									  llvm::Intrinsic::ssub_sat,
 									  {left, right}))
-EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,
+EMIT_SIMD_BINARY_OP(i16x8_add_sat_s,
 					llvmContext.i16x8Type,
 					callLLVMIntrinsic({llvmContext.i16x8Type},
 									  llvm::Intrinsic::sadd_sat,
 									  {left, right}))
-EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
+EMIT_SIMD_BINARY_OP(i16x8_sub_sat_s,
 					llvmContext.i16x8Type,
 					callLLVMIntrinsic({llvmContext.i16x8Type},
 									  llvm::Intrinsic::ssub_sat,
 									  {left, right}))
 #else
-EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
+EMIT_SIMD_BINARY_OP(i8x16_add_sat_s,
 					llvmContext.i8x16Type,
 					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_b, {left, right}))
-EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,
+EMIT_SIMD_BINARY_OP(i8x16_sub_sat_s,
 					llvmContext.i8x16Type,
 					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_b, {left, right}))
-EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,
+EMIT_SIMD_BINARY_OP(i16x8_add_sat_s,
 					llvmContext.i16x8Type,
 					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_w, {left, right}))
-EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
+EMIT_SIMD_BINARY_OP(i16x8_sub_sat_s,
 					llvmContext.i16x8Type,
 					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_w, {left, right}))
 #endif
@@ -602,17 +615,20 @@ llvm::Value* EmitFunctionContext::emitVectorSelect(llvm::Value* condition,
 												   llvm::Value* trueValue,
 												   llvm::Value* falseValue)
 {
-	llvm::Type* maskType;
-	switch(condition->getType()->getVectorNumElements())
+	WAVM_ASSERT(condition->getType()->isVectorTy());
+
+	llvm::Type* maskScalarType;
+	switch(trueValue->getType()->getScalarSizeInBits())
 	{
-	case 2: maskType = llvmContext.i64x2Type; break;
-	case 4: maskType = llvmContext.i32x4Type; break;
-	case 8: maskType = llvmContext.i16x8Type; break;
-	case 16: maskType = llvmContext.i8x16Type; break;
-	default:
-		Errors::fatalf("unsupported vector length %u",
-					   condition->getType()->getVectorNumElements());
+	case 64: maskScalarType = llvmContext.i64Type; break;
+	case 32: maskScalarType = llvmContext.i32Type; break;
+	case 16: maskScalarType = llvmContext.i16Type; break;
+	case 8: maskScalarType = llvmContext.i8Type; break;
+	default: WAVM_UNREACHABLE();
 	};
+	const U32 numElements
+		= U32(static_cast<FixedVectorType*>(condition->getType())->getNumElements());
+	llvm::Type* maskType = FixedVectorType::get(maskScalarType, numElements);
 	llvm::Value* mask = sext(condition, maskType);
 
 	return irBuilder.CreateBitCast(emitBitSelect(mask,
@@ -625,6 +641,10 @@ EMIT_SIMD_FP_BINARY_OP(add, irBuilder.CreateFAdd(left, right))
 EMIT_SIMD_FP_BINARY_OP(sub, irBuilder.CreateFSub(left, right))
 EMIT_SIMD_FP_BINARY_OP(mul, irBuilder.CreateFMul(left, right))
 EMIT_SIMD_FP_BINARY_OP(div, irBuilder.CreateFDiv(left, right))
+
+//
+// SIMD minimum
+//
 
 EMIT_SIMD_BINARY_OP(f32x4_min,
 					llvmContext.f32x4Type,
@@ -646,6 +666,11 @@ EMIT_SIMD_BINARY_OP(f64x2_min,
 									 2,
 									 emitLiteral(llvmContext,
 												 FloatComponents<F64>::canonicalSignificand))))
+
+//
+// SIMD maximum
+//
+
 EMIT_SIMD_BINARY_OP(f32x4_max,
 					llvmContext.f32x4Type,
 					emitFloatMax(*this,
@@ -667,42 +692,70 @@ EMIT_SIMD_BINARY_OP(f64x2_max,
 									 emitLiteral(llvmContext,
 												 FloatComponents<F64>::canonicalSignificand))))
 
+//
+// SIMD pseudo-minimum: right < left ? right : left
+//
+
+EMIT_SIMD_BINARY_OP(f32x4_pmin,
+					llvmContext.f32x4Type,
+					irBuilder.CreateSelect(
+						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, right, left),
+						right,
+						left))
+EMIT_SIMD_BINARY_OP(f64x2_pmin,
+					llvmContext.f64x2Type,
+					irBuilder.CreateSelect(
+						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, right, left),
+						right,
+						left))
+
+//
+// SIMD pseudo-maximum: left < right ? right : left
+//
+
+EMIT_SIMD_BINARY_OP(f32x4_pmax,
+					llvmContext.f32x4Type,
+					irBuilder.CreateSelect(
+						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right),
+						right,
+						left))
+EMIT_SIMD_BINARY_OP(f64x2_pmax,
+					llvmContext.f64x2Type,
+					irBuilder.CreateSelect(
+						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right),
+						right,
+						left))
+
 EMIT_SIMD_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
 EMIT_SIMD_FP_UNARY_OP(abs,
 					  callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::fabs, {operand}))
 EMIT_SIMD_FP_UNARY_OP(sqrt,
 					  callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::sqrt, {operand}))
 
-static llvm::Value* emitAnyTrue(llvm::IRBuilder<>& irBuilder,
-								llvm::Value* vector,
-								llvm::Type* vectorType)
+void EmitFunctionContext::v128_any_true(IR::NoImm)
 {
-	vector = irBuilder.CreateBitCast(vector, vectorType);
+	llvm::Value* vector = pop();
 
-	const U32 numScalarBits = vectorType->getScalarSizeInBits();
-	const Uptr numLanes = vectorType->getVectorNumElements();
-	llvm::Constant* zero
-		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
+	vector = irBuilder.CreateBitCast(vector, llvmContext.i64x2Type);
 
-	llvm::Value* result = nullptr;
-	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
-	{
-		llvm::Value* scalar = irBuilder.CreateExtractElement(vector, laneIndex);
-		llvm::Value* scalarBool = irBuilder.CreateICmpNE(scalar, zero);
+	llvm::Constant* zero = emitLiteral(llvmContext, U64(0));
 
-		result = result ? irBuilder.CreateOr(result, scalarBool) : scalarBool;
-	}
-	return irBuilder.CreateZExt(result, llvm::Type::getInt32Ty(irBuilder.getContext()));
+	llvm::Value* boolResult = irBuilder.CreateOr(
+		irBuilder.CreateICmpNE(irBuilder.CreateExtractElement(vector, U64(0)), zero),
+		irBuilder.CreateICmpNE(irBuilder.CreateExtractElement(vector, U64(1)), zero));
+	llvm::Value* i32Result
+		= irBuilder.CreateZExt(boolResult, llvm::Type::getInt32Ty(irBuilder.getContext()));
+	push(i32Result);
 }
 
 static llvm::Value* emitAllTrue(llvm::IRBuilder<>& irBuilder,
 								llvm::Value* vector,
-								llvm::Type* vectorType)
+								FixedVectorType* vectorType)
 {
 	vector = irBuilder.CreateBitCast(vector, vectorType);
 
 	const U32 numScalarBits = vectorType->getScalarSizeInBits();
-	const Uptr numLanes = vectorType->getVectorNumElements();
+	const Uptr numLanes = vectorType->getNumElements();
 	llvm::Constant* zero
 		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
 
@@ -716,19 +769,6 @@ static llvm::Value* emitAllTrue(llvm::IRBuilder<>& irBuilder,
 	}
 	return irBuilder.CreateZExt(result, llvm::Type::getInt32Ty(irBuilder.getContext()));
 }
-
-EMIT_SIMD_UNARY_OP(i8x16_any_true,
-				   llvmContext.i8x16Type,
-				   emitAnyTrue(irBuilder, operand, llvmContext.i8x16Type))
-EMIT_SIMD_UNARY_OP(i16x8_any_true,
-				   llvmContext.i16x8Type,
-				   emitAnyTrue(irBuilder, operand, llvmContext.i16x8Type))
-EMIT_SIMD_UNARY_OP(i32x4_any_true,
-				   llvmContext.i32x4Type,
-				   emitAnyTrue(irBuilder, operand, llvmContext.i32x4Type))
-EMIT_SIMD_UNARY_OP(i64x2_any_true,
-				   llvmContext.i64x2Type,
-				   emitAnyTrue(irBuilder, operand, llvmContext.i64x2Type))
 
 EMIT_SIMD_UNARY_OP(i8x16_all_true,
 				   llvmContext.i8x16Type,
@@ -826,7 +866,7 @@ EMIT_SIMD_REPLACE_LANE_OP(i64x2, llvmContext.i64x2Type, 2, scalar)
 EMIT_SIMD_REPLACE_LANE_OP(f32x4, llvmContext.f32x4Type, 4, scalar)
 EMIT_SIMD_REPLACE_LANE_OP(f64x2, llvmContext.f64x2Type, 2, scalar)
 
-void EmitFunctionContext::v8x16_swizzle(NoImm)
+void EmitFunctionContext::i8x16_swizzle(NoImm)
 {
 	auto indexVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto elementVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
@@ -839,11 +879,11 @@ void EmitFunctionContext::v8x16_swizzle(NoImm)
 		// saturated add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16
 		// unchanged.
 		auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
-		auto saturatedIndexVector
-			= emitAddUnsignedSaturated(irBuilder,
-									   indexVector,
-									   llvm::ConstantVector::getSplat(16, constant112),
-									   llvmContext.i8x16Type);
+		auto saturatedIndexVector = emitAddUnsignedSaturated(
+			irBuilder,
+			indexVector,
+			llvm::ConstantVector::getSplat(LLVM_ELEMENT_COUNT(16), constant112),
+			llvmContext.i8x16Type);
 
 		push(callLLVMIntrinsic(
 			{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
@@ -856,14 +896,15 @@ void EmitFunctionContext::v8x16_swizzle(NoImm)
 	}
 }
 
-void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
+void EmitFunctionContext::i8x16_shuffle(IR::ShuffleImm<16> imm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
-	unsigned int laneIndices[16];
+	LLVM_LANE_INDEX_TYPE laneIndices[16];
 	for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
-	{ laneIndices[laneIndex] = imm.laneIndices[laneIndex]; }
-	push(irBuilder.CreateShuffleVector(left, right, llvm::ArrayRef<unsigned int>(laneIndices, 16)));
+	{ laneIndices[laneIndex] = LLVM_LANE_INDEX_TYPE(imm.laneIndices[laneIndex]); }
+	push(irBuilder.CreateShuffleVector(
+		left, right, llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>(laneIndices, 16)));
 }
 
 void EmitFunctionContext::v128_bitselect(IR::NoImm)
@@ -882,8 +923,8 @@ void EmitFunctionContext::v128_bitselect(IR::NoImm)
 		auto rightZExt = irBuilder.CreateZExt(right, llvmContext.doubleWidthType##Type);           \
 		auto leftZExt = irBuilder.CreateZExt(left, llvmContext.doubleWidthType##Type);             \
 		auto oneZExt = llvm::ConstantVector::getSplat(                                             \
-			llvmContext.type##Type->getVectorNumElements(),                                        \
-			llvm::ConstantInt::get(llvmContext.doubleWidthType##Type->getVectorElementType(), 1)); \
+			LLVM_ELEMENT_COUNT(llvmContext.type##Type->getNumElements()),                          \
+			llvm::ConstantInt::get(llvmContext.doubleWidthType##Type->getElementType(), 1));       \
 		push(irBuilder.CreateTrunc(                                                                \
 			irBuilder.CreateLShr(                                                                  \
 				irBuilder.CreateAdd(irBuilder.CreateAdd(leftZExt, rightZExt), oneZExt), oneZExt),  \
@@ -909,3 +950,132 @@ EMIT_SIMD_AVGR_OP(i16x8, i32x8)
 EMIT_SIMD_INT_ABS_OP(i8x16)
 EMIT_SIMD_INT_ABS_OP(i16x8)
 EMIT_SIMD_INT_ABS_OP(i32x4)
+EMIT_SIMD_INT_ABS_OP(i64x2)
+
+//
+// SIMD extending integer multiplication
+//
+
+#define EMIT_SIMD_EXTMUL(destType, _highlow_, sourceType, _su, baseSourceElementIndex, extend)     \
+	void EmitFunctionContext::destType##_extmul##_highlow_##sourceType##_su(NoImm)                 \
+	{                                                                                              \
+		llvm::Value* right = pop();                                                                \
+		llvm::Value* left = pop();                                                                 \
+		left = irBuilder.CreateBitCast(left, llvmContext.sourceType##Type);                        \
+		right = irBuilder.CreateBitCast(right, llvmContext.sourceType##Type);                      \
+		left = extendHalfOfIntVector(left, baseSourceElementIndex, &EmitFunctionContext::extend);  \
+		right                                                                                      \
+			= extendHalfOfIntVector(right, baseSourceElementIndex, &EmitFunctionContext::extend);  \
+		llvm::Value* result = irBuilder.CreateMul(left, right);                                    \
+		push(result);                                                                              \
+	}
+
+#define EMIT_SIMD_EXTMUL_HIGHLOW_SU(destType, sourceType, numDestElements)                         \
+	EMIT_SIMD_EXTMUL(destType, _high_, sourceType, _s, numDestElements, sext)                      \
+	EMIT_SIMD_EXTMUL(destType, _high_, sourceType, _u, numDestElements, zext)                      \
+	EMIT_SIMD_EXTMUL(destType, _low_, sourceType, _s, 0, sext)                                     \
+	EMIT_SIMD_EXTMUL(destType, _low_, sourceType, _u, 0, zext)
+
+EMIT_SIMD_EXTMUL_HIGHLOW_SU(i16x8, i8x16, 8)
+EMIT_SIMD_EXTMUL_HIGHLOW_SU(i32x4, i16x8, 4)
+EMIT_SIMD_EXTMUL_HIGHLOW_SU(i64x2, i32x4, 2)
+
+//
+// SIMD extending integer addition
+//
+
+#define EMIT_SIMD_EXTADD(type, halfType, _su, numOutputElements, extend)                           \
+	void EmitFunctionContext::type##_extadd_pairwise_##halfType##_su(NoImm)                        \
+	{                                                                                              \
+		llvm::Value* vector = pop();                                                               \
+		vector = irBuilder.CreateBitCast(vector, llvmContext.halfType##Type);                      \
+		LLVM_LANE_INDEX_TYPE evenMask[numOutputElements];                                          \
+		LLVM_LANE_INDEX_TYPE oddMask[numOutputElements];                                           \
+		for(int elementIndex = 0; elementIndex < numOutputElements; ++elementIndex)                \
+		{                                                                                          \
+			evenMask[elementIndex] = elementIndex * 2 + 0;                                         \
+			oddMask[elementIndex] = elementIndex * 2 + 1;                                          \
+		}                                                                                          \
+		llvm::Constant* undefVector = llvm::UndefValue::get(vector->getType());                    \
+		llvm::Value* evenVector = irBuilder.CreateShuffleVector(                                   \
+			vector,                                                                                \
+			undefVector,                                                                           \
+			llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>(evenMask, numOutputElements));                    \
+		llvm::Value* oddVector = irBuilder.CreateShuffleVector(                                    \
+			vector,                                                                                \
+			undefVector,                                                                           \
+			llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>(oddMask, numOutputElements));                     \
+		llvm::Value* result = irBuilder.CreateAdd(extend(evenVector, llvmContext.type##Type),      \
+												  extend(oddVector, llvmContext.type##Type));      \
+		push(result);                                                                              \
+	}
+
+EMIT_SIMD_EXTADD(i16x8, i8x16, _s, 8, sext)
+EMIT_SIMD_EXTADD(i16x8, i8x16, _u, 8, zext)
+EMIT_SIMD_EXTADD(i32x4, i16x8, _s, 4, sext)
+EMIT_SIMD_EXTADD(i32x4, i16x8, _u, 4, zext)
+
+//
+// SIMD dot product
+//
+
+void EmitFunctionContext::i32x4_dot_i16x8_s(NoImm)
+{
+	llvm::Value* right = irBuilder.CreateBitCast(pop(), llvmContext.i16x8Type);
+	llvm::Value* left = irBuilder.CreateBitCast(pop(), llvmContext.i16x8Type);
+
+	left = irBuilder.CreateSExt(left, llvmContext.i32x8Type);
+	right = irBuilder.CreateSExt(right, llvmContext.i32x8Type);
+
+	llvm::Value* product = irBuilder.CreateMul(left, right);
+
+	constexpr LLVM_LANE_INDEX_TYPE numOutputElements = 4;
+	LLVM_LANE_INDEX_TYPE evenMask[numOutputElements];
+	LLVM_LANE_INDEX_TYPE oddMask[numOutputElements];
+	for(LLVM_LANE_INDEX_TYPE elementIndex = 0; elementIndex < numOutputElements; ++elementIndex)
+	{
+		evenMask[elementIndex] = elementIndex * 2 + 0;
+		oddMask[elementIndex] = elementIndex * 2 + 1;
+	}
+	llvm::Constant* undefVector = llvm::UndefValue::get(llvmContext.i32x8Type);
+	llvm::Value* evenVector = irBuilder.CreateShuffleVector(
+		product, undefVector, llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>(evenMask, numOutputElements));
+	llvm::Value* oddVector = irBuilder.CreateShuffleVector(
+		product, undefVector, llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>(oddMask, numOutputElements));
+
+	llvm::Value* result = irBuilder.CreateAdd(evenVector, oddVector);
+
+	push(result);
+}
+
+//
+// SIMD saturating integer Q-format rounding multiplication.
+//
+
+void EmitFunctionContext::i16x8_q15mulr_sat_s(NoImm)
+{
+	llvm::Value* right = pop();
+	llvm::Value* left = pop();
+	left = irBuilder.CreateBitCast(left, llvmContext.i16x8Type);
+	right = irBuilder.CreateBitCast(right, llvmContext.i16x8Type);
+
+	// Extend the inputs to 64-bit to avoid overflow.
+	left = irBuilder.CreateSExt(left, llvmContext.i64x8Type);
+	right = irBuilder.CreateSExt(right, llvmContext.i64x8Type);
+
+	// result = saturateS16((left * right + 0x4000) >> 15)
+	llvm::Value* product = irBuilder.CreateMul(left, right);
+	llvm::Value* sum = irBuilder.CreateAdd(
+		product, irBuilder.CreateVectorSplat(8, emitLiteral(llvmContext, U64(0x4000))));
+	llvm::Value* shift = irBuilder.CreateAShr(sum, 15);
+	llvm::Value* minSplat
+		= irBuilder.CreateVectorSplat(8, emitLiteral(llvmContext, I64(INT16_MIN)));
+	llvm::Value* maxSplat
+		= irBuilder.CreateVectorSplat(8, emitLiteral(llvmContext, I64(INT16_MAX)));
+	llvm::Value* saturate = irBuilder.CreateSelect(
+		irBuilder.CreateICmpSGT(shift, maxSplat),
+		maxSplat,
+		irBuilder.CreateSelect(irBuilder.CreateICmpSLT(shift, minSplat), minSplat, shift));
+	llvm::Value* result = irBuilder.CreateTrunc(saturate, llvmContext.i16x8Type);
+	push(result);
+}

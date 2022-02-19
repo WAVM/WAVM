@@ -10,6 +10,7 @@ set(TestNames
 	largefile
 	ls
 	mkdir
+	mv
 	path_filestat_set_times
 	preadwrite
 	random

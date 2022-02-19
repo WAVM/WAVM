@@ -356,7 +356,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	const FunctionType calleeType = irModule.types[imm.type.index];
 
 	// Compile the function index.
-	auto tableElementIndex = pop();
+	auto elementIndex = pop();
 
 	// Pop the call arguments from the operand stack.
 	const Uptr numArguments = calleeType.params().size();
@@ -368,16 +368,32 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	{ llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]); }
 
 	// Zero extend the function index to the pointer size.
-	auto functionIndexZExt = zext(tableElementIndex, llvmContext.iptrType);
+	elementIndex = zext(elementIndex, moduleContext.iptrType);
 
+	// Load base and endIndex from the TableRuntimeData in CompartmentRuntimeData::tables
+	// corresponding to imm.tableIndex.
+	auto tableRuntimeDataPointer = irBuilder.CreateInBoundsGEP(
+		getCompartmentAddress(), {moduleContext.tableOffsets[imm.tableIndex]});
 	auto tableBasePointer = loadFromUntypedPointer(
-		irBuilder.CreateInBoundsGEP(getCompartmentAddress(),
-									{moduleContext.tableOffsets[imm.tableIndex]}),
-		llvmContext.iptrType->getPointerTo(),
-		sizeof(Uptr));
+		irBuilder.CreateInBoundsGEP(
+			tableRuntimeDataPointer,
+			{emitLiteralIptr(offsetof(TableRuntimeData, base), moduleContext.iptrType)}),
+		moduleContext.iptrType->getPointerTo(),
+		moduleContext.iptrAlignment);
+	auto tableMaxIndex = loadFromUntypedPointer(
+		irBuilder.CreateInBoundsGEP(
+			tableRuntimeDataPointer,
+			{emitLiteralIptr(offsetof(TableRuntimeData, endIndex), moduleContext.iptrType)}),
+		moduleContext.iptrType,
+		moduleContext.iptrAlignment);
+
+	// Clamp the function index against the value stored in TableRuntimeData::endIndex, which
+	// will map out of bounds indices to the guard page at the end of the table.
+	auto clampedElementIndex = irBuilder.CreateSelect(
+		irBuilder.CreateICmpULT(elementIndex, tableMaxIndex), elementIndex, tableMaxIndex);
 
 	// Load the funcref referenced by the table.
-	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {functionIndexZExt});
+	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {clampedElementIndex});
 	llvm::LoadInst* biasedValueLoad = irBuilder.CreateLoad(elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
@@ -389,33 +405,34 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 // causes type mismatches at runtime. As a temporary hack I'm removing the type check on
 // call_indirect in the generated code.
 
-//	auto elementTypeId = loadFromUntypedPointer(
-//		irBuilder.CreateInBoundsGEP(
-//			runtimeFunction,
-//			emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, encodedType)))),
-//		llvmContext.iptrType,
-//		sizeof(Uptr));
-//	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
-
-	// If the function type doesn't match, trap.
-	//emitConditionalTrapIntrinsic(
-	//	irBuilder.CreateICmpNE(calleeTypeId, elementTypeId),
-	//	"callIndirectFail",
-	//	FunctionType(TypeTuple(),
-	//				 TypeTuple({ValueType::i32,
-	//							inferValueType<Uptr>(),
-	//							ValueType::funcref,
-	//							inferValueType<Uptr>()}),
-	//				 IR::CallingConvention::intrinsic),
-	//	{tableElementIndex,
-	//	 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
-	//	 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.externrefType),
-	//	 calleeTypeId});
+//   	auto elementTypeId = loadFromUntypedPointer(
+//   		irBuilder.CreateInBoundsGEP(
+//   			runtimeFunction,
+//   			emitLiteralIptr(offsetof(Runtime::Function, encodedType), moduleContext.iptrType)),
+//   		moduleContext.iptrType,
+//   		moduleContext.iptrAlignment);
+//   	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
+//
+//   	// If the function type doesn't match, trap.
+//   	emitConditionalTrapIntrinsic(
+//   		irBuilder.CreateICmpNE(calleeTypeId, elementTypeId),
+//   		"callIndirectFail",
+//   		FunctionType(TypeTuple(),
+//   					 TypeTuple({moduleContext.iptrValueType,
+//   								moduleContext.iptrValueType,
+//   								ValueType::funcref,
+//   								moduleContext.iptrValueType}),
+//   					 IR::CallingConvention::intrinsic),
+//   		{elementIndex,
+//   		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex]),
+//   		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.externrefType),
+//   		 calleeTypeId});
 
 	// Call the function loaded from the table.
 	auto functionPointer = irBuilder.CreatePointerCast(
 		irBuilder.CreateInBoundsGEP(
-			runtimeFunction, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code)))),
+			runtimeFunction,
+			emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType)),
 		asLLVMType(llvmContext, calleeType)->getPointerTo());
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),

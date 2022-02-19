@@ -54,19 +54,12 @@ namespace WAVM { namespace Runtime {
 	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
 				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
-    static constexpr Uptr pageSize = 4096;
-	
-    // Note the log2 value here must correspond to the one above
-    static constexpr Uptr wavmCompartmentReservedBytes = Uptr(4) * 1024 * 1024 * 1024;    
-    static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 32;
-
+	static constexpr Uptr contextNumBytes = 16384;
 	static constexpr Uptr maxThunkArgAndReturnBytes = 256;
-
-	static constexpr Uptr contextRuntimeDataAlignment = 8 * pageSize;
 	static constexpr Uptr maxMutableGlobals
-		= (contextRuntimeDataAlignment - maxThunkArgAndReturnBytes - sizeof(Context*)) / sizeof(IR::UntaggedValue);
-	static constexpr Uptr maxMemories = 255;
-	static constexpr Uptr maxTables = 128 * 1024 - maxMemories * 2 - 1;
+		= (contextNumBytes - maxThunkArgAndReturnBytes - sizeof(Context*))
+		  / sizeof(IR::UntaggedValue);
+	static constexpr Uptr contextRuntimeDataAlignment = 16384;
 
 	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
 				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
@@ -79,37 +72,56 @@ namespace WAVM { namespace Runtime {
 		IR::UntaggedValue mutableGlobals[maxMutableGlobals];
 	};
 
-	static_assert(sizeof(ContextRuntimeData) == contextRuntimeDataAlignment, "");
+	static_assert(sizeof(ContextRuntimeData) == contextNumBytes,
+				  "ContextRuntimeData isn't the expected size");
 
 	struct MemoryRuntimeData
 	{
 		void* base;
 		std::atomic<Uptr> numPages;
+		Uptr endAddress;
 	};
+
+	constexpr Uptr memoryNumGuardBytes = 65536;
+
+	static_assert(sizeof(MemoryRuntimeData) == sizeof(Uptr) * 3,
+				  "MemoryRuntimeData isn't the expected size");
+
+	struct TableRuntimeData
+	{
+		void* base;
+		Uptr endIndex;
+	};
+
+	static_assert(sizeof(TableRuntimeData) == sizeof(Uptr) * 2,
+				  "TableRuntimeData isn't the expected size");
+
+	static constexpr Uptr maxMemories = 255;
+	static constexpr Uptr compartmentReservedBytes = Uptr(2) * 1024 * 1024 * 1024;
+	static constexpr Uptr compartmentNonContextBytes = Uptr(2) * 1024 * 1024;
+	static constexpr Uptr maxTables = (compartmentNonContextBytes - sizeof(Compartment*)
+									   - maxMemories * sizeof(MemoryRuntimeData))
+									  / sizeof(TableRuntimeData);
+	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
 
 	struct CompartmentRuntimeData
 	{
 		Compartment* compartment;
 		MemoryRuntimeData memories[maxMemories];
-		void* tableBases[maxTables];
+		TableRuntimeData tables[maxTables];
 		ContextRuntimeData contexts[1]; // Actually [maxContexts], but at least MSVC doesn't allow
 										// declaring arrays that large.
 	};
 
-    static constexpr Uptr maxContexts = (wavmCompartmentReservedBytes -         
-        (offsetof(CompartmentRuntimeData, contexts))) / sizeof(ContextRuntimeData);
-    static constexpr Uptr maxContextSize = U64(maxContexts) * sizeof(ContextRuntimeData);
+	static constexpr Uptr maxContexts
+		= (compartmentReservedBytes - offsetof(CompartmentRuntimeData, contexts))
+		  / sizeof(ContextRuntimeData);
 
-	//static constexpr Uptr maxContexts
-	//	= (512 * 1024) - (offsetof(CompartmentRuntimeData, contexts) / 
-    //     sizeof(ContextRuntimeData));
-
-	static_assert(offsetof(CompartmentRuntimeData, contexts) % pageSize == 0,
+	static_assert(offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
 				  "CompartmentRuntimeData::contexts isn't page-aligned");
-
 	static_assert(U64(offsetof(CompartmentRuntimeData, contexts))
-						  + maxContextSize
-					  == wavmCompartmentReservedBytes,
+						  + U64(maxContexts) * sizeof(ContextRuntimeData)
+					  == compartmentReservedBytes,
 				  "CompartmentRuntimeData isn't the expected size");
 
 	struct Exception
@@ -199,6 +211,17 @@ namespace WAVM { namespace Runtime {
 		{
 		}
 	};
+
+	static_assert(offsetof(Runtime::Function, object) == sizeof(Uptr) * 0,
+				  "Function prefix must match Runtime::Function layout");
+	static_assert(offsetof(Runtime::Function, mutableData) == sizeof(Uptr) * 1,
+				  "Function prefix must match Runtime::Function layout");
+	static_assert(offsetof(Runtime::Function, instanceId) == sizeof(Uptr) * 2,
+				  "Function prefix must match Runtime::Function layout");
+	static_assert(offsetof(Runtime::Function, encodedType) == sizeof(Uptr) * 3,
+				  "Function prefix must match Runtime::Function layout");
+	static_assert(offsetof(Runtime::Function, code) == sizeof(Uptr) * 4,
+				  "Function prefix must match Runtime::Function layout");
 
 	inline CompartmentRuntimeData* getCompartmentRuntimeData(ContextRuntimeData* contextRuntimeData)
 	{

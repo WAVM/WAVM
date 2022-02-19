@@ -68,6 +68,24 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 	}
 }
 
+static IndexType parseOptionalIndexType(CursorState* cursor)
+{
+	if(cursor->nextToken->type == t_i32)
+	{
+		++cursor->nextToken;
+		return IndexType::i32;
+	}
+	else if(cursor->nextToken->type == t_i64)
+	{
+		++cursor->nextToken;
+		return IndexType::i64;
+	}
+	else
+	{
+		return IndexType::i32;
+	}
+}
+
 static SizeConstraints parseSizeConstraints(CursorState* cursor, U64 maxMax)
 {
 	SizeConstraints result;
@@ -317,7 +335,9 @@ static void parseImport(CursorState* cursor)
 			break;
 		}
 		case t_table: {
-			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
+			const IndexType indexType = parseOptionalIndexType(cursor);
+			const SizeConstraints sizeConstraints = parseSizeConstraints(
+				cursor, indexType == IndexType::i32 ? IR::maxTable32Elems : IR::maxTable64Elems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 			const ReferenceType elemType = parseReferenceType(cursor);
 			createImport(cursor,
@@ -327,13 +347,14 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->tableNameToIndexMap,
 						 cursor->moduleState->module.tables,
 						 cursor->moduleState->disassemblyNames.tables,
-						 {elemType, isShared, sizeConstraints},
+						 TableType{elemType, isShared, indexType, sizeConstraints},
 						 ExternKind::table);
 			break;
 		}
 		case t_memory: {
-			const SizeConstraints sizeConstraints
-				= parseSizeConstraints(cursor, IR::maxMemoryPages);
+			const IndexType indexType = parseOptionalIndexType(cursor);
+			const SizeConstraints sizeConstraints = parseSizeConstraints(
+				cursor, indexType == IndexType::i32 ? IR::maxTable32Elems : IR::maxTable64Elems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 			createImport(cursor,
 						 name,
@@ -342,7 +363,7 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->memoryNameToIndexMap,
 						 cursor->moduleState->module.memories,
 						 cursor->moduleState->disassemblyNames.memories,
-						 MemoryType{isShared, sizeConstraints},
+						 MemoryType{isShared, indexType, sizeConstraints},
 						 ExternKind::memory);
 			break;
 		}
@@ -931,17 +952,22 @@ static void parseTable(CursorState* cursor)
 		ExternKind::table,
 		// Parse a table import.
 		[](CursorState* cursor) {
-			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
+			const IndexType indexType = parseOptionalIndexType(cursor);
+			const SizeConstraints sizeConstraints = parseSizeConstraints(
+				cursor, indexType == IndexType::i32 ? IR::maxTable32Elems : IR::maxTable64Elems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 			const ReferenceType elemType = parseReferenceType(cursor);
-			return TableType{elemType, isShared, sizeConstraints};
+			return TableType{elemType, isShared, indexType, sizeConstraints};
 		},
 		// Parse a table definition.
 		[](CursorState* cursor, const Token*) {
 			// Parse the table type.
+			const IndexType indexType = parseOptionalIndexType(cursor);
 			SizeConstraints sizeConstraints;
-			const bool hasSizeConstraints
-				= tryParseSizeConstraints(cursor, IR::maxTableElems, sizeConstraints);
+			const bool hasSizeConstraints = tryParseSizeConstraints(
+				cursor,
+				indexType == IndexType::i32 ? IR::maxTable32Elems : IR::maxTable64Elems,
+				sizeConstraints);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 
 			const ReferenceType elemType = parseReferenceType(cursor);
@@ -966,21 +992,22 @@ static void parseTable(CursorState* cursor)
 						elemRefType = elemType;
 					}
 
-					const Uptr numElements
-						= parseElemSegmentBody(cursor,
-											   ElemSegment::Type::active,
-											   encoding,
-											   elemExternKind,
-											   elemRefType,
-											   Name(),
-											   Reference(tableIndex),
-											   UnresolvedInitializerExpression((I32)0),
-											   cursor->nextToken - 1);
+					const Uptr numElements = parseElemSegmentBody(
+						cursor,
+						ElemSegment::Type::active,
+						encoding,
+						elemExternKind,
+						elemRefType,
+						Name(),
+						Reference(tableIndex),
+						indexType == IndexType::i32 ? UnresolvedInitializerExpression(I32(0))
+													: UnresolvedInitializerExpression(I64(0)),
+						cursor->nextToken - 1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
 			}
 
-			return TableDef{TableType(elemType, isShared, sizeConstraints)};
+			return TableDef{TableType(elemType, isShared, indexType, sizeConstraints)};
 		});
 }
 
@@ -995,15 +1022,20 @@ static void parseMemory(CursorState* cursor)
 		ExternKind::memory,
 		// Parse a memory import.
 		[](CursorState* cursor) {
-			const SizeConstraints sizeConstraints
-				= parseSizeConstraints(cursor, IR::maxMemoryPages);
+			const IndexType indexType = parseOptionalIndexType(cursor);
+			const SizeConstraints sizeConstraints = parseSizeConstraints(
+				cursor, indexType == IndexType::i32 ? IR::maxMemory32Pages : IR::maxMemory64Pages);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			return MemoryType{isShared, sizeConstraints};
+			return MemoryType{isShared, indexType, sizeConstraints};
 		},
 		// Parse a memory definition
 		[](CursorState* cursor, const Token*) {
+			const IndexType indexType = parseOptionalIndexType(cursor);
 			SizeConstraints sizeConstraints;
-			if(!tryParseSizeConstraints(cursor, IR::maxMemoryPages, sizeConstraints))
+			if(!tryParseSizeConstraints(
+				   cursor,
+				   indexType == IndexType::i32 ? IR::maxMemory32Pages : IR::maxMemory64Pages,
+				   sizeConstraints))
 			{
 				std::string dataString;
 
@@ -1020,13 +1052,14 @@ static void parseMemory(CursorState* cursor)
 				cursor->moduleState->module.dataSegments.push_back(
 					{true,
 					 cursor->moduleState->module.memories.size(),
-					 InitializerExpression(I32(0)),
+					 indexType == IndexType::i32 ? InitializerExpression(I32(0))
+												 : InitializerExpression(I64(0)),
 					 std::make_shared<std::vector<U8>>(std::move(dataVector))});
-				cursor->moduleState->disassemblyNames.dataSegments.push_back(std::string());
+				cursor->moduleState->disassemblyNames.dataSegments.emplace_back();
 			}
 
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			return MemoryDef{MemoryType(isShared, sizeConstraints)};
+			return MemoryDef{MemoryType(isShared, indexType, sizeConstraints)};
 		});
 }
 

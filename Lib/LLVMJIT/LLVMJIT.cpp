@@ -39,7 +39,9 @@ namespace LLVMRuntimeSymbols {
 	// LLVM's memset intrinsic lowers to calling __bzero on MacOS when writing a constant zero.
 	extern "C" void __bzero();
 #endif
+#if defined(__i386__) || defined(__x86_64__)
 	extern "C" void wavm_probe_stack();
+#endif
 	extern "C" int __gxx_personality_v0();
 	extern "C" void* __cxa_begin_catch(void*) throw();
 	extern "C" void __cxa_end_catch();
@@ -55,7 +57,9 @@ namespace LLVMRuntimeSymbols {
 #if defined(__APPLE__)
 		{"__bzero", (void*)&__bzero},
 #endif
+#if defined(__i386__) || defined(__x86_64__)
 		{"wavm_probe_stack", (void*)&wavm_probe_stack},
+#endif
 		{"__gxx_personality_v0", (void*)&__gxx_personality_v0},
 		{"__cxa_begin_catch", (void*)&__cxa_begin_catch},
 		{"__cxa_end_catch", (void*)&__cxa_end_catch},
@@ -106,41 +110,37 @@ LLVMContext::LLVMContext()
 	f32Type = llvm::Type::getFloatTy(*this);
 	f64Type = llvm::Type::getDoubleTy(*this);
 	i8PtrType = i8Type->getPointerTo();
-	switch(sizeof(Uptr))
-	{
-	case 4: iptrType = i32Type; break;
-	case 8: iptrType = i64Type; break;
-	default: WAVM_UNREACHABLE();
-	}
 
 	externrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 
-	i8x8Type = llvm::VectorType::get(i8Type, 8);
-	i16x4Type = llvm::VectorType::get(i16Type, 4);
-	i32x2Type = llvm::VectorType::get(i32Type, 2);
-	i64x1Type = llvm::VectorType::get(i64Type, 1);
+	i8x8Type = FixedVectorType::get(i8Type, 8);
+	i16x4Type = FixedVectorType::get(i16Type, 4);
+	i32x2Type = FixedVectorType::get(i32Type, 2);
+	i64x1Type = FixedVectorType::get(i64Type, 1);
+	f32x2Type = FixedVectorType::get(f32Type, 2);
+	f64x1Type = FixedVectorType::get(f64Type, 1);
 
-	i8x16Type = llvm::VectorType::get(i8Type, 16);
-	i16x8Type = llvm::VectorType::get(i16Type, 8);
-	i32x4Type = llvm::VectorType::get(i32Type, 4);
-	i64x2Type = llvm::VectorType::get(i64Type, 2);
-	f32x4Type = llvm::VectorType::get(f32Type, 4);
-	f64x2Type = llvm::VectorType::get(f64Type, 2);
+	i8x16Type = FixedVectorType::get(i8Type, 16);
+	i16x8Type = FixedVectorType::get(i16Type, 8);
+	i32x4Type = FixedVectorType::get(i32Type, 4);
+	i64x2Type = FixedVectorType::get(i64Type, 2);
+	f32x4Type = FixedVectorType::get(f32Type, 4);
+	f64x2Type = FixedVectorType::get(f64Type, 2);
 
-	i8x32Type = llvm::VectorType::get(i8Type, 32);
-	i16x16Type = llvm::VectorType::get(i16Type, 16);
-	i32x8Type = llvm::VectorType::get(i32Type, 8);
-	i64x4Type = llvm::VectorType::get(i64Type, 4);
+	i8x32Type = FixedVectorType::get(i8Type, 32);
+	i16x16Type = FixedVectorType::get(i16Type, 16);
+	i32x8Type = FixedVectorType::get(i32Type, 8);
+	i64x4Type = FixedVectorType::get(i64Type, 4);
 
-	i8x48Type = llvm::VectorType::get(i8Type, 48);
-	i16x24Type = llvm::VectorType::get(i16Type, 24);
-	i32x12Type = llvm::VectorType::get(i32Type, 12);
-	i64x6Type = llvm::VectorType::get(i64Type, 6);
+	i8x48Type = FixedVectorType::get(i8Type, 48);
+	i16x24Type = FixedVectorType::get(i16Type, 24);
+	i32x12Type = FixedVectorType::get(i32Type, 12);
+	i64x6Type = FixedVectorType::get(i64Type, 6);
 
-	i8x64Type = llvm::VectorType::get(i8Type, 64);
-	i16x32Type = llvm::VectorType::get(i16Type, 32);
-	i32x16Type = llvm::VectorType::get(i32Type, 16);
-	i64x8Type = llvm::VectorType::get(i64Type, 8);
+	i8x64Type = FixedVectorType::get(i8Type, 64);
+	i16x32Type = FixedVectorType::get(i16Type, 32);
+	i32x16Type = FixedVectorType::get(i32Type, 16);
+	i64x8Type = FixedVectorType::get(i64Type, 8);
 
 	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any] = nullptr;
 	valueTypes[(Uptr)ValueType::i32] = i32Type;
@@ -167,7 +167,7 @@ TargetSpec LLVMJIT::getHostTargetSpec()
 {
 	TargetSpec result;
 	result.triple = llvm::sys::getProcessTriple();
-	result.cpu = llvm::sys::getHostCPUName();
+	result.cpu = std::string(llvm::sys::getHostCPUName());
 	return result;
 }
 
@@ -214,6 +214,8 @@ TargetValidationResult LLVMJIT::validateTargetMachine(
 	else
 	{
 		if(featureSpec.simd) { return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+		if(featureSpec.memory64) { return TargetValidationResult::memory64Requires64bitTarget; }
+		if(featureSpec.table64) { return TargetValidationResult::table64Requires64bitTarget; }
 		return TargetValidationResult::unsupportedArchitecture;
 	}
 }
@@ -228,5 +230,5 @@ TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
 
 Version LLVMJIT::getVersion()
 {
-	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 3};
+	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH, 5};
 }
