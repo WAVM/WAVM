@@ -163,7 +163,9 @@ namespace WAVM { namespace LLVMJIT {
 	{
 		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
 		for(Uptr typeIndex = 0; typeIndex < typeTuple.size(); ++typeIndex)
-		{ llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]); }
+		{
+			llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]);
+		}
 		return llvm::StructType::get(llvmContext,
 									 llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
 	}
@@ -220,7 +222,9 @@ namespace WAVM { namespace LLVMJIT {
 			numParameters = numImplicitParameters + functionType.params().size();
 			llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 			if(callingConvention != IR::CallingConvention::c)
-			{ llvmArgTypes[0] = llvmContext.i8PtrType; }
+			{
+				llvmArgTypes[0] = llvmContext.i8PtrType;
+			}
 
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 			{
@@ -433,3 +437,15 @@ namespace WAVM { namespace LLVMJIT {
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
 }}
+
+// LLVM 13 requires some extra arguments in Create functions
+#if LLVM_VERSION_MAJOR >= 13
+#define CreateLoad(Ptr) CreateLoad(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr)
+#define CreateInBoundsGEP(Ptr, IdxList)                                                            \
+	CreateInBoundsGEP(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, IdxList)
+
+#define CreateAtomicCmpXchg(Op, Cmp, New, SuccessOrdering, FailureOrdering)                        \
+	CreateAtomicCmpXchg(Op, Cmp, New, llvm::MaybeAlign(), SuccessOrdering, FailureOrdering)
+#define CreateAtomicRMW(Op, Ptr, Val, Ordering)                                                    \
+	CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(), Ordering)
+#endif
