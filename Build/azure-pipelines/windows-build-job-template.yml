@@ -108,7 +108,7 @@ jobs:
         ctestArgs: '-C $(buildConfig)'
 
     # Clone the WAVM fuzz corpora repo and run the fuzz targets on them.
-    - script: git clone git://github.com/WAVM/wavm-fuzz-corpora.git $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora
+    - script: git clone https://github.com/WAVM/wavm-fuzz-corpora $(Build.ArtifactStagingDirectory)/wavm-fuzz-corpora
       displayName: Clone fuzz corpora
       condition: and(succeeded(), eq(variables.testFuzzCorpora, 'true'))
 
