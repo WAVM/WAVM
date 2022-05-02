@@ -40,7 +40,7 @@ jobs:
             buildConfig: Release
             llvmConfig: LTO
             cmakeArgs: -DWAVM_ENABLE_LTO=Thin
-            testFuzzCorpora: true
+            testFuzzCorpora: ${{ne(parameters.container, 'wavm/centos7.0-builder:latest')}}
           StaticLTO:
             configName: StaticLTO
             buildConfig: Release
@@ -74,7 +74,7 @@ jobs:
           buildConfig: RelWithDebInfo
           llvmConfig: Checked
           cmakeArgs: -DWAVM_ENABLE_RELEASE_ASSERTS=ON
-          testFuzzCorpora: true
+          testFuzzCorpora: ${{ne(parameters.container, 'wavm/centos7.0-builder:latest')}}
 
         Static:
           configName: Static
