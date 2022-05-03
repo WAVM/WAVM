@@ -103,7 +103,6 @@ stages:
           name: 'WindowsInstaller'
           matrix:
             Windows2019: {vmImage: 'windows-2019',     container: ''}
-            Windows2017: {vmImage: 'vs2017-win2016',   container: ''}
           examplesDir: 'C:\Program Files\WAVM\examples'
           executable: 'C:\Program Files\WAVM\bin\wavm.exe'
           artifactName: 'Win64_VS2019_LTO'
