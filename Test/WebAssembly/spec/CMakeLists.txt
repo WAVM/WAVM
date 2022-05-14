@@ -98,3 +98,5 @@ if(WAVM_ENABLE_RUNTIME)
 		set_tests_properties(WebAssembly/spec/skip-stack-guard-page.wast PROPERTIES DISABLED true)
 	endif()
 endif()
+
+add_subdirectory(simd)

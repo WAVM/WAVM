@@ -13,11 +13,12 @@
 	V(signExtension, "sign-extension", "Sign-extension")                                           \
 	V(multipleResultsAndBlockParams, "multivalue", "Multiple results and block parameters")        \
 	V(bulkMemoryOperations, "bulk-memory", "Bulk memory")                                          \
-	V(referenceTypes, "ref-types", "Reference types")
+	V(referenceTypes, "ref-types", "Reference types")                                              \
+	V(simd, "simd", "128-bit SIMD")
 
 // Extensions that are expected to be standardized without breaking backward compatibility. These
 // are enabled by default.
-#define WAVM_ENUM_MATURE_FEATURES(V) V(simd, "simd", "128-bit SIMD")
+#define WAVM_ENUM_MATURE_FEATURES(V)
 
 // Proposed standard extensions. These are disabled by default, but may be enabled on the
 // command-line.

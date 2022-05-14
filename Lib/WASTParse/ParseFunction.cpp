@@ -451,24 +451,32 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	outImm.alignmentLog2 = (U8)floorLogTwo(alignment);
 }
 
+static bool isIntLiteral(TokenType tokenType)
+{
+	return tokenType == t_hexInt || tokenType == t_decimalInt;
+}
+
 template<Uptr naturalAlignmentLog2, Uptr numLanes>
 static void parseImm(CursorState* cursor,
 					 LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>& outImm)
 {
-#if 1
-	// It's ambiguous whether an initial integer should be interpreted as the memory index or lane
-	// index. Until the ambiguity is resolved, assume it's the lane index and always use memory
-	// index 0 for the load/store lane instructions.
-	// See https://github.com/WebAssembly/multi-memory/issues/17
-	outImm.memoryIndex = 0;
-#else
-	if(!tryParseAndResolveNameOrIndexRef(cursor,
-										 cursor->moduleState->memoryNameToIndexMap,
-										 cursor->moduleState->module.memories.size(),
-										 "memory",
-										 outImm.memoryIndex))
-	{ outImm.memoryIndex = 0; }
-#endif
+	// If the first immediate is a name, or an integer followed by another integer, alignment, or
+	// offset, interpret it as a memory reference.
+	if(cursor->nextToken->type == t_name || cursor->nextToken->type == t_quotedName
+	   || (isIntLiteral(cursor->nextToken->type)
+		   && (isIntLiteral(cursor->nextToken[1].type) || cursor->nextToken[1].type == t_offset
+			   || cursor->nextToken[1].type == t_align)))
+	{
+		outImm.memoryIndex
+			= parseAndResolveNameOrIndexRef(cursor,
+											cursor->moduleState->memoryNameToIndexMap,
+											cursor->moduleState->module.memories.size(),
+											"memory");
+	}
+	else
+	{
+		outImm.memoryIndex = 0;
+	}
 
 	outImm.offset = 0;
 	if(cursor->nextToken->type == t_offset)

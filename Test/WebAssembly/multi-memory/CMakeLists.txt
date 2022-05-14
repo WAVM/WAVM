@@ -57,6 +57,7 @@ ADD_WAST_TESTS(
 		memory_redundancy.wast
 		memory_size.wast
 		memory_trap.wast
+		memory-multi.wast
 		memory.wast
 		names.wast
 		nop.wast
