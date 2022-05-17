@@ -105,7 +105,7 @@ endif()
 
 if(WAVM_ENABLE_RUNTIME)
         # Find an installed build of LLVM
-	set(LLVM_DIR "/usr/lib/llvm-10/cmake" CACHE STRING "" FORCE)
+	set(LLVM_DIR "/usr/lib/llvm-12/cmake" CACHE STRING "" FORCE)
 	find_package(LLVM REQUIRED CONFIG)
 	message("WAVM using LLVM: ${LLVM_VERSION_MAJOR}")
 	
