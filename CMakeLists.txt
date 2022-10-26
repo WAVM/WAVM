@@ -497,9 +497,6 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wextra")
 
-		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
-		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-
 		# Don't eliminate frame pointers: this makes thread forking work robustly if one of the
 		# sanitizers requires a frame pointer, and makes ASAN's stack trace on malloc much better
 		# without using the slow libunwind path.
