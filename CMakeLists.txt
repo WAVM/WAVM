@@ -105,7 +105,7 @@ endif()
 
 if(WAVM_ENABLE_RUNTIME)
         # Find an installed build of LLVM
-	set(LLVM_DIR "/usr/lib/llvm-12/cmake" CACHE STRING "" FORCE)
+	set(LLVM_DIR "/usr/lib/llvm-10/cmake" CACHE STRING "" FORCE)
 	find_package(LLVM REQUIRED CONFIG)
 	message("WAVM using LLVM: ${LLVM_VERSION_MAJOR}")
 	
@@ -496,9 +496,6 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# Compile with all+extra warnings and fatal warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wextra")
-
-		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
-		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 
 		# Don't eliminate frame pointers: this makes thread forking work robustly if one of the
 		# sanitizers requires a frame pointer, and makes ASAN's stack trace on malloc much better
