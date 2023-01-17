@@ -163,8 +163,9 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
+                exceptionPointer->getType()->getScalarType()->getPointerElementType(),
 				exceptionPointer,
-				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
+				emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)),
 			moduleContext.iptrType);
 
 		tryStack.push_back(TryContext{catchSwitchBlock});
@@ -191,8 +192,9 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
+				exceptionPointer->getType()->getScalarType()->getPointerElementType(),
 				exceptionPointer,
-				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
+				emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)),
 			moduleContext.iptrType);
 
 		tryStack.push_back(TryContext{landingPadBlock});
@@ -263,8 +265,10 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 			= offsetof(Exception, arguments)
 			  + (catchType.params.size() - argumentIndex - 1) * sizeof(Exception::arguments[0]);
 		auto argument = loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,
-										{emitLiteral(llvmContext, argOffset)}),
+			irBuilder.CreateInBoundsGEP(
+                catchContext.exceptionPointer->getType()->getScalarType()->getPointerElementType(),
+                catchContext.exceptionPointer,
+				emitLiteral(llvmContext, argOffset)),
 			asLLVMType(llvmContext, parameters),
 			sizeof(Exception::arguments[0]));
 		push(argument);
@@ -298,8 +302,9 @@ void EmitFunctionContext::catch_all(NoImm)
 	auto isUserExceptionType = irBuilder.CreateICmpNE(
 		loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
+				catchContext.exceptionPointer->getType()->getScalarType()->getPointerElementType(),
 				catchContext.exceptionPointer,
-				{emitLiteralIptr(offsetof(Exception, isUserException), moduleContext.iptrType)}),
+				emitLiteralIptr(offsetof(Exception, isUserException), moduleContext.iptrType)),
 			llvmContext.i8Type),
 		llvm::ConstantInt::get(llvmContext.i8Type, llvm::APInt(8, 0, false)));
 
@@ -332,8 +337,9 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 			elementValue,
 			irBuilder.CreatePointerCast(
 				irBuilder.CreateInBoundsGEP(
+					argBaseAddress->getType()->getScalarType()->getPointerElementType(),
 					argBaseAddress,
-					{emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))}),
+					emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))),
 				elementValue->getType()->getPointerTo()),
 			sizeof(UntaggedValue));
 	}
