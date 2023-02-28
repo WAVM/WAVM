@@ -438,7 +438,7 @@ EMIT_FP_BINARY_OP(
 EMIT_FP_UNARY_OP(ceil, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ceil, {operand}))
 EMIT_FP_UNARY_OP(floor, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::floor, {operand}))
 EMIT_FP_UNARY_OP(trunc, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::trunc, {operand}))
-EMIT_FP_UNARY_OP(nearest, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::rint, {operand}))
+EMIT_FP_UNARY_OP(nearest, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::roundeven, {operand}))
 
 EMIT_SIMD_INT_BINARY_OP(add, irBuilder.CreateAdd(left, right))
 EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
