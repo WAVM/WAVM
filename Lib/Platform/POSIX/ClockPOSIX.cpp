@@ -13,6 +13,13 @@ using namespace WAVM::Platform;
 
 static I128 timespecToNS(timespec t) { return I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_nsec); }
 
+#ifndef CLOCK_PROCESS_CPUTIME_ID
+static I128 timevalToNS(timeval t)
+{
+	return I128(U64(t.tv_sec)) * 1000000000 + I128(U64(t.tv_usec)) * 1000;
+}
+#endif
+
 static I128 getClockAsI128(clockid_t clockId)
 {
 	timespec clockTime;
