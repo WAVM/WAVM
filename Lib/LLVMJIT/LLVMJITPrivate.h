@@ -330,17 +330,29 @@ namespace WAVM { namespace LLVMJIT {
 
 			// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that
 			// WAVM should use once we can depend on it.
-			attrs = attrs.addAttribute(function->getContext(),
-									   llvm::AttributeList::FunctionIndex,
-									   "no-frame-pointer-elim",
-									   "true");
+#if LLVM_VERSION_MAJOR < 14
+			attrs = attrs.addAttribute(
+#else
+			attrs = attrs.addAttributeAtIndex(
+#endif
+				function->getContext(),
+				llvm::AttributeList::FunctionIndex,
+				"no-frame-pointer-elim",
+				"true"
+			);
 
 			// Set the probe-stack attribute: this will cause functions that allocate more than a
 			// page of stack space to call the wavm_probe_stack function defined in POSIX.S
-			attrs = attrs.addAttribute(function->getContext(),
-									   llvm::AttributeList::FunctionIndex,
-									   "probe-stack",
-									   "wavm_probe_stack");
+#if LLVM_VERSION_MAJOR < 14
+			attrs = attrs.addAttribute(
+#else
+			attrs = attrs.addAttributeAtIndex(
+#endif
+				function->getContext(),
+				llvm::AttributeList::FunctionIndex,
+				"probe-stack",
+				"wavm_probe_stack"
+			);
 
 			function->setAttributes(attrs);
 		}
