@@ -68,9 +68,7 @@ void EmitFunctionContext::loop(ControlStructureImm imm)
 
 	// Pop the initial values of the loop's parameters from the stack.
 	for(Iptr elementIndex = Iptr(blockType.params().size()) - 1; elementIndex >= 0; --elementIndex)
-	{
-		parameterPHIs[elementIndex]->addIncoming(coerceToCanonicalType(pop()), loopEntryBlock);
-	}
+	{ parameterPHIs[elementIndex]->addIncoming(coerceToCanonicalType(pop()), loopEntryBlock); }
 
 	// Branch to the loop body and switch the IR builder to emit there.
 	irBuilder.CreateBr(loopBodyBlock);
@@ -183,9 +181,7 @@ void EmitFunctionContext::end(NoImm)
 		for(Uptr elementIndex = 0; elementIndex < currentContext.endPHIs.size(); ++elementIndex)
 		{
 			if(currentContext.endPHIs[elementIndex]->getNumIncomingValues())
-			{
-				push(currentContext.endPHIs[elementIndex]);
-			}
+			{ push(currentContext.endPHIs[elementIndex]); }
 			else
 			{
 				// If there weren't any incoming values for the end PHI, remove it and push
@@ -342,9 +338,7 @@ void EmitFunctionContext::call(FunctionImm imm)
 
 	// Coerce the arguments to their canonical type.
 	for(Uptr argIndex = 0; argIndex < numArguments; ++argIndex)
-	{
-		llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]);
-	}
+	{ llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]); }
 
 	// Call the function.
 	ValueVector results = emitCallOrInvoke(callee,
@@ -371,9 +365,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 	// Coerce the arguments to their canonical type.
 	for(Uptr argIndex = 0; argIndex < numArguments; ++argIndex)
-	{
-		llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]);
-	}
+	{ llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]); }
 
 	// Zero extend the function index to the pointer size.
 	elementIndex = zext(elementIndex, moduleContext.iptrType);

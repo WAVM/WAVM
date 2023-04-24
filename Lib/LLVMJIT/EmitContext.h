@@ -215,9 +215,7 @@ namespace WAVM { namespace LLVMJIT {
 				callArgs = llvm::ArrayRef<llvm::Value*>(callArgsAlloca, args.size() + 1);
 				callArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
-				{
-					callArgsAlloca[1 + argIndex] = args[argIndex];
-				}
+				{ callArgsAlloca[1 + argIndex] = args[argIndex]; }
 			}
 
 			// Call or invoke the callee.

@@ -85,9 +85,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	Runtime::Function*& invokeThunkFunction
 		= invokeThunkCache.typeToFunctionMap.getOrAdd(functionType, nullptr);
 	if(invokeThunkFunction)
-	{
-		return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
-	}
+	{ return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code)); }
 
 	// Create a FunctionMutableData object for the thunk.
 	FunctionMutableData* functionMutableData
