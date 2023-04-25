@@ -326,17 +326,27 @@ namespace WAVM { namespace LLVMJIT {
 
 			// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that
 			// WAVM should use once we can depend on it.
-			attrs = attrs.addAttribute(function->getContext(),
-									   llvm::AttributeList::FunctionIndex,
-									   "no-frame-pointer-elim",
-									   "true");
+#if LLVM_VERSION_MAJOR < 14
+			attrs = attrs.addAttribute(
+#else
+			attrs = attrs.addAttributeAtIndex(
+#endif
+				function->getContext(),
+				llvm::AttributeList::FunctionIndex,
+				"no-frame-pointer-elim",
+				"true");
 
 			// Set the probe-stack attribute: this will cause functions that allocate more than a
 			// page of stack space to call the wavm_probe_stack function defined in POSIX.S
-			attrs = attrs.addAttribute(function->getContext(),
-									   llvm::AttributeList::FunctionIndex,
-									   "probe-stack",
-									   "wavm_probe_stack");
+#if LLVM_VERSION_MAJOR < 14
+			attrs = attrs.addAttribute(
+#else
+			attrs = attrs.addAttributeAtIndex(
+#endif
+				function->getContext(),
+				llvm::AttributeList::FunctionIndex,
+				"probe-stack",
+				"wavm_probe_stack");
 
 			function->setAttributes(attrs);
 		}
@@ -433,3 +443,15 @@ namespace WAVM { namespace LLVMJIT {
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
 }}
+
+// LLVM 13 requires some extra arguments in Create functions
+#if LLVM_VERSION_MAJOR >= 13
+#define CreateLoad(Ptr) CreateLoad(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr)
+#define CreateInBoundsGEP(Ptr, IdxList)                                                            \
+	CreateInBoundsGEP(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, IdxList)
+
+#define CreateAtomicCmpXchg(Op, Cmp, New, SuccessOrdering, FailureOrdering)                        \
+	CreateAtomicCmpXchg(Op, Cmp, New, llvm::MaybeAlign(), SuccessOrdering, FailureOrdering)
+#define CreateAtomicRMW(Op, Ptr, Val, Ordering)                                                    \
+	CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(), Ordering)
+#endif
