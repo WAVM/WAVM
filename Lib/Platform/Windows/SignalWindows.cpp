@@ -7,9 +7,18 @@
 #include "WAVM/Platform/Signal.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <Windows.h>
+#undef min
+#undef max
 
+#if defined(_MSC_VER) && !defined(__clang__)
+#define WAVMSIGNALENABLESEH
+#endif
+
+#ifdef WAVMSIGNALENABLESEH
 using namespace WAVM;
 using namespace WAVM::Platform;
 
@@ -97,7 +106,6 @@ bool Platform::catchSignals(void (*thunk)(void*),
 							void* context)
 {
 	initThread();
-
 	__try
 	{
 		(*thunk)(context);
@@ -111,3 +119,4 @@ bool Platform::catchSignals(void (*thunk)(void*),
 		return true;
 	}
 }
+#endif

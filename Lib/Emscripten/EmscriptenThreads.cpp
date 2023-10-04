@@ -46,7 +46,7 @@ void Emscripten::joinAllThreads(Process& process)
 		WAVM_ASSERT(it != process.threads.end());
 
 		emabi::pthread_t threadId = it.getIndex();
-		IntrusiveSharedPtr<Thread> thread = std::move(*it);
+		IntrusiveSharedPtr<Thread> thread = *it;
 		process.threads.removeOrFail(threadId);
 
 		threadsLock.unlock();

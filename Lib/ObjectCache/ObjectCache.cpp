@@ -546,11 +546,11 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			while(getResult)
 			{
 				Log::printf(Log::debug,
-							"  %16" PRIx64 "|%16" PRIx64 "%16" PRIx64 " %zu bytes\n",
+							"  %16" PRIx64 "|%16" PRIx64 "%16" PRIx64 " %" PRIuLEAST64 " bytes\n",
 							moduleKey.getCodeKey(),
 							moduleKey.moduleHashU64s[0],
 							moduleKey.moduleHashU64s[1],
-							objectBytesVal.mv_size);
+							static_cast<uint_least64_t>(objectBytesVal.mv_size));
 
 				getResult = Database::tryGetCursor(cursor, moduleKey, objectBytesVal, MDB_NEXT);
 			};

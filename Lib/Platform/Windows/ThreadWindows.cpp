@@ -8,8 +8,12 @@
 #include "WAVM/Platform/Thread.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <Windows.h>
+#undef min
+#undef max
 
 #define POISON_FORKED_STACK_SELF_POINTERS 0
 
@@ -147,6 +151,8 @@ I64 Platform::joinThread(Thread* thread)
 		Errors::fatalf(
 			"WaitForSingleObject(INFINITE) on thread returned WAIT_FAILED. GetLastError()=%u",
 			GetLastError());
+		break;
+	default:
 		break;
 	};
 

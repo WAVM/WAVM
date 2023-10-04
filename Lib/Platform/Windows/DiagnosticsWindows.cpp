@@ -6,8 +6,12 @@
 #include "WAVM/Platform/Mutex.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <Windows.h>
+#undef min
+#undef max
 
 #include <DbgHelp.h>
 #include <string>
@@ -36,15 +40,15 @@ struct DbgHelp
 private:
 	DbgHelp()
 	{
-		HMODULE dbgHelpModule = ::LoadLibraryA("Dbghelp.dll");
+		HMODULE dbgHelpModule = ::LoadLibraryW(L"Dbghelp.dll");
 		if(dbgHelpModule)
 		{
-			symFromAddr = (SymFromAddr)::GetProcAddress(dbgHelpModule, "SymFromAddr");
+			symFromAddr = (SymFromAddr)(void*)::GetProcAddress(dbgHelpModule, "SymFromAddr");
 
 			// Initialize the debug symbol lookup.
 			typedef BOOL(WINAPI * SymInitialize)(HANDLE, PCTSTR, BOOL);
 			SymInitialize symInitialize
-				= (SymInitialize)::GetProcAddress(dbgHelpModule, "SymInitialize");
+				= (SymInitialize)(void*)::GetProcAddress(dbgHelpModule, "SymInitialize");
 			if(symInitialize) { symInitialize(GetCurrentProcess(), nullptr, TRUE); }
 		}
 	}
