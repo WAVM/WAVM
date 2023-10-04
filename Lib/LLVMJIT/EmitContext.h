@@ -109,12 +109,11 @@ namespace WAVM { namespace LLVMJIT {
 				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
 
 				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
-				irBuilder.CreateStore(
-					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(compartmentAddress, {memoryOffset}),
-						llvmContext.i8PtrType,
-						sizeof(U8*)),
-					memoryInfo.basePointerVariable);
+				irBuilder.CreateStore(loadFromUntypedPointer(irBuilder.CreateInBoundsGEP(
+																 compartmentAddress, memoryOffset),
+															 llvmContext.i8PtrType,
+															 sizeof(U8*)),
+									  memoryInfo.basePointerVariable);
 
 				llvm::Value* memoryNumReservedBytesOffset = llvm::ConstantExpr::getAdd(
 					memoryOffset,
@@ -122,7 +121,7 @@ namespace WAVM { namespace LLVMJIT {
 									memoryOffset->getType()));
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(irBuilder.CreateInBoundsGEP(
-											   compartmentAddress, {memoryNumReservedBytesOffset}),
+											   compartmentAddress, memoryNumReservedBytesOffset),
 										   memoryOffset->getType()),
 					memoryInfo.endAddressVariable);
 			}
@@ -195,8 +194,7 @@ namespace WAVM { namespace LLVMJIT {
 						args[argIndex],
 						irBuilder.CreateInBoundsGEP(
 							argsArray,
-							{emitLiteral(llvmContext,
-										 Uptr(argIndex * sizeof(IR::UntaggedValue)))}));
+							emitLiteral(llvmContext, Uptr(argIndex * sizeof(IR::UntaggedValue)))));
 				}
 
 				resultsArray = irBuilder.CreateAlloca(
@@ -217,7 +215,9 @@ namespace WAVM { namespace LLVMJIT {
 				callArgs = llvm::ArrayRef<llvm::Value*>(callArgsAlloca, args.size() + 1);
 				callArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
-				{ callArgsAlloca[1 + argIndex] = args[argIndex]; }
+				{
+					callArgsAlloca[1 + argIndex] = args[argIndex];
+				}
 			}
 
 			// Call or invoke the callee.
@@ -278,7 +278,7 @@ namespace WAVM { namespace LLVMJIT {
 
 						results.push_back(loadFromUntypedPointer(
 							irBuilder.CreateInBoundsGEP(newContextPointer,
-														{emitLiteral(llvmContext, resultOffset)}),
+														emitLiteral(llvmContext, resultOffset)),
 							asLLVMType(llvmContext, resultType),
 							resultNumBytes));
 
@@ -345,7 +345,7 @@ namespace WAVM { namespace LLVMJIT {
 					results.push_back(loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(
 							resultsArray,
-							{emitLiteral(llvmContext, resultIndex * sizeof(IR::UntaggedValue))}),
+							emitLiteral(llvmContext, resultIndex * sizeof(IR::UntaggedValue))),
 						asLLVMType(llvmContext, calleeType.results()[resultIndex])));
 				}
 
@@ -396,7 +396,7 @@ namespace WAVM { namespace LLVMJIT {
 										  irBuilder.CreatePointerCast(
 											  irBuilder.CreateInBoundsGEP(
 												  irBuilder.CreateLoad(contextPointerVariable),
-												  {emitLiteral(llvmContext, resultOffset)}),
+												  emitLiteral(llvmContext, resultOffset)),
 											  asLLVMType(llvmContext, resultType)->getPointerTo()));
 
 					resultOffset += resultNumBytes;
