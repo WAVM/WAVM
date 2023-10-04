@@ -34,8 +34,7 @@ set(WindowsSources
 
 set(wavmiswindows ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
-if(wavmiswindows)
-
+if(${wavmiswindows})
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 set(Win32Sources "")
 set(Win64Sources "")
@@ -61,7 +60,7 @@ set(Headers
 	${WAVM_INCLUDE_DIR}/Platform/Thread.h)
 
 
-if(wavmiswindows)
+if(${wavmiswindows})
 	list(APPEND Headers ${POSIXSources})
 	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 		set(Sources ${WindowsSources} ${Win32Sources})
