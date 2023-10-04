@@ -11,7 +11,7 @@ inline llvm::Value* getTriviallyNonConstantZero(llvm::IRBuilder<>& irBuilder, ll
 {
 	llvm::Value* zeroAlloca = irBuilder.CreateAlloca(type, nullptr, "nonConstantZero");
 	irBuilder.CreateStore(llvm::Constant::getNullValue(type), zeroAlloca);
-	return irBuilder.CreateLoad(zeroAlloca);
+	return ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,zeroAlloca);
 }
 
 inline llvm::Value* createFCmpWithWorkaround(llvm::IRBuilder<>& irBuilder,

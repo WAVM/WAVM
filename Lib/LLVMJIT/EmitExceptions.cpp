@@ -162,7 +162,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 				exceptionPointer,
 				emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)),
 			moduleContext.iptrType);
@@ -190,7 +190,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 				exceptionPointer,
 				emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)),
 			moduleContext.iptrType);
@@ -263,7 +263,7 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 			= offsetof(Exception, arguments)
 			  + (catchType.params.size() - argumentIndex - 1) * sizeof(Exception::arguments[0]);
 		auto argument = loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,catchContext.exceptionPointer,
 										emitLiteral(llvmContext, argOffset)),
 			asLLVMType(llvmContext, parameters),
 			sizeof(Exception::arguments[0]));
@@ -297,7 +297,7 @@ void EmitFunctionContext::catch_all(NoImm)
 	irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
 	auto isUserExceptionType = irBuilder.CreateICmpNE(
 		loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 				catchContext.exceptionPointer,
 				emitLiteralIptr(offsetof(Exception, isUserException), moduleContext.iptrType)),
 			llvmContext.i8Type),
@@ -331,7 +331,7 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 		storeToUntypedPointer(
 			elementValue,
 			irBuilder.CreatePointerCast(
-				irBuilder.CreateInBoundsGEP(
+				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 					argBaseAddress,
 					emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))),
 				elementValue->getType()->getPointerTo()),

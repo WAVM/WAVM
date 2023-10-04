@@ -57,7 +57,7 @@ using FixedVectorType = llvm::FixedVectorType;
 using FixedVectorType = llvm::VectorType;
 #endif
 
-namespace WAVM { namespace LLVMJIT {
+namespace WAVM::LLVMJIT{
 	typedef llvm::SmallVector<llvm::Value*, 1> ValueVector;
 	typedef llvm::SmallVector<llvm::PHINode*, 1> PHIVector;
 
@@ -276,6 +276,8 @@ namespace WAVM { namespace LLVMJIT {
 		}
 	}
 
+#if 0
+
 	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant* memoryOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
@@ -295,6 +297,17 @@ namespace WAVM { namespace LLVMJIT {
 								tableOffset->getType())),
 			emitLiteralIptr(sizeof(Runtime::TableRuntimeData), tableOffset->getType()));
 	}
+
+#else
+	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant*)
+	{
+		return nullptr;
+	}
+	inline llvm::Constant* getTableIdFromOffset(llvm::Constant*)
+	{
+		return nullptr;
+	}
+#endif
 
 	inline llvm::Type* getIptrType(LLVMContext& llvmContext, U32 numPointerBytes)
 	{
@@ -448,7 +461,65 @@ namespace WAVM { namespace LLVMJIT {
 								 const llvm::object::SectionRef& xdataSection,
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
+	template<typename T>
+	inline ::llvm::LoadInst* wavmCreateLoad(T& obj,::llvm::Value* ptr)
+	{
+		return
+#if LLVM_VERSION_MAJOR > 14
+#if 0
+		obj.CreateLoad(ptr->getType()->getScalarType()->getSourceElementType(),ptr,"");
+#else
+		nullptr;
+#endif
+#elif LLVM_VERSION_MAJOR > 12
+		obj.CreateLoad(ptr->getType()->getScalarType()->getPointerElementType(),ptr);
+#else
+		obj.CreateLoad(ptr);
+#endif
+	}
 
+	template<typename T>
+	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,::llvm::Value* ptr,::llvm::ArrayRef<::llvm::Value *> idxlist)
+	{
+		return
+#if LLVM_VERSION_MAJOR > 14
+#if 0
+		obj.CreateLoad(ptr->getType()->getScalarType()->getSourceElementType(),ptr, idxlist);
+#else
+		nullptr;
+#endif
+#elif LLVM_VERSION_MAJOR > 12
+		obj.CreateLoad(Ptr->getType()->getScalarType()->getPointerElementType(), ptr, idxlist);
+#else
+		obj.CreateLoad(ptr,idxlist);
+#endif
+	}
+
+	template<typename T>
+	inline ::llvm::AtomicCmpXchgInst* wavmCreateAtomicCmpXchg(T& obj,::llvm::Value* Ptr,::llvm::Value* Cmp,::llvm::Value* New,
+		::llvm::AtomicOrdering SuccessOrdering,::llvm::AtomicOrdering FailureOrdering)
+	{
+#if LLVM_VERSION_MAJOR > 13
+		return obj.CreateAtomicCmpXchg(Ptr,Cmp,New,::llvm::MaybeAlign(),SuccessOrdering,FailureOrdering);
+#else
+		return obj.CreateAtomicCmpXchg(Ptr,Cmp,New,SuccessOrdering,FailureOrdering);
+#endif
+	}
+
+
+	template<typename T>
+	inline ::llvm::AtomicRMWInst* wavmCreateAtomicRMW(T& obj,
+		::llvm::AtomicRMWInst::BinOp Op, ::llvm::Value *Ptr,
+                ::llvm::Value *Val, ::llvm::AtomicOrdering Ordering)
+	{
+#if LLVM_VERSION_MAJOR > 13
+		return obj.CreateAtomicRMW(Op,Ptr,Val,::llvm::MaybeAlign(),Ordering);
+#else
+		return obj.CreateAtomicRMW(Op,Ptr,Val,Ordering);
+#endif
+	}
+
+#if 0
 // LLVM 13 requires some extra arguments in Create functions
 #define CreateLoad(Ptr) CreateLoad(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr)
 #define CreateInBoundsGEP(Ptr, IdxList)                                                            \
@@ -458,4 +529,5 @@ namespace WAVM { namespace LLVMJIT {
 	CreateAtomicCmpXchg(Op, Cmp, New, llvm::MaybeAlign(), SuccessOrdering, FailureOrdering)
 #define CreateAtomicRMW(Op, Ptr, Val, Ordering)                                                    \
 	CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(), Ordering)
-}}
+#endif
+}
