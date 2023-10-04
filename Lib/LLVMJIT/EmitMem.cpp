@@ -43,10 +43,10 @@ static llvm::Value* getMemoryNumPages(EmitFunctionContext& functionContext, Uptr
 	llvm::LoadInst* memoryNumPagesLoad = functionContext.loadFromUntypedPointer(
 		functionContext.irBuilder.CreateInBoundsGEP(
 			functionContext.getCompartmentAddress(),
-			{llvm::ConstantExpr::getAdd(
+			llvm::ConstantExpr::getAdd(
 				memoryOffset,
 				emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, numPages),
-								functionContext.moduleContext.iptrType))}),
+								functionContext.moduleContext.iptrType))),
 		functionContext.moduleContext.iptrType,
 		functionContext.moduleContext.iptrAlignment);
 	memoryNumPagesLoad->setAtomic(llvm::AtomicOrdering::Acquire);
@@ -513,7 +513,7 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 		{
 			auto load
 				= functionContext.irBuilder.CreateLoad(functionContext.irBuilder.CreateInBoundsGEP(
-					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
+					pointer, emitLiteral(functionContext.llvmContext, U32(vectorIndex))));
 			/* Don't trust the alignment hint provided by the WebAssembly code, since the load
 			 * can't trap if it's wrong. */
 			load->setAlignment(LLVM_ALIGNMENT(1));
@@ -596,7 +596,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 			auto store = functionContext.irBuilder.CreateStore(
 				interleavedVector,
 				functionContext.irBuilder.CreateInBoundsGEP(
-					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
+					pointer, emitLiteral(functionContext.llvmContext, U32(vectorIndex))));
 			store->setVolatile(true);
 			store->setAlignment(LLVM_ALIGNMENT(1));
 		}
