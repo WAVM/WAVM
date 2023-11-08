@@ -93,7 +93,9 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 	fpm.add(llvm::createPromoteMemoryToRegisterPass());
 	fpm.add(llvm::createInstructionCombiningPass());
 	fpm.add(llvm::createCFGSimplificationPass());
+#if LLVM_VERSION_MAJOR < 18
 	fpm.add(llvm::createJumpThreadingPass());
+#endif
 #if LLVM_VERSION_MAJOR >= 12
 	// LLVM 12 removed the constant propagation pass in favor of the instsimplify pass, which is
 	// itself marked as legacy.

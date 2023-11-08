@@ -461,17 +461,12 @@ namespace WAVM::LLVMJIT{
 								 const llvm::object::SectionRef& xdataSection,
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
+
+#if LLVM_VERSION_MAJOR < 15
 	template<typename T>
 	inline ::llvm::LoadInst* wavmCreateLoad(T& obj,::llvm::Value* ptr)
 	{
-		return
-#if LLVM_VERSION_MAJOR > 14
-#if 0
-		obj.CreateLoad(ptr->getType()->getScalarType()->getSourceElementType(),ptr,"");
-#else
-		nullptr;
-#endif
-#elif LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR > 12
 		obj.CreateLoad(ptr->getType()->getScalarType()->getPointerElementType(),ptr);
 #else
 		obj.CreateLoad(ptr);
@@ -481,19 +476,13 @@ namespace WAVM::LLVMJIT{
 	template<typename T>
 	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,::llvm::Value* ptr,::llvm::ArrayRef<::llvm::Value *> idxlist)
 	{
-		return
-#if LLVM_VERSION_MAJOR > 14
-#if 0
-		obj.CreateLoad(ptr->getType()->getScalarType()->getSourceElementType(),ptr, idxlist);
-#else
-		nullptr;
-#endif
-#elif LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR > 12
 		obj.CreateLoad(Ptr->getType()->getScalarType()->getPointerElementType(), ptr, idxlist);
 #else
 		obj.CreateLoad(ptr,idxlist);
 #endif
 	}
+#endif
 
 	template<typename T>
 	inline ::llvm::AtomicCmpXchgInst* wavmCreateAtomicCmpXchg(T& obj,::llvm::Value* Ptr,::llvm::Value* Cmp,::llvm::Value* New,

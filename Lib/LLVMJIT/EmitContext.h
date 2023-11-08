@@ -73,16 +73,24 @@ namespace WAVM { namespace LLVMJIT {
 											   llvm::Type* valueType,
 											   U32 alignment = 1)
 		{
+#if LLVM_VERSION_MAJOR > 14
+			auto load = irBuilder.CreateLoad(valueType,pointer);
+#else
 			auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,
 				irBuilder.CreatePointerCast(pointer, valueType->getPointerTo()));
+#endif
 			load->setAlignment(LLVM_ALIGNMENT(alignment));
 			return load;
 		}
 
 		void storeToUntypedPointer(llvm::Value* value, llvm::Value* pointer, U32 alignment = 1)
 		{
+#if LLVM_VERSION_MAJOR > 14
+			auto store = irBuilder.CreateStore(value->getType(), pointer);
+#else
 			auto store = irBuilder.CreateStore(
 				value, irBuilder.CreatePointerCast(pointer, value->getType()->getPointerTo()));
+#endif
 			store->setAlignment(LLVM_ALIGNMENT(alignment));
 		}
 
@@ -109,20 +117,33 @@ namespace WAVM { namespace LLVMJIT {
 				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
 
 				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
-				irBuilder.CreateStore(loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-																 compartmentAddress, memoryOffset),
-															 llvmContext.i8PtrType,
-															 sizeof(U8*)),
-									  memoryInfo.basePointerVariable);
 
+
+#if LLVM_VERSION_MAJOR < 14
+				auto memnode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+					compartmentAddress, memoryOffset);
+#else
+
+				auto memnode = irBuilder.CreateLoad(llvmContext.i8PtrType,
+					compartmentAddress, memoryOffset);
+#endif
+				irBuilder.CreateStore(loadFromUntypedPointer(memnode, llvmContext.i8PtrType, sizeof(U8*)));
 				llvm::Value* memoryNumReservedBytesOffset = llvm::ConstantExpr::getAdd(
 					memoryOffset,
 					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, endAddress),
 									memoryOffset->getType()));
+#if LLVM_VERSION_MAJOR < 14
+
+				auto compartmentAddressnode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+						compartmentAddress, memoryNumReservedBytesOffset);
+#else
+				auto compartmentAddressnode = irBuilder.CreateLoad(memoryOffset->getType(),
+					compartmentAddress, memoryNumReservedBytesOffset);
+#endif
+
 				irBuilder.CreateStore(
-					loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-											   compartmentAddress, memoryNumReservedBytesOffset),
-										   memoryOffset->getType()),
+					loadFromUntypedPointer(compartmentAddressnode,
+						   memoryOffset->getType()),
 					memoryInfo.endAddressVariable);
 			}
 		}
