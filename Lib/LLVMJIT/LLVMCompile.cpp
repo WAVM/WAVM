@@ -18,7 +18,9 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm-c/Disassembler.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
+#if LLVM_VERSION_MAJOR < 13
 #include <llvm/TargetParser/Triple.h>
+#endif
 #include <llvm/ADT/ilist_iterator.h>
 #include <llvm/CodeGen/TargetSubtargetInfo.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
