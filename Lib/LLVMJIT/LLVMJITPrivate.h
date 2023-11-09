@@ -490,7 +490,7 @@ namespace WAVM::LLVMJIT{
 	inline ::llvm::AtomicCmpXchgInst* wavmCreateAtomicCmpXchg(T& obj,::llvm::Value* Ptr,::llvm::Value* Cmp,::llvm::Value* New,
 		::llvm::AtomicOrdering SuccessOrdering,::llvm::AtomicOrdering FailureOrdering)
 	{
-#if LLVM_VERSION_MAJOR > 13
+#if LLVM_VERSION_MAJOR > 12
 		return obj.CreateAtomicCmpXchg(Ptr,Cmp,New,::llvm::MaybeAlign(),SuccessOrdering,FailureOrdering);
 #else
 		return obj.CreateAtomicCmpXchg(Ptr,Cmp,New,SuccessOrdering,FailureOrdering);
@@ -503,7 +503,7 @@ namespace WAVM::LLVMJIT{
 		::llvm::AtomicRMWInst::BinOp Op, ::llvm::Value *Ptr,
                 ::llvm::Value *Val, ::llvm::AtomicOrdering Ordering)
 	{
-#if LLVM_VERSION_MAJOR > 13
+#if LLVM_VERSION_MAJOR > 12
 		return obj.CreateAtomicRMW(Op,Ptr,Val,::llvm::MaybeAlign(),Ordering);
 #else
 		return obj.CreateAtomicRMW(Op,Ptr,Val,Ordering);

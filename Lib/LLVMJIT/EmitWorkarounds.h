@@ -11,11 +11,11 @@ inline llvm::Value* getTriviallyNonConstantZero(llvm::IRBuilder<>& irBuilder, ll
 {
 	llvm::Value* zeroAlloca = irBuilder.CreateAlloca(type, nullptr, "nonConstantZero");
 #if LLVM_VERSION_MAJOR > 14
-	auto r = irBuilder.CreateStore(llvm::Constant::getNullValue(type), zeroAlloca);
-	return irBuilder.CreateLoad(type,r);
+	irBuilder.CreateStore(llvm::Constant::getNullValue(type), zeroAlloca);
+	return irBuilder.CreateLoad(type,zeroAlloca);
 #else
 	irBuilder.CreateStore(llvm::Constant::getNullValue(type), zeroAlloca);
-	return ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,zeroAlloca);
+	return ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,type,zeroAlloca);
 #endif
 }
 

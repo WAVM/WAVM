@@ -109,7 +109,10 @@ namespace WAVM { namespace LLVMJIT {
 
 		void reloadMemoryBases()
 		{
+//			__builtin_puts("PR 122\n");
 			llvm::Value* compartmentAddress = getCompartmentAddress();
+//			llvm::errs()<<*compartmentAddress<<'\n';
+//			__builtin_puts("PR 114\n");
 
 			// Reload the memory base pointer and num reserved bytes values from the
 			// CompartmentRuntimeData.
