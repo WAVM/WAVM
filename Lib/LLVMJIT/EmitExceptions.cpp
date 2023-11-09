@@ -330,11 +330,15 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 		auto elementValue = pop();
 		storeToUntypedPointer(
 			elementValue,
+#if LLVM_VERSION_MAJOR > 14
 			irBuilder.CreatePointerCast(
+#endif
 				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 					argBaseAddress,
 					emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))),
+#if LLVM_VERSION_MAJOR > 14
 				elementValue->getType()->getPointerTo()),
+#endif
 			sizeof(UntaggedValue));
 	}
 

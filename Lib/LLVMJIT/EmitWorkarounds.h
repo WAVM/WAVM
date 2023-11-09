@@ -10,8 +10,13 @@ POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 inline llvm::Value* getTriviallyNonConstantZero(llvm::IRBuilder<>& irBuilder, llvm::Type* type)
 {
 	llvm::Value* zeroAlloca = irBuilder.CreateAlloca(type, nullptr, "nonConstantZero");
+#if LLVM_VERSION_MAJOR > 14
+	auto r = irBuilder.CreateStore(llvm::Constant::getNullValue(type), zeroAlloca);
+	return irBuilder.CreateLoad(type,r);
+#else
 	irBuilder.CreateStore(llvm::Constant::getNullValue(type), zeroAlloca);
 	return ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,zeroAlloca);
+#endif
 }
 
 inline llvm::Value* createFCmpWithWorkaround(llvm::IRBuilder<>& irBuilder,

@@ -27,21 +27,33 @@ using namespace WAVM::LLVMJIT;
 void EmitFunctionContext::local_get(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
-	push(::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,localPointers[imm.variableIndex]));
+	auto *ele = localPointers[imm.variableIndex];
+	push(::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,ele->getType()->getPointerTo(),ele));
 }
 void EmitFunctionContext::local_set(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
+#if LLVM_VERSION_MAJOR > 14
+	auto topindex = imm.variableIndex;
+	auto *ele = localPointers[topindex];
+	pop();
+	irBuilder.CreateStore(ele,localPointers[topindex]);
+#else
 	auto value = irBuilder.CreateBitCast(
 		pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
 	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
+#endif
 }
 void EmitFunctionContext::local_tee(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
+#if LLVM_VERSION_MAJOR > 14
+	irBuilder.CreateStore(getValueFromTop(),localPointers[imm.variableIndex]);
+#else
 	auto value = irBuilder.CreateBitCast(
 		getValueFromTop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
 	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
+#endif
 }
 
 //
@@ -72,7 +84,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		llvm::Value* globalDataOffset = irBuilder.CreatePtrToInt(
 			moduleContext.globals[imm.variableIndex], moduleContext.iptrType);
 		llvm::Value* globalPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-			::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,contextPointerVariable), {globalDataOffset});
+			::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,contextPointerVariable), {globalDataOffset});
 		value = loadFromUntypedPointer(globalPointer,
 									   asLLVMType(llvmContext, globalType.valueType),
 									   getTypeByteWidth(globalType.valueType));
@@ -148,6 +160,6 @@ void EmitFunctionContext::global_set(GetOrSetVariableImm<true> imm)
 	llvm::Value* globalDataOffset = irBuilder.CreatePtrToInt(
 		moduleContext.globals[imm.variableIndex], moduleContext.iptrType);
 	llvm::Value* globalPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-		::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,contextPointerVariable), {globalDataOffset});
+		::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType, contextPointerVariable), {globalDataOffset});
 	storeToUntypedPointer(value, globalPointer);
 }

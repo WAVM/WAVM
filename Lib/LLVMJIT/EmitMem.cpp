@@ -41,7 +41,7 @@ static llvm::Value* getMemoryNumPages(EmitFunctionContext& functionContext, Uptr
 
 	// Load the number of memory pages from the compartment runtime data.
 	llvm::LoadInst* memoryNumPagesLoad = functionContext.loadFromUntypedPointer(
-		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext,
+		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
 			functionContext.getCompartmentAddress(),
 			llvm::ConstantExpr::getAdd(
 				memoryOffset,
@@ -159,7 +159,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		// the guard region.
 
 		llvm::Value* endAddress
-			= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.memoryInfos[memoryIndex].endAddressVariable);
+			= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.moduleContext.iptrType,functionContext.memoryInfos[memoryIndex].endAddressVariable);
 		address = irBuilder.CreateSelect(
 			irBuilder.CreateICmpULT(address, endAddress), address, endAddress);
 	}
@@ -184,11 +184,15 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 														 Uptr memoryIndex)
 {
 	llvm::Value* memoryBasePointer
-		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,memoryInfos[memoryIndex].basePointerVariable);
+		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,memoryType,memoryInfos[memoryIndex].basePointerVariable);
 	llvm::Value* bytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,memoryBasePointer, boundedAddress);
 
 	// Cast the pointer to the appropriate type.
+#if LLVM_VERSION_MAJOR > 14
+	return bytePointer;
+#else
 	return irBuilder.CreatePointerCast(bytePointer, memoryType->getPointerTo());
+#endif
 }
 
 //
@@ -317,7 +321,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
 		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
-		auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,pointer);                                                 \
+		auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,address->getType(),pointer);                                                 \
 		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
 		 * trap if it's wrong. */                                                                  \
 		load->setAlignment(LLVM_ALIGNMENT(1));                                                     \
@@ -416,7 +420,7 @@ static void emitLoadLane(EmitFunctionContext& functionContext,
 		BoundsCheckOp::clampToGuardRegion);
 	llvm::Value* pointer = functionContext.coerceAddressToPointer(
 		boundedAddress, llvmVectorType->getScalarType(), loadOrStoreImm.memoryIndex);
-	llvm::LoadInst* load = ::WAVM::LLVMJIT::wavmCreateLoad(functionContext,pointer);
+	llvm::LoadInst* load = ::WAVM::LLVMJIT::wavmCreateLoad(functionContext.irBuilder,llvmVectorType->getScalarType(),pointer);
 	// Don't trust the alignment hint provided by the WebAssembly code, since the load can't trap if
 	// it's wrong.
 	load->setAlignment(LLVM_ALIGNMENT(1));
@@ -512,7 +516,9 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
 			auto load
-				= ::WAVM::LLVMJIT::wavmCreateLoad(functionContext,::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext,
+				= ::WAVM::LLVMJIT::wavmCreateLoad(functionContext.irBuilder,
+					functionContext.irBuilder.getInt32Ty(),
+					::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
 					pointer, emitLiteral(functionContext.llvmContext, U32(vectorIndex))));
 			/* Don't trust the alignment hint provided by the WebAssembly code, since the load
 			 * can't trap if it's wrong. */
@@ -595,7 +601,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 			}
 			auto store = functionContext.irBuilder.CreateStore(
 				interleavedVector,
-				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext,
+				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
 					pointer, emitLiteral(functionContext.llvmContext, U32(vectorIndex))));
 			store->setVolatile(true);
 			store->setAlignment(LLVM_ALIGNMENT(1));
@@ -767,7 +773,7 @@ void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 			BoundsCheckOp::clampToGuardRegion);                                                    \
 		trapIfMisalignedAtomic(boundedAddress, numBytesLog2);                                      \
 		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
-		auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,pointer);                                                 \
+		auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,address->getType(),pointer);                                                 \
 		load->setAlignment(LLVM_ALIGNMENT(U64(1) << imm.alignmentLog2));                           \
 		load->setVolatile(true);                                                                   \
 		load->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                             \

@@ -399,7 +399,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 	// Load the funcref referenced by the table.
 	auto elementPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,tableBasePointer, clampedElementIndex);
-	llvm::LoadInst* biasedValueLoad = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,elementPointer);
+	llvm::LoadInst* biasedValueLoad = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
 	auto runtimeFunction = irBuilder.CreateIntToPtr(
@@ -425,15 +425,24 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 					 IR::CallingConvention::intrinsic),
 		{elementIndex,
 		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex]),
+#if LLVM_VERSION_MAJOR > 14
+		 runtimeFunction,
+#else
 		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.externrefType),
+#endif
 		 calleeTypeId});
 
 	// Call the function loaded from the table.
-	auto functionPointer = irBuilder.CreatePointerCast(
-		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+	auto ret = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 			runtimeFunction,
-			emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType)),
+			emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType));
+#if LLVM_VERSION_MAJOR > 14
+	auto functionPointer = ret;
+#else
+	auto functionPointer = irBuilder.CreatePointerCast(
+		ret,
 		asLLVMType(llvmContext, calleeType)->getPointerTo());
+#endif
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
 										   calleeType,

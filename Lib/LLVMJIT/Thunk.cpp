@@ -136,18 +136,23 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		const ValueType paramType = functionType.params()[argIndex];
 		llvm::Value* argOffset = emitLiteral(llvmContext, argIndex * sizeof(UntaggedValue));
 		llvm::Value* arg = emitContext.loadFromUntypedPointer(
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext,argsArray, argOffset),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,argsArray, argOffset),
 			asLLVMType(llvmContext, paramType),
 			alignof(UntaggedValue));
 		arguments.push_back(arg);
 	}
 
 	// Call the function.
-	llvm::Value* functionCode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext,
+	llvm::Value* functionCode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,
 		calleeFunction, emitLiteralIptr(offsetof(Runtime::Function, code), iptrType));
 	ValueVector results = emitContext.emitCallOrInvoke(
+#if LLVM_VERSION_MAJOR > 14
+		functionCode,
+#else
 		emitContext.irBuilder.CreatePointerCast(
-			functionCode, asLLVMType(llvmContext, functionType)->getPointerTo()),
+			functionCode,
+			asLLVMType(llvmContext, functionType)->getPointerTo()),
+#endif
 		arguments,
 		functionType);
 
@@ -159,13 +164,13 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		llvm::Value* result = results[resultIndex];
 		emitContext.storeToUntypedPointer(
 			result,
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext,resultsArray, resultOffset),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,resultsArray, resultOffset),
 			alignof(UntaggedValue));
 	}
 
 	// Return the new context pointer.
 	emitContext.irBuilder.CreateRet(
-		::WAVM::LLVMJIT::wavmCreateLoad(emitContext,emitContext.contextPointerVariable));
+		::WAVM::LLVMJIT::wavmCreateLoad(emitContext.irBuilder,iptrType,emitContext.contextPointerVariable));
 
 	// Compile the LLVM IR to object code.
 	std::vector<U8> objectBytes
