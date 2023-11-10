@@ -54,7 +54,7 @@ void EmitFunctionContext::table_get(TableImm imm)
 					 TypeTuple({moduleContext.iptrValueType, moduleContext.iptrValueType}),
 					 IR::CallingConvention::intrinsic),
 		{zext(index, moduleContext.iptrType),
-		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])})[0];
+		 getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.tableIndex])})[0];
 	push(result);
 }
 
@@ -70,7 +70,7 @@ void EmitFunctionContext::table_set(TableImm imm)
 									  IR::CallingConvention::intrinsic),
 						 {zext(index, moduleContext.iptrType),
 						  value,
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+						  getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.tableIndex])});
 }
 
 void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
@@ -91,7 +91,7 @@ void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
 						  zext(sourceOffset, moduleContext.iptrType),
 						  zext(numElements, moduleContext.iptrType),
 						  moduleContext.instanceId,
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex]),
+						  getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.tableIndex]),
 						  emitLiteralIptr(imm.elemSegmentIndex, moduleContext.iptrType)});
 }
 
@@ -122,8 +122,8 @@ void EmitFunctionContext::table_copy(TableCopyImm imm)
 						 {zext(destOffset, moduleContext.iptrType),
 						  zext(sourceOffset, moduleContext.iptrType),
 						  zext(numElements, moduleContext.iptrType),
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.destTableIndex]),
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.sourceTableIndex])});
+						  getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.destTableIndex]),
+						  getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.sourceTableIndex])});
 }
 
 void EmitFunctionContext::table_fill(TableImm imm)
@@ -142,7 +142,7 @@ void EmitFunctionContext::table_fill(TableImm imm)
 						 {zext(destOffset, moduleContext.iptrType),
 						  value,
 						  zext(numElements, moduleContext.iptrType),
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+						  getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.tableIndex])});
 }
 
 void EmitFunctionContext::table_grow(TableImm imm)
@@ -158,7 +158,7 @@ void EmitFunctionContext::table_grow(TableImm imm)
 			IR::CallingConvention::intrinsic),
 		{value,
 		 zext(deltaNumElements, moduleContext.iptrType),
-		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+		 getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.tableIndex])});
 	WAVM_ASSERT(previousNumElements.size() == 1);
 	const TableType& tableType = moduleContext.irModule.tables.getType(imm.tableIndex);
 	push(coerceIptrToIndex(tableType.indexType, previousNumElements[0]));
@@ -170,7 +170,7 @@ void EmitFunctionContext::table_size(TableImm imm)
 							   FunctionType(TypeTuple(moduleContext.iptrValueType),
 											TypeTuple(moduleContext.iptrValueType),
 											IR::CallingConvention::intrinsic),
-							   {getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+							   {getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.tableIndex])});
 	WAVM_ASSERT(currentNumElements.size() == 1);
 	const TableType& tableType = moduleContext.irModule.tables.getType(imm.tableIndex);
 	push(coerceIptrToIndex(tableType.indexType, currentNumElements[0]));

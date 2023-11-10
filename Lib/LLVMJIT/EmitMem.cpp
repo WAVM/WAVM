@@ -210,7 +210,7 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 					 TypeTuple({moduleContext.iptrValueType, moduleContext.iptrValueType}),
 					 IR::CallingConvention::intrinsic),
 		{zext(deltaNumPages, moduleContext.iptrType),
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])});
+		 getMemoryIdFromOffset(irBuilder, moduleContext.memoryOffsets[imm.memoryIndex])});
 	WAVM_ASSERT(resultTuple.size() == 1);
 	const MemoryType& memoryType = moduleContext.irModule.memories.getType(imm.memoryIndex);
 	push(coerceIptrToIndex(memoryType.indexType, resultTuple[0]));
@@ -243,7 +243,7 @@ void EmitFunctionContext::memory_init(DataSegmentAndMemImm imm)
 						  zext(sourceOffset, moduleContext.iptrType),
 						  zext(numBytes, moduleContext.iptrType),
 						  moduleContext.instanceId,
-						  getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex]),
+						  getMemoryIdFromOffset(irBuilder, moduleContext.memoryOffsets[imm.memoryIndex]),
 						  emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
@@ -694,7 +694,7 @@ void EmitFunctionContext::memory_atomic_notify(AtomicLoadOrStoreImm<2> imm)
 			IR::CallingConvention::intrinsic),
 		{boundedAddress,
 		 numWaiters,
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
+		 getMemoryIdFromOffset(irBuilder, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
 void EmitFunctionContext::memory_atomic_wait32(AtomicLoadOrStoreImm<2> imm)
 {
@@ -720,7 +720,7 @@ void EmitFunctionContext::memory_atomic_wait32(AtomicLoadOrStoreImm<2> imm)
 		{boundedAddress,
 		 expectedValue,
 		 timeout,
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
+		 getMemoryIdFromOffset(irBuilder, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
 void EmitFunctionContext::memory_atomic_wait64(AtomicLoadOrStoreImm<3> imm)
 {
@@ -746,7 +746,7 @@ void EmitFunctionContext::memory_atomic_wait64(AtomicLoadOrStoreImm<3> imm)
 		{boundedAddress,
 		 expectedValue,
 		 timeout,
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
+		 getMemoryIdFromOffset(irBuilder, moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
 }
 
 void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)

@@ -419,7 +419,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 								moduleContext.iptrValueType}),
 					 IR::CallingConvention::intrinsic),
 		{elementIndex,
-		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex]),
+		 getTableIdFromOffset(irBuilder, moduleContext.tableOffsets[imm.tableIndex]),
 #if LLVM_VERSION_MAJOR > 14
 		 runtimeFunction,
 #else

@@ -272,37 +272,31 @@ namespace WAVM { namespace LLVMJIT {
 		}
 	}
 
+	inline auto getMemoryOrTableIdFromOffset([[maybe_unused]] llvm::IRBuilder<>& irbuilder,llvm::Constant* Offset,::std::size_t offsetval)
+	{
+		auto subres = 
+			llvm::ConstantExpr::getSub(
+			Offset,
+			emitLiteralIptr(offsetval, Offset->getType()));
+		auto offsetres =
+			emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), Offset->getType());
 #if LLVM_VERSION_MAJOR < 15
-	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant* memoryOffset)
-	{
 		return llvm::ConstantExpr::getExactUDiv(
-			llvm::ConstantExpr::getSub(
-				memoryOffset,
-				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, memories),
-								memoryOffset->getType())),
-			emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), memoryOffset->getType()));
-	}
-
-	inline llvm::Constant* getTableIdFromOffset(llvm::Constant* tableOffset)
-	{
-		return llvm::ConstantExpr::getExactUDiv(
-			llvm::ConstantExpr::getSub(
-				tableOffset,
-				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, tables),
-								tableOffset->getType())),
-			emitLiteralIptr(sizeof(Runtime::TableRuntimeData), tableOffset->getType()));
-	}
-
+			subres,offsetres);
 #else
-	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant*)
-	{
-		return nullptr;
-	}
-	inline llvm::Constant* getTableIdFromOffset(llvm::Constant*)
-	{
-		return nullptr;
-	}
+		return irbuilder.CreateUDiv(subres,offsetres);
 #endif
+	}
+	inline auto getMemoryIdFromOffset(llvm::IRBuilder<>& irbuilder,llvm::Constant* memoryOffset)
+	{
+		return getMemoryOrTableIdFromOffset(irbuilder,memoryOffset,
+			__builtin_offsetof(Runtime::CompartmentRuntimeData, memories));
+	}
+	inline auto getTableIdFromOffset(llvm::IRBuilder<>& irbuilder, llvm::Constant* tableOffset)
+	{
+		return getMemoryOrTableIdFromOffset(irbuilder,tableOffset,
+			__builtin_offsetof(Runtime::CompartmentRuntimeData, tables));
+	}
 
 	inline llvm::Type* getIptrType(LLVMContext& llvmContext, U32 numPointerBytes)
 	{
@@ -505,15 +499,4 @@ namespace WAVM { namespace LLVMJIT {
 #endif
 	}
 
-#if 0
-// LLVM 13 requires some extra arguments in Create functions
-#define CreateLoad(Ptr) CreateLoad(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr)
-#define CreateInBoundsGEP(Ptr, IdxList)                                                            \
-	CreateInBoundsGEP(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, IdxList)
-
-#define CreateAtomicCmpXchg(Op, Cmp, New, SuccessOrdering, FailureOrdering)                        \
-	CreateAtomicCmpXchg(Op, Cmp, New, llvm::MaybeAlign(), SuccessOrdering, FailureOrdering)
-#define CreateAtomicRMW(Op, Ptr, Val, Ordering)                                                    \
-	CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(), Ordering)
-#endif
 }}
