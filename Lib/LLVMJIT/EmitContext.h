@@ -204,7 +204,8 @@ namespace WAVM { namespace LLVMJIT {
 						args[argIndex],
 						::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 							argsArray,
-							{emitLiteral(llvmContext, Uptr(argIndex * sizeof(IR::UntaggedValue)))}));
+							{emitLiteral(llvmContext,
+										 Uptr(argIndex * sizeof(IR::UntaggedValue)))}));
 				}
 
 				resultsArray = irBuilder.CreateAlloca(
@@ -225,9 +226,7 @@ namespace WAVM { namespace LLVMJIT {
 				callArgs = llvm::ArrayRef<llvm::Value*>(callArgsAlloca, args.size() + 1);
 				callArgsAlloca[0] = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,contextPointerVariable);
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
-				{
-					callArgsAlloca[1 + argIndex] = args[argIndex];
-				}
+				{ callArgsAlloca[1 + argIndex] = args[argIndex]; }
 			}
 
 			// Call or invoke the callee.
