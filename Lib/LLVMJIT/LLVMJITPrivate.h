@@ -272,8 +272,7 @@ namespace WAVM { namespace LLVMJIT {
 		}
 	}
 
-#if 0
-
+#if LLVM_VERSION_MAJOR < 15
 	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant* memoryOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(

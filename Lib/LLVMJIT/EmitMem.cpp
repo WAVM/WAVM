@@ -602,7 +602,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 			auto store = functionContext.irBuilder.CreateStore(
 				interleavedVector,
 				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
-					pointer, emitLiteral(functionContext.llvmContext, U32(vectorIndex))));
+					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			store->setVolatile(true);
 			store->setAlignment(LLVM_ALIGNMENT(1));
 		}
