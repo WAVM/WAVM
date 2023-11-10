@@ -85,9 +85,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	Runtime::Function*& invokeThunkFunction
 		= invokeThunkCache.typeToFunctionMap.getOrAdd(functionType, nullptr);
 	if(invokeThunkFunction)
-	{
-		return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
-	}
+	{ return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code)); }
 
 	// Create a FunctionMutableData object for the thunk.
 	FunctionMutableData* functionMutableData
@@ -136,7 +134,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		const ValueType paramType = functionType.params()[argIndex];
 		llvm::Value* argOffset = emitLiteral(llvmContext, argIndex * sizeof(UntaggedValue));
 		llvm::Value* arg = emitContext.loadFromUntypedPointer(
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,argsArray, argOffset),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,argsArray, {argOffset}),
 			asLLVMType(llvmContext, paramType),
 			alignof(UntaggedValue));
 		arguments.push_back(arg);
@@ -144,7 +142,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	// Call the function.
 	llvm::Value* functionCode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,
-		calleeFunction, emitLiteralIptr(offsetof(Runtime::Function, code), iptrType));
+		calleeFunction, {emitLiteralIptr(offsetof(Runtime::Function, code), iptrType)});
 	ValueVector results = emitContext.emitCallOrInvoke(
 #if LLVM_VERSION_MAJOR > 14
 		functionCode,
@@ -164,7 +162,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		llvm::Value* result = results[resultIndex];
 		emitContext.storeToUntypedPointer(
 			result,
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,resultsArray, resultOffset),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,resultsArray, {resultOffset}),
 			alignof(UntaggedValue));
 	}
 

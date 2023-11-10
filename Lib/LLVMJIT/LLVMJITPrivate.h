@@ -57,7 +57,7 @@ using FixedVectorType = llvm::FixedVectorType;
 using FixedVectorType = llvm::VectorType;
 #endif
 
-namespace WAVM::LLVMJIT{
+namespace WAVM { namespace LLVMJIT {
 	typedef llvm::SmallVector<llvm::Value*, 1> ValueVector;
 	typedef llvm::SmallVector<llvm::PHINode*, 1> PHIVector;
 
@@ -521,4 +521,4 @@ namespace WAVM::LLVMJIT{
 #define CreateAtomicRMW(Op, Ptr, Val, Ordering)                                                    \
 	CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(), Ordering)
 #endif
-}
+}}
