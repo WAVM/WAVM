@@ -335,7 +335,7 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 #endif
 				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 					argBaseAddress,
-					emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))),
+					{emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))}),
 #if LLVM_VERSION_MAJOR > 14
 				elementValue->getType()->getPointerTo()),
 #endif
