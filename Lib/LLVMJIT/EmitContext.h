@@ -122,7 +122,7 @@ namespace WAVM { namespace LLVMJIT {
 
 				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
 				irBuilder.CreateStore(loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-																 compartmentAddress, memoryOffset),
+																 compartmentAddress, {memoryOffset}),
 															 llvmContext.i8PtrType,
 															 sizeof(U8*)),
 									  memoryInfo.basePointerVariable);
@@ -133,7 +133,7 @@ namespace WAVM { namespace LLVMJIT {
 									memoryOffset->getType()));
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-											   compartmentAddress, memoryNumReservedBytesOffset),
+											   compartmentAddress, {memoryNumReservedBytesOffset}),
 										   memoryOffset->getType()),
 					memoryInfo.endAddressVariable);
 			}
@@ -206,7 +206,7 @@ namespace WAVM { namespace LLVMJIT {
 						args[argIndex],
 						::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 							argsArray,
-							emitLiteral(llvmContext, Uptr(argIndex * sizeof(IR::UntaggedValue)))));
+							{emitLiteral(llvmContext, Uptr(argIndex * sizeof(IR::UntaggedValue)))}));
 				}
 
 				resultsArray = irBuilder.CreateAlloca(
@@ -290,7 +290,7 @@ namespace WAVM { namespace LLVMJIT {
 
 						results.push_back(loadFromUntypedPointer(
 							::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,newContextPointer,
-														emitLiteral(llvmContext, resultOffset)),
+														{emitLiteral(llvmContext, resultOffset)}),
 							asLLVMType(llvmContext, resultType),
 							resultNumBytes));
 
@@ -357,7 +357,7 @@ namespace WAVM { namespace LLVMJIT {
 					results.push_back(loadFromUntypedPointer(
 						::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 							resultsArray,
-							emitLiteral(llvmContext, resultIndex * sizeof(IR::UntaggedValue))),
+							{emitLiteral(llvmContext, resultIndex * sizeof(IR::UntaggedValue))}),
 						asLLVMType(llvmContext, calleeType.results()[resultIndex])));
 				}
 
@@ -405,7 +405,7 @@ namespace WAVM { namespace LLVMJIT {
 					WAVM_ASSERT(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 					auto ret2 = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 							::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,contextPointerVariable),
-							emitLiteral(llvmContext, resultOffset));
+							{emitLiteral(llvmContext, resultOffset)});
 #if LLVM_VERSION_MAJOR > 14
 					auto ret = ret2;
 #else

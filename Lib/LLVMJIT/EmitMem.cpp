@@ -43,10 +43,10 @@ static llvm::Value* getMemoryNumPages(EmitFunctionContext& functionContext, Uptr
 	llvm::LoadInst* memoryNumPagesLoad = functionContext.loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
 			functionContext.getCompartmentAddress(),
-			llvm::ConstantExpr::getAdd(
+			{llvm::ConstantExpr::getAdd(
 				memoryOffset,
 				emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, numPages),
-								functionContext.moduleContext.iptrType))),
+								functionContext.moduleContext.iptrType))}),
 		functionContext.moduleContext.iptrType,
 		functionContext.moduleContext.iptrAlignment);
 	memoryNumPagesLoad->setAtomic(llvm::AtomicOrdering::Acquire);
@@ -519,7 +519,7 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 				= ::WAVM::LLVMJIT::wavmCreateLoad(functionContext.irBuilder,
 					functionContext.irBuilder.getInt32Ty(),
 					::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
-					pointer, emitLiteral(functionContext.llvmContext, U32(vectorIndex))));
+					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			/* Don't trust the alignment hint provided by the WebAssembly code, since the load
 			 * can't trap if it's wrong. */
 			load->setAlignment(LLVM_ALIGNMENT(1));
