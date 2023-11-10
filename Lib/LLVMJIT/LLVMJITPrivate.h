@@ -163,9 +163,7 @@ namespace WAVM { namespace LLVMJIT {
 	{
 		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
 		for(Uptr typeIndex = 0; typeIndex < typeTuple.size(); ++typeIndex)
-		{
-			llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]);
-		}
+		{ llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]); }
 		return llvm::StructType::get(llvmContext,
 									 llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
 	}
@@ -222,9 +220,7 @@ namespace WAVM { namespace LLVMJIT {
 			numParameters = numImplicitParameters + functionType.params().size();
 			llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 			if(callingConvention != IR::CallingConvention::c)
-			{
-				llvmArgTypes[0] = llvmContext.i8PtrType;
-			}
+			{ llvmArgTypes[0] = llvmContext.i8PtrType; }
 
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 			{
