@@ -18,7 +18,6 @@
 #define WAVMSIGNALENABLESEH
 #endif
 
-#ifdef WAVMSIGNALENABLESEH
 using namespace WAVM;
 using namespace WAVM::Platform;
 
@@ -43,7 +42,7 @@ void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr 
 	Errors::fatal("deregisterEHFrames isn't implemented on 32-bit Windows");
 #endif
 }
-
+#if WAVMSIGNALENABLESEH
 static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& outSignal)
 {
 	// Decide how to handle this exception code.
@@ -91,25 +90,32 @@ static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointe
 											 bool (*filter)(void*, Signal, CallStack&&),
 											 void* context)
 {
+#ifdef WAVMSIGNALENABLESEH
 	__try
 	{
+#endif
 		return sehSignalFilterFunctionNonReentrant(exceptionPointers, filter, context);
+#ifdef WAVMSIGNALENABLESEH
 	}
 	__except(Errors::fatal("reentrant exception"), true)
 	{
 		WAVM_UNREACHABLE();
 	}
+#endif
 }
-
+#endif
 bool Platform::catchSignals(void (*thunk)(void*),
 							bool (*filter)(void*, Signal, CallStack&&),
 							void* context)
 {
+#ifdef WAVMSIGNALENABLESEH
 	initThread();
 	__try
 	{
+#endif
 		(*thunk)(context);
 		return false;
+#ifdef WAVMSIGNALENABLESEH
 	}
 	__except(sehSignalFilterFunction(GetExceptionInformation(), filter, context))
 	{
@@ -118,5 +124,5 @@ bool Platform::catchSignals(void (*thunk)(void*),
 
 		return true;
 	}
-}
 #endif
+}

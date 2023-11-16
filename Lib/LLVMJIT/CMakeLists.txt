@@ -22,14 +22,24 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/LLVMJIT/LLVMJIT.h)
 
 # Find the LLVM libraries to link with.
+
 llvm_map_components_to_libnames(LLVM_LIBS
-	support
-	core
-	passes
-	orcjit
+	Support
+	Core
+	Passes
+	OrcJIT
 	RuntimeDyld
 	DebugInfoDWARF
 	AllTargetsAsmParsers
+	Object
+	ExecutionEngine
+	MC
+	TargetParser
+	ScalarOpts
+	MCDisassembler
+	MCJIT
+	TransformUtils
+	InstCombine
 	${LLVM_TARGETS_TO_BUILD})
 
 # Create the LLVMJIT target.
