@@ -34,8 +34,10 @@ set(WindowsSources
 
 set(wavmiswindows ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
+set(compilerisgnu ${CMAKE_CXX_COMPILER_FRONTEND_VARIANT} STREQUAL "GNU")
+
 if(${wavmiswindows})
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if (${compilerisgnu})
 set(Win32Sources "")
 set(Win64Sources "")
 else()
@@ -121,16 +123,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND PLATFORM_PRIVATE_LIBS rt)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(${wavmiswindows})
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if (${compilerisgnu})
 	list(APPEND PLATFORM_PRIVATE_LIBS Bcrypt)
 elseif()
 	list(APPEND PLATFORM_PRIVATE_LIBS "Bcrypt.lib")
 endif()
 endif()
 
-if(NOT MSVC)
+if(NOT ${wavmiswindows})
 	list(APPEND PLATFORM_PRIVATE_LIBS dl)
 endif()
 
