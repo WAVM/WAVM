@@ -488,7 +488,9 @@ namespace WAVM { namespace LLVMJIT {
 #else
 		obj.CreateInBoundsGEP(ptr,idxlist);
 #endif
+#if 0
 		::llvm::errs()<<"wavmCreateInBoundsGEP:"<<*v<<'\n';
+#endif
 		return v;
 	}
 
