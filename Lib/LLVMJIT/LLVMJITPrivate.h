@@ -472,11 +472,14 @@ namespace WAVM { namespace LLVMJIT {
 	template<typename T>
 	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,::llvm::Type* ty,::llvm::Value* ptr,::llvm::ArrayRef<::llvm::Value *> idxlist)
 	{
-#if LLVM_VERSION_MAJOR > 14
-		::llvm::errs()<<"new:"<<*idxlist.front()->getType()<<'\n';
-#else
-		::llvm::errs()<<"old:"<<*ptr->getType()->getScalarType()->getPointerElementType()<<'\n';
+//		WAVM_ASSERT(ptr->getType()==obj.getPtrTy());
+#if 0
+		if(ptr->getType()!=obj.getPtrTy())
+		{
+			abort();
+		}
 #endif
+//		::llvm::errs()<<ptr->getType()<<"\t"<<*obj.getPtrTy()<<'\n';
 		auto v =
 #if LLVM_VERSION_MAJOR > 14
 		obj.CreateInBoundsGEP(ty, ptr, idxlist);
