@@ -212,7 +212,8 @@ void EmitFunctionContext::br_if(BranchImm imm)
 	{
 		// Take the branch target operands from the stack (without popping them) and add them to the
 		// target's incoming value PHIs.
-		llvm::Value* argument = getValueFromTop(target.params.size() - argIndex - 1);
+		//llvm::Value* argument = getValueFromTop(target.params.size() - argIndex - 1);
+		llvm::Value* argument = this->stack[argIndex];
 		target.phis[argIndex]->addIncoming(coerceToCanonicalType(argument),
 										   irBuilder.GetInsertBlock());
 	}
@@ -373,15 +374,18 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	// Load base and endIndex from the TableRuntimeData in CompartmentRuntimeData::tables
 	// corresponding to imm.tableIndex.
 	auto tableRuntimeDataPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+		llvmContext.i8Type,
 		getCompartmentAddress(), {moduleContext.tableOffsets[imm.tableIndex]});
 	auto tableBasePointer = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			llvmContext.i8PtrType,
 			tableRuntimeDataPointer,
 			{emitLiteralIptr(offsetof(TableRuntimeData, base), moduleContext.iptrType)}),
 		moduleContext.iptrType->getPointerTo(),
 		moduleContext.iptrAlignment);
 	auto tableMaxIndex = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			llvmContext.i8PtrType,
 			tableRuntimeDataPointer,
 			{emitLiteralIptr(offsetof(TableRuntimeData, endIndex), moduleContext.iptrType)}),
 		moduleContext.iptrType,
@@ -393,7 +397,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		irBuilder.CreateICmpULT(elementIndex, tableMaxIndex), elementIndex, tableMaxIndex);
 
 	// Load the funcref referenced by the table.
-	auto elementPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,tableBasePointer, {clampedElementIndex});
+	auto elementPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8PtrType,tableBasePointer, {clampedElementIndex});
 	llvm::LoadInst* biasedValueLoad = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
@@ -402,6 +406,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		llvmContext.i8PtrType);
 	auto elementTypeId = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			llvmContext.i8PtrType,
 			runtimeFunction,
 			emitLiteralIptr(offsetof(Runtime::Function, encodedType), moduleContext.iptrType)),
 		moduleContext.iptrType,
@@ -429,6 +434,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 	// Call the function loaded from the table.
 	auto ret = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			llvmContext.i8PtrType,
 			runtimeFunction,
 			emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType));
 #if LLVM_VERSION_MAJOR > 14

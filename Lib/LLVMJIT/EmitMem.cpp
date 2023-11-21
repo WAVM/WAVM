@@ -42,6 +42,7 @@ static llvm::Value* getMemoryNumPages(EmitFunctionContext& functionContext, Uptr
 	// Load the number of memory pages from the compartment runtime data.
 	llvm::LoadInst* memoryNumPagesLoad = functionContext.loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
+			memoryOffset->getType(),
 			functionContext.getCompartmentAddress(),
 			{llvm::ConstantExpr::getAdd(
 				memoryOffset,
@@ -185,7 +186,7 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 {
 	llvm::Value* memoryBasePointer
 		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,memoryType,memoryInfos[memoryIndex].basePointerVariable);
-	llvm::Value* bytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,memoryBasePointer, boundedAddress);
+	llvm::Value* bytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,memoryType,memoryBasePointer, boundedAddress);
 
 	// Cast the pointer to the appropriate type.
 #if LLVM_VERSION_MAJOR > 14
@@ -513,12 +514,15 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 	else
 	{
 		llvm::Value* loads[maxVectors];
+		auto i32type = functionContext.irBuilder.getInt32Ty();
+		//auto i8type = functionContext.irBuilder.getInt8Ty();
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
 			auto load
 				= ::WAVM::LLVMJIT::wavmCreateLoad(functionContext.irBuilder,
-					functionContext.irBuilder.getInt32Ty(),
+					i32type,
 					::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
+					i32type,
 					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			/* Don't trust the alignment hint provided by the WebAssembly code, since the load
 			 * can't trap if it's wrong. */
@@ -602,6 +606,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 			auto store = functionContext.irBuilder.CreateStore(
 				interleavedVector,
 				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(functionContext.irBuilder,
+					functionContext.llvmContext.i32Type,
 					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			store->setVolatile(true);
 			store->setAlignment(LLVM_ALIGNMENT(1));

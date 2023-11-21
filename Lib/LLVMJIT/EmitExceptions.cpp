@@ -163,6 +163,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+				llvmContext.i8PtrType,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
 			moduleContext.iptrType);
@@ -191,6 +192,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+				llvmContext.i8PtrType,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
 			moduleContext.iptrType);
@@ -263,8 +265,10 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 			= offsetof(Exception, arguments)
 			  + (catchType.params.size() - argumentIndex - 1) * sizeof(Exception::arguments[0]);
 		auto argument = loadFromUntypedPointer(
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,catchContext.exceptionPointer,
-										{emitLiteral(llvmContext, argOffset)}),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+				llvmContext.i8PtrType,
+				catchContext.exceptionPointer,
+				{emitLiteral(llvmContext, argOffset)}),
 			asLLVMType(llvmContext, parameters),
 			sizeof(Exception::arguments[0]));
 		push(argument);
@@ -298,6 +302,7 @@ void EmitFunctionContext::catch_all(NoImm)
 	auto isUserExceptionType = irBuilder.CreateICmpNE(
 		loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+				llvmContext.i8PtrType,
 				catchContext.exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, isUserException), moduleContext.iptrType)}),
 			llvmContext.i8Type),
@@ -334,6 +339,7 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 			irBuilder.CreatePointerCast(
 #endif
 				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+					llvmContext.i8Type,
 					argBaseAddress,
 					{emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))}),
 #if LLVM_VERSION_MAJOR <= 14

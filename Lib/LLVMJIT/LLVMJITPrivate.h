@@ -470,15 +470,23 @@ namespace WAVM { namespace LLVMJIT {
 	}
 
 	template<typename T>
-	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,::llvm::Value* ptr,::llvm::ArrayRef<::llvm::Value *> idxlist)
+	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,::llvm::Type* ty,::llvm::Value* ptr,::llvm::ArrayRef<::llvm::Value *> idxlist)
 	{
 #if LLVM_VERSION_MAJOR > 14
-		return obj.CreateInBoundsGEP(idxlist.front()->getType(), ptr, idxlist);
-#elif LLVM_VERSION_MAJOR > 12
-		return obj.CreateInBoundsGEP(ptr->getType()->getScalarType()->getPointerElementType(), ptr, idxlist);
+		::llvm::errs()<<"new:"<<*idxlist.front()->getType()<<'\n';
 #else
-		return obj.CreateInBoundsGEP(ptr,idxlist);
+		::llvm::errs()<<"old:"<<*ptr->getType()->getScalarType()->getPointerElementType()<<'\n';
 #endif
+		auto v =
+#if LLVM_VERSION_MAJOR > 14
+		obj.CreateInBoundsGEP(ty, ptr, idxlist);
+#elif LLVM_VERSION_MAJOR > 12
+		obj.CreateInBoundsGEP(ptr->getType()->getScalarType()->getPointerElementType(), ptr, idxlist);
+#else
+		obj.CreateInBoundsGEP(ptr,idxlist);
+#endif
+		::llvm::errs()<<"wavmCreateInBoundsGEP:"<<*v<<'\n';
+		return v;
 	}
 
 	template<typename T>
