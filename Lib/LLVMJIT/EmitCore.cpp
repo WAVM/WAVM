@@ -378,14 +378,14 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		getCompartmentAddress(), {moduleContext.tableOffsets[imm.tableIndex]});
 	auto tableBasePointer = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-			llvmContext.i8PtrType,
+			llvmContext.i8Type,
 			tableRuntimeDataPointer,
 			{emitLiteralIptr(offsetof(TableRuntimeData, base), moduleContext.iptrType)}),
 		moduleContext.iptrType->getPointerTo(),
 		moduleContext.iptrAlignment);
 	auto tableMaxIndex = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-			llvmContext.i8PtrType,
+			llvmContext.i8Type,
 			tableRuntimeDataPointer,
 			{emitLiteralIptr(offsetof(TableRuntimeData, endIndex), moduleContext.iptrType)}),
 		moduleContext.iptrType,
@@ -397,7 +397,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		irBuilder.CreateICmpULT(elementIndex, tableMaxIndex), elementIndex, tableMaxIndex);
 
 	// Load the funcref referenced by the table.
-	auto elementPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8PtrType,tableBasePointer, {clampedElementIndex});
+	auto elementPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8Type,tableBasePointer, {clampedElementIndex});
 	llvm::LoadInst* biasedValueLoad = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
@@ -406,7 +406,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		llvmContext.i8PtrType);
 	auto elementTypeId = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-			llvmContext.i8PtrType,
+			llvmContext.i8Type,
 			runtimeFunction,
 			emitLiteralIptr(offsetof(Runtime::Function, encodedType), moduleContext.iptrType)),
 		moduleContext.iptrType,
@@ -434,7 +434,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 	// Call the function loaded from the table.
 	auto ret = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-			llvmContext.i8PtrType,
+			llvmContext.i8Type,
 			runtimeFunction,
 			emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType));
 #if LLVM_VERSION_MAJOR > 14

@@ -34,7 +34,6 @@ llvm_map_components_to_libnames(LLVM_LIBS
 	Object
 	ExecutionEngine
 	MC
-	TargetParser
 	ScalarOpts
 	MCDisassembler
 	MCJIT

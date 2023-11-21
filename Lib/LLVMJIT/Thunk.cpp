@@ -135,14 +135,14 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		llvm::Value* argOffset = emitLiteral(llvmContext, argIndex * sizeof(UntaggedValue));
 		auto typeptr = asLLVMType(llvmContext, paramType);
 		llvm::Value* arg = emitContext.loadFromUntypedPointer(
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,typeptr,argsArray, {argOffset}),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,llvmContext.i8Type,argsArray, {argOffset}),
 			typeptr,
 			alignof(UntaggedValue));
 		arguments.push_back(arg);
 	}
 
 	// Call the function.
-	llvm::Value* functionCode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,iptrType,
+	llvm::Value* functionCode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(emitContext.irBuilder,llvmContext.i8Type,
 		calleeFunction, {emitLiteralIptr(offsetof(Runtime::Function, code), iptrType)});
 	ValueVector results = emitContext.emitCallOrInvoke(
 #if LLVM_VERSION_MAJOR > 14

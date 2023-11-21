@@ -163,7 +163,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-				llvmContext.i8PtrType,
+				llvmContext.i8Type,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
 			moduleContext.iptrType);
@@ -192,7 +192,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-				llvmContext.i8PtrType,
+				llvmContext.i8Type,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
 			moduleContext.iptrType);
@@ -266,7 +266,7 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 			  + (catchType.params.size() - argumentIndex - 1) * sizeof(Exception::arguments[0]);
 		auto argument = loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-				llvmContext.i8PtrType,
+				llvmContext.i8Type,
 				catchContext.exceptionPointer,
 				{emitLiteral(llvmContext, argOffset)}),
 			asLLVMType(llvmContext, parameters),
@@ -302,7 +302,7 @@ void EmitFunctionContext::catch_all(NoImm)
 	auto isUserExceptionType = irBuilder.CreateICmpNE(
 		loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-				llvmContext.i8PtrType,
+				llvmContext.i8Type,
 				catchContext.exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, isUserException), moduleContext.iptrType)}),
 			llvmContext.i8Type),
