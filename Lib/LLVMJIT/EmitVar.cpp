@@ -27,17 +27,19 @@ using namespace WAVM::LLVMJIT;
 void EmitFunctionContext::local_get(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
+#if LLVM_VERSION_MAJOR > 14
+	auto &ele = localPointers[imm.variableIndex];
+	push(::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,ele.tp,ele.val));
+#else
 	auto *ele = localPointers[imm.variableIndex];
-	push(::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,ele->getType()->getPointerTo(),ele));
+	push(::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,ele->getType()->getPointerElementType(),ele));
+#endif
 }
 void EmitFunctionContext::local_set(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
 #if LLVM_VERSION_MAJOR > 14
-	auto topindex = imm.variableIndex;
-	auto *ele = localPointers[topindex];
-	pop();
-	irBuilder.CreateStore(ele,localPointers[imm.variableIndex]);
+	irBuilder.CreateStore(pop(),localPointers[imm.variableIndex].val);
 #else
 	auto value = irBuilder.CreateBitCast(
 		pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
@@ -48,7 +50,7 @@ void EmitFunctionContext::local_tee(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
 #if LLVM_VERSION_MAJOR > 14
-	irBuilder.CreateStore(this->stack.back(),localPointers[imm.variableIndex]);
+	irBuilder.CreateStore(this->stack.back(),localPointers[imm.variableIndex].val);
 #else
 	auto value = irBuilder.CreateBitCast(
 		this->stack.back(), localPointers[imm.variableIndex]->getType()->getPointerElementType());

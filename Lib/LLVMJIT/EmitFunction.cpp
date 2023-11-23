@@ -312,12 +312,13 @@ void EmitFunctionContext::emit()
 #if LLVM_VERSION_MAJOR >= 8
 		0,
 		llvm::DINode::FlagZero,
-		llvm::DISubprogram::SPFlagDefinition | llvm::DISubprogram::SPFlagOptimized);
+		llvm::DISubprogram::SPFlagDefinition | llvm::DISubprogram::SPFlagOptimized
 #else
 		false,
 		true,
-		0);
+		0
 #endif
+	);
 	function->setSubprogram(diFunction);
 
 	// Create an initial basic block for the function.
@@ -345,8 +346,13 @@ void EmitFunctionContext::emit()
 			= localIndex < functionType.params().size()
 				  ? functionType.params()[localIndex]
 				  : functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
-		auto localPointer = irBuilder.CreateAlloca(asLLVMType(llvmContext, localType), nullptr, "");
+		auto llvmtype = asLLVMType(llvmContext, localType);
+		auto localPointer = irBuilder.CreateAlloca(llvmtype, nullptr, "");
+#if LLVM_VERSION_MAJOR > 14
+		localPointers.push_back(::WAVM::LLVMJIT::localPointersRef{localPointer,llvmtype});
+#else
 		localPointers.push_back(localPointer);
+#endif
 
 		if(localIndex < functionType.params().size())
 		{
