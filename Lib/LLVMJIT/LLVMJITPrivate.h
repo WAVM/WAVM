@@ -290,7 +290,7 @@ namespace WAVM { namespace LLVMJIT {
 		return llvm::ConstantExpr::getExactUDiv(
 			subres,offsetres);
 #else
-		return irbuilder.CreateUDiv(subres,offsetres);
+		return irbuilder.CreateExactUDiv(subres,offsetres);
 #endif
 	}
 	inline auto getMemoryIdFromOffset(llvm::IRBuilder<>& irbuilder,llvm::Constant* memoryOffset)
