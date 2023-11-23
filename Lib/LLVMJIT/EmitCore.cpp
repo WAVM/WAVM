@@ -401,14 +401,23 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	llvm::LoadInst* biasedValueLoad = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
+
+	
+#if LLVM_VERSION_MAJOR > 14
+	auto runtimeFunction = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8Type,
+		biasedValueLoad,{moduleContext.tableReferenceBias});
+#else
+	auto biased = irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias);
 	auto runtimeFunction = irBuilder.CreateIntToPtr(
-		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
+		biased,
 		llvmContext.i8PtrType);
+#endif
+	//::llvm::errs()<<"*runtimeFunction:"<<*runtimeFunction<<'\n';
 	auto elementTypeId = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 			llvmContext.i8Type,
 			runtimeFunction,
-			emitLiteralIptr(offsetof(Runtime::Function, encodedType), moduleContext.iptrType)),
+			{emitLiteralIptr(offsetof(Runtime::Function, encodedType), moduleContext.iptrType)}),
 		moduleContext.iptrType,
 		moduleContext.iptrAlignment);
 	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
@@ -436,7 +445,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	auto ret = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 			llvmContext.i8Type,
 			runtimeFunction,
-			emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType));
+			{emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType)});
 #if LLVM_VERSION_MAJOR > 14
 	auto functionPointer = ret;
 #else
