@@ -401,17 +401,9 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	llvm::LoadInst* biasedValueLoad = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
-
-	
-#if LLVM_VERSION_MAJOR > 14
-	auto runtimeFunction = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8Type,
-		biasedValueLoad,{moduleContext.tableReferenceBias});
-#else
-	auto biased = irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias);
 	auto runtimeFunction = irBuilder.CreateIntToPtr(
-		biased,
+		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
 		llvmContext.i8PtrType);
-#endif
 	auto elementTypeId = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 			llvmContext.i8Type,
