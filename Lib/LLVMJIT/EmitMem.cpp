@@ -513,8 +513,6 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 	else
 	{
 		llvm::Value* loads[maxVectors];
-		//auto i32type = functionContext.irBuilder.getInt32Ty();
-		//auto i8type = functionContext.irBuilder.getInt8Ty();
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
 			auto load
