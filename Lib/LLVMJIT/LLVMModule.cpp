@@ -73,14 +73,19 @@ struct LLVMJIT::GlobalModuleState
 		static std::shared_ptr<GlobalModuleState> singleton = std::make_shared<GlobalModuleState>();
 		return singleton;
 	}
-
+	GlobalModuleState(GlobalModuleState const&)=delete;
+	GlobalModuleState& operator=(GlobalModuleState const&)=delete;
 	// These constructor and destructor should not be called directly, but must be public in order
 	// to be accessible by std::make_shared.
-	GlobalModuleState()
+	explicit GlobalModuleState()
 	{
 		gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
 	}
-	~GlobalModuleState() { delete gdbRegistrationListener; }
+	~GlobalModuleState() {
+#if LLVM_VERSION_MAJOR < 15
+		delete gdbRegistrationListener;
+#endif
+	}
 };
 
 // Allocates memory for the LLVM object loader.
