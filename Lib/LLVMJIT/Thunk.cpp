@@ -169,7 +169,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	// Return the new context pointer.
 	emitContext.irBuilder.CreateRet(
-		::WAVM::LLVMJIT::wavmCreateLoad(emitContext.irBuilder,iptrType,emitContext.contextPointerVariable));
+		::WAVM::LLVMJIT::wavmCreateLoad(emitContext.irBuilder,iptrType->getPointerTo(),emitContext.contextPointerVariable));
 
 	// Compile the LLVM IR to object code.
 	std::vector<U8> objectBytes
