@@ -158,11 +158,7 @@ void EmitFunctionContext::global_set(GetOrSetVariableImm<true> imm)
 
 	auto pp = pop();
 	llvm::Value* value = irBuilder.CreateBitCast(pp, llvmValueType);
-#if 0
-	::llvm::errs()<<"global_set:\tpop():"<<*pp<<"\nvalue: "<<
-		*value<<"\nllvmvaluetype:"<<*llvmValueType<<"\n"
-		"imm.variableIndex:"<<imm.variableIndex<<'\n';
-#endif
+
 	// If the global is mutable, the symbol will be bound to an offset into the
 	// ContextRuntimeData::globalData that its value is stored at.
 	llvm::Value* globalDataOffset = irBuilder.CreatePtrToInt(

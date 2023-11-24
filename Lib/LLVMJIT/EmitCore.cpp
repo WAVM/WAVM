@@ -412,7 +412,6 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		biased,
 		llvmContext.i8PtrType);
 #endif
-	//::llvm::errs()<<"*runtimeFunction:"<<*runtimeFunction<<'\n';
 	auto elementTypeId = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 			llvmContext.i8Type,
