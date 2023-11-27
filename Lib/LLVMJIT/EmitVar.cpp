@@ -39,7 +39,8 @@ void EmitFunctionContext::local_set(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
 #if LLVM_VERSION_MAJOR > 14
-	irBuilder.CreateStore(pop(),localPointers[imm.variableIndex].val);
+	auto &lprf = localPointers[imm.variableIndex];
+	irBuilder.CreateStore(irBuilder.CreateBitCast(pop(),lprf.tp),lprf.val);
 #else
 	auto value = irBuilder.CreateBitCast(
 		pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
@@ -50,7 +51,8 @@ void EmitFunctionContext::local_tee(GetOrSetVariableImm<false> imm)
 {
 	WAVM_ASSERT(imm.variableIndex < localPointers.size());
 #if LLVM_VERSION_MAJOR > 14
-	irBuilder.CreateStore(this->stack.back(),localPointers[imm.variableIndex].val);
+	auto &lprf = localPointers[imm.variableIndex];
+	irBuilder.CreateStore(irBuilder.CreateBitCast(this->stack.back(),lprf.tp),lprf.val);
 #else
 	auto value = irBuilder.CreateBitCast(
 		this->stack.back(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
@@ -61,7 +63,7 @@ void EmitFunctionContext::local_tee(GetOrSetVariableImm<false> imm)
 //
 // Global variables
 //
-
+ 
 static llvm::Value* getImportedImmutableGlobalValue(EmitFunctionContext& functionContext,
 													Uptr importedGlobalIndex,
 													ValueType valueType)

@@ -321,7 +321,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
 		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
-		auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,address->getType(),pointer);                                                 \
+		auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmMemoryType,pointer);                                                 \
 		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
 		 * trap if it's wrong. */                                                                  \
 		load->setAlignment(LLVM_ALIGNMENT(1));                                                     \
