@@ -96,14 +96,10 @@ void SigAltStack::deinit()
 	}
 }
 
-#ifdef __linux__
+#ifdef __GLIBC__
 static void getGlibcVersion(unsigned long& outMajor, unsigned long& outMinor)
 {
-#ifdef __GLIBC__
 	const char* versionString = gnu_get_libc_version();
-#elif defined(__BIONIC__)
-	const char* versionString = "bionic";
-#endif
 	char* majorEnd;
 	outMajor = strtoul(versionString, &majorEnd, 10);
 	WAVM_ERROR_UNLESS(outMajor != 0 && outMajor != ULONG_MAX);
@@ -137,6 +133,7 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	outMaxAddr = outMinAddr + numStackBytes;
 
 	// Before GLIBC 2.27, pthread_attr_getstack erroneously included the guard page in the result.
+#ifdef __GLIBC__
 	unsigned long glibcMajorVersion = 0;
 	unsigned long glibcMinorVersion = 0;
 	getGlibcVersion(glibcMajorVersion, glibcMinorVersion);
@@ -144,6 +141,7 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	{ outMinGuardAddr = outMinAddr - numGuardBytes; }
 	else
 	{
+#endif
 		outMinGuardAddr = outMinAddr;
 		outMinAddr += numGuardBytes;
 
@@ -152,7 +150,9 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 		// make a conservative guess that the guard region extends 1 page both above and below the
 		// returned stack base address.
 		outMinGuardAddr -= numGuardBytes;
+#ifdef __GLIBC__
 	}
+#endif
 #elif defined(__APPLE__)
 	// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
 	// stack.
