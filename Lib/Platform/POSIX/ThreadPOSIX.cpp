@@ -16,7 +16,7 @@
 #include <sanitizer/asan_interface.h>
 #endif
 
-#ifdef __linux__
+#ifdef __GLIBC__
 #include <gnu/libc-version.h>
 #endif
 
@@ -99,8 +99,11 @@ void SigAltStack::deinit()
 #ifdef __linux__
 static void getGlibcVersion(unsigned long& outMajor, unsigned long& outMinor)
 {
+#ifdef __GLIBC__
 	const char* versionString = gnu_get_libc_version();
-
+#elif defined(__BIONIC__)
+	const char* versionString = "bionic";
+#endif
 	char* majorEnd;
 	outMajor = strtoul(versionString, &majorEnd, 10);
 	WAVM_ERROR_UNLESS(outMajor != 0 && outMajor != ULONG_MAX);
