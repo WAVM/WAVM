@@ -23,6 +23,11 @@ set(PublicHeaders
 
 # Find the LLVM libraries to link with.
 
+if(LLVM_VERSION_MAJOR GREATER 16)
+set(LLVM_TARGETS_TO_BUILD TargetParser
+	${LLVM_TARGETS_TO_BUILD})
+endif()
+
 llvm_map_components_to_libnames(LLVM_LIBS
 	Support
 	Core
