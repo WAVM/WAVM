@@ -97,7 +97,7 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 	fpm.add(llvm::createPromoteMemoryToRegisterPass());
 	fpm.add(llvm::createInstructionCombiningPass());
 	fpm.add(llvm::createCFGSimplificationPass());
-#if LLVM_VERSION_MAJOR < 18
+#if LLVM_VERSION_MAJOR < 17
 	fpm.add(llvm::createJumpThreadingPass());
 #endif
 #if LLVM_VERSION_MAJOR >= 12
