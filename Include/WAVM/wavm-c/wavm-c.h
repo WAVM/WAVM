@@ -414,7 +414,7 @@ WASM_C_API own wasm_foreign_t* wasm_foreign_new(wasm_compartment_t*, const char*
 
 // Modules
 
-WASM_DECLARE_TYPE(module_)
+WASM_DECLARE_TYPE(module)
 
 WASM_C_API own wasm_module_t* wasm_module_new(wasm_engine_t*,
 											  const char* binary,
