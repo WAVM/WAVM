@@ -50,7 +50,9 @@ Intrinsics::Function::Function(Intrinsics::Module* moduleRef,
 	initializeModule(moduleRef);
 
 	if(moduleRef->impl->functionMap.contains(name))
-	{ Errors::fatalf("Intrinsic function already registered: %s", name); }
+	{
+		Errors::fatalf("Intrinsic function already registered: %s", name);
+	}
 	moduleRef->impl->functionMap.set(name, this);
 }
 
@@ -63,7 +65,9 @@ Intrinsics::Global::Global(Intrinsics::Module* moduleRef,
 	initializeModule(moduleRef);
 
 	if(moduleRef->impl->globalMap.contains(name))
-	{ Errors::fatalf("Intrinsic global already registered: %s", name); }
+	{
+		Errors::fatalf("Intrinsic global already registered: %s", name);
+	}
 	moduleRef->impl->globalMap.set(name, this);
 }
 
@@ -73,7 +77,9 @@ Intrinsics::Table::Table(Intrinsics::Module* moduleRef, const char* inName, cons
 	initializeModule(moduleRef);
 
 	if(moduleRef->impl->tableMap.contains(name))
-	{ Errors::fatalf("Intrinsic table already registered: %s", name); }
+	{
+		Errors::fatalf("Intrinsic table already registered: %s", name);
+	}
 	moduleRef->impl->tableMap.set(name, this);
 }
 
@@ -85,7 +91,9 @@ Intrinsics::Memory::Memory(Intrinsics::Module* moduleRef,
 	initializeModule(moduleRef);
 
 	if(moduleRef->impl->memoryMap.contains(name))
-	{ Errors::fatalf("Intrinsic memory already registered: %s", name); }
+	{
+		Errors::fatalf("Intrinsic memory already registered: %s", name);
+	}
 	moduleRef->impl->memoryMap.set(name, this);
 }
 
@@ -194,7 +202,9 @@ Instance* Intrinsics::instantiateModule(
 		Serialization::ArrayOutputStream codeStream;
 		OperatorEncoderStream opEncoder(codeStream);
 		for(Uptr paramIndex = 0; paramIndex < intrinsicFunctionType.params().size(); ++paramIndex)
-		{ opEncoder.local_get({paramIndex}); }
+		{
+			opEncoder.local_get({paramIndex});
+		}
 		opEncoder.call({functionImportIndex});
 		opEncoder.end();
 
@@ -224,9 +234,9 @@ Instance* Intrinsics::instantiateModule(
 		}
 	}
 
-	ModuleRef module = compileModule(irModule);
+	ModuleRef module_ = compileModule(irModule);
 	Instance* instance = instantiateModuleInternal(compartment,
-												   module,
+												   module_,
 												   std::move(functionImportBindings),
 												   {},
 												   {},
@@ -248,7 +258,9 @@ HashMap<std::string, Intrinsics::Function*> Intrinsics::getUninstantiatedFunctio
 		if(moduleRef->impl)
 		{
 			for(const auto& pair : moduleRef->impl->functionMap)
-			{ result.addOrFail(pair.key, pair.value); }
+			{
+				result.addOrFail(pair.key, pair.value);
+			}
 		}
 	}
 

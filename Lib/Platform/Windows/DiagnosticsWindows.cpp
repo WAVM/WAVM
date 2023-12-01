@@ -56,9 +56,9 @@ private:
 
 static HMODULE getCurrentModule()
 {
-	HMODULE module = nullptr;
-	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCTSTR)getCurrentModule, &module);
-	return module;
+	HMODULE module_ = nullptr;
+	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCTSTR)getCurrentModule, &module_);
+	return module_;
 }
 
 static HMODULE getModuleFromBaseAddress(Uptr baseAddress)
@@ -66,10 +66,10 @@ static HMODULE getModuleFromBaseAddress(Uptr baseAddress)
 	return reinterpret_cast<HMODULE>(baseAddress);
 }
 
-static std::string getModuleName(HMODULE module)
+static std::string getModuleName(HMODULE module_)
 {
 	char moduleFilename[MAX_PATH + 1];
-	U32 moduleFilenameResult = GetModuleFileNameA(module, moduleFilename, MAX_PATH + 1);
+	U32 moduleFilenameResult = GetModuleFileNameA(module_, moduleFilename, MAX_PATH + 1);
 	return std::string(moduleFilename, moduleFilenameResult);
 }
 
@@ -80,11 +80,10 @@ static std::string trimModuleName(std::string moduleName)
 	if(lastBackslashOffset != UINTPTR_MAX && moduleName.size() >= lastBackslashOffset
 	   && moduleName.substr(0, lastBackslashOffset)
 			  == thisModuleName.substr(0, lastBackslashOffset))
-	{ return moduleName.substr(lastBackslashOffset + 1); }
-	else
 	{
-		return moduleName;
+		return moduleName.substr(lastBackslashOffset + 1);
 	}
+	else { return moduleName; }
 }
 
 bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
@@ -107,7 +106,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 	if(!dbgHelp->symFromAddr(GetCurrentProcess(), ip, &displacement, symbolInfo)) { return false; }
 	else
 	{
-		outSource.module
+		outSource.module_
 			= trimModuleName(getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase))));
 		outSource.function = std::string(symbolInfo->Name, symbolInfo->NameLen);
 		outSource.instructionOffset = Uptr(displacement);

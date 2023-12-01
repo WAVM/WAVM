@@ -273,7 +273,7 @@ namespace WAVM { namespace IR {
 		moduleBeginning,
 
 		type,
-		import,
+		import_,
 		function,
 		table,
 		memory,
@@ -315,10 +315,7 @@ namespace WAVM { namespace IR {
 		const Type& getType(Uptr index) const
 		{
 			if(index < imports.size()) { return imports[index].type; }
-			else
-			{
-				return defs[index - imports.size()].type;
-			}
+			else { return defs[index - imports.size()].type; }
 		}
 		bool isImport(Uptr index) const
 		{
@@ -365,60 +362,60 @@ namespace WAVM { namespace IR {
 	};
 
 	// Finds a named custom section in a module.
-	WAVM_API bool findCustomSection(const Module& module,
+	WAVM_API bool findCustomSection(const Module& module_,
 									const char* customSectionName,
 									Uptr& outCustomSectionIndex);
 
 	// Inserts a named custom section in a module, before any custom sections that come after later
 	// known sections, but after all custom sections that come after the same known section.
-	WAVM_API void insertCustomSection(Module& module, CustomSection&& customSection);
+	WAVM_API void insertCustomSection(Module& module_, CustomSection&& customSection);
 
 	// Functions that determine whether the binary form of a module will have specific sections.
 
-	inline bool hasTypeSection(const Module& module) { return module.types.size() > 0; }
-	inline bool hasImportSection(const Module& module)
+	inline bool hasTypeSection(const Module& module_) { return module_.types.size() > 0; }
+	inline bool hasImportSection(const Module& module_)
 	{
-		WAVM_ASSERT((module.imports.size() > 0)
-					== (module.functions.imports.size() > 0 || module.tables.imports.size() > 0
-						|| module.memories.imports.size() > 0 || module.globals.imports.size() > 0
-						|| module.exceptionTypes.imports.size() > 0));
-		return module.imports.size() > 0;
+		WAVM_ASSERT((module_.imports.size() > 0)
+					== (module_.functions.imports.size() > 0 || module_.tables.imports.size() > 0
+						|| module_.memories.imports.size() > 0 || module_.globals.imports.size() > 0
+						|| module_.exceptionTypes.imports.size() > 0));
+		return module_.imports.size() > 0;
 	}
-	inline bool hasFunctionSection(const Module& module)
+	inline bool hasFunctionSection(const Module& module_)
 	{
-		return module.functions.defs.size() > 0;
+		return module_.functions.defs.size() > 0;
 	}
-	inline bool hasTableSection(const Module& module) { return module.tables.defs.size() > 0; }
-	inline bool hasMemorySection(const Module& module) { return module.memories.defs.size() > 0; }
-	inline bool hasGlobalSection(const Module& module) { return module.globals.defs.size() > 0; }
-	inline bool hasExceptionTypeSection(const Module& module)
+	inline bool hasTableSection(const Module& module_) { return module_.tables.defs.size() > 0; }
+	inline bool hasMemorySection(const Module& module_) { return module_.memories.defs.size() > 0; }
+	inline bool hasGlobalSection(const Module& module_) { return module_.globals.defs.size() > 0; }
+	inline bool hasExceptionTypeSection(const Module& module_)
 	{
-		return module.exceptionTypes.defs.size() > 0;
+		return module_.exceptionTypes.defs.size() > 0;
 	}
-	inline bool hasExportSection(const Module& module) { return module.exports.size() > 0; }
-	inline bool hasStartSection(const Module& module)
+	inline bool hasExportSection(const Module& module_) { return module_.exports.size() > 0; }
+	inline bool hasStartSection(const Module& module_)
 	{
-		return module.startFunctionIndex != UINTPTR_MAX;
+		return module_.startFunctionIndex != UINTPTR_MAX;
 	}
-	inline bool hasElemSection(const Module& module) { return module.elemSegments.size() > 0; }
-	inline bool hasDataCountSection(const Module& module)
+	inline bool hasElemSection(const Module& module_) { return module_.elemSegments.size() > 0; }
+	inline bool hasDataCountSection(const Module& module_)
 	{
-		return module.dataSegments.size() > 0 && module.featureSpec.bulkMemoryOperations;
+		return module_.dataSegments.size() > 0 && module_.featureSpec.bulkMemoryOperations;
 	}
-	inline bool hasCodeSection(const Module& module) { return module.functions.defs.size() > 0; }
-	inline bool hasDataSection(const Module& module) { return module.dataSegments.size() > 0; }
+	inline bool hasCodeSection(const Module& module_) { return module_.functions.defs.size() > 0; }
+	inline bool hasDataSection(const Module& module_) { return module_.dataSegments.size() > 0; }
 
-	WAVM_API OrderedSectionID getMaxPresentSection(const Module& module,
+	WAVM_API OrderedSectionID getMaxPresentSection(const Module& module_,
 												   OrderedSectionID maxSection);
 
 	// Resolve an indexed block type to a FunctionType.
-	inline FunctionType resolveBlockType(const Module& module, const IndexedBlockType& indexedType)
+	inline FunctionType resolveBlockType(const Module& module_, const IndexedBlockType& indexedType)
 	{
 		switch(indexedType.format)
 		{
 		case IndexedBlockType::noParametersOrResult: return FunctionType();
 		case IndexedBlockType::oneResult: return FunctionType(TypeTuple(indexedType.resultType));
-		case IndexedBlockType::functionType: return module.types[indexedType.index];
+		case IndexedBlockType::functionType: return module_.types[indexedType.index];
 		default: WAVM_UNREACHABLE();
 		};
 	}
@@ -453,8 +450,8 @@ namespace WAVM { namespace IR {
 
 	// Looks for a name section in a module. If it exists, deserialize it into outNames.
 	// If it doesn't exist, fill outNames with sensible defaults.
-	WAVM_API void getDisassemblyNames(const Module& module, DisassemblyNames& outNames);
+	WAVM_API void getDisassemblyNames(const Module& module_, DisassemblyNames& outNames);
 
 	// Serializes a DisassemblyNames structure and adds it to the module as a name section.
-	WAVM_API void setDisassemblyNames(Module& module, const DisassemblyNames& names);
+	WAVM_API void setDisassemblyNames(Module& module_, const DisassemblyNames& names);
 }}

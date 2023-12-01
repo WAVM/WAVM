@@ -20,7 +20,9 @@ static bool loadBinaryModuleFromFile(const char* filename,
 	if(!loadFile(filename, wasmBytes)) { return false; }
 	WASM::LoadError loadError;
 	if(WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), outModule, &loadError))
-	{ return true; }
+	{
+		return true;
+	}
 	else
 	{
 		Log::printf(Log::error, "%s\n", loadError.message.c_str());
@@ -69,14 +71,8 @@ int execDisassembleCommand(int argc, char** argv)
 				return false;
 			}
 		}
-		else if(!inputFilename)
-		{
-			inputFilename = argv[argIndex];
-		}
-		else if(!outputFilename)
-		{
-			outputFilename = argv[argIndex];
-		}
+		else if(!inputFilename) { inputFilename = argv[argIndex]; }
+		else if(!outputFilename) { outputFilename = argv[argIndex]; }
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
@@ -92,12 +88,12 @@ int execDisassembleCommand(int argc, char** argv)
 	}
 
 	// Load the WASM file.
-	IR::Module module(featureSpec);
-	if(!loadBinaryModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
+	IR::Module module_(featureSpec);
+	if(!loadBinaryModuleFromFile(inputFilename, module_)) { return EXIT_FAILURE; }
 
 	// Print the module to WAST.
 	Timing::Timer printTimer;
-	const std::string wastString = WAST::print(module);
+	const std::string wastString = WAST::print(module_);
 	Timing::logRatePerSecond(
 		"Printed WAST", printTimer, F64(wastString.size()) / 1024.0 / 1024.0, "MiB");
 

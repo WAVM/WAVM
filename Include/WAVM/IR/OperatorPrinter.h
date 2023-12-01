@@ -13,7 +13,7 @@ namespace WAVM { namespace IR {
 		typedef std::string Result;
 
 		OperatorPrinter(const Module& inModule, const FunctionDef& inFunctionDef)
-		: module(inModule), functionDef(inFunctionDef)
+		: module_(inModule), functionDef(inFunctionDef)
 		{
 		}
 
@@ -23,13 +23,13 @@ namespace WAVM { namespace IR {
 #undef VISIT_OPCODE
 
 	private:
-		const Module& module;
+		const Module& module_;
 		const FunctionDef& functionDef;
 
 		std::string describeImm(NoImm) { return ""; }
 		std::string describeImm(ControlStructureImm imm)
 		{
-			const FunctionType type = resolveBlockType(module, imm.type);
+			const FunctionType type = resolveBlockType(module_, imm.type);
 			return std::string(" : ") + asString(type.params()) + " -> " + asString(type.results());
 		}
 		std::string describeImm(SelectImm imm) { return std::string(" ") + asString(imm.type); }
@@ -58,9 +58,9 @@ namespace WAVM { namespace IR {
 		std::string describeImm(FunctionImm imm)
 		{
 			const std::string typeString
-				= imm.functionIndex >= module.functions.size()
+				= imm.functionIndex >= module_.functions.size()
 					  ? "<invalid function index>"
-					  : asString(module.types[module.functions.getType(imm.functionIndex).index]);
+					  : asString(module_.types[module_.functions.getType(imm.functionIndex).index]);
 			return " " + std::to_string(imm.functionIndex) + " " + typeString;
 		}
 		std::string describeImm(FunctionRefImm imm)
@@ -69,9 +69,9 @@ namespace WAVM { namespace IR {
 		}
 		std::string describeImm(CallIndirectImm imm)
 		{
-			const std::string typeString = imm.type.index >= module.types.size()
+			const std::string typeString = imm.type.index >= module_.types.size()
 											   ? "<invalid type index>"
-											   : asString(module.types[imm.type.index]);
+											   : asString(module_.types[imm.type.index]);
 			return " " + typeString;
 		}
 		std::string describeImm(BaseLoadOrStoreImm imm)

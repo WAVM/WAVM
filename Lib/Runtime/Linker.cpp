@@ -145,15 +145,15 @@ bool Runtime::generateStub(const std::string& moduleName,
 }
 
 template<typename Type, typename ResolvedType>
-static void linkImport(const IR::Module& module,
-					   const Import<Type>& import,
+static void linkImport(const IR::Module& module_,
+					   const Import<Type>& import_,
 					   ResolvedType resolvedType,
 					   Resolver& resolver,
 					   LinkResult& linkResult)
 {
 	// Ask the resolver for a value for this import.
 	Object* importValue;
-	if(resolver.resolve(import.moduleName, import.exportName, resolvedType, importValue))
+	if(resolver.resolve(import_.moduleName, import_.exportName, resolvedType, importValue))
 	{
 		// Sanity check that the resolver returned an object of the right type.
 		WAVM_ASSERT(importValue);
@@ -162,49 +162,50 @@ static void linkImport(const IR::Module& module,
 	}
 	else
 	{
-		linkResult.missingImports.push_back({import.moduleName, import.exportName, resolvedType});
+		linkResult.missingImports.push_back({import_.moduleName, import_.exportName, resolvedType});
 		linkResult.resolvedImports.push_back(nullptr);
 	}
 }
 
-LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
+LinkResult Runtime::linkModule(const IR::Module& module_, Resolver& resolver)
 {
 	LinkResult linkResult;
-	WAVM_ASSERT(module.imports.size()
-				== module.functions.imports.size() + module.tables.imports.size()
-					   + module.memories.imports.size() + module.globals.imports.size()
-					   + module.exceptionTypes.imports.size());
-	for(const auto& kindIndex : module.imports)
+	WAVM_ASSERT(module_.imports.size()
+				== module_.functions.imports.size() + module_.tables.imports.size()
+					   + module_.memories.imports.size() + module_.globals.imports.size()
+					   + module_.exceptionTypes.imports.size());
+	for(const auto& kindIndex : module_.imports)
 	{
 		switch(kindIndex.kind)
 		{
 		case ExternKind::function: {
-			const auto& functionImport = module.functions.imports[kindIndex.index];
-			linkImport(module,
+			const auto& functionImport = module_.functions.imports[kindIndex.index];
+			linkImport(module_,
 					   functionImport,
-					   module.types[functionImport.type.index],
+					   module_.types[functionImport.type.index],
 					   resolver,
 					   linkResult);
 			break;
 		}
 		case ExternKind::table: {
-			const auto& tableImport = module.tables.imports[kindIndex.index];
-			linkImport(module, tableImport, tableImport.type, resolver, linkResult);
+			const auto& tableImport = module_.tables.imports[kindIndex.index];
+			linkImport(module_, tableImport, tableImport.type, resolver, linkResult);
 			break;
 		}
 		case ExternKind::memory: {
-			const auto& memoryImport = module.memories.imports[kindIndex.index];
-			linkImport(module, memoryImport, memoryImport.type, resolver, linkResult);
+			const auto& memoryImport = module_.memories.imports[kindIndex.index];
+			linkImport(module_, memoryImport, memoryImport.type, resolver, linkResult);
 			break;
 		}
 		case ExternKind::global: {
-			const auto& globalImport = module.globals.imports[kindIndex.index];
-			linkImport(module, globalImport, globalImport.type, resolver, linkResult);
+			const auto& globalImport = module_.globals.imports[kindIndex.index];
+			linkImport(module_, globalImport, globalImport.type, resolver, linkResult);
 			break;
 		}
 		case ExternKind::exceptionType: {
-			const auto& exceptionTypeImport = module.exceptionTypes.imports[kindIndex.index];
-			linkImport(module, exceptionTypeImport, exceptionTypeImport.type, resolver, linkResult);
+			const auto& exceptionTypeImport = module_.exceptionTypes.imports[kindIndex.index];
+			linkImport(
+				module_, exceptionTypeImport, exceptionTypeImport.type, resolver, linkResult);
 			break;
 		}
 

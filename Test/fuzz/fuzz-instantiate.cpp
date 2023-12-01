@@ -31,9 +31,9 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	featureSpec.maxLabelsPerFunction = 65536;
 	featureSpec.maxLocals = 1024;
 	featureSpec.maxDataSegments = 65536;
-	Runtime::ModuleRef module;
-	if(!Runtime::loadBinaryModule(data, numBytes, module, featureSpec)) { return 0; }
-	const IR::Module& moduleIR = getModuleIR(module);
+	Runtime::ModuleRef module_;
+	if(!Runtime::loadBinaryModule(data, numBytes, module_, featureSpec)) { return 0; }
+	const IR::Module& moduleIR = getModuleIR(module_);
 
 #if !WAVM_ENABLE_LIBFUZZER
 	std::string wastString = WAST::print(moduleIR);
@@ -54,7 +54,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 			catchRuntimeExceptions(
 				[&] {
 					instantiateModule(compartment,
-									  module,
+									  module_,
 									  std::move(linkResult.resolvedImports),
 									  "fuzz",
 									  resourceQuota);

@@ -133,7 +133,7 @@ namespace WAVM { namespace WAST {
 	{
 		ParseState* parseState;
 
-		IR::Module& module;
+		IR::Module& module_;
 		std::shared_ptr<IR::ModuleValidationState> validationState;
 
 		HashMap<IR::FunctionType, Uptr> functionTypeToIndexMap;
@@ -163,7 +163,7 @@ namespace WAVM { namespace WAST {
 
 		ModuleState(ParseState* inParseState, IR::Module& inModule)
 		: parseState(inParseState)
-		, module(inModule)
+		, module_(inModule)
 		, validationState(IR::createModuleValidationState(inModule))
 		{
 		}
@@ -304,7 +304,9 @@ namespace WAVM { namespace WAST {
 	{
 		const Token* openingParenthesisToken = cursor->nextToken;
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != tagType)
-		{ return false; }
+		{
+			return false;
+		}
 		try
 		{
 			cursor->nextToken += 2;

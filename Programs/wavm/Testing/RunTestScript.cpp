@@ -310,10 +310,7 @@ static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expect
 static std::string describeExpectedTrapType(WAST::ExpectedTrapType expectedType)
 {
 	if(expectedType == WAST::ExpectedTrapType::outOfBounds) { return "wavm.outOfBounds*"; }
-	else
-	{
-		return describeExceptionType(getExpectedTrapType(expectedType));
-	}
+	else { return describeExceptionType(getExpectedTrapType(expectedType)); }
 }
 
 static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
@@ -337,10 +334,7 @@ static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
 		return actualType == Runtime::ExceptionTypes::outOfBoundsTableAccess
 			   || actualType == Runtime::ExceptionTypes::outOfBoundsElemSegmentAccess;
 	}
-	else
-	{
-		return getExpectedTrapType(expectedType) == actualType;
-	}
+	else { return getExpectedTrapType(expectedType) == actualType; }
 }
 
 static void traceLLVMIR(const char* moduleName, const IR::Module& irModule)
@@ -365,7 +359,9 @@ static void maybeCollectGarbage(TestScriptState& state)
 	// collectCompartmentGarbage assumes that no WebAssembly code is running in the compartment, so
 	// only run it for the root test script state, and if it has no active child threads.
 	if(state.kind == TestScriptStateKind::root && !state.threads.size())
-	{ collectCompartmentGarbage(state.compartment); }
+	{
+		collectCompartmentGarbage(state.compartment);
+	}
 }
 
 static bool processAction(TestScriptState& state, Action* action, std::vector<Value>* outResults)
@@ -383,19 +379,23 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 
 		// Link and instantiate the module.
 		TestScriptResolver resolver(state);
-		LinkResult linkResult = linkModule(*moduleAction->module, resolver);
+		LinkResult linkResult = linkModule(*moduleAction->module_, resolver);
 		if(linkResult.success)
 		{
 			std::string moduleDebugName
 				= std::string(state.scriptFilename) + ":" + action->locus.describe();
 
 			if(state.config.traceLLVMIR)
-			{ traceLLVMIR(moduleDebugName.c_str(), *moduleAction->module); }
+			{
+				traceLLVMIR(moduleDebugName.c_str(), *moduleAction->module_);
+			}
 
-			ModuleRef compiledModule = compileModule(*moduleAction->module);
+			ModuleRef compiledModule = compileModule(*moduleAction->module_);
 
 			if(state.config.traceAssembly)
-			{ traceAssembly(moduleDebugName.c_str(), compiledModule); }
+			{
+				traceAssembly(moduleDebugName.c_str(), compiledModule);
+			}
 
 			state.hasInstantiatedModule = true;
 			state.lastInstance = instantiateModule(state.compartment,
@@ -835,7 +835,9 @@ static void processAssertReturn(TestScriptState& state, const AssertReturnComman
 	std::string errorMessage;
 	if(processAction(state, assertCommand->action.get(), &actionResults)
 	   && !areResultsInExpectedSet(actionResults, assertCommand->expectedResultSets, errorMessage))
-	{ testErrorf(state, assertCommand->locus, "%s", errorMessage.c_str()); }
+	{
+		testErrorf(state, assertCommand->locus, "%s", errorMessage.c_str());
+	}
 }
 
 static void processAssertReturnNaN(TestScriptState& state,
@@ -860,19 +862,15 @@ static void processAssertReturnNaN(TestScriptState& state,
 			if(assertCommand->type == Command::assert_return_canonical_nan)
 			{
 				requireCanonicalNaN = true;
-				isError = actionResult.type == ValueType::f32
-							  ? !isCanonicalNaN(actionResult.f32)
-							  : actionResult.type == ValueType::f64
-									? !isCanonicalNaN(actionResult.f64)
-									: true;
+				isError = actionResult.type == ValueType::f32   ? !isCanonicalNaN(actionResult.f32)
+						  : actionResult.type == ValueType::f64 ? !isCanonicalNaN(actionResult.f64)
+																: true;
 			}
 			else if(assertCommand->type == Command::assert_return_arithmetic_nan)
 			{
-				isError = actionResult.type == ValueType::f32
-							  ? !isArithmeticNaN(actionResult.f32)
-							  : actionResult.type == ValueType::f64
-									? !isArithmeticNaN(actionResult.f64)
-									: true;
+				isError = actionResult.type == ValueType::f32   ? !isArithmeticNaN(actionResult.f32)
+						  : actionResult.type == ValueType::f64 ? !isArithmeticNaN(actionResult.f64)
+																: true;
 			}
 			else if(assertCommand->type == Command::assert_return_canonical_nan_f32x4)
 			{
@@ -900,10 +898,7 @@ static void processAssertReturnNaN(TestScriptState& state,
 				isError = !isArithmeticNaN(actionResult.v128.f64x2[0])
 						  || !isArithmeticNaN(actionResult.v128.f64x2[1]);
 			}
-			else
-			{
-				WAVM_UNREACHABLE();
-			}
+			else { WAVM_UNREACHABLE(); }
 
 			if(isError)
 			{
@@ -1042,7 +1037,9 @@ static void processAssertInvalid(TestScriptState& state,
 		break;
 	case InvalidOrMalformed::malformed:
 		if(state.config.strictAssertInvalid)
-		{ testErrorf(state, assertCommand->locus, "module was malformed"); }
+		{
+			testErrorf(state, assertCommand->locus, "module was malformed");
+		}
 		break;
 
 	case InvalidOrMalformed::invalid:
@@ -1061,7 +1058,9 @@ static void processAssertMalformed(TestScriptState& state,
 
 	case InvalidOrMalformed::invalid:
 		if(state.config.strictAssertMalformed)
-		{ testErrorf(state, assertCommand->locus, "module was invalid"); }
+		{
+			testErrorf(state, assertCommand->locus, "module was invalid");
+		}
 		break;
 
 	case InvalidOrMalformed::malformed:
@@ -1075,12 +1074,12 @@ static void processAssertUnlinkable(TestScriptState& state,
 	Runtime::catchRuntimeExceptions(
 		[&] {
 			TestScriptResolver resolver(state);
-			LinkResult linkResult = linkModule(*assertCommand->moduleAction->module, resolver);
+			LinkResult linkResult = linkModule(*assertCommand->moduleAction->module_, resolver);
 			if(linkResult.success)
 			{
 				auto instance
 					= instantiateModule(state.compartment,
-										compileModule(*assertCommand->moduleAction->module),
+										compileModule(*assertCommand->moduleAction->module_),
 										std::move(linkResult.resolvedImports),
 										"test module");
 
@@ -1690,27 +1689,15 @@ int execRunTestScript(int argc, char** argv)
 		{
 			config.strictAssertMalformed = true;
 		}
-		else if(!strcmp(argv[argIndex], "--test-cloning"))
-		{
-			config.testCloning = true;
-		}
+		else if(!strcmp(argv[argIndex], "--test-cloning")) { config.testCloning = true; }
 		else if(!strcmp(argv[argIndex], "--trace"))
 		{
 			Log::setCategoryEnabled(Log::traceValidation, true);
 			Log::setCategoryEnabled(Log::traceCompilation, true);
 		}
-		else if(!strcmp(argv[argIndex], "--trace-tests"))
-		{
-			config.traceTests = true;
-		}
-		else if(!strcmp(argv[argIndex], "--trace-llvmir"))
-		{
-			config.traceLLVMIR = true;
-		}
-		else if(!strcmp(argv[argIndex], "--trace-assembly"))
-		{
-			config.traceAssembly = true;
-		}
+		else if(!strcmp(argv[argIndex], "--trace-tests")) { config.traceTests = true; }
+		else if(!strcmp(argv[argIndex], "--trace-llvmir")) { config.traceLLVMIR = true; }
+		else if(!strcmp(argv[argIndex], "--trace-assembly")) { config.traceAssembly = true; }
 		else if(!strcmp(argv[argIndex], "--enable") || !strcmp(argv[argIndex], "--disable"))
 		{
 			const bool enableFeature = !strcmp(argv[argIndex], "--enable");
@@ -1733,10 +1720,7 @@ int execRunTestScript(int argc, char** argv)
 				return EXIT_FAILURE;
 			}
 		}
-		else
-		{
-			filenames.push_back(argv[argIndex]);
-		}
+		else { filenames.push_back(argv[argIndex]); }
 	}
 
 	if(!filenames.size())
