@@ -129,8 +129,8 @@ namespace WAVM { namespace WASI {
 		U32 exitCode;
 	};
 
-	typedef U64 WASIAddress;
-#define WASIADDRESS_MAX UINT64_MAX
+	typedef U32 WASIAddress;
+#define WASIADDRESS_MAX UINT32_MAX
 #define WASIADDRESS_FORMAT "0x%08x"
 
 	// __wasi_errno_t is actually 16-bits but since WebAssembly doesn't have an I16 type, we need to
