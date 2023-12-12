@@ -379,7 +379,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 static __wasi_errno_t readImpl(Process* process,
 							   __wasi_fd_t fd,
 							   WASIAddress iovsAddress,
-							   I32 numIOVs,
+							   WASIAddress numIOVs,
 							   const __wasi_filesize_t* offset,
 							   Uptr& outNumBytesRead)
 {
@@ -388,7 +388,7 @@ static __wasi_errno_t readImpl(Process* process,
 	LockedFDE lockedFDE = getLockedFDE(process, fd, requiredRights, 0);
 	if(lockedFDE.error != __WASI_ESUCCESS) { return lockedFDE.error; }
 
-	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
+	if(numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
 
 	// Allocate memory for the IOReadBuffers.
 	IOReadBuffer* vfsReadBuffers = (IOReadBuffer*)malloc(numIOVs * sizeof(IOReadBuffer));
@@ -401,7 +401,7 @@ static __wasi_errno_t readImpl(Process* process,
 			const __wasi_iovec_t* iovs
 				= memoryArrayPtr<__wasi_iovec_t>(process->memory, iovsAddress, numIOVs);
 			U64 numBufferBytes = 0;
-			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+			for(::std::size_t iovIndex = 0,numIOVssz{static_cast<::std::size_t>(numIOVs)}; iovIndex < numIOVssz; ++iovIndex)
 			{
 				__wasi_iovec_t iov = iovs[iovIndex];
 				TRACE_SYSCALL_FLOW("IOV[%u]=(buf=" WASIADDRESS_FORMAT ", buf_len=%u)",
@@ -441,7 +441,7 @@ static __wasi_errno_t readImpl(Process* process,
 static __wasi_errno_t writeImpl(Process* process,
 								__wasi_fd_t fd,
 								WASIAddress iovsAddress,
-								I32 numIOVs,
+								WASIAddress numIOVs,
 								const __wasi_filesize_t* offset,
 								Uptr& outNumBytesWritten)
 {
@@ -450,7 +450,7 @@ static __wasi_errno_t writeImpl(Process* process,
 	LockedFDE lockedFDE = getLockedFDE(process, fd, requiredRights, 0);
 	if(lockedFDE.error != __WASI_ESUCCESS) { return lockedFDE.error; }
 
-	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
+	if(numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
 
 	// Allocate memory for the IOWriteBuffers.
 	IOWriteBuffer* vfsWriteBuffers = (IOWriteBuffer*)malloc(numIOVs * sizeof(IOWriteBuffer));
@@ -463,7 +463,7 @@ static __wasi_errno_t writeImpl(Process* process,
 			const __wasi_ciovec_t* iovs
 				= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
 			U64 numBufferBytes = 0;
-			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+			for(::std::size_t iovIndex = 0, numIOVssz{static_cast<::std::size_t>(numIOVs)}; iovIndex < numIOVssz; ++iovIndex)
 			{
 				__wasi_ciovec_t iov = iovs[iovIndex];
 				TRACE_SYSCALL_FLOW("IOV[%u]=(buf=" WASIADDRESS_FORMAT ", buf_len=%u)",
@@ -568,7 +568,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   wasi_fd_read,
 							   __wasi_fd_t fd,
 							   WASIAddress iovsAddress,
-							   I32 numIOVs,
+							   WASIAddress numIOVs,
 							   WASIAddress numBytesReadAddress)
 {
 	TRACE_SYSCALL("fd_read",
@@ -597,7 +597,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   wasi_fd_write,
 							   __wasi_fd_t fd,
 							   WASIAddress iovsAddress,
-							   I32 numIOVs,
+							   WASIAddress numIOVs,
 							   WASIAddress numBytesWrittenAddress)
 {
 	TRACE_SYSCALL("fd_write",

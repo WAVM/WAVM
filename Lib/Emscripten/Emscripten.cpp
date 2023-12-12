@@ -1230,7 +1230,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   emabi::Result,
 							   emscripten_clock_gettime,
 							   U32 clockId,
-							   U32 timespecAddress)
+							   emabi::Address timespecAddress)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 
@@ -1316,8 +1316,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "args_sizes_get",
 							   __wasi_errno_return_t,
 							   wasi_args_sizes_get,
-							   U32 argcAddress,
-							   U32 argBufSizeAddress)
+							   emabi::Address argcAddress,
+							   emabi::Address argBufSizeAddress)
 {
 	Process* process = getProcess(contextRuntimeData);
 
@@ -1339,8 +1339,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "args_get",
 							   __wasi_errno_return_t,
 							   wasi_args_get,
-							   U32 argvAddress,
-							   U32 argBufAddress)
+							   emabi::Address argvAddress,
+							   emabi::Address argBufAddress)
 {
 	Process* process = getProcess(contextRuntimeData);
 
