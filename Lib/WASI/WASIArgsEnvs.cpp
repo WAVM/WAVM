@@ -16,8 +16,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 							   "args_sizes_get",
 							   __wasi_errno_return_t,
 							   wasi_args_sizes_get,
-							   U32 argcAddress,
-							   U32 argBufSizeAddress)
+							   WASIAddress argcAddress,
+							   WASIAddress argBufSizeAddress)
 {
 	TRACE_SYSCALL("args_sizes_get",
 				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
@@ -41,8 +41,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 							   "args_get",
 							   __wasi_errno_return_t,
 							   wasi_args_get,
-							   U32 argvAddress,
-							   U32 argBufAddress)
+							   WASIAddress argvAddress,
+							   WASIAddress argBufAddress)
 {
 	TRACE_SYSCALL(
 		"args_get", "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")", argvAddress, argBufAddress);
@@ -64,7 +64,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 				   (const U8*)arg.c_str(),
 				   numArgBytes);
 		}
-		memoryRef<WASIAddress>(process->memory, argvAddress + argIndex * sizeof(U32))
+		memoryRef<WASIAddress>(process->memory, argvAddress + argIndex * sizeof(WASIAddress))
 			= WASIAddress(nextArgBufAddress);
 
 		nextArgBufAddress += WASIAddress(numArgBytes);
@@ -127,7 +127,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 				   (const U8*)env.c_str(),
 				   numEnvBytes);
 		}
-		memoryRef<WASIAddress>(process->memory, envvAddress + argIndex * sizeof(U32))
+		memoryRef<WASIAddress>(process->memory, envvAddress + argIndex * sizeof(WASIAddress))
 			= WASIAddress(nextEnvBufAddress);
 
 		nextEnvBufAddress += WASIAddress(numEnvBytes);
