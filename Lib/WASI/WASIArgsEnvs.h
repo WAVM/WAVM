@@ -5,7 +5,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiArgsEnvs,
 							   WASIAddressIPtr argcAddress,
 							   WASIAddressIPtr argBufSizeAddress)
 {
-	TRACE_SYSCALL("args_sizes_get",
+	TRACE_SYSCALL_IPTR("args_sizes_get",
 				  "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
 				  argcAddress,
 				  argBufSizeAddress);
@@ -30,7 +30,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiArgsEnvs,
 							   WASIAddressIPtr argvAddress,
 							   WASIAddressIPtr argBufAddress)
 {
-	TRACE_SYSCALL(
+	TRACE_SYSCALL_IPTR(
 		"args_get", "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")", argvAddress, argBufAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
@@ -66,7 +66,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiArgsEnvs,
 							   WASIAddressIPtr envCountAddress,
 							   WASIAddressIPtr envBufSizeAddress)
 {
-	TRACE_SYSCALL("environ_sizes_get",
+	TRACE_SYSCALL_IPTR("environ_sizes_get",
 				  "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
 				  envCountAddress,
 				  envBufSizeAddress);
@@ -91,7 +91,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiArgsEnvs,
 							   WASIAddressIPtr envvAddress,
 							   WASIAddressIPtr envBufAddress)
 {
-	TRACE_SYSCALL("environ_get",
+	TRACE_SYSCALL_IPTR("environ_get",
 				  "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
 				  envvAddress,
 				  envBufAddress);

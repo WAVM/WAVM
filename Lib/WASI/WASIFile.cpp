@@ -6,7 +6,7 @@
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
-#include "WAVM/WASI/WASIABI.h"
+#include "WAVM/WASI/WASIABI64.h"
 
 using namespace WAVM;
 using namespace WAVM::WASI;
