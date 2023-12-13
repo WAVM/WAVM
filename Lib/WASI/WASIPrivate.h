@@ -26,7 +26,7 @@
 #define TRACE_SYSCALL_FLOW(argFormat, ...)
 #endif
 
-#define UNIMPLEMENTED_SYSCALL(syscallName, argFormat, ...)                                         \
+#define UNIMPLEMENTED_SYSCALL_COMMON(syscallName, argFormat, ...)                                         \
 	TRACE_SYSCALL(syscallName, argFormat, ##__VA_ARGS__);                                          \
 	Log::printf(Log::error, "Called unimplemented WASI syscall %s.\n", syscallName);               \
 	return TRACE_SYSCALL_RETURN(__WASI_ENOSYS);

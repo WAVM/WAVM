@@ -64,7 +64,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 							   WASIAddress numSubscriptions,
 							   WASIAddress outNumEventsAddress)
 {
-	UNIMPLEMENTED_SYSCALL("poll_oneoff",
+	UNIMPLEMENTED_SYSCALL_COMMON("poll_oneoff",
 						  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT
 						  ")",
 						  inAddress,
@@ -86,7 +86,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 							   __wasi_signal_t sig)
 {
 	// proc_raise will possibly be removed: https://github.com/WebAssembly/WASI/issues/7
-	UNIMPLEMENTED_SYSCALL("proc_raise", "(%u)", sig);
+	UNIMPLEMENTED_SYSCALL_COMMON("proc_raise", "(%u)", sig);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -125,7 +125,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 							   WASIAddress ro_datalen,
 							   WASIAddress ro_flags)
 {
-	UNIMPLEMENTED_SYSCALL("sock_recv",
+	UNIMPLEMENTED_SYSCALL_COMMON("sock_recv",
 						  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%04x, " WASIADDRESS_FORMAT
 						  ", " WASIADDRESS_FORMAT ")",
 						  sock,
@@ -146,7 +146,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 							   __wasi_siflags_t si_flags,
 							   WASIAddress so_datalen)
 {
-	UNIMPLEMENTED_SYSCALL("sock_send",
+	UNIMPLEMENTED_SYSCALL_COMMON("sock_send",
 						  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%04x, " WASIADDRESS_FORMAT ")",
 						  sock,
 						  si_data,
@@ -162,7 +162,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 							   __wasi_fd_t sock,
 							   __wasi_sdflags_t how)
 {
-	UNIMPLEMENTED_SYSCALL("sock_shutdown", "(%u, 0x%02x)", sock, how);
+	UNIMPLEMENTED_SYSCALL_COMMON("sock_shutdown", "(%u, 0x%02x)", sock, how);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_return_t, wasi_sched_yield)
