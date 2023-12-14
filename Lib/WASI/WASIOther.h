@@ -8,7 +8,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasi,
 							   WASIAddressIPtr outNumEventsAddress)
 {
 	UNIMPLEMENTED_SYSCALL_IPTR("poll_oneoff",
-						  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT
+						  "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
 						  ")",
 						  inAddress,
 						  outAddress,
@@ -39,7 +39,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasi,
 							   WASIAddressIPtr bufferAddress,
 							   WASIAddressIPtr numBufferBytes)
 {
-	TRACE_SYSCALL_IPTR("random_get", "(" WASIADDRESS_FORMAT ", %u)", bufferAddress, numBufferBytes);
+	TRACE_SYSCALL_IPTR("random_get", "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")", bufferAddress, numBufferBytes);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -69,8 +69,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasi,
 							   WASIAddressIPtr ro_flags)
 {
 	UNIMPLEMENTED_SYSCALL_IPTR("sock_recv",
-						  "(%u, " WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ", 0x%04x, " WASIADDRESS_FORMAT
-						  ", " WASIADDRESS_FORMAT ")",
+						  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", 0x%04x, " WASIADDRESSIPTR_FORMAT
+						  ", " WASIADDRESSIPTR_FORMAT ")",
 						  sock,
 						  ri_data,
 						  ri_data_len,
@@ -90,7 +90,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasi,
 							   WASIAddressIPtr so_datalen)
 {
 	UNIMPLEMENTED_SYSCALL_IPTR("sock_send",
-						  "(%u, " WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ", 0x%04x, " WASIADDRESS_FORMAT ")",
+						  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", 0x%04x, " WASIADDRESSIPTR_FORMAT ")",
 						  sock,
 						  si_data,
 						  si_data_len,
