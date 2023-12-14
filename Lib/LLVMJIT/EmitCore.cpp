@@ -401,9 +401,17 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	llvm::LoadInst* biasedValueLoad = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
+#if 0
+// This is wrong with opaque pointer
 	auto runtimeFunction = irBuilder.CreateIntToPtr(
 		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
 		llvmContext.i8PtrType);
+#else
+	auto runtimeFunction = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+		llvmContext.i8Type,
+		biasedValueLoad,
+		{moduleContext.tableReferenceBias});
+#endif
 	auto elementTypeId = loadFromUntypedPointer(
 		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 			llvmContext.i8Type,
