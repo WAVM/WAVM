@@ -13,7 +13,7 @@
 #define WASIADDRESSIPTR_MAX UINT64_MAX
 #define WASIADDRESSIPTR_FORMAT "0x%016" PRIx64
 #define WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(module_, nameString, Result, cName, ...) 	\
-	WAVM_DEFINE_INTRINSIC_FUNCTION( module_ , nameString "_i64", Result , cName##_i64 , ##__VA_ARGS__)
+	WAVM_DEFINE_INTRINSIC_FUNCTION( module_ , nameString "_wasm64", Result , cName##_wasm64 , ##__VA_ARGS__)
 #define UNIMPLEMENTED_SYSCALL_IPTR(syscallName, argFormat, ...)    \
 	UNIMPLEMENTED_SYSCALL(syscallName "_wasm64", argFormat, ##__VA_ARGS__)
 #define TRACE_SYSCALL_IPTR(syscallName, argFormat, ...)		\
