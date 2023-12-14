@@ -28,3 +28,4 @@ typedef struct __wasi_iovec_i64
 	__wasi_void_ptr_i64 buf;
 	__wasi_size_i64 buf_len;
 } __wasi_iovec_i64;
+
