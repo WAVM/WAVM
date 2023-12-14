@@ -17,7 +17,7 @@
 #define UNIMPLEMENTED_SYSCALL_IPTR(syscallName, argFormat, ...)    \
 	UNIMPLEMENTED_SYSCALL(syscallName "_i64", argFormat, ##__VA_ARGS__)
 #define TRACE_SYSCALL_IPTR(syscallName, argFormat, ...)		\
-	TRACE_SYSCALL(syscallName "_i64", argFormat, ##__VA_ARGS__)
+	TRACE_SYSCALL(syscallName "_wasm64", argFormat, ##__VA_ARGS__)
 #define wasi_iovec_iptr __wasi_iovec_i64
 #define wasi_ciovec_iptr __wasi_ciovec_i64
 #define wasi_prestat_iptr __wasi_prestat_i64
