@@ -441,7 +441,7 @@ wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits,
 {
 	return new wasm_memorytype_t(
 		MemoryType(
-			shared == WASM_SHARED, asIndexType(index), SizeConstraints{limits->min, limits->max}),
+			shared == WASM_SHARED, asIndexType(index), SizeConstraints{limits->min, limits->max}, false),
 		*limits);
 }
 const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* type) { return &type->limits; }

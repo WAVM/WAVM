@@ -1567,11 +1567,11 @@ WAVM_DEFINE_INTRINSIC_TABLE(
 WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
 							 spectest_memory,
 							 memory,
-							 MemoryType(false, IndexType::i32, SizeConstraints{1, 2}))
+							 MemoryType(false, IndexType::i32, SizeConstraints{1, 2},false))
 WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
 							 spectest_shared_memory,
 							 shared_memory,
-							 MemoryType(true, IndexType::i32, SizeConstraints{1, 2}))
+							 MemoryType(true, IndexType::i32, SizeConstraints{1, 2},false))
 
 struct SharedState
 {

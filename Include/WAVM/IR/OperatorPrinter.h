@@ -146,5 +146,11 @@ namespace WAVM { namespace IR {
 		{
 			return std::string(" ") + asString(imm.referenceType);
 		}
+
+		std::string describeImm(MemtagImm imm)
+		{
+			return " " + std::to_string(imm.memoryIndex) + " "
+				   + std::to_string(imm.taggedBytes);
+		}
 	};
 }}

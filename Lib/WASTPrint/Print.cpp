@@ -626,6 +626,11 @@ struct FunctionPrintContext
 		string += ' ';
 		string += moduleContext.names.functions[imm.functionIndex].name;
 	}
+	void printImm(MemtagImm imm)
+	{
+		string += ' ';
+		string += std::to_string(imm.memoryIndex);
+	}
 
 	void printImm(LiteralImm<I32> imm)
 	{

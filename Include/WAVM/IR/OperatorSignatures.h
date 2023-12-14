@@ -353,5 +353,12 @@ namespace WAVM { namespace IR {
 		{
 			return atomiccmpxchg(module_, imm, ValueType::i64);
 		}
+
+		inline OpSignature memory_storetag(const Module& module_, const MemtagImm& imm)
+		{
+			const ValueType indexType
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
+			return OpSignature({}, {indexType, indexType});
+		}
 	};
 }};

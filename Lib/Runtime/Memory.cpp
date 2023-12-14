@@ -221,9 +221,10 @@ Uptr Runtime::getMemoryNumPages(const Memory* memory)
 }
 IR::MemoryType Runtime::getMemoryType(const Memory* memory)
 {
-	return IR::MemoryType(memory->isShared,
+	return IR::MemoryType{memory->isShared,
 						  memory->indexType,
-						  IR::SizeConstraints{getMemoryNumPages(memory), memory->maxPages});
+						  IR::SizeConstraints{getMemoryNumPages(memory), memory->maxPages},
+						  memory->isMemTagged};
 }
 
 GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPages)

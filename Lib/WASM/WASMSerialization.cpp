@@ -867,6 +867,16 @@ void serialize(Stream& stream,
 	serialize(stream, imm.referenceType);
 }
 
+template<typename Stream>
+void serialize(Stream& stream,
+			   MemtagImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
+{
+	serialize(stream, imm.memoryIndex);
+	serialize(stream, imm.taggedBytes);
+}
+
 template<typename SerializeSection>
 void serializeSection(OutputStream& stream, SectionID id, SerializeSection serializeSectionBody)
 {

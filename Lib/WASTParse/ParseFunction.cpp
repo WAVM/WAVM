@@ -358,6 +358,10 @@ static void parseImm(CursorState* cursor, BranchTableImm& outImm)
 	}
 }
 
+
+static void parseImm(CursorState* cursor, MemtagImm& outImm)
+{}
+
 template<bool isGlobal>
 static void parseImm(CursorState* cursor, GetOrSetVariableImm<isGlobal>& outImm)
 {

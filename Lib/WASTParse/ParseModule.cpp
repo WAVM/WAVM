@@ -356,7 +356,7 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->memoryNameToIndexMap,
 						 cursor->moduleState->module_.memories,
 						 cursor->moduleState->disassemblyNames.memories,
-						 MemoryType{isShared, indexType, sizeConstraints},
+						 MemoryType(isShared, indexType, sizeConstraints, false),
 						 ExternKind::memory);
 			break;
 		}
@@ -1019,7 +1019,7 @@ static void parseMemory(CursorState* cursor)
 			const SizeConstraints sizeConstraints = parseSizeConstraints(
 				cursor, indexType == IndexType::i32 ? IR::maxMemory32Pages : IR::maxMemory64Pages);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			return MemoryType{isShared, indexType, sizeConstraints};
+			return MemoryType(isShared, indexType, sizeConstraints,false);
 		},
 		// Parse a memory definition
 		[](CursorState* cursor, const Token*) {
@@ -1052,7 +1052,7 @@ static void parseMemory(CursorState* cursor)
 			}
 
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			return MemoryDef{MemoryType(isShared, indexType, sizeConstraints)};
+			return MemoryDef{MemoryType(isShared, indexType, sizeConstraints,false)};
 		});
 }
 

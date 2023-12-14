@@ -483,13 +483,14 @@ namespace WAVM { namespace IR {
 	// The type of a memory
 	struct MemoryType
 	{
-		bool isShared;
-		IndexType indexType;
-		SizeConstraints size;
+		bool isShared{};
+		IndexType indexType{IndexType::i32};
+		SizeConstraints size{0, UINT64_MAX};
+		bool isMemTagged{};
 
-		MemoryType() : isShared(false), indexType(IndexType::i32), size({0, UINT64_MAX}) {}
-		MemoryType(bool inIsShared, IndexType inIndexType, const SizeConstraints& inSize)
-		: isShared(inIsShared), indexType(inIndexType), size(inSize)
+		MemoryType() : isShared(false), indexType(IndexType::i32), size({0, UINT64_MAX}), isMemTagged(false) {}
+		MemoryType(bool inIsShared, IndexType inIndexType, const SizeConstraints& inSize, bool inIsMemTagged)
+		: isShared(inIsShared), indexType(inIndexType), size(inSize), isMemTagged(inIsMemTagged)
 		{
 		}
 
@@ -521,7 +522,7 @@ namespace WAVM { namespace IR {
 		};
 
 		return std::string(indexString) + asString(memoryType.size)
-			   + (memoryType.isShared ? " shared" : "");
+			   + (memoryType.isShared ? " shared" : "")+ (memoryType.isMemTagged ? " memtagged" : "");
 	}
 
 	// The type of a global

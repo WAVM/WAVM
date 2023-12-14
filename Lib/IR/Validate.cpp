@@ -804,6 +804,11 @@ struct FunctionValidationContext
 		VALIDATE_INDEX(imm.elemSegmentIndex, module_.elemSegments.size());
 	}
 
+	void validateImm(MemtagImm)
+	{
+
+	}
+
 #define VALIDATE_OP(_1, name, nameString, Imm, Signature, requiredFeature)                         \
 	void name(Imm imm)                                                                             \
 	{                                                                                              \
