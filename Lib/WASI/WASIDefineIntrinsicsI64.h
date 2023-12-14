@@ -8,6 +8,7 @@
 #undef WAVM_WASM_WASI64
 #undef wasi_iovec_iptr
 #undef wasi_ciovec_iptr
+#undef wasi_prestat_iptr
 #define WASIAddressIPtr uint64_t
 #define WASIADDRESSIPTR_MAX UINT64_MAX
 #define WASIADDRESSIPTR_FORMAT "%" PRIu64
@@ -19,3 +20,4 @@
 	TRACE_SYSCALL(syscallName "_i64", argFormat, ##__VA_ARGS__)
 #define wasi_iovec_iptr __wasi_iovec_i64
 #define wasi_ciovec_iptr __wasi_ciovec_i64
+#define wasi_prestat_iptr __wasi_prestat_i64

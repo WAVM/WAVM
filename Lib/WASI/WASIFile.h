@@ -50,7 +50,7 @@ static __wasi_errno_t validatePath(Process* process,
 	if(!getCanonicalPath(lockedDirFDE.fde->originalPath, relativePath, outCanonicalPath))
 	{ return __WASI_ENOTCAPABLE; }
 
-	TRACE_SYSCALL_FLOW("Canonical path: %s", outCanonicalPath.c_str());
+	TRACE_SYSCALL_FLOW( "Canonical path: %s", outCanonicalPath.c_str());
 
 	return __WASI_ESUCCESS;
 }
@@ -72,7 +72,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	if(lockedFDE.fde->originalPath.size() > WASIADDRESSIPTR_MAX)
 	{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 
-	__wasi_prestat_t& prestat = memoryRef<__wasi_prestat_t>(process->memory, prestatAddress);
+	wasi_prestat_iptr& prestat = memoryRef<wasi_prestat_iptr>(process->memory, prestatAddress);
 	prestat.pr_type = lockedFDE.fde->preopenedType;
 	WAVM_ASSERT(lockedFDE.fde->preopenedType == __WASI_PREOPENTYPE_DIR);
 	prestat.u.dir.pr_name_len = static_cast<WASIAddressIPtr>(lockedFDE.fde->originalPath.size());
@@ -743,7 +743,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	case __WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC:
 	case __WASI_O_EXCL | __WASI_O_TRUNC:
 	case __WASI_O_EXCL:
-	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
+	default:
+	 return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
 	};
 
 	if(openFlags & __WASI_O_CREAT) { requiredDirRights |= __WASI_RIGHT_PATH_CREATE_FILE; }
