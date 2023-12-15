@@ -80,8 +80,11 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	const Uptr numGuardPages = memoryNumGuardBytes >> pageBytesLog2;
 	auto totalpages = memoryMaxPages + numGuardPages;
 	memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
-	auto totaltaggedpages = (totalpages>>4u) + (totalpages&15u);
-	memory->baseAddressTags = Platform::allocateVirtualPages(totaltaggedpages);
+	if(type.isMemTagged)
+	{
+		auto totaltaggedpages = (totalpages>>4u) + (totalpages&15u);
+		memory->baseAddressTags = Platform::allocateVirtualPages(totaltaggedpages);
+	}
 	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
 	if(!memory->baseAddress)
 	{
@@ -236,7 +239,7 @@ IR::MemoryType Runtime::getMemoryType(const Memory* memory)
 	return IR::MemoryType{memory->isShared,
 						  memory->indexType,
 						  IR::SizeConstraints{getMemoryNumPages(memory), memory->maxPages},
-						  memory->isMemTagged};
+						  memory->baseAddressTags!=nullptr};
 }
 
 GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPages)
@@ -265,10 +268,8 @@ GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOld
 		}
 
 		auto wasmlog2 = getPlatformPagesPerWebAssemblyPageLog2();
-		auto wasmlog2m4 = wasmlog2-4u;
-		// Try to commit the new pages, and return GrowResult::outOfMemory if the commit fails.
 		auto grownpages = numPagesToGrow << wasmlog2;
-		auto grownpagesTagged = numPagesToGrow << wasmlog2m4;
+		// Try to commit the new pages, and return GrowResult::outOfMemory if the commit fails.
 		if(!Platform::commitVirtualPages(
 			   memory->baseAddress + oldNumPages * IR::numBytesPerPage,
 			   grownpages))
@@ -276,15 +277,18 @@ GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOld
 			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
 			return GrowResult::outOfMemory;
 		}
-
-		if(!Platform::commitVirtualPages(
-			   memory->baseAddressTags + oldNumPages * IR::numBytesTaggedPerPage,
-			   grownpagesTagged))
+		if(memory->baseAddressTags)
 		{
-			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
-			return GrowResult::outOfMemory;
+			auto wasmlog2m4 = wasmlog2-4u;
+			auto grownpagesTagged = numPagesToGrow << wasmlog2m4;
+			if(!Platform::commitVirtualPages(
+				memory->baseAddressTags + oldNumPages * IR::numBytesTaggedPerPage,
+				grownpagesTagged))
+			{
+				if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
+				return GrowResult::outOfMemory;
+			}
 		}
-
 		Platform::registerVirtualAllocation(grownpages);
 
 		const Uptr newNumPages = oldNumPages + numPagesToGrow;
@@ -305,20 +309,20 @@ void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 	WAVM_ASSERT(pageIndex + numPages > pageIndex);
 	WAVM_ASSERT((pageIndex + numPages) * IR::numBytesPerPage <= memory->numReservedBytes);
 	auto wasmlog2 = getPlatformPagesPerWebAssemblyPageLog2();
-	auto wasmlog2m4 = wasmlog2-4u;
-	// Decommit the pages.
 	auto dcm = numPages << wasmlog2;
-	auto dcmtagged = numPages << wasmlog2m4;
+	// Decommit the pages.
 	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage,
 								   dcm);
-
 	Platform::deregisterVirtualAllocation(dcm);
 
-
-	Platform::decommitVirtualPages(memory->baseAddressTags + pageIndex * IR::numBytesTaggedPerPage,
-								   dcmtagged);
-
-	Platform::deregisterVirtualAllocation(dcmtagged);
+	if(memory->baseAddressTags)
+	{
+		auto wasmlog2m4 = wasmlog2-4u;
+		auto dcmtagged = numPages << wasmlog2m4;
+		Platform::decommitVirtualPages(memory->baseAddressTags + pageIndex * IR::numBytesTaggedPerPage,
+									dcmtagged);
+		Platform::deregisterVirtualAllocation(dcmtagged);
+	}
 }
 
 U8* Runtime::getMemoryBaseAddress(Memory* memory) { return memory->baseAddress; }

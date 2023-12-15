@@ -87,7 +87,6 @@ namespace WAVM { namespace Runtime {
 		const bool isShared;
 		const IR::IndexType indexType;
 		const U64 maxPages;
-		const bool isMemTagged = false;
 
 		U8* baseAddress = nullptr;
 		U8* baseAddressTags = nullptr;
@@ -106,7 +105,6 @@ namespace WAVM { namespace Runtime {
 		, isShared(inType.isShared)
 		, indexType(inType.indexType)
 		, maxPages(inType.size.max)
-		, isMemTagged(inType.isMemTagged)
 		, resourceQuota(inResourceQuota)
 		{
 		}
