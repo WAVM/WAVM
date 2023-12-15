@@ -90,6 +90,7 @@ namespace WAVM { namespace Runtime {
 		const bool isMemTagged = false;
 
 		U8* baseAddress = nullptr;
+		U8* baseAddressTags = nullptr;
 		Uptr numReservedBytes = 0;
 
 		mutable Platform::RWMutex resizingMutex;

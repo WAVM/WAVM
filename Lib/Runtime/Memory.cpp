@@ -27,17 +27,26 @@ namespace WAVM { namespace Runtime {
 static Platform::RWMutex memoriesMutex;
 static std::vector<Memory*> memories;
 
-static constexpr U64 maxMemory64WASMPages =
+static inline constexpr U64 maxMemory64WASMPages =
 #if WAVM_ENABLE_TSAN
 	(U64(8) * 1024 * 1024 * 1024) >> IR::numBytesPerPageLog2; // 8GB
 #else
 	(U64(1) * 1024 * 1024 * 1024 * 1024) >> IR::numBytesPerPageLog2; // 1TB
 #endif
 
-static Uptr getPlatformPagesPerWebAssemblyPageLog2()
+inline constexpr auto maxMemory64WASMTagsPages = maxMemory64WASMPages/16u + (maxMemory64WASMPages%16u!=0);
+
+static inline Uptr getPlatformPagesPerWebAssemblyPageLog2()
 {
-	WAVM_ERROR_UNLESS(Platform::getBytesPerPageLog2() <= IR::numBytesPerPageLog2);
-	return IR::numBytesPerPageLog2 - Platform::getBytesPerPageLog2();
+	auto v{Platform::getBytesPerPageLog2()};
+	WAVM_ERROR_UNLESS(4u <= v && v <= IR::numBytesPerPageLog2);
+	return IR::numBytesPerPageLog2 - v;
+}
+
+static inline Uptr getPlatformPagesPerWebAssemblyPageLog2Tagged()
+{
+	auto log2taggedv = getPlatformPagesPerWebAssemblyPageLog2();
+	return log2taggedv - 4u;
 }
 
 static Memory* createMemoryImpl(Compartment* compartment,
@@ -69,7 +78,10 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	}
 
 	const Uptr numGuardPages = memoryNumGuardBytes >> pageBytesLog2;
+	auto totalpages = memoryMaxPages + numGuardPages;
 	memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
+	auto totaltaggedpages = (totalpages>>4u) + (totalpages&15u);
+	memory->baseAddressTags = Platform::allocateVirtualPages(totaltaggedpages);
 	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
 	if(!memory->baseAddress)
 	{
@@ -252,16 +264,28 @@ GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOld
 			return GrowResult::outOfMaxSize;
 		}
 
+		auto wasmlog2 = getPlatformPagesPerWebAssemblyPageLog2();
+		auto wasmlog2m4 = wasmlog2-4u;
 		// Try to commit the new pages, and return GrowResult::outOfMemory if the commit fails.
+		auto grownpages = numPagesToGrow << wasmlog2;
+		auto grownpagesTagged = numPagesToGrow << wasmlog2m4;
 		if(!Platform::commitVirtualPages(
 			   memory->baseAddress + oldNumPages * IR::numBytesPerPage,
-			   numPagesToGrow << getPlatformPagesPerWebAssemblyPageLog2()))
+			   grownpages))
 		{
 			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
 			return GrowResult::outOfMemory;
 		}
-		Platform::registerVirtualAllocation(numPagesToGrow
-											<< getPlatformPagesPerWebAssemblyPageLog2());
+
+		if(!Platform::commitVirtualPages(
+			   memory->baseAddressTags + oldNumPages * IR::numBytesTaggedPerPage,
+			   grownpagesTagged))
+		{
+			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
+			return GrowResult::outOfMemory;
+		}
+
+		Platform::registerVirtualAllocation(grownpages);
 
 		const Uptr newNumPages = oldNumPages + numPagesToGrow;
 		memory->numPages.store(newNumPages, std::memory_order_release);
@@ -280,12 +304,21 @@ void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 {
 	WAVM_ASSERT(pageIndex + numPages > pageIndex);
 	WAVM_ASSERT((pageIndex + numPages) * IR::numBytesPerPage <= memory->numReservedBytes);
-
+	auto wasmlog2 = getPlatformPagesPerWebAssemblyPageLog2();
+	auto wasmlog2m4 = wasmlog2-4u;
 	// Decommit the pages.
+	auto dcm = numPages << wasmlog2;
+	auto dcmtagged = numPages << wasmlog2m4;
 	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage,
-								   numPages << getPlatformPagesPerWebAssemblyPageLog2());
+								   dcm);
 
-	Platform::deregisterVirtualAllocation(numPages << getPlatformPagesPerWebAssemblyPageLog2());
+	Platform::deregisterVirtualAllocation(dcm);
+
+
+	Platform::decommitVirtualPages(memory->baseAddressTags + pageIndex * IR::numBytesTaggedPerPage,
+								   dcmtagged);
+
+	Platform::deregisterVirtualAllocation(dcmtagged);
 }
 
 U8* Runtime::getMemoryBaseAddress(Memory* memory) { return memory->baseAddress; }

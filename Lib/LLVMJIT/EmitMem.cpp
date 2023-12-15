@@ -309,6 +309,8 @@ void EmitFunctionContext::memory_storetag(MemtagImm)
 {
 	llvm::Value* taggedbytes = pop();
 	llvm::Value* memaddress = pop();
+
+//	llvm::Value* memaddressUntagged = irBuilder.CreateAnd(memaddress, UINT64_C());
 }
 
 //
