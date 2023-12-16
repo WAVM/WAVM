@@ -361,7 +361,7 @@ namespace WAVM { namespace IR {
 				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({}, {indexType, indexType});
 #else
-			return OpSignature({ValueType::i64},{ValueType::i64,ValueType::i64});
+			return OpSignature({},{ValueType::i64,ValueType::i64});
 #endif
 		}
 		inline OpSignature memory_randomstoretag(const Module& module_, const MemtagImm& imm)
