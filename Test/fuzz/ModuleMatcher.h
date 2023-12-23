@@ -246,12 +246,6 @@ namespace WAVM {
 			if(a.referenceType != b.referenceType) { failVerification(); }
 		}
 
-		void verifyMatches(MemtagImm a, MemtagImm b)
-		{
-			if(a.memoryIndex != b.memoryIndex) { failVerification(); }
-			if(a.taggedBytes != b.taggedBytes) { failVerification(); }
-		}
-
 		void verifyMatches(const FunctionDef& a, const FunctionDef& b)
 		{
 			aFunction = &a;
