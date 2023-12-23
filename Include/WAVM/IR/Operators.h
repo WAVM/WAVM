@@ -172,12 +172,6 @@ namespace WAVM { namespace IR {
 		ReferenceType referenceType;
 	};
 
-	struct MemtagImm
-	{
-		Uptr memoryIndex;
-		Uptr taggedBytes;
-	};
-
 	enum class Opcode : U16
 	{
 #define VISIT_OPCODE(opcode, name, ...) name = opcode,

@@ -502,33 +502,6 @@ void getValidEmitters(FunctionState& state,
 	}
 }
 
-
-void getValidEmitters(FunctionState& state,
-					  std::vector<OperatorEmitFunc>& outValidOpEmitters,
-					  void (CodeStream::*emitOp)(MemtagImm),
-					  OpSignature (*sigFromImm)(const Module&, const MemtagImm&))
-{
-/*
-	for(Uptr segmentIndex = 0; segmentIndex < state.module_.dataSegments.size(); ++segmentIndex)
-	{
-		for(Uptr memoryIndex = 0; memoryIndex < state.module_.memories.size(); ++memoryIndex)
-		{
-			DataSegmentAndMemImm imm;
-			imm.dataSegmentIndex = segmentIndex;
-			imm.memoryIndex = memoryIndex;
-			const OpSignature sig = (*sigFromImm)(state.module_, imm);
-			if(state.isOpSignatureAllowed(sig))
-			{
-				outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
-					(state.codeStream.*emitOp)(imm);
-					state.applyOpSignature(sig);
-				});
-			}
-		}
-	}
-*/
-}
-
 // Build a table with information about non-parametric operators.
 struct OperatorInfo
 {

@@ -305,27 +305,6 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 						   true);
 }
 
-void EmitFunctionContext::memory_randomstoretag(MemtagImm)
-{
-#if 0
-	__builtin_puts("310\n");
-	llvm::Value* taggedbytes = pop();
-	llvm::Value* memaddress = pop();
-	push(memaddress);
-#endif
-}
-
-void EmitFunctionContext::memory_storetag(MemtagImm)
-{
-#if 0
-	__builtin_puts("318\n");
-	llvm::Value* taggedbytes = pop();
-	llvm::Value* memaddress = pop();
-#endif
-//	push(memaddress);
-////	llvm::Value* memaddressUntagged = irBuilder.CreateAnd(memaddress, UINT64_C());
-}
-
 //
 // Load/store operators
 //
