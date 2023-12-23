@@ -199,7 +199,9 @@
 	visitOp(0xfe4b, i32_atomic_rmw16_cmpxchg_u, "i32.atomic.rmw16.cmpxchg_u", AtomicLoadOrStoreImm<1>             , atomiccmpxchg_i32         , atomics                )   \
 	visitOp(0xfe4c, i64_atomic_rmw8_cmpxchg_u , "i64.atomic.rmw8.cmpxchg_u" , AtomicLoadOrStoreImm<0>             , atomiccmpxchg_i64         , atomics                )   \
 	visitOp(0xfe4d, i64_atomic_rmw16_cmpxchg_u, "i64.atomic.rmw16.cmpxchg_u", AtomicLoadOrStoreImm<1>             , atomiccmpxchg_i64         , atomics                )   \
-	visitOp(0xfe4e, i64_atomic_rmw32_cmpxchg_u, "i64.atomic.rmw32.cmpxchg_u", AtomicLoadOrStoreImm<2>             , atomiccmpxchg_i64         , atomics                )
+	visitOp(0xfe4e, i64_atomic_rmw32_cmpxchg_u, "i64.atomic.rmw32.cmpxchg_u", AtomicLoadOrStoreImm<2>             , atomiccmpxchg_i64         , atomics                )   \
+	visitOp(0xfc24, memory_storetag           , "memory.storetag"           , NoImm                               , memory_storetag           , memtag                 )   \
+	visitOp(0xfc28, memory_randomstoretag     , "memory.randomstoretag"     , NoImm                               , memory_randomstoretag     , memtag                 )
 
 #define WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                                            \
 	visitOp(0x0001, nop                           , "nop"                           , NoImm                     , none_to_none              , mvp                    )   \

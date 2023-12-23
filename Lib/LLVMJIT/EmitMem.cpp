@@ -305,6 +305,19 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 						   true);
 }
 
+void EmitFunctionContext::memory_randomstoretag(NoImm)
+{
+	llvm::Value* taggedbytes = pop();
+	llvm::Value* memaddress = pop();
+	push(memaddress);
+}
+
+void EmitFunctionContext::memory_storetag(NoImm)
+{
+	llvm::Value* taggedbytes = pop();
+	llvm::Value* memaddress = pop();
+}
+
 //
 // Load/store operators
 //
