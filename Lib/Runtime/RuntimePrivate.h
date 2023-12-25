@@ -83,7 +83,7 @@ namespace WAVM { namespace Runtime {
 	struct memtagsbuffer
 	{
 		MemoryTagRuntimeRandomBuffer randomBuffer;
-		constexpr memtagsbuffer() noexcept:randomBuffer{nullptr,nullptr,nullptr}
+		constexpr memtagsbuffer() noexcept:randomBuffer{nullptr}
 		{}
 		memtagsbuffer(memtagsbuffer const&) = delete;
 		memtagsbuffer& operator=(memtagsbuffer const&) = delete;

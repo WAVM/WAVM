@@ -296,12 +296,12 @@ namespace WAVM { namespace LLVMJIT {
 	inline auto getMemoryIdFromOffset(llvm::IRBuilder<>& irbuilder,llvm::Constant* memoryOffset)
 	{
 		return getMemoryOrTableIdFromOffset(irbuilder,memoryOffset,
-			__builtin_offsetof(Runtime::CompartmentRuntimeData, memories));
+			offsetof(Runtime::CompartmentRuntimeData, memories));
 	}
 	inline auto getTableIdFromOffset(llvm::IRBuilder<>& irbuilder, llvm::Constant* tableOffset)
 	{
 		return getMemoryOrTableIdFromOffset(irbuilder,tableOffset,
-			__builtin_offsetof(Runtime::CompartmentRuntimeData, tables));
+			offsetof(Runtime::CompartmentRuntimeData, tables));
 	}
 
 	inline llvm::Type* getIptrType(LLVMContext& llvmContext, U32 numPointerBytes)

@@ -156,12 +156,12 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			memoryInfos.resize(memoryOffsets.size());
 
-			::llvm::StructType* memtagrandomgenstructType = ::llvm::StructType::create(context, "memoryRandomGeneratorStruct");
+			::llvm::StructType* memtagrandomgenstructType = ::llvm::StructType::create(llvmContext, "memoryRandomGeneratorStruct");
 
 			::std::vector<::llvm::Type*> fields;
-			fields.push_back(irBuilder.builder.getIntPtrType());
-			fields.push_back(irBuilder.builder.getIntPtrType());
-			fields.push_back(irBuilder.builder.getIntPtrType());
+			fields.push_back(irBuilder.getIntPtrType());
+			fields.push_back(irBuilder.getIntPtrType());
+			fields.push_back(irBuilder.getIntPtrType());
 			memtagrandomgenstructType->setBody(fields);
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
@@ -175,10 +175,10 @@ namespace WAVM { namespace LLVMJIT {
 					nullptr,
 					"memoryNumReservedBytesMinusGuardBytes" + llvm::Twine(memoryIndex));
 
-				memoryInfo.memtagPointerBaseVariable = irBuilder.CreateAlloca(
+				memoryInfo.memtagBasePointerVariable = irBuilder.CreateAlloca(
 					iptrType,
 					nullptr,
-					"memtagPointerBase" + llvm::Twine(memoryIndex)
+					"memtagBasePointer" + llvm::Twine(memoryIndex)
 				);
 
 				memoryInfo.memtagRandomGeneratorVariable = irBuilder.CreateAlloca(
