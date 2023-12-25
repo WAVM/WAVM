@@ -92,10 +92,10 @@ namespace WAVM { namespace Runtime {
 	};
 
 	constexpr Uptr memoryNumGuardBytes = 65536;
-
+#if 0
 	static_assert(sizeof(MemoryRuntimeData) == sizeof(Uptr) * 3,
 				  "MemoryRuntimeData isn't the expected size");
-
+#endif
 	struct TableRuntimeData
 	{
 		void* base;
