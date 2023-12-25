@@ -156,13 +156,7 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			memoryInfos.resize(memoryOffsets.size());
 
-			::llvm::StructType* memtagrandomgenstructType = ::llvm::StructType::create(llvmContext, "memoryRandomGeneratorStruct");
-
-			::std::vector<::llvm::Type*> fields;
-			fields.push_back(llvmContext.i8PtrType);
-			fields.push_back(llvmContext.i8PtrType);
-			fields.push_back(llvmContext.i8PtrType);
-			memtagrandomgenstructType->setBody(fields);
+			::llvm::StructType* memtagrandomgenstructType = llvmContext.memtagRandomGeneratorType;
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
 				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];

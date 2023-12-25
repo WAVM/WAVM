@@ -176,6 +176,14 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::v128] = emitLiteral(*this, V128());
 	typedZeroConstants[(Uptr)ValueType::externref] = typedZeroConstants[(Uptr)ValueType::funcref]
 		= llvm::Constant::getNullValue(externrefType);
+
+	::llvm::StructType* memtagrandomgenstructType = ::llvm::StructType::create("Object", "memoryRandomGeneratorStruct");
+	::std::vector<::llvm::Type*> fields;
+	fields.push_back(i8PtrType);
+	fields.push_back(i8PtrType);
+	fields.push_back(i8PtrType);
+	memtagrandomgenstructType->setBody(fields);
+	this->memtagRandomGeneratorType = memtagrandomgenstructType;
 }
 
 TargetSpec LLVMJIT::getHostTargetSpec()
