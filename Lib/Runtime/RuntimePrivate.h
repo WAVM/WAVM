@@ -82,20 +82,19 @@ namespace WAVM { namespace Runtime {
 
 	struct memtagsbuffer
 	{
-		char *beginAddress = nullptr;
-		char *currAddress = nullptr;
-		char *endAddress = nullptr;
-		constexpr memtagsbuffer() noexcept = default;
+		MemoryTagRuntimeRandomBuffer buffer;
+		constexpr memtagsbuffer() noexcept:buffer{nullptr,nullptr,nullptr}
+		{}
 		memtagsbuffer(memtagsbuffer const&) = delete;
 		memtagsbuffer& operator=(memtagsbuffer const&) = delete;
 		~memtagsbuffer()
 		{
-			if(beginAddress == nullptr)
+			if(buffer.beginAddress == nullptr)
 			{
 				return;
 			}
-			::WAVM::Utils::secure_clear(beginAddress,static_cast<::std::size_t>(endAddress-beginAddress));
-			free(beginAddress);
+			::WAVM::Utils::secure_clear(buffer.beginAddress,static_cast<::std::size_t>(buffer.endAddress-buffer.beginAddress));
+			free(buffer.beginAddress);
 		}
 	};
 

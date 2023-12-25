@@ -54,7 +54,9 @@ static Memory* createMemoryImpl(Compartment* compartment,
 								std::string&& debugName,
 								ResourceQuotaRefParam resourceQuota)
 {
-	Memory* memory = new Memory(compartment, type, std::move(debugName), resourceQuota);
+	::std::unique_ptr<Memory> memoryuptr(new Memory(compartment, type, std::move(debugName), resourceQuota));
+
+	Memory *memory = memoryuptr.get();
 
 	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
 
@@ -88,14 +90,12 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
 	if(!memory->baseAddress)
 	{
-		delete memory;
 		return nullptr;
 	}
 
 	// Grow the memory to the type's minimum size.
 	if(growMemory(memory, type.size.min) != GrowResult::success)
 	{
-		delete memory;
 		return nullptr;
 	}
 
@@ -105,7 +105,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 		memories.push_back(memory);
 	}
 
-	return memory;
+	return memoryuptr.release();
 }
 
 Memory* Runtime::createMemory(Compartment* compartment,
@@ -132,6 +132,8 @@ Memory* Runtime::createMemory(Compartment* compartment,
 		runtimeData.endAddress = memory->numReservedBytes;
 		runtimeData.numPages.store(memory->numPages.load(std::memory_order_acquire),
 								   std::memory_order_release);
+		runtimeData.memtagBase = memory->baseAddressTags;
+		runtimeData.randomBuffer = memory->randomBuffer;
 	}
 
 	return memory;
@@ -163,6 +165,8 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 		runtimeData.base = newMemory->baseAddress;
 		runtimeData.numPages.store(newMemory->numPages, std::memory_order_release);
 		runtimeData.endAddress = newMemory->numReservedBytes;
+		runtimeData.memtagBase = newMemory->baseAddressTags;
+		runtimeData.randomBuffer = newMemory->randomBuffer;
 	}
 
 	return newMemory;
@@ -182,6 +186,8 @@ Runtime::Memory::~Memory()
 		runtimeData.base = nullptr;
 		runtimeData.numPages.store(0, std::memory_order_release);
 		runtimeData.endAddress = 0;
+		runtimeData.memtagBase = nullptr;
+		runtimeData.randomBuffer = {nullptr,nullptr,nullptr};
 	}
 
 	// Remove the memory from the global array.
@@ -205,6 +211,13 @@ Runtime::Memory::~Memory()
 								   (numReservedBytes + memoryNumGuardBytes) >> pageBytesLog2);
 
 		Platform::deregisterVirtualAllocation(numPages >> pageBytesLog2);
+	}
+	if(baseAddressTags)
+	{
+		auto wasmlog2m4 = pageBytesLog2+4u;
+		Platform::freeVirtualPages(baseAddressTags,
+			(numReservedBytes + memoryNumGuardBytes) >> wasmlog2m4);
+		Platform::deregisterVirtualAllocation(numPages>>wasmlog2m4);
 	}
 
 	// Free the allocated quota.
