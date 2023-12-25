@@ -212,7 +212,7 @@ Runtime::Memory::~Memory()
 
 		Platform::deregisterVirtualAllocation(numPages >> pageBytesLog2);
 	}
-	if(baseAddressTags)
+	if(baseAddressTags && numReservedBytes > 0)
 	{
 		auto wasmlog2m4 = pageBytesLog2+4u;
 		Platform::freeVirtualPages(baseAddressTags,
