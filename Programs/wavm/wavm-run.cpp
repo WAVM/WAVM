@@ -629,7 +629,7 @@ struct State
 
 		// Call the module start function, if it has one.
 		Function* startFunction = getStartFunction(instance);
-		if(startFunction) { invokeFunction(context, startFunction); }
+		if(startFunction) { invokeFunctionWithMemTag(context, startFunction, IR::FunctionType(), nullptr, nullptr, irModule.featureSpec.memtag); }
 
 		if(emscriptenProcess)
 		{
@@ -720,8 +720,8 @@ struct State
 		untaggedInvokeResults.resize(invokeSig.results().size());
 
 		// Invoke the function.
-		invokeFunction(
-			context, function, invokeSig, untaggedInvokeArgs.data(), untaggedInvokeResults.data());
+		invokeFunctionWithMemTag(
+			context, function, invokeSig, untaggedInvokeArgs.data(), untaggedInvokeResults.data(),irModule.featureSpec.memtag);
 
 		if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
 		{

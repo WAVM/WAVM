@@ -64,6 +64,7 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::BasicBlock* unwindToBlock;
 		};
 		std::vector<TryContext> tryStack;
+		bool isMemTagged = false;
 
 		EmitContext(LLVMContext& inLLVMContext, const std::vector<llvm::Constant*>& inMemoryOffsets)
 		: llvmContext(inLLVMContext)
@@ -114,6 +115,7 @@ namespace WAVM { namespace LLVMJIT {
 		void reloadMemoryBases()
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
+			bool ismemtagged = this->isMemTagged;
 
 			// Reload the memory base pointer and num reserved bytes values from the
 			// CompartmentRuntimeData.
@@ -141,34 +143,37 @@ namespace WAVM { namespace LLVMJIT {
 					memoryInfo.endAddressVariable);
 
 #if 0
-				::llvm::Value* memoryTagPointerBaseOffset = ::llvm::ConstantExpr::getAdd(
-					memoryOffset,
-					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagBase),
-									memoryOffset->getType()));
+				if(ismemtagged)
+				{
+					::llvm::Value* memoryTagPointerBaseOffset = ::llvm::ConstantExpr::getAdd(
+						memoryOffset,
+						emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagBase),
+										memoryOffset->getType()));
 
-				irBuilder.CreateStore(
-					loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-											llvmContext.i8Type,
-											compartmentAddress, {memoryTagPointerBaseOffset}),
-										   memoryOffset->getType()),
-					memoryInfo.memtagBasePointerVariable);
+					irBuilder.CreateStore(
+						loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+												llvmContext.i8Type,
+												compartmentAddress, {memoryTagPointerBaseOffset}),
+											memoryOffset->getType()),
+						memoryInfo.memtagBasePointerVariable);
 
-				::llvm::Value* memtagRandomBufferBaseOffset = ::llvm::ConstantExpr::getAdd(
-					memoryOffset,
-					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagRandomBufferBase),
-									memoryOffset->getType()));
+					::llvm::Value* memtagRandomBufferBaseOffset = ::llvm::ConstantExpr::getAdd(
+						memoryOffset,
+						emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagRandomBufferBase),
+										memoryOffset->getType()));
 
-				auto loaduntyped = loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-									llvmContext.i8Type,
-									compartmentAddress, {memtagRandomBufferBaseOffset}),
-									memoryOffset->getType());
-				irBuilder.CreateStore(loaduntyped,memoryInfo.memtagRandomBufferBase);
-				auto loadoffset = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-					llvmContext.i8Type,
-					loaduntyped,
-					{::llvm::ConstantInt::get(memoryOffset->getType(), ::WAVM::Runtime::memoryTagBufferBytes)});
-				irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferCurr);
-				irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferEnd);
+					auto loaduntyped = loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+										llvmContext.i8Type,
+										compartmentAddress, {memtagRandomBufferBaseOffset}),
+										memoryOffset->getType());
+					irBuilder.CreateStore(loaduntyped,memoryInfo.memtagRandomBufferBase);
+					auto loadoffset = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+						llvmContext.i8Type,
+						loaduntyped,
+						{::llvm::ConstantInt::get(memoryOffset->getType(), ::WAVM::Runtime::memoryTagBufferBytes)});
+					irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferCurr);
+					irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferEnd);
+				}
 #endif
 			}
 		}
@@ -176,7 +181,7 @@ namespace WAVM { namespace LLVMJIT {
 		void initContextVariables(llvm::Value* initialContextPointer, llvm::Type* iptrType)
 		{
 			memoryInfos.resize(memoryOffsets.size());
-
+			bool ismemtagged = this->isMemTagged;
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
 				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
@@ -189,29 +194,33 @@ namespace WAVM { namespace LLVMJIT {
 					nullptr,
 					"memoryNumReservedBytesMinusGuardBytes" + llvm::Twine(memoryIndex));
 
-				memoryInfo.memtagBasePointerVariable = irBuilder.CreateAlloca(
-					iptrType,
-					nullptr,
-					"memtagBasePointer" + llvm::Twine(memoryIndex)
-				);
+				if(ismemtagged)
+				{
+					//__builtin_puts("memtag199\n");
+					memoryInfo.memtagBasePointerVariable = irBuilder.CreateAlloca(
+						iptrType,
+						nullptr,
+						"memtagBasePointer" + llvm::Twine(memoryIndex)
+					);
 
-				memoryInfo.memtagRandomBufferBase = irBuilder.CreateAlloca(
-					iptrType,
-					nullptr,
-					"memtagRandomBufferBase" + llvm::Twine(memoryIndex)
-				);
+					memoryInfo.memtagRandomBufferBase = irBuilder.CreateAlloca(
+						iptrType,
+						nullptr,
+						"memtagRandomBufferBase" + llvm::Twine(memoryIndex)
+					);
 
-				memoryInfo.memtagRandomBufferCurr = irBuilder.CreateAlloca(
-					iptrType,
-					nullptr,
-					"memtagRandomBufferCurr" + llvm::Twine(memoryIndex)
-				);
+					memoryInfo.memtagRandomBufferCurr = irBuilder.CreateAlloca(
+						iptrType,
+						nullptr,
+						"memtagRandomBufferCurr" + llvm::Twine(memoryIndex)
+					);
 
-				memoryInfo.memtagRandomBufferEnd = irBuilder.CreateAlloca(
-					iptrType,
-					nullptr,
-					"memtagRandomBufferEnd" + llvm::Twine(memoryIndex)
-				);
+					memoryInfo.memtagRandomBufferEnd = irBuilder.CreateAlloca(
+						iptrType,
+						nullptr,
+						"memtagRandomBufferEnd" + llvm::Twine(memoryIndex)
+					);
+				}
 			}
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");
