@@ -360,6 +360,7 @@ namespace WAVM { namespace IR {
 				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({}, {indexType, indexType});
 #else
+
 			return OpSignature({},{ValueType::i64,ValueType::i64});
 #endif
 		}

@@ -15,6 +15,7 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
+#include "WAVM/Utils/secure_clear.h"
 
 namespace WAVM { namespace Intrinsics {
 	struct Module;
@@ -79,6 +80,25 @@ namespace WAVM { namespace Runtime {
 	// at the end of the array will, when re-adding this Function's address, point to this Object.
 	extern Object* getOutOfBoundsElement();
 
+	struct memtagsbuffer
+	{
+		char *beginAddress = nullptr;
+		char *currAddress = nullptr;
+		char *endAddress = nullptr;
+		constexpr memtagsbuffer() noexcept = default;
+		memtagsbuffer(memtagsbuffer const&) = delete;
+		memtagsbuffer& operator=(memtagsbuffer const&) = delete;
+		~memtagsbuffer()
+		{
+			if(beginAddress == nullptr)
+			{
+				return;
+			}
+			::WAVM::Utils::secure_clear(beginAddress,static_cast<::std::size_t>(endAddress-beginAddress));
+			free(beginAddress);
+		}
+	};
+
 	// An instance of a WebAssembly Memory.
 	struct Memory : GCObject
 	{
@@ -90,6 +110,7 @@ namespace WAVM { namespace Runtime {
 
 		U8* baseAddress = nullptr;
 		U8* baseAddressTags = nullptr;
+		memtagsbuffer memtagsbuf;
 		Uptr numReservedBytes = 0;
 
 		mutable Platform::RWMutex resizingMutex;

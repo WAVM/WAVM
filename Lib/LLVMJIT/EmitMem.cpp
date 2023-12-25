@@ -72,6 +72,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 											   U64 offset,
 											   BoundsCheckOp boundsCheckOp)
 {
+
 	const MemoryType& memoryType
 		= functionContext.moduleContext.irModule.memories.getType(memoryIndex);
 	const bool is32bitMemoryOn64bitHost
@@ -183,7 +184,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAddress,
 														 llvm::Type* memoryType,
 														 Uptr memoryIndex)
-{
+{ 
 	llvm::Value* memoryBasePointer
 		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,memoryInfos[memoryIndex].basePointerVariable);
 	llvm::Value* bytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8Type,memoryBasePointer, boundedAddress);
@@ -305,17 +306,22 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 						   true);
 }
 
+static ::llvm::Value * generateMemRandomTagByte()
+{
+	
+}
+
 void EmitFunctionContext::memory_randomstoretag(NoImm)
 {
-	llvm::Value* taggedbytes = pop();
-	llvm::Value* memaddress = pop();
+	::llvm::Value *taggedbytes = pop();
+	::llvm::Value *memaddress = pop();
 	push(memaddress);
 }
 
 void EmitFunctionContext::memory_storetag(NoImm)
 {
-	llvm::Value* taggedbytes = pop();
-	llvm::Value* memaddress = pop();
+	::llvm::Value *taggedbytes = pop();
+	::llvm::Value *memaddress = pop();
 }
 
 //
