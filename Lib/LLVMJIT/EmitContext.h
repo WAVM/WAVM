@@ -140,6 +140,7 @@ namespace WAVM { namespace LLVMJIT {
 										   memoryOffset->getType()),
 					memoryInfo.endAddressVariable);
 
+#if 0
 				::llvm::Value* memoryTagPointerBaseOffset = ::llvm::ConstantExpr::getAdd(
 					memoryOffset,
 					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagBase),
@@ -168,6 +169,7 @@ namespace WAVM { namespace LLVMJIT {
 					{::llvm::ConstantInt::get(memoryOffset->getType(), ::WAVM::Runtime::memoryTagBufferBytes)});
 				irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferCurr);
 				irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferEnd);
+#endif
 			}
 		}
 

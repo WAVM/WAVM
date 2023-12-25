@@ -193,6 +193,7 @@ Instance* Runtime::instantiateModuleInternal(Compartment* compartment,
 		}
 		tables.push_back(table);
 	}
+	bool const ismemtagged{module_->ir.featureSpec.memtag};
 	for(Uptr memoryDefIndex = 0; memoryDefIndex < module_->ir.memories.defs.size();
 		++memoryDefIndex)
 	{
@@ -201,6 +202,7 @@ Instance* Runtime::instantiateModuleInternal(Compartment* compartment,
 		auto memory = createMemory(compartment,
 								   module_->ir.memories.defs[memoryDefIndex].type,
 								   std::move(debugName),
+								   ismemtagged,
 								   resourceQuota);
 		if(!memory)
 		{

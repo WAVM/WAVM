@@ -64,6 +64,7 @@ static U8* createMemoryTagRandomBufferImpl() noexcept
 static Memory* createMemoryImpl(Compartment* compartment,
 								IR::MemoryType type,
 								std::string&& debugName,
+								bool isMemTagged,
 								ResourceQuotaRefParam resourceQuota)
 {
 	::std::unique_ptr<Memory> memoryuptr(new Memory(compartment, type, std::move(debugName), resourceQuota));
@@ -94,7 +95,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	const Uptr numGuardPages = memoryNumGuardBytes >> pageBytesLog2;
 	auto totalpages = memoryMaxPages + numGuardPages;
 	memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
-	if(type.isMemTagged)
+	if(isMemTagged)
 	{
 		auto totaltaggedpages = (totalpages>>4u) + (totalpages&15u);
 		memory->baseAddressTags = Platform::allocateVirtualPages(totaltaggedpages);
@@ -124,10 +125,11 @@ static Memory* createMemoryImpl(Compartment* compartment,
 Memory* Runtime::createMemory(Compartment* compartment,
 							  IR::MemoryType type,
 							  std::string&& debugName,
+							  bool isMemTagged,
 							  ResourceQuotaRefParam resourceQuota)
 {
 	WAVM_ASSERT(type.size.min <= UINTPTR_MAX);
-	Memory* memory = createMemoryImpl(compartment, type, std::move(debugName), resourceQuota);
+	Memory* memory = createMemoryImpl(compartment, type, std::move(debugName), isMemTagged, resourceQuota);
 	if(!memory) { return nullptr; }
 	::std::unique_ptr<Memory> memoryuptr(memory);
 	// Add the memory to the compartment's memories IndexMap.
@@ -142,10 +144,10 @@ Memory* Runtime::createMemory(Compartment* compartment,
 		MemoryRuntimeData& runtimeData = compartment->runtimeData->memories[memory->id];
 		runtimeData.base = memory->baseAddress;
 		runtimeData.endAddress = memory->numReservedBytes;
-		runtimeData.numPages.store(memory->numPages.load(std::memory_order_acquire),
-								   std::memory_order_release);
 		runtimeData.memtagBase = memory->baseAddressTags;
 		runtimeData.memtagRandomBufferBase = memory->memtagRandomBufferBase;
+		runtimeData.numPages.store(memory->numPages.load(std::memory_order_acquire),
+								   std::memory_order_release);
 	}
 
 	return memoryuptr.release();
@@ -156,13 +158,14 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 	Platform::RWMutex::ExclusiveLock resizingLock(memory->resizingMutex);
 	const IR::MemoryType memoryType = getMemoryType(memory);
 	std::string debugName = memory->debugName;
+	bool const ismemtagged{memory->baseAddressTags!=nullptr};
 	Memory* newMemory
-		= createMemoryImpl(newCompartment, memoryType, std::move(debugName), memory->resourceQuota);
+		= createMemoryImpl(newCompartment, memoryType, std::move(debugName), ismemtagged, memory->resourceQuota);
 	if(!newMemory) { return nullptr; }
 
 	// Copy the memory contents to the new memory.
 	memcpy(newMemory->baseAddress, memory->baseAddress, memoryType.size.min * IR::numBytesPerPage);
-	if(memory->baseAddressTags)
+	if(ismemtagged)
 	{
 		memcpy(newMemory->baseAddressTags, memory->baseAddressTags, memoryType.size.min * (IR::numBytesPerPage>>4u));
 		newMemory->memtagRandomBufferBase = createMemoryTagRandomBufferImpl();

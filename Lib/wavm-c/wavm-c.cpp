@@ -1043,7 +1043,7 @@ wasm_memory_t* wasm_memory_new(wasm_compartment_t* compartment,
 							   const wasm_memorytype_t* type,
 							   const char* debug_name)
 {
-	Memory* memory = createMemory(compartment, type->type, std::string(debug_name));
+	Memory* memory = createMemory(compartment, type->type, std::string(debug_name), false);
 	addGCRoot(memory);
 	return memory;
 }

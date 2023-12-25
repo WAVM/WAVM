@@ -358,6 +358,7 @@ namespace WAVM { namespace Runtime {
 	WAVM_API Memory* createMemory(Compartment* compartment,
 								  IR::MemoryType type,
 								  std::string&& debugName,
+								  bool isMemTagged,
 								  ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 	// Gets the base address of the memory's data.
