@@ -150,19 +150,18 @@ namespace WAVM { namespace LLVMJIT {
 											llvmContext.i8Type,
 											compartmentAddress, {memoryTagPointerBaseOffset}),
 										   memoryOffset->getType()),
-					memoryInfo.memtagRandomBufferBase);
+					memoryInfo.memtagBasePointerVariable);
 
 				::llvm::Value* memtagRandomBufferBaseOffset = ::llvm::ConstantExpr::getAdd(
 					memoryOffset,
 					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagRandomBufferBase),
 									memoryOffset->getType()));
+
 				auto loaduntyped = loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 									llvmContext.i8Type,
 									compartmentAddress, {memtagRandomBufferBaseOffset}),
 									memoryOffset->getType());
-
 				irBuilder.CreateStore(loaduntyped,memoryInfo.memtagRandomBufferBase);
-
 				auto loadoffset = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 					llvmContext.i8Type,
 					loaduntyped,
