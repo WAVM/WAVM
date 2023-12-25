@@ -49,6 +49,18 @@ static inline Uptr getPlatformPagesPerWebAssemblyPageLog2Tagged()
 	return log2taggedv - 4u;
 }
 
+static MemoryTagRuntimeRandomBuffer createMemoryTagRandomBufferImpl() noexcept
+{
+	constexpr
+		::std::size_t buffersize{8192};
+	char *ptr = reinterpret_cast<char*>(::std::malloc(buffersize));
+	if(ptr==nullptr)
+	{
+		::std::abort();
+	}
+	return {ptr,ptr+buffersize,ptr+buffersize};
+}
+
 static Memory* createMemoryImpl(Compartment* compartment,
 								IR::MemoryType type,
 								std::string&& debugName,
@@ -86,6 +98,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	{
 		auto totaltaggedpages = (totalpages>>4u) + (totalpages&15u);
 		memory->baseAddressTags = Platform::allocateVirtualPages(totaltaggedpages);
+		memory->memtagsbuf.randomBuffer = createMemoryTagRandomBufferImpl();
 	}
 	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
 	if(!memory->baseAddress)
@@ -150,7 +163,11 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 
 	// Copy the memory contents to the new memory.
 	memcpy(newMemory->baseAddress, memory->baseAddress, memoryType.size.min * IR::numBytesPerPage);
-
+	if(memory->baseAddressTags)
+	{
+		memcpy(newMemory->baseAddressTags, memory->baseAddressTags, memoryType.size.min * (IR::numBytesPerPage>>4u));
+		newMemory->memtagsbuf.randomBuffer = createMemoryTagRandomBufferImpl();
+	}
 	resizingLock.unlock();
 
 	// Insert the memory in the new compartment's memories array with the same index as it had in
