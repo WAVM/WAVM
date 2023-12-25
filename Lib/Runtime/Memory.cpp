@@ -49,16 +49,16 @@ static inline Uptr getPlatformPagesPerWebAssemblyPageLog2Tagged()
 	return log2taggedv - 4u;
 }
 
-static MemoryTagRuntimeRandomBuffer createMemoryTagRandomBufferImpl() noexcept
+static U8* createMemoryTagRandomBufferImpl() noexcept
 {
 	constexpr
 		::std::size_t buffersize{memoryTagBufferBytes};
-	char *ptr = reinterpret_cast<char*>(::std::malloc(buffersize));
+	U8 *ptr = reinterpret_cast<U8*>(::std::malloc(buffersize));
 	if(ptr==nullptr)
 	{
 		::std::abort();
 	}
-	return {ptr};
+	return ptr;
 }
 
 static Memory* createMemoryImpl(Compartment* compartment,
@@ -98,7 +98,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	{
 		auto totaltaggedpages = (totalpages>>4u) + (totalpages&15u);
 		memory->baseAddressTags = Platform::allocateVirtualPages(totaltaggedpages);
-		memory->memtagsbuf.randomBuffer = createMemoryTagRandomBufferImpl();
+		memory->memtagRandomBufferBase = createMemoryTagRandomBufferImpl();
 	}
 	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
 	if(!memory->baseAddress)
@@ -145,7 +145,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 		runtimeData.numPages.store(memory->numPages.load(std::memory_order_acquire),
 								   std::memory_order_release);
 		runtimeData.memtagBase = memory->baseAddressTags;
-		runtimeData.randomBuffer = memory->memtagsbuf.randomBuffer;
+		runtimeData.memtagRandomBufferBase = memory->memtagRandomBufferBase;
 	}
 
 	return memoryuptr.release();
@@ -165,7 +165,7 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 	if(memory->baseAddressTags)
 	{
 		memcpy(newMemory->baseAddressTags, memory->baseAddressTags, memoryType.size.min * (IR::numBytesPerPage>>4u));
-		newMemory->memtagsbuf.randomBuffer = createMemoryTagRandomBufferImpl();
+		newMemory->memtagRandomBufferBase = createMemoryTagRandomBufferImpl();
 	}
 	resizingLock.unlock();
 
@@ -182,7 +182,7 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 		runtimeData.numPages.store(newMemory->numPages, std::memory_order_release);
 		runtimeData.endAddress = newMemory->numReservedBytes;
 		runtimeData.memtagBase = newMemory->baseAddressTags;
-		runtimeData.randomBuffer = newMemory->memtagsbuf.randomBuffer;
+		runtimeData.memtagRandomBufferBase = newMemory->memtagRandomBufferBase;
 	}
 
 	return newMemory;
@@ -203,7 +203,7 @@ Runtime::Memory::~Memory()
 		runtimeData.numPages.store(0, std::memory_order_release);
 		runtimeData.endAddress = 0;
 		runtimeData.memtagBase = nullptr;
-		runtimeData.randomBuffer = {nullptr};
+		runtimeData.memtagRandomBufferBase = nullptr;
 	}
 
 	// Remove the memory from the global array.
@@ -238,6 +238,12 @@ Runtime::Memory::~Memory()
 
 	// Free the allocated quota.
 	if(resourceQuota) { resourceQuota->memoryPages.free(numPages); }
+
+	if(memtagRandomBufferBase)
+	{
+		::WAVM::Utils::secure_clear(memtagRandomBufferBase,memoryTagBufferBytes);
+		free(memtagRandomBufferBase);
+	}
 }
 
 bool Runtime::isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outMemoryAddress)

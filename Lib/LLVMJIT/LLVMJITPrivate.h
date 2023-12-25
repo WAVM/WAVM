@@ -115,8 +115,6 @@ namespace WAVM { namespace LLVMJIT {
 		// Maps a type ID to the corresponding LLVM type.
 		llvm::Type* valueTypes[IR::numValueTypes];
 
-		llvm::StructType* memtagRandomGeneratorType;
-
 		LLVMContext();
 	};
 
