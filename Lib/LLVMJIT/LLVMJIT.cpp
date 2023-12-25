@@ -177,8 +177,8 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::externref] = typedZeroConstants[(Uptr)ValueType::funcref]
 		= llvm::Constant::getNullValue(externrefType);
 
-//	::llvm::Type* memoryrandomtagfields[3]{i8PtrType,i8PtrType,i8PtrType};
-//	this->memtagRandomGeneratorType = ::llvm::StructType::create(memoryrandomtagfields);
+	::llvm::Type* memoryrandomtagfields[3]{i8PtrType,i8PtrType,i8PtrType};
+	this->memtagRandomGeneratorType = ::llvm::StructType::create(memoryrandomtagfields);
 }
 
 TargetSpec LLVMJIT::getHostTargetSpec()
