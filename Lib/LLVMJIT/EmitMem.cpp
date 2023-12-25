@@ -308,7 +308,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 
 static ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& context)
 {
-	
+	return nullptr;	
 }
 
 void EmitFunctionContext::memory_randomstoretag(NoImm)

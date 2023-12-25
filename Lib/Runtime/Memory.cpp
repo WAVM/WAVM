@@ -129,7 +129,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 	WAVM_ASSERT(type.size.min <= UINTPTR_MAX);
 	Memory* memory = createMemoryImpl(compartment, type, std::move(debugName), resourceQuota);
 	if(!memory) { return nullptr; }
-
+	::std::unique_ptr<Memory> memoryuptr(memory);
 	// Add the memory to the compartment's memories IndexMap.
 	{
 		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
@@ -137,7 +137,6 @@ Memory* Runtime::createMemory(Compartment* compartment,
 		memory->id = compartment->memories.add(UINTPTR_MAX, memory);
 		if(memory->id == UINTPTR_MAX)
 		{
-			delete memory;
 			return nullptr;
 		}
 		MemoryRuntimeData& runtimeData = compartment->runtimeData->memories[memory->id];
@@ -149,7 +148,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 		runtimeData.randomBuffer = memory->memtagsbuf.randomBuffer;
 	}
 
-	return memory;
+	return memoryuptr.release();
 }
 
 Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
