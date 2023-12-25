@@ -204,7 +204,7 @@ Runtime::Memory::~Memory()
 		runtimeData.numPages.store(0, std::memory_order_release);
 		runtimeData.endAddress = 0;
 		runtimeData.memtagBase = nullptr;
-		runtimeData.randomBuffer = {nullptr,nullptr,nullptr};
+		runtimeData.randomBuffer = {nullptr};
 	}
 
 	// Remove the memory from the global array.
