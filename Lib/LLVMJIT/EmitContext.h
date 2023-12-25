@@ -52,6 +52,8 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			llvm::Value* basePointerVariable;
 			llvm::Value* endAddressVariable;
+			llvm::Value* memtagBasePointerVariable;
+			llvm::Value* memtagRandomGeneratorVariable;
 		};
 		std::vector<MemoryInfo> memoryInfos;
 
@@ -135,12 +137,32 @@ namespace WAVM { namespace LLVMJIT {
 											compartmentAddress, {memoryNumReservedBytesOffset}),
 										   memoryOffset->getType()),
 					memoryInfo.endAddressVariable);
+
+				::llvm::Value* memoryTagPointerBaseOffset = ::llvm::ConstantExpr::getAdd(
+					memoryOffset,
+					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagBase),
+									memoryOffset->getType()));
+
+				irBuilder.CreateStore(
+					loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+											llvmContext.i8Type,
+											compartmentAddress, {memoryTagPointerBaseOffset}),
+										   memoryOffset->getType()),
+					memoryInfo.memtagBasePointerVariable);
 			}
 		}
 
 		void initContextVariables(llvm::Value* initialContextPointer, llvm::Type* iptrType)
 		{
 			memoryInfos.resize(memoryOffsets.size());
+
+			::llvm::StructType* memtagrandomgenstructType = ::llvm::StructType::create(context, "memoryRandomGeneratorStruct");
+
+			::std::vector<::llvm::Type*> fields;
+			fields.push_back(irBuilder.builder.getIntPtrType());
+			fields.push_back(irBuilder.builder.getIntPtrType());
+			fields.push_back(irBuilder.builder.getIntPtrType());
+			memtagrandomgenstructType->setBody(fields);
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
 				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
@@ -152,6 +174,18 @@ namespace WAVM { namespace LLVMJIT {
 					iptrType,
 					nullptr,
 					"memoryNumReservedBytesMinusGuardBytes" + llvm::Twine(memoryIndex));
+
+				memoryInfo.memtagPointerBaseVariable = irBuilder.CreateAlloca(
+					iptrType,
+					nullptr,
+					"memtagPointerBase" + llvm::Twine(memoryIndex)
+				);
+
+				memoryInfo.memtagRandomGeneratorVariable = irBuilder.CreateAlloca(
+					memtagrandomgenstructType,
+					nullptr,
+					"memtagRandomGenerator" + llvm::Twine(memoryIndex)
+				);
 			}
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");

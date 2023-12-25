@@ -52,13 +52,13 @@ static inline Uptr getPlatformPagesPerWebAssemblyPageLog2Tagged()
 static MemoryTagRuntimeRandomBuffer createMemoryTagRandomBufferImpl() noexcept
 {
 	constexpr
-		::std::size_t buffersize{8192};
+		::std::size_t buffersize{memoryTagBufferBytes};
 	char *ptr = reinterpret_cast<char*>(::std::malloc(buffersize));
 	if(ptr==nullptr)
 	{
 		::std::abort();
 	}
-	return {ptr,ptr+buffersize,ptr+buffersize};
+	return {ptr};
 }
 
 static Memory* createMemoryImpl(Compartment* compartment,

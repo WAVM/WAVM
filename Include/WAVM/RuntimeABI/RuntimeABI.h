@@ -78,8 +78,6 @@ namespace WAVM { namespace Runtime {
 	struct MemoryTagRuntimeRandomBuffer
 	{
 		char* beginAddress;
-		char* currAddress;
-		char* endAddress;
 	};
 
 	struct MemoryRuntimeData
@@ -91,7 +89,8 @@ namespace WAVM { namespace Runtime {
 		MemoryTagRuntimeRandomBuffer randomBuffer;
 	};
 
-	constexpr Uptr memoryNumGuardBytes = 65536;
+	inline constexpr Uptr memoryNumGuardBytes = 65536;
+	inline constexpr ::std::size_t memoryTagBufferBytes = 8192;
 #if 0
 	static_assert(sizeof(MemoryRuntimeData) == sizeof(Uptr) * 3,
 				  "MemoryRuntimeData isn't the expected size");
@@ -105,13 +104,13 @@ namespace WAVM { namespace Runtime {
 	static_assert(sizeof(TableRuntimeData) == sizeof(Uptr) * 2,
 				  "TableRuntimeData isn't the expected size");
 
-	static constexpr Uptr maxMemories = 255;
-	static constexpr Uptr compartmentReservedBytes = Uptr(2) * 1024 * 1024 * 1024;
-	static constexpr Uptr compartmentNonContextBytes = Uptr(2) * 1024 * 1024;
-	static constexpr Uptr maxTables = (compartmentNonContextBytes - sizeof(Compartment*)
+	inline constexpr Uptr maxMemories = 255;
+	inline constexpr Uptr compartmentReservedBytes = Uptr(2) * 1024 * 1024 * 1024;
+	inline constexpr Uptr compartmentNonContextBytes = Uptr(2) * 1024 * 1024;
+	inline constexpr Uptr maxTables = (compartmentNonContextBytes - sizeof(Compartment*)
 									   - maxMemories * sizeof(MemoryRuntimeData))
 									  / sizeof(TableRuntimeData);
-	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
+	inline constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
 
 	struct CompartmentRuntimeData
 	{

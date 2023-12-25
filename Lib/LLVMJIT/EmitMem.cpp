@@ -306,7 +306,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 						   true);
 }
 
-static ::llvm::Value * generateMemRandomTagByte()
+static ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& context)
 {
 	
 }

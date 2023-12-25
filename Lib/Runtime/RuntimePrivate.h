@@ -93,7 +93,7 @@ namespace WAVM { namespace Runtime {
 			{
 				return;
 			}
-			::WAVM::Utils::secure_clear(randomBuffer.beginAddress,static_cast<::std::size_t>(randomBuffer.endAddress-randomBuffer.beginAddress));
+			::WAVM::Utils::secure_clear(randomBuffer.beginAddress,memoryTagBufferBytes);
 			free(randomBuffer.beginAddress);
 		}
 	};
