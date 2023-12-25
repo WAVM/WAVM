@@ -146,7 +146,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 		runtimeData.numPages.store(memory->numPages.load(std::memory_order_acquire),
 								   std::memory_order_release);
 		runtimeData.memtagBase = memory->baseAddressTags;
-		runtimeData.randomBuffer = memory->randomBuffer;
+		runtimeData.randomBuffer = memory->memtagsbuf.randomBuffer;
 	}
 
 	return memory;
@@ -183,7 +183,7 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 		runtimeData.numPages.store(newMemory->numPages, std::memory_order_release);
 		runtimeData.endAddress = newMemory->numReservedBytes;
 		runtimeData.memtagBase = newMemory->baseAddressTags;
-		runtimeData.randomBuffer = newMemory->randomBuffer;
+		runtimeData.randomBuffer = newMemory->memtagsbuf.randomBuffer;
 	}
 
 	return newMemory;
