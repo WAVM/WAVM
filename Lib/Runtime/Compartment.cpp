@@ -47,7 +47,7 @@ Runtime::Compartment::~Compartment()
 	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
 									  compartmentReservedBytes >> Platform::getBytesPerPageLog2(),
 									  compartmentRuntimeDataAlignmentLog2);
-	Platform::deregisterVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
+	Platform::deregisterVirtualAllocation(__builtin_offsetof(CompartmentRuntimeData, contexts));
 }
 
 static CompartmentRuntimeData* initCompartmentRuntimeData(U8*& outUnalignedRuntimeData)
@@ -60,8 +60,8 @@ static CompartmentRuntimeData* initCompartmentRuntimeData(U8*& outUnalignedRunti
 
 	WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
 		(U8*)runtimeData,
-		offsetof(CompartmentRuntimeData, contexts) >> Platform::getBytesPerPageLog2()));
-	Platform::registerVirtualAllocation(offsetof(CompartmentRuntimeData, contexts));
+		__builtin_offsetof(CompartmentRuntimeData, contexts) >> Platform::getBytesPerPageLog2()));
+	Platform::registerVirtualAllocation(__builtin_offsetof(CompartmentRuntimeData, contexts));
 
 	return runtimeData;
 }
