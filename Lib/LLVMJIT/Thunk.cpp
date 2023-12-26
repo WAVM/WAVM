@@ -64,11 +64,10 @@ private:
 InvokeThunkPointer LLVMJIT::getInvokeThunkWithMemtagged(FunctionType functionType, bool ismemtagged)
 {
 	InvokeThunkCache& invokeThunkCache = InvokeThunkCache::get();
-
 	// First, take a shareable lock on the cache mutex, and check if the thunk is cached.
 	{
 		Platform::RWMutex::ShareableLock shareableLock(invokeThunkCache.mutex);
-		Runtime::Function** invokeThunkFunction
+		Runtime::Function** invokeThunkFunction	
 			= invokeThunkCache.typeToFunctionMap.get(functionType);
 		if(invokeThunkFunction)
 		{

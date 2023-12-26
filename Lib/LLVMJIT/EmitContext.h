@@ -115,7 +115,9 @@ namespace WAVM { namespace LLVMJIT {
 		void reloadMemoryBases()
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
+#if 0
 			bool ismemtagged = this->isMemTagged;
+#endif
 
 			// Reload the memory base pointer and num reserved bytes values from the
 			// CompartmentRuntimeData.
@@ -196,7 +198,6 @@ namespace WAVM { namespace LLVMJIT {
 
 				if(ismemtagged)
 				{
-					//__builtin_puts("memtag199\n");
 					memoryInfo.memtagBasePointerVariable = irBuilder.CreateAlloca(
 						iptrType,
 						nullptr,

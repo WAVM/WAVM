@@ -83,6 +83,8 @@ namespace WAVM { namespace LLVMJIT {
 		, functionType(inIRModule.types[inFunctionDef.type.index])
 		, function(inLLVMFunction)
 		{
+			this->isMemTagged = irModule.featureSpec.memtag;
+//			__builtin_printf("Memtagged:%d\n",this->isMemTagged);
 		}
 
 		void emit();
