@@ -81,6 +81,24 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 
 	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
 
+	auto memtagBasePointerVariable = functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable;
+	if(memtagBasePointerVariable)	//memtag needs to ignore upper 8 bits
+	{
+		if(memoryType.indexType==IndexType::i64)
+		{
+			auto pointertype = address->getType();
+			address=irBuilder.CreatePtrToInt(address,irBuilder.getInt64Ty());
+			address=irBuilder.CreateAnd(address,irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
+			address=irBuilder.CreateIntToPtr(address,pointertype);
+		}
+		else
+		{
+			auto pointertype = address->getType();
+			address=irBuilder.CreatePtrToInt(address,irBuilder.getInt32Ty());
+			address=irBuilder.CreateAnd(address,irBuilder.getInt32(0x3FFFFFFF));
+			address=irBuilder.CreateIntToPtr(address,pointertype);
+		}
+	}
 	numBytes = irBuilder.CreateZExt(numBytes, address->getType());
 	WAVM_ASSERT(numBytes->getType() == address->getType());
 
@@ -306,16 +324,31 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 						   true);
 }
 
-static ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& context)
+static inline bool isMemTaggedEnabled(EmitFunctionContext& functionContext,Uptr memoryIndex)
 {
-	return nullptr;	
+	return functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable!=nullptr;
+}
+
+static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& functionContext,Uptr memoryIndex)
+{
+//	if()
+
+	return nullptr;
 }
 
 void EmitFunctionContext::memory_randomstoretag(NoImm)
 {
 	::llvm::Value *taggedbytes = pop();
 	::llvm::Value *memaddress = pop();
-	push(memaddress);
+	if(isMemTaggedEnabled(*this,0))
+	{
+		//auto randombyte = generateMemRandomTagByte(*this,0);
+		push(memaddress);
+	}
+	else
+	{
+		push(memaddress);
+	}	
 }
 
 void EmitFunctionContext::memory_storetag(NoImm)

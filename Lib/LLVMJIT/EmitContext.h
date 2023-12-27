@@ -115,10 +115,7 @@ namespace WAVM { namespace LLVMJIT {
 		void reloadMemoryBases()
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
-#if 0
 			bool ismemtagged = this->isMemTagged;
-#endif
-
 			// Reload the memory base pointer and num reserved bytes values from the
 			// CompartmentRuntimeData.
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
@@ -144,7 +141,6 @@ namespace WAVM { namespace LLVMJIT {
 										   memoryOffset->getType()),
 					memoryInfo.endAddressVariable);
 
-#if 0
 				if(ismemtagged)
 				{
 					::llvm::Value* memoryTagPointerBaseOffset = ::llvm::ConstantExpr::getAdd(
@@ -158,16 +154,14 @@ namespace WAVM { namespace LLVMJIT {
 												compartmentAddress, {memoryTagPointerBaseOffset}),
 											memoryOffset->getType()),
 						memoryInfo.memtagBasePointerVariable);
-
 					::llvm::Value* memtagRandomBufferBaseOffset = ::llvm::ConstantExpr::getAdd(
 						memoryOffset,
 						emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagRandomBufferBase),
 										memoryOffset->getType()));
-
 					auto loaduntyped = loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 										llvmContext.i8Type,
 										compartmentAddress, {memtagRandomBufferBaseOffset}),
-										memoryOffset->getType());
+										llvmContext.i8PtrType);
 					irBuilder.CreateStore(loaduntyped,memoryInfo.memtagRandomBufferBase);
 					auto loadoffset = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 						llvmContext.i8Type,
@@ -176,7 +170,6 @@ namespace WAVM { namespace LLVMJIT {
 					irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferCurr);
 					irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferEnd);
 				}
-#endif
 			}
 		}
 
@@ -221,6 +214,11 @@ namespace WAVM { namespace LLVMJIT {
 						nullptr,
 						"memtagRandomBufferEnd" + llvm::Twine(memoryIndex)
 					);
+				}
+				else
+				{
+					memoryInfo.memtagRandomBufferEnd = memoryInfo.memtagRandomBufferCurr =
+					memoryInfo.memtagRandomBufferBase = memoryInfo.memtagBasePointerVariable = nullptr;
 				}
 			}
 			contextPointerVariable

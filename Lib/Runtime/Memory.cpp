@@ -371,6 +371,17 @@ static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 											 Uptr address,
 											 Uptr numBytes)
 {
+	if(memory->baseAddressTags)
+	{
+		if constexpr(sizeof(Uptr)==sizeof(uint_least64_t))
+		{
+			address &= 0x00FFFFFFFFFFFFFF;
+		}
+		else
+		{
+			address &= 0x3FFFFFFF;
+		}
+	}
 	if(address + numBytes > memoryNumBytes || address + numBytes < address)
 	{
 		throwException(
