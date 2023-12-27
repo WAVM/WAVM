@@ -329,11 +329,79 @@ static inline bool isMemTaggedEnabled(EmitFunctionContext& functionContext,Uptr 
 	return functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable!=nullptr;
 }
 
+static inline ::llvm::Function * GetRandomTagFillBufferFunction(EmitFunctionContext& functionContext)
+{
+	auto *wrapperFunc = functionContext.moduleContext.randomTagFillBufferFunction;
+	if(wrapperFunc == nullptr)
+	{
+		::llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
+		::llvm::FunctionType *funcType = ::llvm::FunctionType::get(irBuilder.getVoidTy(), {irBuilder.getPtrTy()}, false);
+		::llvm::Function *hostFunc = ::llvm::Function::Create(funcType,
+			::llvm::Function::ExternalLinkage,"RandomTagFillBufferFunction",functionContext.moduleContext.llvmModule);
+		hostFunc->setDoesNotThrow();
+		hostFunc->setCallingConv(::llvm::CallingConv::C);
+
+		::llvm::Function *wrapperFunc = ::llvm::Function::Create(funcType,
+			::llvm::Function::ExternalLinkage,"RandomTagFillBufferFunctionWrapper",functionContext.moduleContext.llvmModule);
+		wrapperFunc->setCallingConv(::llvm::CallingConv::Fast);
+		wrapperFunc->setDoesNotThrow();
+		::llvm::BasicBlock *entryBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext,
+			"entry", wrapperFunc);
+		irBuilder.SetInsertPoint(entryBlock);
+		irBuilder.CreateRetVoid();
+		functionContext.moduleContext.randomTagFillBufferFunction = wrapperFunc;
+	}
+	return wrapperFunc;
+}
+
 static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& functionContext,Uptr memoryIndex)
 {
-//	if()
+	auto& meminfo = functionContext.memoryInfos[memoryIndex];
+	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
 
-	return nullptr;
+	llvm::BasicBlock *entryBlock = llvm::BasicBlock::Create(functionContext.llvmContext, "generaterandombytetagentry");
+	llvm::BasicBlock *refillBlock = llvm::BasicBlock::Create(functionContext.llvmContext, "generaterandombytetagblock");
+	llvm::BasicBlock *mergeBlock  = llvm::BasicBlock::Create(functionContext.llvmContext, "notgeneraterandombytetagblockBlock");
+	irBuilder.SetInsertPoint(entryBlock);
+
+	auto cmpres = irBuilder.CreateICmpEQ(meminfo.memtagRandomBufferCurr,meminfo.memtagRandomBufferEnd);
+	irBuilder.CreateCondBr(cmpres, refillBlock, mergeBlock );
+	irBuilder.SetInsertPoint(refillBlock);
+	irBuilder.CreateCall(GetRandomTagFillBufferFunction(functionContext), {meminfo.memtagRandomBufferBase});
+	irBuilder.CreateStore(meminfo.memtagRandomBufferCurr, meminfo.memtagRandomBufferBase);
+	irBuilder.CreateBr(mergeBlock);
+	irBuilder.SetInsertPoint(mergeBlock);
+	return irBuilder.CreateLoad(irBuilder.getInt8Ty(),meminfo.memtagRandomBufferCurr);
+}
+
+static inline ::llvm::Value* TagMemPointer(EmitFunctionContext& functionContext,Uptr memoryIndex,::llvm::Value *address,::llvm::Value *color)
+{
+	const MemoryType& memoryType
+		= functionContext.moduleContext.irModule.memories.getType(memoryIndex);
+
+	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
+
+	if(memoryType.indexType==IndexType::i64)
+	{
+		auto pointertype = address->getType();
+		address=irBuilder.CreatePtrToInt(address,irBuilder.getInt64Ty());
+		color=irBuilder.CreateZExt(color,irBuilder.getInt64Ty());
+		color=irBuilder.CreateShl(color,56);
+		address=irBuilder.CreateAnd(address,irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
+		address=irBuilder.CreateOr(address,color);
+		address=irBuilder.CreateIntToPtr(address,pointertype);
+	}
+	else
+	{
+		auto pointertype = address->getType();
+		address=irBuilder.CreatePtrToInt(address,irBuilder.getInt32Ty());
+		color=irBuilder.CreateZExt(color,irBuilder.getInt32Ty());
+		color=irBuilder.CreateShl(color,30);
+		address=irBuilder.CreateAnd(address,irBuilder.getInt32(0x3FFFFFFF));
+		address=irBuilder.CreateOr(address,color);
+		address=irBuilder.CreateIntToPtr(address,pointertype);
+	}
+	return address;
 }
 
 void EmitFunctionContext::memory_randomstoretag(NoImm)
@@ -342,8 +410,7 @@ void EmitFunctionContext::memory_randomstoretag(NoImm)
 	::llvm::Value *memaddress = pop();
 	if(isMemTaggedEnabled(*this,0))
 	{
-		//auto randombyte = generateMemRandomTagByte(*this,0);
-		push(memaddress);
+		push(TagMemPointer(*this,0,memaddress,generateMemRandomTagByte(*this,0)));
 	}
 	else
 	{
