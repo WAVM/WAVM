@@ -587,13 +587,14 @@ struct State
 			args.insert(args.begin(), getFilenameAndExtension(filename));
 
 			// Create the WASI process.
-			wasiProcess = WASI::createProcess(compartment,
+			wasiProcess = WASI::createProcessWithFeatureSpec(compartment,
 											  std::move(args),
 											  {},
 											  sandboxFS.get(),
 											  Platform::getStdFD(Platform::StdDevice::in),
 											  Platform::getStdFD(Platform::StdDevice::out),
-											  Platform::getStdFD(Platform::StdDevice::err));
+											  Platform::getStdFD(Platform::StdDevice::err),
+											  irModule.featureSpec);
 		}
 		else if(abi == ABI::bare)
 		{

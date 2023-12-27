@@ -7,7 +7,6 @@ using namespace WAVM::IR;
 
 void FeatureSpec::setFeatureLevel(FeatureLevel featureLevel)
 {
-	bool memtagbackup = this->memtag;
 #define SET_FEATURE(name, ...) name = true;
 #define UNSET_FEATURE(name, ...) name = false;
 
@@ -25,7 +24,6 @@ void FeatureSpec::setFeatureLevel(FeatureLevel featureLevel)
 
 #undef SET_FEATURE
 #undef UNSET_FEATURE
-	this->memtag=memtagbackup;
 }
 
 const char* IR::getFeatureName(Feature feature)
