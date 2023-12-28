@@ -53,9 +53,6 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::Value* basePointerVariable;
 			llvm::Value* endAddressVariable;
 			llvm::Value* memtagBasePointerVariable;
-			llvm::Value* memtagRandomBufferBase;
-			llvm::Value* memtagRandomBufferCurr;
-			llvm::Value* memtagRandomBufferEnd;
 		};
 		std::vector<MemoryInfo> memoryInfos;
 
@@ -154,21 +151,6 @@ namespace WAVM { namespace LLVMJIT {
 												compartmentAddress, {memoryTagPointerBaseOffset}),
 											memoryOffset->getType()),
 						memoryInfo.memtagBasePointerVariable);
-					::llvm::Value* memtagRandomBufferBaseOffset = ::llvm::ConstantExpr::getAdd(
-						memoryOffset,
-						emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagRandomBufferBase),
-										memoryOffset->getType()));
-					auto loaduntyped = loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-										llvmContext.i8Type,
-										compartmentAddress, {memtagRandomBufferBaseOffset}),
-										llvmContext.i8PtrType);
-					irBuilder.CreateStore(loaduntyped,memoryInfo.memtagRandomBufferBase);
-					auto loadoffset = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-						llvmContext.i8Type,
-						loaduntyped,
-						{::llvm::ConstantInt::get(memoryOffset->getType(), ::WAVM::Runtime::memoryTagBufferBytes)});
-					irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferCurr);
-					irBuilder.CreateStore(loadoffset,memoryInfo.memtagRandomBufferEnd);
 				}
 			}
 		}
@@ -196,29 +178,10 @@ namespace WAVM { namespace LLVMJIT {
 						nullptr,
 						"memtagBasePointer" + llvm::Twine(memoryIndex)
 					);
-
-					memoryInfo.memtagRandomBufferBase = irBuilder.CreateAlloca(
-						iptrType,
-						nullptr,
-						"memtagRandomBufferBase" + llvm::Twine(memoryIndex)
-					);
-
-					memoryInfo.memtagRandomBufferCurr = irBuilder.CreateAlloca(
-						iptrType,
-						nullptr,
-						"memtagRandomBufferCurr" + llvm::Twine(memoryIndex)
-					);
-
-					memoryInfo.memtagRandomBufferEnd = irBuilder.CreateAlloca(
-						iptrType,
-						nullptr,
-						"memtagRandomBufferEnd" + llvm::Twine(memoryIndex)
-					);
 				}
 				else
 				{
-					memoryInfo.memtagRandomBufferEnd = memoryInfo.memtagRandomBufferCurr =
-					memoryInfo.memtagRandomBufferBase = memoryInfo.memtagBasePointerVariable = nullptr;
+					memoryInfo.memtagBasePointerVariable = nullptr;
 				}
 			}
 			contextPointerVariable

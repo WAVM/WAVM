@@ -145,7 +145,15 @@ Memory* Runtime::createMemory(Compartment* compartment,
 		runtimeData.base = memory->baseAddress;
 		runtimeData.endAddress = memory->numReservedBytes;
 		runtimeData.memtagBase = memory->baseAddressTags;
-		runtimeData.memtagRandomBufferBase = memory->memtagRandomBufferBase;
+		if(isMemTagged)
+		{
+			auto memtagrdbf{memory->memtagRandomBufferBase};
+			runtimeData.memtagRandomBuffer = {memtagrdbf,memtagrdbf+memoryTagBufferBytes,memtagrdbf+memoryTagBufferBytes};
+		}
+		else
+		{
+			runtimeData.memtagRandomBuffer = {};
+		}
 		runtimeData.numPages.store(memory->numPages.load(std::memory_order_acquire),
 								   std::memory_order_release);
 	}
@@ -185,7 +193,15 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 		runtimeData.numPages.store(newMemory->numPages, std::memory_order_release);
 		runtimeData.endAddress = newMemory->numReservedBytes;
 		runtimeData.memtagBase = newMemory->baseAddressTags;
-		runtimeData.memtagRandomBufferBase = newMemory->memtagRandomBufferBase;
+		auto memtagrdbf{newMemory->memtagRandomBufferBase};
+		if(memtagrdbf)
+		{
+			runtimeData.memtagRandomBuffer = {memtagrdbf,memtagrdbf+memoryTagBufferBytes,memtagrdbf+memoryTagBufferBytes};
+		}
+		else
+		{
+			runtimeData.memtagRandomBuffer = {};
+		}
 	}
 
 	return newMemory;
@@ -206,7 +222,7 @@ Runtime::Memory::~Memory()
 		runtimeData.numPages.store(0, std::memory_order_release);
 		runtimeData.endAddress = 0;
 		runtimeData.memtagBase = nullptr;
-		runtimeData.memtagRandomBufferBase = nullptr;
+		runtimeData.memtagRandomBuffer = {};
 	}
 
 	// Remove the memory from the global array.

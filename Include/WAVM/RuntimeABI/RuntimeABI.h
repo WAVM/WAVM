@@ -75,13 +75,20 @@ namespace WAVM { namespace Runtime {
 	static_assert(sizeof(ContextRuntimeData) == contextNumBytes,
 				  "ContextRuntimeData isn't the expected size");
 
+	struct MemoryRandomTagBuffer
+	{
+		void* bufferBeg;
+		void* bufferCurr;
+		void* bufferEnd;
+	};
+
 	struct MemoryRuntimeData
 	{
 		void* base;
 		std::atomic<Uptr> numPages;
 		Uptr endAddress;
 		void* memtagBase;
-		void* memtagRandomBufferBase;
+		MemoryRandomTagBuffer memtagRandomBuffer;
 	};
 
 	inline constexpr Uptr memoryNumGuardBytes = 65536;
