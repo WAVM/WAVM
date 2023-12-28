@@ -395,17 +395,18 @@ static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& funct
 
 		::llvm::Value *cmpres = irBuilder.CreateICmpEQ(currptr,endptr);
 
+		::llvm::BasicBlock *trueBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "trueBlock", randommemtagfunction);
+		::llvm::BasicBlock *mergeBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "mergeBlock", randommemtagfunction);
 
-#if 0
-		currptr = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-				llvmContext.iptrType,
-				arg0 , {1});
-#endif
-#if 0
-		loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-			llvmContext.i8Type,
-			compartmentAddress, {memoryTagPointerBaseOffset}));
-#endif
+
+		irBuilder.CreateCondBr(cmpres, trueBlock, mergeBlock);
+
+		irBuilder.SetInsertPoint(trueBlock);
+
+		currptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,arg0);
+
+
+		irBuilder.SetInsertPoint(mergeBlock);
 
 		::llvm::Value *rettag = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8Type,currptr);
 		currptr = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
