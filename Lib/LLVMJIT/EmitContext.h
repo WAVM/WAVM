@@ -53,6 +53,7 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::Value* basePointerVariable;
 			llvm::Value* endAddressVariable;
 			llvm::Value* memtagBasePointerVariable;
+			llvm::Value* memtagRandomBufferVariable;
 		};
 		std::vector<MemoryInfo> memoryInfos;
 
@@ -144,13 +145,22 @@ namespace WAVM { namespace LLVMJIT {
 						memoryOffset,
 						emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagBase),
 										memoryOffset->getType()));
-
 					irBuilder.CreateStore(
 						loadFromUntypedPointer(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 												llvmContext.i8Type,
 												compartmentAddress, {memoryTagPointerBaseOffset}),
 											memoryOffset->getType()),
 						memoryInfo.memtagBasePointerVariable);
+
+
+					::llvm::Value* memtagRandomBufferOffset = ::llvm::ConstantExpr::getAdd(
+						memoryOffset,
+						emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, memtagRandomBuffer),
+										memoryOffset->getType()));
+					irBuilder.CreateStore(::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+												llvmContext.i8Type,
+												compartmentAddress, {memtagRandomBufferOffset}),
+						memoryInfo.memtagRandomBufferVariable);
 				}
 			}
 		}
@@ -178,10 +188,16 @@ namespace WAVM { namespace LLVMJIT {
 						nullptr,
 						"memtagBasePointer" + llvm::Twine(memoryIndex)
 					);
+					memoryInfo.memtagRandomBufferVariable = irBuilder.CreateAlloca(
+						iptrType,
+						nullptr,
+						"memtagRandomBuffer" + llvm::Twine(memoryIndex)
+					);
 				}
 				else
 				{
 					memoryInfo.memtagBasePointerVariable = nullptr;
+					memoryInfo.memtagRandomBufferVariable = nullptr;
 				}
 			}
 			contextPointerVariable
