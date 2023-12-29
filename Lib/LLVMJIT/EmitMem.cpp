@@ -402,35 +402,10 @@ extern "C" void RandomTagFillBufferFunction(void*) noexcept
 
 static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& functionContext,Uptr memoryIndex)
 {
-#if 0
 	auto& meminfo = functionContext.memoryInfos[memoryIndex];
-	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
-
-//	llvm::BasicBlock *entryBlock = llvm::BasicBlock::Create(functionContext.llvmContext, "generaterandombytetagentry");
-
-	llvm::BasicBlock *refillBlock = llvm::BasicBlock::Create(functionContext.llvmContext, "generaterandombytetagblock");
-	llvm::BasicBlock *mergeBlock  = llvm::BasicBlock::Create(functionContext.llvmContext, "notgeneraterandombytetagblockBlock");
-//	irBuilder.SetInsertPoint(entryBlock);
-
-	auto cmpres = irBuilder.CreateICmpEQ(meminfo.memtagRandomBufferCurr,meminfo.memtagRandomBufferEnd);
-	::llvm::errs()<<*cmpres<<'\n';
-
-	irBuilder.CreateCondBr(cmpres, refillBlock, mergeBlock );
-#if 0
-	irBuilder.SetInsertPoint(refillBlock);
-	irBuilder.CreateCall(GetRandomTagFillBufferFunction(functionContext), {meminfo.memtagRandomBufferBase});
-	irBuilder.CreateStore(meminfo.memtagRandomBufferCurr, meminfo.memtagRandomBufferBase);
-	irBuilder.CreateBr(mergeBlock);
-	irBuilder.SetInsertPoint(mergeBlock);
-#else
-	irBuilder.CreateBr(mergeBlock);
-#endif
-
-#endif
-	GetRandomTagFunction(functionContext);
-//	auto newtag = irBuilder.CreateLoad(irBuilder.getInt8Ty(),meminfo.memtagRandomBufferCurr);
-//	return newtag;
-	return nullptr;
+	auto& irBuilder = functionContext.irBuilder;
+	auto* func = GetRandomTagFunction(functionContext);
+	return irBuilder.CreateCall(func,{meminfo.memtagRandomBufferVariable});
 }
 
 static inline ::llvm::Value* TagMemPointer(EmitFunctionContext& functionContext,Uptr memoryIndex,::llvm::Value *address,::llvm::Value *color)
