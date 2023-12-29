@@ -330,6 +330,11 @@ static inline bool isMemTaggedEnabled(EmitFunctionContext& functionContext,Uptr 
 	return functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable!=nullptr;
 }
 
+namespace LLVMRuntimeSymbols
+{
+extern void wavm_random_tag_fill_buffer_function(void* ptr) noexcept;
+}
+
 static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& functionContext)
 {
 	auto *randommemtagfunction = functionContext.moduleContext.randomTagFillBufferFunction;

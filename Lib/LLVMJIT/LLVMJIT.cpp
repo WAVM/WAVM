@@ -57,6 +57,7 @@ namespace LLVMRuntimeSymbols {
 	static HashMap<std::string, void*> map = {
 		{"memmove", (void*)&memmove},
 		{"memset", (void*)&memset},
+		{"wavm_random_tag_fill_buffer_function", (void*)&wavm_random_tag_fill_buffer_function},
 #ifdef _WIN32
 #ifdef __MINGW32__
 		{"___chkstk_ms", (void*)&___chkstk_ms},
@@ -75,7 +76,6 @@ namespace LLVMRuntimeSymbols {
 		{"__gxx_personality_v0", (void*)&__gxx_personality_v0},
 		{"__cxa_begin_catch", (void*)&__cxa_begin_catch},
 		{"__cxa_end_catch", (void*)&__cxa_end_catch},
-		{"wavm_random_tag_fill_buffer_function", (void*)&wavm_random_tag_fill_buffer_function},
 #endif
 	};
 }
