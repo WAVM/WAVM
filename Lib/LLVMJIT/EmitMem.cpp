@@ -444,9 +444,7 @@ void EmitFunctionContext::memory_randomstoretag(NoImm)
 	::llvm::Value *memaddress = pop();
 	if(isMemTaggedEnabled(*this,0))
 	{
-		generateMemRandomTagByte(*this,0);
-		push(memaddress);
-//		push(TagMemPointer(*this,0,memaddress,generateMemRandomTagByte(*this,0)));
+		push(TagMemPointer(*this,0,memaddress,generateMemRandomTagByte(*this,0)));
 	}
 	else
 	{
