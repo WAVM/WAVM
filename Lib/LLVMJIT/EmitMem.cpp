@@ -341,6 +341,10 @@ static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& funct
 			::llvm::Function::ExternalLinkage,"RandomTagFillBufferFunction",functionContext.moduleContext.llvmModule);
 		hostFunc->setDoesNotThrow();
 		hostFunc->setCallingConv(::llvm::CallingConv::C);
+		::llvm::BasicBlock *hostentryBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext,
+			"entry", hostFunc);
+		irBuilder.SetInsertPoint(hostentryBlock);
+		irBuilder.CreateRetVoid();
 
 		::llvm::FunctionType *wrapperfuncType = ::llvm::FunctionType::get(irBuilder.getVoidTy(), {irBuilder.getPtrTy()}, false);
 
@@ -380,6 +384,7 @@ static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& funct
 		irBuilder.SetInsertPoint(trueBlock);
 		::llvm::Value *begptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,arg0);
 		irBuilder.CreateCall(wrapperFunc, {begptr});
+		irBuilder.CreateBr(mergeBlock);
 		irBuilder.SetInsertPoint(mergeBlock);
 		auto currphiNode = irBuilder.CreatePHI(functionContext.llvmContext.i8PtrType,2);
 		currphiNode->addIncoming(begptr, trueBlock);
