@@ -384,7 +384,7 @@ static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& funct
 		irBuilder.SetInsertPoint(mergeBlock);
 		auto currphiNode = irBuilder.CreatePHI(functionContext.llvmContext.i8PtrType,2);
 		currphiNode->addIncoming(begptr, trueBlock);
-		currphiNode->addIncoming(currptr, mergeBlock);
+		currphiNode->addIncoming(currptr, rdtagentryBlock);
 		::llvm::Value *rettag = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8Type,currphiNode);
 		currptr = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
 				functionContext.llvmContext.i8PtrType,
