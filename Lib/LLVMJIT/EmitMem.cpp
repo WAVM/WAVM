@@ -338,7 +338,7 @@ static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& funct
 		::llvm::IRBuilder<> irBuilder(functionContext.llvmContext);
 		::llvm::FunctionType *funcType = ::llvm::FunctionType::get(irBuilder.getVoidTy(), {irBuilder.getPtrTy()}, false);
 		::llvm::Function *hostFunc = ::llvm::Function::Create(funcType,
-			::llvm::Function::ExternalLinkage,"RandomTagFillBufferFunction",functionContext.moduleContext.llvmModule);
+			::llvm::Function::ExternalLinkage,"wavm_random_tag_fill_buffer_function",functionContext.moduleContext.llvmModule);
 		hostFunc->setDoesNotThrow();
 		hostFunc->setCallingConv(::llvm::CallingConv::C);
 
@@ -394,11 +394,6 @@ static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& funct
 		functionContext.moduleContext.randomTagFillBufferFunction = randommemtagfunction;
 	}
 	return randommemtagfunction;
-}
-
-extern "C" void RandomTagFillBufferFunction(void*) noexcept
-{
-
 }
 
 static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& functionContext,Uptr memoryIndex)

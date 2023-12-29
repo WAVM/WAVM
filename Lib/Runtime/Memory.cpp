@@ -15,6 +15,7 @@
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
+#include "WAVM/Platform/Random.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
@@ -59,6 +60,21 @@ static U8* createMemoryTagRandomBufferImpl() noexcept
 		::std::abort();
 	}
 	return ptr;
+}
+
+namespace LLVMRuntimeSymbols
+{
+extern void wavm_random_tag_fill_buffer_function(void* ptr) noexcept
+{
+try
+{
+	::WAVM::Platform::getCryptographicRNG(reinterpret_cast<U8*>(ptr),memoryTagBufferBytes);
+}
+catch(...)
+{
+	::std::abort();
+}
+}
 }
 
 static Memory* createMemoryImpl(Compartment* compartment,

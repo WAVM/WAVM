@@ -52,6 +52,8 @@ namespace LLVMRuntimeSymbols {
 	extern "C" void __cxa_end_catch();
 #endif
 
+	extern void wavm_random_tag_fill_buffer_function(void*) noexcept;
+
 	static HashMap<std::string, void*> map = {
 		{"memmove", (void*)&memmove},
 		{"memset", (void*)&memset},
@@ -73,6 +75,7 @@ namespace LLVMRuntimeSymbols {
 		{"__gxx_personality_v0", (void*)&__gxx_personality_v0},
 		{"__cxa_begin_catch", (void*)&__cxa_begin_catch},
 		{"__cxa_end_catch", (void*)&__cxa_end_catch},
+		{"wavm_random_tag_fill_buffer_function", (void*)&wavm_random_tag_fill_buffer_function},
 #endif
 	};
 }
