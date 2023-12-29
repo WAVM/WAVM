@@ -341,10 +341,6 @@ static inline ::llvm::Function * GetRandomTagFunction(EmitFunctionContext& funct
 			::llvm::Function::ExternalLinkage,"RandomTagFillBufferFunction",functionContext.moduleContext.llvmModule);
 		hostFunc->setDoesNotThrow();
 		hostFunc->setCallingConv(::llvm::CallingConv::C);
-		::llvm::BasicBlock *hostentryBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext,
-			"entry", hostFunc);
-		irBuilder.SetInsertPoint(hostentryBlock);
-		irBuilder.CreateRetVoid();
 
 		::llvm::FunctionType *wrapperfuncType = ::llvm::FunctionType::get(irBuilder.getVoidTy(), {irBuilder.getPtrTy()}, false);
 
