@@ -357,7 +357,7 @@ static inline ::llvm::Function * GetRandomTagRefillFunction(EmitFunctionContext&
 		wrapperFunc->addFnAttr(::llvm::Attribute::Cold);
 
 		::llvm::BasicBlock *entryBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext,
-			"entry", wrapperFunc);
+			"", wrapperFunc);
 		irBuilder.SetInsertPoint(entryBlock);
 		irBuilder.CreateCall(hostFunc,{wrapperFunc->getArg(0)});
 		irBuilder.CreateRetVoid();
@@ -374,7 +374,7 @@ static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& funct
 	::llvm::Value *memtagrandombufferptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,meminfo.memtagRandomBufferVariable);
 	auto* function = functionContext.function;
 	::llvm::BasicBlock *rdtagentryBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext,
-		"randomtagentry", function);
+		"", function);
 	irBuilder.CreateBr(rdtagentryBlock);
 	irBuilder.SetInsertPoint(rdtagentryBlock);
 	::llvm::Value *arg0 = memtagrandombufferptr;
@@ -387,8 +387,8 @@ static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& funct
 			arg0 , {irBuilder.getInt32(2)});
 	::llvm::Value *endptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,endptraddr);
 	::llvm::Value *cmpres = irBuilder.CreateICmpEQ(currptr,endptr);
-	::llvm::BasicBlock *trueBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "randomtagrefillbufferBlock",function);
-	::llvm::BasicBlock *mergeBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "randomtagmergeBlock",function);
+	::llvm::BasicBlock *trueBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "",function);
+	::llvm::BasicBlock *mergeBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "",function);
 	irBuilder.CreateCondBr(cmpres, trueBlock, mergeBlock);
 	irBuilder.SetInsertPoint(trueBlock);
 	::llvm::Value *begptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,arg0);
