@@ -189,7 +189,7 @@ namespace WAVM { namespace LLVMJIT {
 						"memtagBasePointer" + llvm::Twine(memoryIndex)
 					);
 					memoryInfo.memtagRandomBufferVariable = irBuilder.CreateAlloca(
-						iptrType,
+						llvmContext.i8PtrType,
 						nullptr,
 						"memtagRandomBuffer" + llvm::Twine(memoryIndex)
 					);

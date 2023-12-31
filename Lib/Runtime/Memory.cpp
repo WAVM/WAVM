@@ -50,17 +50,6 @@ static inline Uptr getPlatformPagesPerWebAssemblyPageLog2Tagged()
 	return log2taggedv - 4u;
 }
 
-static U8* createMemoryTagRandomBufferImpl() noexcept
-{
-	constexpr
-		::std::size_t buffersize{memoryTagBufferBytes};
-	U8 *ptr = reinterpret_cast<U8*>(::std::malloc(buffersize));
-	if(ptr==nullptr)
-	{
-		::std::abort();
-	}
-	return ptr;
-}
 
 namespace LLVMRuntimeSymbols
 {
@@ -75,6 +64,19 @@ catch(...)
 	::std::abort();
 }
 }
+}
+
+static U8* createMemoryTagRandomBufferImpl() noexcept
+{
+	constexpr
+		::std::size_t buffersize{memoryTagBufferBytes};
+	U8 *ptr = reinterpret_cast<U8*>(::std::malloc(buffersize));
+	if(ptr==nullptr)
+	{
+		::std::abort();
+	}
+	::LLVMRuntimeSymbols::wavm_random_tag_fill_buffer_function(ptr);
+	return ptr;
 }
 
 static Memory* createMemoryImpl(Compartment* compartment,
