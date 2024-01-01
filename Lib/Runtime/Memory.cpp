@@ -50,10 +50,7 @@ static inline Uptr getPlatformPagesPerWebAssemblyPageLog2Tagged()
 	return log2taggedv - 4u;
 }
 
-
-namespace LLVMRuntimeSymbols
-{
-extern void wavm_random_tag_fill_buffer_function(void* ptr) noexcept
+static inline void wavm_random_tag_fill_buffer_function(void* ptr) noexcept
 {
 try
 {
@@ -62,7 +59,6 @@ try
 catch(...)
 {
 	::std::abort();
-}
 }
 }
 
@@ -75,7 +71,6 @@ static U8* createMemoryTagRandomBufferImpl() noexcept
 	{
 		::std::abort();
 	}
-	::LLVMRuntimeSymbols::wavm_random_tag_fill_buffer_function(ptr);
 	return ptr;
 }
 
@@ -560,4 +555,14 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	const U64 outOfBoundsAddress = U64(address) > memoryNumBytes ? U64(address) : memoryNumBytes;
 
 	throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, outOfBoundsAddress});
+}
+
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "memoryTagRandomTagRefillFunction",
+							   void,
+							   memoryTagRandomTagRefillFunction,
+							   ::std::size_t nativeaddress)
+{
+	wavm_random_tag_fill_buffer_function(reinterpret_cast<void*>(nativeaddress));
 }

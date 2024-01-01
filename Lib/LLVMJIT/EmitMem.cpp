@@ -330,47 +330,10 @@ static inline bool isMemTaggedEnabled(EmitFunctionContext& functionContext,Uptr 
 	return functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable!=nullptr;
 }
 
-namespace LLVMRuntimeSymbols
-{
-extern void wavm_random_tag_fill_buffer_function(void* ptr) noexcept;
-}
-
-static inline ::llvm::Function * GetRandomTagRefillFunction(EmitFunctionContext& functionContext)
-{
-	::llvm::Function *wrapperFunc = functionContext.moduleContext.randomTagFillBufferFunction;
-	if(wrapperFunc == nullptr)
-	{
-		::llvm::IRBuilder<> irBuilder(functionContext.llvmContext);
-
-		::llvm::FunctionType *funcType = ::llvm::FunctionType::get(irBuilder.getVoidTy(), {irBuilder.getPtrTy()}, false);
-		::llvm::Function *hostFunc = ::llvm::Function::Create(funcType,
-			::llvm::Function::ExternalLinkage,"wavm_random_tag_fill_buffer_function",functionContext.moduleContext.llvmModule);
-		hostFunc->setDoesNotThrow();
-		hostFunc->setCallingConv(::llvm::CallingConv::C);
-
-		::llvm::FunctionType *wrapperfuncType = ::llvm::FunctionType::get(irBuilder.getVoidTy(), {irBuilder.getPtrTy()}, false);
-
-		wrapperFunc = ::llvm::Function::Create(wrapperfuncType,
-			::llvm::Function::ExternalLinkage,"RandomTagFillBufferFunctionWrapper",functionContext.moduleContext.llvmModule);
-		wrapperFunc->setCallingConv(::llvm::CallingConv::Fast);
-		wrapperFunc->setDoesNotThrow();
-		wrapperFunc->addFnAttr(::llvm::Attribute::Cold);
-
-		::llvm::BasicBlock *entryBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext,
-			"", wrapperFunc);
-		irBuilder.SetInsertPoint(entryBlock);
-		irBuilder.CreateCall(hostFunc,{wrapperFunc->getArg(0)});
-		irBuilder.CreateRetVoid();
-		functionContext.moduleContext.randomTagFillBufferFunction = wrapperFunc;
-	}
-	return wrapperFunc;
-}
-
 static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& functionContext,Uptr memoryIndex)
 {
 	auto& irBuilder = functionContext.irBuilder;
 	auto& meminfo = functionContext.memoryInfos[memoryIndex];
-	auto* wrapperFunc = GetRandomTagRefillFunction(functionContext);
 	::llvm::Value *memtagrandombufferptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,meminfo.memtagRandomBufferVariable);
 	auto* function = functionContext.function;
 	::llvm::BasicBlock *rdtagentryBlock = ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext,
@@ -378,11 +341,12 @@ static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& funct
 	irBuilder.CreateBr(rdtagentryBlock);
 	irBuilder.SetInsertPoint(rdtagentryBlock);
 	::llvm::Value *arg0 = memtagrandombufferptr;
-	::llvm::Value *currptraddr = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+
+	::llvm::Value *currptraddr = irBuilder.CreateGEP(
 			functionContext.llvmContext.i8PtrType,
 			arg0 , {irBuilder.getInt32(1)});
 	::llvm::Value *currptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,currptraddr);
-	::llvm::Value *endptraddr = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+	::llvm::Value *endptraddr = irBuilder.CreateGEP(
 			functionContext.llvmContext.i8PtrType,
 			arg0 , {irBuilder.getInt32(2)});
 	::llvm::Value *endptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,endptraddr);
@@ -392,19 +356,37 @@ static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& funct
 	irBuilder.CreateCondBr(cmpres, trueBlock, mergeBlock);
 	irBuilder.SetInsertPoint(trueBlock);
 	::llvm::Value *begptr = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,arg0);
-	auto wrappercallins = irBuilder.CreateCall(wrapperFunc, {begptr});
-	wrappercallins->setCallingConv(::llvm::CallingConv::Fast);
+
+	IR::ValueType iptrnativeValueType;
+	::llvm::Type* ptrtype;
+	if constexpr(sizeof(::std::uint_least64_t)==sizeof(::std::size_t))
+	{
+		iptrnativeValueType = IR::ValueType::i64;
+		ptrtype=irBuilder.getInt64Ty();
+	}
+	else
+	{
+		iptrnativeValueType = IR::ValueType::i32;
+		ptrtype=irBuilder.getInt32Ty();
+	}
+
+	functionContext.emitRuntimeIntrinsic(
+		"memoryTagRandomTagRefillFunction",
+		FunctionType({}, {iptrnativeValueType}, IR::CallingConvention::intrinsic),
+		{irBuilder.CreatePtrToInt(begptr,ptrtype)});
+
 	irBuilder.CreateBr(mergeBlock);
 	irBuilder.SetInsertPoint(mergeBlock);
 	auto currphiNode = irBuilder.CreatePHI(functionContext.llvmContext.i8PtrType,2);
 	currphiNode->addIncoming(begptr, trueBlock);
 	currphiNode->addIncoming(currptr, rdtagentryBlock);
 	::llvm::Value *rettag = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8Type,currphiNode);
-	currptr = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+	currptr = irBuilder.CreateGEP(
 			functionContext.llvmContext.i8PtrType,
-			currptr , {irBuilder.getInt32(1)});
+			currphiNode , {irBuilder.getInt32(1)});
 	irBuilder.CreateStore(currptraddr,currptr);
 	return rettag;
+
 }
 
 static inline ::llvm::Value* TagMemPointer(EmitFunctionContext& functionContext,Uptr memoryIndex,::llvm::Value *address,::llvm::Value *color)
