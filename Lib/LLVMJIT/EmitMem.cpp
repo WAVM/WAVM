@@ -66,6 +66,13 @@ static llvm::Value* getMemoryNumBytes(EmitFunctionContext& functionContext, Uptr
 // Bounds checks a sandboxed memory address + offset, and returns an offset relative to the memory
 // base address that is guaranteed to be within the virtual address space allocated for the linear
 // memory object.
+
+struct offsetboundsresult
+{
+::llvm::Value* address{};
+::llvm::Value* tagbyte{};
+};
+
 static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionContext,
 											   Uptr memoryIndex,
 											   llvm::Value* address,
@@ -83,12 +90,14 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
 
 	auto memtagBasePointerVariable = functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable;
+	::llvm::Value* taggedval{};
 	if(memtagBasePointerVariable)	//memtag needs to ignore upper 8 bits
 	{
 		if(memoryType.indexType==IndexType::i64)
 		{
 			auto pointertype = address->getType();
 			address=irBuilder.CreatePtrToInt(address,irBuilder.getInt64Ty());
+			taggedval=irBuilder.CreateTrunc(irBuilder.CreateLShr(address,56),irBuilder.getInt8Ty());
 			address=irBuilder.CreateAnd(address,irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
 			address=irBuilder.CreateIntToPtr(address,pointertype);
 		}
@@ -96,6 +105,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		{
 			auto pointertype = address->getType();
 			address=irBuilder.CreatePtrToInt(address,irBuilder.getInt32Ty());
+			taggedval=irBuilder.CreateTrunc(irBuilder.CreateLShr(address,30),irBuilder.getInt8Ty());
 			address=irBuilder.CreateAnd(address,irBuilder.getInt32(0x3FFFFFFF));
 			address=irBuilder.CreateIntToPtr(address,pointertype);
 		}
@@ -203,10 +213,19 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAddress,
 														 llvm::Type* memoryType,
 														 Uptr memoryIndex)
-{ 
+{
+	auto& meminfo{memoryInfos[memoryIndex]};
 	llvm::Value* memoryBasePointer
-		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,memoryInfos[memoryIndex].basePointerVariable);
+		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,meminfo.basePointerVariable);
 	llvm::Value* bytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8Type,memoryBasePointer, boundedAddress);
+
+#if 0
+	auto memtagBasePointerVariable = meminfo.memtagBasePointerVariable;
+//	::llvm::Value* taggedval{};
+	if(memtagBasePointerVariable)	//memtag needs to ignore upper 8 bits
+	{
+	}
+#endif
 	// Cast the pointer to the appropriate type.
 #if LLVM_VERSION_MAJOR > 14
 	return bytePointer;
