@@ -468,11 +468,10 @@ static inline void store_tag_into_mem(EmitFunctionContext& functionContext,Uptr 
 		address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i64Type);
 		if(color == nullptr)
 		{
-			color=irBuilder.CreateZExt(color,functionContext.llvmContext.i64Type);
+			color=irBuilder.CreateZExt(address,functionContext.llvmContext.i64Type);
 			color=irBuilder.CreateTrunc(irBuilder.CreateShl(color,56),functionContext.llvmContext.i8Type);
 		}
 		address=irBuilder.CreateAnd(address,irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
-		address=irBuilder.CreateIntToPtr(address,pointertype);
 	}
 	else
 	{
@@ -481,12 +480,13 @@ static inline void store_tag_into_mem(EmitFunctionContext& functionContext,Uptr 
 		if(color == nullptr)
 		{
 			color=irBuilder.CreateZExt(color,functionContext.llvmContext.i64Type);
-			color=irBuilder.CreateTrunc(irBuilder.CreateShl(color,56),functionContext.llvmContext.i8Type);
+			color=irBuilder.CreateTrunc(irBuilder.CreateShl(address,56),functionContext.llvmContext.i8Type);
 		}
 		address=irBuilder.CreateAnd(address,irBuilder.getInt32(0x3FFFFFFF));
-		address=irBuilder.CreateIntToPtr(address,pointertype);
 	}
-	irBuilder.CreateMemSet(address,
+	auto* memtagBasePointerVariable = functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable;
+	auto* realaddress = irBuilder.CreateGEP(functionContext.llvmContext.i8Type,memtagBasePointerVariable,{address});
+	irBuilder.CreateMemSet(realaddress,
 						color,
 						irBuilder.CreateLShr(taggedbytes,4),
 						LLVM_ALIGNMENT(1),
@@ -499,24 +499,22 @@ void EmitFunctionContext::memory_randomstoretag(NoImm)
 	::llvm::Value *memaddress = pop();
 	if(isMemTaggedEnabled(*this,0))
 	{
-		llvm::Value* destBoundedAddress = getOffsetAndBoundedAddress(
-		*this, 0, memaddress, taggedbytes, 0, BoundsCheckOp::trapOnOutOfBounds, true);
 		auto color = generateMemRandomTagByte(*this,0);
-		store_tag_into_mem(*this,0,destBoundedAddress,taggedbytes,color);
-		auto returnedptr = TagMemPointer(*this,0,memaddress,color);
-		push(returnedptr);
+		store_tag_into_mem(*this,0,memaddress,taggedbytes,color);
+		memaddress = TagMemPointer(*this,0,memaddress,color);
+
 	}
-	else
-	{
-		push(memaddress);
-	}	
+	push(memaddress);
 }
 
 void EmitFunctionContext::memory_storetag(NoImm)
 {
 	::llvm::Value *taggedbytes = pop();
 	::llvm::Value *memaddress = pop();
-	store_tag_into_mem(*this,0,memaddress,taggedbytes,nullptr);
+	if(isMemTaggedEnabled(*this,0))
+	{
+		store_tag_into_mem(*this,0,memaddress,taggedbytes,nullptr);
+	}
 }
 
 //
