@@ -66,13 +66,6 @@ static llvm::Value* getMemoryNumBytes(EmitFunctionContext& functionContext, Uptr
 // Bounds checks a sandboxed memory address + offset, and returns an offset relative to the memory
 // base address that is guaranteed to be within the virtual address space allocated for the linear
 // memory object.
-
-struct offsetboundsresult
-{
-::llvm::Value* address{};
-::llvm::Value* tagbyte{};
-};
-
 static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionContext,
 											   Uptr memoryIndex,
 											   llvm::Value* address,
@@ -88,24 +81,25 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		  && functionContext.moduleContext.iptrValueType == ValueType::i64;
 
 	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
+	auto& meminfo{functionContext.memoryInfos[memoryIndex]};
 
-	auto memtagBasePointerVariable = functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable;
+	auto memtagBasePointerVariable = meminfo.memtagBasePointerVariable;
 	::llvm::Value* taggedval{};
 	if(memtagBasePointerVariable)	//memtag needs to ignore upper 8 bits
 	{
 		if(memoryType.indexType==IndexType::i64)
 		{
 			auto pointertype = address->getType();
-			address=irBuilder.CreatePtrToInt(address,irBuilder.getInt64Ty());
-			taggedval=irBuilder.CreateTrunc(irBuilder.CreateLShr(address,56),irBuilder.getInt8Ty());
+			address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i64Type);
+			taggedval=irBuilder.CreateTrunc(irBuilder.CreateLShr(address,56),functionContext.llvmContext.i8Type);
 			address=irBuilder.CreateAnd(address,irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
 			address=irBuilder.CreateIntToPtr(address,pointertype);
 		}
 		else
 		{
 			auto pointertype = address->getType();
-			address=irBuilder.CreatePtrToInt(address,irBuilder.getInt32Ty());
-			taggedval=irBuilder.CreateTrunc(irBuilder.CreateLShr(address,30),irBuilder.getInt8Ty());
+			address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i32Type);
+			taggedval=irBuilder.CreateTrunc(irBuilder.CreateLShr(address,30),functionContext.llvmContext.i8Type);
 			address=irBuilder.CreateAnd(address,irBuilder.getInt32(0x3FFFFFFF));
 			address=irBuilder.CreateIntToPtr(address,pointertype);
 		}
@@ -165,6 +159,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		functionContext.emitConditionalTrapIntrinsic(
 			irBuilder.CreateOr(numBytesWasGreaterThanMemoryNumBytes,
 							   irBuilder.CreateICmpUGT(address, memoryNumBytesMinusNumBytes)),
+#if 0
 			"memoryOutOfBoundsTrap",
 			FunctionType(TypeTuple{},
 						 TypeTuple{functionContext.moduleContext.iptrValueType,
@@ -175,7 +170,13 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 			{address,
 			 numBytes,
 			 memoryNumBytes,
-			 emitLiteralIptr(memoryIndex, functionContext.moduleContext.iptrType)});
+			 emitLiteralIptr(memoryIndex, functionContext.moduleContext.iptrType)}
+#else
+			"memoryOutOfBoundsTrapSimple",
+			FunctionType({},{},IR::CallingConvention::intrinsic),
+			{}
+#endif
+			);
 	}
 	else if(is32bitMemoryOn64bitHost)
 	{
@@ -207,6 +208,29 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		address = irBuilder.CreateAdd(address, offsetConstant);
 	}
 
+	if(memtagBasePointerVariable)
+	{
+		::llvm::Value* addressrshift{irBuilder.CreateLShr(address,4)};
+		::llvm::Value* tagbaseptrval = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8PtrType,memtagBasePointerVariable);
+		::llvm::Value* tagbytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,functionContext.llvmContext.i8Type,tagbaseptrval, addressrshift);
+		::llvm::Value* taginmem = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,functionContext.llvmContext.i8Type,tagbytePointer);
+		functionContext.emitConditionalTrapIntrinsic(
+			irBuilder.CreateICmpNE(taggedval, taginmem),
+			"memoryTagFails",
+#if 0
+			FunctionType(TypeTuple{},
+						 TypeTuple{functionContext.moduleContext.iptrValueType,
+						 	functionContext.moduleContext.iptrValueType,
+								   IR::ValueType::i32,
+								   IR::ValueType::i32},
+						 IR::CallingConvention::intrinsic),
+			{irBuilder.CreatePtrToInt(tagbaseptrval,irBuilder.getInt64Ty()),addressrshift,irBuilder.CreateZExt(taggedval,irBuilder.getInt32Ty()),irBuilder.CreateZExt(taginmem,irBuilder.getInt32Ty())}
+#else
+			FunctionType(TypeTuple{},
+						 TypeTuple{},IR::CallingConvention::intrinsic),{}
+#endif
+			);
+	}
 	return address;
 }
 
@@ -219,13 +243,6 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder,llvmContext.i8PtrType,meminfo.basePointerVariable);
 	llvm::Value* bytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,llvmContext.i8Type,memoryBasePointer, boundedAddress);
 
-#if 0
-	auto memtagBasePointerVariable = meminfo.memtagBasePointerVariable;
-//	::llvm::Value* taggedval{};
-	if(memtagBasePointerVariable)	//memtag needs to ignore upper 8 bits
-	{
-	}
-#endif
 	// Cast the pointer to the appropriate type.
 #if LLVM_VERSION_MAJOR > 14
 	return bytePointer;
@@ -418,8 +435,8 @@ static inline ::llvm::Value* TagMemPointer(EmitFunctionContext& functionContext,
 	if(memoryType.indexType==IndexType::i64)
 	{
 		auto pointertype = address->getType();
-		address=irBuilder.CreatePtrToInt(address,irBuilder.getInt64Ty());
-		color=irBuilder.CreateZExt(color,irBuilder.getInt64Ty());
+		address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i64Type);
+		color=irBuilder.CreateZExt(color,functionContext.llvmContext.i64Type);
 		color=irBuilder.CreateShl(color,56);
 		address=irBuilder.CreateAnd(address,irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
 		address=irBuilder.CreateOr(address,color);
@@ -428,8 +445,8 @@ static inline ::llvm::Value* TagMemPointer(EmitFunctionContext& functionContext,
 	else
 	{
 		auto pointertype = address->getType();
-		address=irBuilder.CreatePtrToInt(address,irBuilder.getInt32Ty());
-		color=irBuilder.CreateZExt(color,irBuilder.getInt32Ty());
+		address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i32Type);
+		color=irBuilder.CreateZExt(color,functionContext.llvmContext.i32Type);
 		color=irBuilder.CreateShl(color,30);
 		address=irBuilder.CreateAnd(address,irBuilder.getInt32(0x3FFFFFFF));
 		address=irBuilder.CreateOr(address,color);
@@ -438,13 +455,71 @@ static inline ::llvm::Value* TagMemPointer(EmitFunctionContext& functionContext,
 	return address;
 }
 
+
+static inline void store_tag_into_mem(EmitFunctionContext& functionContext,Uptr memoryIndex,::llvm::Value *address,::llvm::Value *taggedbytes,::llvm::Value *color)
+{
+	MemoryType const& memoryType
+		= functionContext.moduleContext.irModule.memories.getType(memoryIndex);
+	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
+	if(memoryType.indexType==IndexType::i64)
+	{
+		auto pointertype = address->getType();
+		address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i64Type);
+		if(color == nullptr)
+		{
+			color=irBuilder.CreateZExt(color,functionContext.llvmContext.i64Type);
+			color=irBuilder.CreateShl(color,56);
+		}
+		address=irBuilder.CreateAnd(address,irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
+		address=irBuilder.CreateOr(address,color);
+		address=irBuilder.CreateIntToPtr(address,pointertype);
+	}
+	else
+	{
+		auto pointertype = address->getType();
+		address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i32Type);
+		if(color == nullptr)
+		{
+			color=irBuilder.CreateZExt(color,functionContext.llvmContext.i64Type);
+			color=irBuilder.CreateShl(color,56);
+		}
+		address=irBuilder.CreateAnd(address,irBuilder.getInt32(0x3FFFFFFF));
+		address=irBuilder.CreateOr(address,color);
+		address=irBuilder.CreateIntToPtr(address,pointertype);
+	}
+	auto n = irBuilder.CreateLShr(taggedbytes,4);
+
+	auto tagtp = taggedbytes->getType();
+	llvm::Value *i = irBuilder.CreateAlloca(tagtp);
+	irBuilder.CreateStore(i, irBuilder.getInt64(0));
+	auto* function = functionContext.function;
+	llvm::BasicBlock *loopCondBlock = llvm::BasicBlock::Create(functionContext.llvmContext, "loop.cond", function);
+	llvm::BasicBlock *loopBodyBlock = llvm::BasicBlock::Create(functionContext.llvmContext, "loop.body", function);
+	llvm::BasicBlock *exitBlock = llvm::BasicBlock::Create(functionContext.llvmContext, "exit", function);
+
+	irBuilder.CreateBr(loopCondBlock);
+	irBuilder.SetInsertPoint(loopCondBlock);
+	llvm::Value *currentI = irBuilder.CreateLoad(tagtp, i);
+	llvm::Value *loopCond = irBuilder.CreateICmpNE(currentI, n, "loop.cond");
+	irBuilder.CreateCondBr(loopCond, loopBodyBlock, exitBlock);
+	irBuilder.SetInsertPoint(loopBodyBlock);
+	llvm::Value *newI = irBuilder.CreateAdd(currentI, irBuilder.getInt32(1), "newI");
+	irBuilder.CreateStore(newI, i);
+	irBuilder.CreateBr(loopCondBlock);
+	irBuilder.SetInsertPoint(exitBlock);
+
+}
+
 void EmitFunctionContext::memory_randomstoretag(NoImm)
 {
 	::llvm::Value *taggedbytes = pop();
 	::llvm::Value *memaddress = pop();
 	if(isMemTaggedEnabled(*this,0))
 	{
-		push(TagMemPointer(*this,0,memaddress,generateMemRandomTagByte(*this,0)));
+		auto color = generateMemRandomTagByte(*this,0);
+		store_tag_into_mem(*this,0,memaddress,taggedbytes,color);
+		auto returnedptr = TagMemPointer(*this,0,memaddress,color);
+		push(returnedptr);
 	}
 	else
 	{
@@ -456,6 +531,7 @@ void EmitFunctionContext::memory_storetag(NoImm)
 {
 	::llvm::Value *taggedbytes = pop();
 	::llvm::Value *memaddress = pop();
+	store_tag_into_mem(*this,0,memaddress,taggedbytes,nullptr);
 }
 
 //

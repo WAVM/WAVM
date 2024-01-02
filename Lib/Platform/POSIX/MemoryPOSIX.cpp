@@ -68,6 +68,9 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 		}
 		return nullptr;
 	}
+	if (madvise(result, numBytes, MADV_DONTNEED) == -1) {
+		return nullptr;
+	}
 	return (U8*)result;
 }
 
