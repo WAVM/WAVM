@@ -33,7 +33,9 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/Object/SymbolSize.h>
 #include <llvm/Pass.h>
 #include <llvm/Support/FileSystem.h>
+#if __has_include(<llvm/Support/Host.h>)
 #include <llvm/Support/Host.h>
+#endif
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/Scalar.h>
