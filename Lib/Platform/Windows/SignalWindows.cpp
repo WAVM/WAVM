@@ -10,7 +10,7 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <Windows.h>
+#include <windows.h>
 #undef min
 #undef max
 
@@ -42,7 +42,7 @@ void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr 
 	Errors::fatal("deregisterEHFrames isn't implemented on 32-bit Windows");
 #endif
 }
-#if WAVMSIGNALENABLESEH
+#ifdef WAVMSIGNALENABLESEH
 static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& outSignal)
 {
 	// Decide how to handle this exception code.
