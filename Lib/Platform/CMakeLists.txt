@@ -42,7 +42,7 @@ set(Win32Sources "")
 set(Win64Sources "")
 else()
 set(Win32Sources Windows/Win32.asm)
-set(Win64Sources Windows/Win64.asm)
+set(Win64Sources "")
 endif()
 
 endif()

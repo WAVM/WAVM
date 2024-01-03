@@ -685,10 +685,7 @@ set_target_properties(libWAVM PROPERTIES
 )
 
 # Set up the WAVM_API definitions.
-if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
-	target_compile_definitions(libWAVM PRIVATE "\"WAVM_API=__declspec(dllexport)\"")
-	target_compile_definitions(libWAVM INTERFACE "\"WAVM_API=__declspec(dllimport)\"")
-elseif(NOT WAVM_ENABLE_STATIC_LINKING AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Windows") OR (${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN") OR (${CMAKE_SYSTEM_NAME} STREQUAL "MSYS")))
+if(NOT WAVM_ENABLE_STATIC_LINKING AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Windows") OR (${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN") OR (${CMAKE_SYSTEM_NAME} STREQUAL "MSYS")))
 	target_compile_definitions(libWAVM PRIVATE "WAVM_API=__declspec(dllexport)")
 	target_compile_definitions(libWAVM INTERFACE "WAVM_API=__declspec(dllimport)")
 elseif(NOT WAVM_ENABLE_STATIC_LINKING AND CXX_HAS_FVISIBILITY_HIDDEN)
