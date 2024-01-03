@@ -118,7 +118,9 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 
 	fpm.doInitialization();
 	for(auto functionIt = llvmModule.begin(); functionIt != llvmModule.end(); ++functionIt)
-	{ fpm.run(*functionIt); }
+	{
+		fpm.run(*functionIt);
+	}
 
 	if(shouldLogMetrics)
 	{
@@ -288,7 +290,9 @@ std::string LLVMJIT::disassembleObject(const TargetSpec& targetSpec,
 #if LLVM_VERSION_MAJOR >= 9
 			if(llvm::Expected<llvm::StringRef> maybeSectionContents
 			   = (*symbolSection)->getContents())
-			{ sectionContents = maybeSectionContents.get(); }
+			{
+				sectionContents = maybeSectionContents.get();
+			}
 #else
 			(*symbolSection)->getContents(sectionContents);
 #endif

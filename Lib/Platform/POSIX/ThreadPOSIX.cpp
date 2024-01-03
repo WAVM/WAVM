@@ -79,7 +79,9 @@ void SigAltStack::deinit()
 
 		// Free the alt stack's memory.
 		if(!ALLOCATE_SIGALTSTACK_ON_MAIN_STACK)
-		{ WAVM_ERROR_UNLESS(!munmap(base, sigAltStackNumBytes)); }
+		{
+			WAVM_ERROR_UNLESS(!munmap(base, sigAltStackNumBytes));
+		}
 		else
 		{
 			U8* signalStackMaxAddr = base + sigAltStackNumBytes;
@@ -138,7 +140,9 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	unsigned long glibcMinorVersion = 0;
 	getGlibcVersion(glibcMajorVersion, glibcMinorVersion);
 	if(glibcMajorVersion > 2 || (glibcMajorVersion == 2 && glibcMinorVersion >= 27))
-	{ outMinGuardAddr = outMinAddr - numGuardBytes; }
+	{
+		outMinGuardAddr = outMinAddr - numGuardBytes;
+	}
 	else
 	{
 #endif
@@ -284,7 +288,9 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 	pthread_attr_t threadAttr;
 	WAVM_ERROR_UNLESS(!pthread_attr_init(&threadAttr));
 	if(numStackBytes != 0)
-	{ WAVM_ERROR_UNLESS(!pthread_attr_setstacksize(&threadAttr, numStackBytes)); }
+	{
+		WAVM_ERROR_UNLESS(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
+	}
 
 	// Create a new pthread.
 	WAVM_ERROR_UNLESS(!pthread_create(&thread->id, &threadAttr, createThreadEntry, createArgs));

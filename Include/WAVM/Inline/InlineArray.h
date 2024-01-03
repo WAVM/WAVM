@@ -28,12 +28,16 @@ namespace WAVM {
 			if(newNumElements < numElements)
 			{
 				for(Uptr index = newNumElements; index < numElements; ++index)
-				{ elements[index].destruct(); }
+				{
+					elements[index].destruct();
+				}
 			}
 			else if(newNumElements > numElements)
 			{
 				for(Uptr index = numElements; index < newNumElements; ++index)
-				{ elements[index].construct(std::forward<ElementArgs>(elementArgs)...); }
+				{
+					elements[index].construct(std::forward<ElementArgs>(elementArgs)...);
+				}
 			}
 			numElements = newNumElements;
 		}

@@ -116,10 +116,7 @@ void EmitFunctionContext::exitCatch()
 llvm::BasicBlock* EmitContext::getInnermostUnwindToBlock()
 {
 	if(tryStack.size()) { return tryStack.back().unwindToBlock; }
-	else
-	{
-		return nullptr;
-	}
+	else { return nullptr; }
 }
 
 void EmitFunctionContext::try_(ControlStructureImm imm)
@@ -162,7 +159,8 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+				irBuilder,
 				llvmContext.i8Type,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
@@ -191,7 +189,8 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+				irBuilder,
 				llvmContext.i8Type,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
@@ -236,10 +235,7 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 		WAVM_ASSERT(tryStack.size());
 		tryStack.pop_back();
 	}
-	else
-	{
-		exitCatch();
-	}
+	else { exitCatch(); }
 
 	branchToEndOfControlContext();
 
@@ -266,9 +262,9 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 			  + (catchType.params.size() - argumentIndex - 1) * sizeof(Exception::arguments[0]);
 		auto argument = loadFromUntypedPointer(
 			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
-				llvmContext.i8Type,
-				catchContext.exceptionPointer,
-				{emitLiteral(llvmContext, argOffset)}),
+												   llvmContext.i8Type,
+												   catchContext.exceptionPointer,
+												   {emitLiteral(llvmContext, argOffset)}),
 			asLLVMType(llvmContext, parameters),
 			sizeof(Exception::arguments[0]));
 		push(argument);
@@ -291,17 +287,15 @@ void EmitFunctionContext::catch_all(NoImm)
 		WAVM_ASSERT(tryStack.size());
 		tryStack.pop_back();
 	}
-	else
-	{
-		exitCatch();
-	}
+	else { exitCatch(); }
 
 	branchToEndOfControlContext();
 
 	irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
 	auto isUserExceptionType = irBuilder.CreateICmpNE(
 		loadFromUntypedPointer(
-			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+				irBuilder,
 				llvmContext.i8Type,
 				catchContext.exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, isUserException), moduleContext.iptrType)}),
@@ -338,7 +332,8 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 #if LLVM_VERSION_MAJOR <= 14
 			irBuilder.CreatePointerCast(
 #endif
-				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+				::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+					irBuilder,
 					llvmContext.i8Type,
 					argBaseAddress,
 					{emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))}),

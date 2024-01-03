@@ -95,7 +95,6 @@
 
 #ifndef WAVM_FALLTHROUGH
 #define WAVM_FALLTHROUGH                                                                           \
-	do                                                                                             \
-	{                                                                                              \
+	do {                                                                                           \
 	} while(0) /* fallthrough */
 #endif

@@ -157,7 +157,9 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 			moduleContext.iptrType));
 	}
 	if(moduleContext.tableOffsets.size())
-	{ moduleContext.defaultTableOffset = moduleContext.tableOffsets[0]; }
+	{
+		moduleContext.defaultTableOffset = moduleContext.tableOffsets[0];
+	}
 
 	// Create LLVM external globals corresponding to offsets to memory base pointers in
 	// CompartmentRuntimeData for the module's declared memory objects.

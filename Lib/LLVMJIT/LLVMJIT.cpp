@@ -120,13 +120,12 @@ LLVMContext::LLVMContext()
 	f32Type = llvm::Type::getFloatTy(*this);
 	f64Type = llvm::Type::getDoubleTy(*this);
 #if LLVM_VERSION_MAJOR > 14
-	i8PtrType = llvm::PointerType::get(*this,0);
+	i8PtrType = llvm::PointerType::get(*this, 0);
 	externrefType = i8PtrType;
 #else
 	i8PtrType = i8Type->getPointerTo();
 	externrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 #endif
-
 
 	i8x8Type = FixedVectorType::get(i8Type, 8);
 	i16x4Type = FixedVectorType::get(i16Type, 4);
@@ -215,14 +214,18 @@ TargetValidationResult LLVMJIT::validateTargetMachine(
 	{
 		// If the SIMD feature is enabled, then require the SSE4.1 CPU feature.
 		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+sse4.1"))
-		{ return TargetValidationResult::x86CPUDoesNotSupportSSE41; }
+		{
+			return TargetValidationResult::x86CPUDoesNotSupportSSE41;
+		}
 
 		return TargetValidationResult::valid;
 	}
 	else if(targetArch == llvm::Triple::aarch64)
 	{
 		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+neon"))
-		{ return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+		{
+			return TargetValidationResult::wavmDoesNotSupportSIMDOnArch;
+		}
 
 		return TargetValidationResult::valid;
 	}

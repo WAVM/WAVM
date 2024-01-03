@@ -27,8 +27,7 @@ namespace WAVM {
 
 			// Starting from the index after the last index to be allocated, check indices
 			// sequentially until one is found that isn't allocated.
-			do
-			{
+			do {
 				++lastIndex;
 				if(lastIndex > maxIndex) { lastIndex = minIndex; }
 			} while(map.contains(lastIndex));
