@@ -108,7 +108,9 @@ static GrowResult growTableImpl(Table* table,
 	{
 		// Check the table element quota.
 		if(table->resourceQuota && !table->resourceQuota->tableElems.allocate(numElementsToGrow))
-		{ return GrowResult::outOfQuota; }
+		{
+			return GrowResult::outOfQuota;
+		}
 
 		Platform::RWMutex::ExclusiveLock resizingLock(table->resizingMutex);
 
@@ -316,7 +318,9 @@ static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
+	{
+		throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)});
+	}
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -331,10 +335,14 @@ static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 	while(true)
 	{
 		if(biasedTableElementValueToObject(oldBiasedValue) == getOutOfBoundsElement())
-		{ throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
+		{
+			throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)});
+		}
 		if(table->elements[saturatedIndex].biasedValue.compare_exchange_weak(
 			   oldBiasedValue, biasedValue, std::memory_order_acq_rel))
-		{ break; }
+		{
+			break;
+		}
 	};
 
 	return biasedTableElementValueToObject(oldBiasedValue);
@@ -541,7 +549,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 				 &oldNumElements,
 				 initialValue ? initialValue : getUninitializedElement())
 	   != GrowResult::success)
-	{ return -1; }
+	{
+		return -1;
+	}
 	WAVM_ASSERT(oldNumElements <= INTPTR_MAX);
 	return Iptr(oldNumElements);
 }
@@ -621,7 +631,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	Platform::RWMutex::ExclusiveLock elemSegmentsLock(instance->elemSegmentsMutex);
 
 	if(instance->elemSegments[elemSegmentIndex])
-	{ instance->elemSegments[elemSegmentIndex].reset(); }
+	{
+		instance->elemSegments[elemSegmentIndex].reset();
+	}
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
@@ -718,7 +730,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 		}
 
 		for(Uptr index = 0; index < numElements; ++index)
-		{ setTableElementNonNull(destTable, U64(destOffset) + U64(index), value); }
+		{
+			setTableElementNonNull(destTable, U64(destOffset) + U64(index), value);
+		}
 	});
 }
 
@@ -733,7 +747,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	if(asObject(function) == getOutOfBoundsElement())
-	{ throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
+	{
+		throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)});
+	}
 	else if(asObject(function) == getUninitializedElement())
 	{
 		throwException(ExceptionTypes::uninitializedTableElement, {table, U64(index)});

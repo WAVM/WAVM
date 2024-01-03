@@ -93,7 +93,9 @@ static std::vector<ProcessorGroupInfo> getProcessorGroupInfos()
 	std::vector<ProcessorGroupInfo> results;
 	const U16 numProcessorGroups = GetActiveProcessorGroupCount();
 	for(U16 groupIndex = 0; groupIndex < numProcessorGroups; ++groupIndex)
-	{ results.push_back({GetActiveProcessorCount(groupIndex)}); }
+	{
+		results.push_back({GetActiveProcessorCount(groupIndex)});
+	}
 	return results;
 }
 
@@ -124,7 +126,9 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 	groupAffinity.Group = nextProcessorGroup++ % processorGroupInfos.size();
 	groupAffinity.Mask = (1ull << U64(processorGroupInfos[groupAffinity.Group].numProcessors)) - 1;
 	if(!SetThreadGroupAffinity(thread->handle, &groupAffinity, nullptr))
-	{ Errors::fatalf("SetThreadGroupAffinity failed: GetLastError=%x", GetLastError()); }
+	{
+		Errors::fatalf("SetThreadGroupAffinity failed: GetLastError=%x", GetLastError());
+	}
 
 	return args->thread;
 }
@@ -152,8 +156,7 @@ I64 Platform::joinThread(Thread* thread)
 			"WaitForSingleObject(INFINITE) on thread returned WAIT_FAILED. GetLastError()=%u",
 			GetLastError());
 		break;
-	default:
-		break;
+	default: break;
 	};
 
 	const I64 result = thread->result;
@@ -166,7 +169,9 @@ static Uptr getNumberOfHardwareThreadsImpl()
 	Uptr result = 0;
 	const U16 numProcessorGroups = GetActiveProcessorGroupCount();
 	for(U16 groupIndex = 0; groupIndex < numProcessorGroups; ++groupIndex)
-	{ result += GetActiveProcessorCount(groupIndex); }
+	{
+		result += GetActiveProcessorCount(groupIndex);
+	}
 	return result;
 }
 

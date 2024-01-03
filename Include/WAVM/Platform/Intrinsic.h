@@ -142,7 +142,9 @@ namespace WAVM {
 	inline void bytewiseMemCopyReverse(volatile U8* dest, const U8* source, Uptr numBytes)
 	{
 		for(Uptr index = 0; index < numBytes; ++index)
-		{ dest[numBytes - index - 1] = source[numBytes - index - 1]; }
+		{
+			dest[numBytes - index - 1] = source[numBytes - index - 1];
+		}
 	}
 
 	inline void bytewiseMemSet(volatile U8* dest, U8 value, Uptr numBytes)

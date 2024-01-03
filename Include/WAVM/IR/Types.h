@@ -207,10 +207,7 @@ namespace WAVM { namespace IR {
 	inline bool isSubtype(TypeTuple subtype, TypeTuple supertype)
 	{
 		if(subtype == supertype) { return true; }
-		else if(subtype.size() != supertype.size())
-		{
-			return false;
-		}
+		else if(subtype.size() != supertype.size()) { return false; }
 		else
 		{
 			for(Uptr elementIndex = 0; elementIndex < subtype.size(); ++elementIndex)
@@ -369,7 +366,9 @@ namespace WAVM { namespace IR {
 		std::string result
 			= asString(functionType.params()) + "->" + asString(functionType.results());
 		if(functionType.callingConvention() != CallingConvention::wasm)
-		{ result += "(calling_conv " + asString(functionType.callingConvention()) + ')'; }
+		{
+			result += "(calling_conv " + asString(functionType.callingConvention()) + ')';
+		}
 		return result;
 	}
 
@@ -547,24 +546,15 @@ namespace WAVM { namespace IR {
 		friend bool isSubtype(const GlobalType& sub, const GlobalType& super)
 		{
 			if(super.isMutable != sub.isMutable) { return false; }
-			else if(super.isMutable)
-			{
-				return super.valueType == sub.valueType;
-			}
-			else
-			{
-				return isSubtype(sub.valueType, super.valueType);
-			}
+			else if(super.isMutable) { return super.valueType == sub.valueType; }
+			else { return isSubtype(sub.valueType, super.valueType); }
 		}
 	};
 
 	inline std::string asString(const GlobalType& globalType)
 	{
 		if(globalType.isMutable) { return std::string("global ") + asString(globalType.valueType); }
-		else
-		{
-			return std::string("immutable ") + asString(globalType.valueType);
-		}
+		else { return std::string("immutable ") + asString(globalType.valueType); }
 	}
 
 	struct ExceptionType

@@ -56,8 +56,7 @@ namespace WAVM { namespace NFA {
 		inline StateIndex feed(const char*& nextChar) const
 		{
 			Iptr state = 0;
-			do
-			{
+			do {
 				state = stateAndOffsetToNextStateMap[state + charToOffsetMap[(U8)nextChar[0]]];
 				if(state < 0)
 				{
