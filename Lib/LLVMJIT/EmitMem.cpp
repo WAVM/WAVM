@@ -623,7 +623,6 @@ void EmitFunctionContext::memory_loadtag(NoImm)
 			color=irBuilder.CreateZExt(color,this->llvmContext.i32Type);
 			shiftval = 30;
 		}
-
 		color = irBuilder.CreateShl(color, irBuilder.getInt32(shiftval));
 		memaddress=irBuilder.CreateOr(memaddress,color);
 	}
