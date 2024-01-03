@@ -159,9 +159,9 @@ I32 WASI::catchExit(std::function<I32()>&& thunk)
 	}
 }
 
-#include "WASIdefineIntrinsicsI32.h"
+#include "DefineIntrinsicsI32.h"
 #include "WASIOther.h"
 #if UINT32_MAX < SIZE_MAX
-#include "WASIdefineIntrinsicsI64.h"
+#include "DefineIntrinsicsI64.h"
 #include "WASIOther.h"
 #endif
