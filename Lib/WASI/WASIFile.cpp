@@ -235,9 +235,9 @@ static Uptr truncatingMemcpy(void* dest, const void* source, Uptr numSourceBytes
 	return numBytes;
 }
 
-#include "WASIDefineIntrinsicsI32.h"
+#include "WASIdefineIntrinsicsI32.h"
 #include "WASIFile.h"
 #if UINT32_MAX < SIZE_MAX
-#include "WASIDefineIntrinsicsI64.h"
+#include "WASIdefineIntrinsicsI64.h"
 #include "WASIFile.h"
 #endif
