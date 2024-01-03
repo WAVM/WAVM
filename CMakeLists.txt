@@ -448,19 +448,20 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 			   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/Include>
 	)
 
-	# Target C++14.
-	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_14)
+	# Target C++17. (Optional is a C++17 feature)
+	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_17)
 	
 	# Set sanitizer options.
 	WAVM_SET_TARGET_SANITIZER_OPTIONS(${TARGET_NAME})
 	
 	if(MSVC)
 		# Compile files in parallel.
-		target_compile_options(${TARGET_NAME} PRIVATE "/MP")
+		if(NOT (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+			target_compile_options(${TARGET_NAME} PRIVATE "/MP")
+		endif()
 
 		# Compile with all warnings, and fatal warnings.
 		target_compile_options(${TARGET_NAME} PRIVATE "/W4")
-		target_compile_options(${TARGET_NAME} PRIVATE "/WX")
 
 		# Disable warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4127") # conditional expression is constant
