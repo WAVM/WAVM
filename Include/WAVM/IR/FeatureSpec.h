@@ -39,7 +39,8 @@
 	V(quotedNamesInTextFormat, "quoted-names", "Quoted names in text format")                      \
 	V(customSectionsInTextFormat, "wat-custom-sections", "Custom sections in text format")         \
 	V(interleavedLoadStore, "interleaved-load-store", "Interleaved SIMD load&store instructions")  \
-	V(table64, "table64", "Tables with 64-bit indices")
+	V(table64, "table64", "Tables with 64-bit indices")                                            \
+	V(memtag, "memtag", "Memory Tagging")
 
 // WAVM extensions meant for internal use only (not exposed to users).
 #define WAVM_ENUM_INTERNAL_FEATURES(V)                                                             \

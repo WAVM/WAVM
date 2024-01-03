@@ -97,15 +97,16 @@ Intrinsics::Memory::Memory(Intrinsics::Module* moduleRef,
 	moduleRef->impl->memoryMap.set(name, this);
 }
 
-Instance* Intrinsics::instantiateModule(
+Instance* Intrinsics::instantiateModuleWithFeatureSpec(
 	Compartment* compartment,
 	const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
-	std::string&& debugName)
+	std::string&& debugName,
+	::WAVM::IR::FeatureSpec const& featureSpec)
 {
 	Timing::Timer timer;
-
 	IR::Module irModule(FeatureLevel::wavm);
 	irModule.featureSpec.nonWASMFunctionTypes = true;
+	irModule.featureSpec.memtag = featureSpec.memtag;
 	DisassemblyNames names;
 
 	std::vector<FunctionImportBinding> functionImportBindings;
@@ -246,6 +247,17 @@ Instance* Intrinsics::instantiateModule(
 
 	Timing::logTimer("Instantiated intrinsic module", timer);
 	return instance;
+}
+
+Instance* Intrinsics::instantiateModule(
+	Compartment* compartment,
+	const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
+	std::string&& debugName)
+{
+	::WAVM::IR::FeatureSpec featureSpec(::FeatureLevel::wavm);
+	featureSpec.memtag = false;
+	return Intrinsics::instantiateModuleWithFeatureSpec(
+		compartment, moduleRefs, ::std::move(debugName), featureSpec);
 }
 
 HashMap<std::string, Intrinsics::Function*> Intrinsics::getUninstantiatedFunctions(

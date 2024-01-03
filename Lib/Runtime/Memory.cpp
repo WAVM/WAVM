@@ -13,6 +13,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/RWMutex.h"
+#include "WAVM/Platform/Random.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -27,25 +28,59 @@ namespace WAVM { namespace Runtime {
 static Platform::RWMutex memoriesMutex;
 static std::vector<Memory*> memories;
 
-static constexpr U64 maxMemory64WASMPages =
+static inline constexpr U64 maxMemory64WASMPages =
 #if WAVM_ENABLE_TSAN
 	(U64(8) * 1024 * 1024 * 1024) >> IR::numBytesPerPageLog2; // 8GB
 #else
 	(U64(1) * 1024 * 1024 * 1024 * 1024) >> IR::numBytesPerPageLog2; // 1TB
 #endif
 
-static Uptr getPlatformPagesPerWebAssemblyPageLog2()
+inline constexpr auto maxMemory64WASMTagsPages
+	= maxMemory64WASMPages / 16u + (maxMemory64WASMPages % 16u != 0);
+
+static inline Uptr getPlatformPagesPerWebAssemblyPageLog2()
 {
-	WAVM_ERROR_UNLESS(Platform::getBytesPerPageLog2() <= IR::numBytesPerPageLog2);
-	return IR::numBytesPerPageLog2 - Platform::getBytesPerPageLog2();
+	auto v{Platform::getBytesPerPageLog2()};
+	WAVM_ERROR_UNLESS(4u <= v && v <= IR::numBytesPerPageLog2);
+	return IR::numBytesPerPageLog2 - v;
+}
+
+static inline Uptr getPlatformPagesPerWebAssemblyPageLog2Tagged()
+{
+	auto log2taggedv = getPlatformPagesPerWebAssemblyPageLog2();
+	return log2taggedv - 4u;
+}
+
+static inline void wavm_random_tag_fill_buffer_function(void* ptr) noexcept
+{
+	try
+	{
+		::WAVM::Platform::getCryptographicRNG(reinterpret_cast<U8*>(ptr), memoryTagBufferBytes);
+	}
+	catch(...)
+	{
+		::std::abort();
+	}
+}
+
+static U8* createMemoryTagRandomBufferImpl() noexcept
+{
+	constexpr ::std::size_t buffersize{memoryTagBufferBytes};
+	U8* ptr = reinterpret_cast<U8*>(::std::malloc(buffersize));
+	if(ptr == nullptr) { ::std::abort(); }
+	return ptr;
 }
 
 static Memory* createMemoryImpl(Compartment* compartment,
 								IR::MemoryType type,
 								std::string&& debugName,
+								bool isMemTagged,
 								ResourceQuotaRefParam resourceQuota)
 {
-	Memory* memory = new Memory(compartment, type, std::move(debugName), resourceQuota);
+	::std::unique_ptr<Memory> memoryuptr(
+		new Memory(compartment, type, std::move(debugName), resourceQuota));
+
+	Memory* memory = memoryuptr.get();
 
 	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
 
@@ -69,20 +104,19 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	}
 
 	const Uptr numGuardPages = memoryNumGuardBytes >> pageBytesLog2;
+	auto totalpages = memoryMaxPages + numGuardPages;
 	memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
-	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
-	if(!memory->baseAddress)
+	if(isMemTagged)
 	{
-		delete memory;
-		return nullptr;
+		auto totaltaggedpages = (totalpages >> 4u) + (totalpages & 15u);
+		memory->baseAddressTags = Platform::allocateVirtualPages(totaltaggedpages);
+		memory->memtagRandomBufferBase = createMemoryTagRandomBufferImpl();
 	}
+	memory->numReservedBytes = memoryMaxPages << pageBytesLog2;
+	if(!memory->baseAddress) { return nullptr; }
 
 	// Grow the memory to the type's minimum size.
-	if(growMemory(memory, type.size.min) != GrowResult::success)
-	{
-		delete memory;
-		return nullptr;
-	}
+	if(growMemory(memory, type.size.min) != GrowResult::success) { return nullptr; }
 
 	// Add the memory to the global array.
 	{
@@ -90,36 +124,42 @@ static Memory* createMemoryImpl(Compartment* compartment,
 		memories.push_back(memory);
 	}
 
-	return memory;
+	return memoryuptr.release();
 }
 
 Memory* Runtime::createMemory(Compartment* compartment,
 							  IR::MemoryType type,
 							  std::string&& debugName,
+							  bool isMemTagged,
 							  ResourceQuotaRefParam resourceQuota)
 {
 	WAVM_ASSERT(type.size.min <= UINTPTR_MAX);
-	Memory* memory = createMemoryImpl(compartment, type, std::move(debugName), resourceQuota);
+	Memory* memory
+		= createMemoryImpl(compartment, type, std::move(debugName), isMemTagged, resourceQuota);
 	if(!memory) { return nullptr; }
-
+	::std::unique_ptr<Memory> memoryuptr(memory);
 	// Add the memory to the compartment's memories IndexMap.
 	{
 		Platform::RWMutex::ExclusiveLock compartmentLock(compartment->mutex);
 
 		memory->id = compartment->memories.add(UINTPTR_MAX, memory);
-		if(memory->id == UINTPTR_MAX)
-		{
-			delete memory;
-			return nullptr;
-		}
+		if(memory->id == UINTPTR_MAX) { return nullptr; }
 		MemoryRuntimeData& runtimeData = compartment->runtimeData->memories[memory->id];
 		runtimeData.base = memory->baseAddress;
 		runtimeData.endAddress = memory->numReservedBytes;
+		runtimeData.memtagBase = memory->baseAddressTags;
+		if(isMemTagged)
+		{
+			auto memtagrdbf{memory->memtagRandomBufferBase};
+			runtimeData.memtagRandomBuffer = {
+				memtagrdbf, memtagrdbf + memoryTagBufferBytes, memtagrdbf + memoryTagBufferBytes};
+		}
+		else { runtimeData.memtagRandomBuffer = {}; }
 		runtimeData.numPages.store(memory->numPages.load(std::memory_order_acquire),
 								   std::memory_order_release);
 	}
 
-	return memory;
+	return memoryuptr.release();
 }
 
 Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
@@ -127,13 +167,20 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 	Platform::RWMutex::ExclusiveLock resizingLock(memory->resizingMutex);
 	const IR::MemoryType memoryType = getMemoryType(memory);
 	std::string debugName = memory->debugName;
-	Memory* newMemory
-		= createMemoryImpl(newCompartment, memoryType, std::move(debugName), memory->resourceQuota);
+	bool const ismemtagged{memory->baseAddressTags != nullptr};
+	Memory* newMemory = createMemoryImpl(
+		newCompartment, memoryType, std::move(debugName), ismemtagged, memory->resourceQuota);
 	if(!newMemory) { return nullptr; }
 
 	// Copy the memory contents to the new memory.
 	memcpy(newMemory->baseAddress, memory->baseAddress, memoryType.size.min * IR::numBytesPerPage);
-
+	if(ismemtagged)
+	{
+		memcpy(newMemory->baseAddressTags,
+			   memory->baseAddressTags,
+			   memoryType.size.min * (IR::numBytesPerPage >> 4u));
+		newMemory->memtagRandomBufferBase = createMemoryTagRandomBufferImpl();
+	}
 	resizingLock.unlock();
 
 	// Insert the memory in the new compartment's memories array with the same index as it had in
@@ -148,6 +195,14 @@ Memory* Runtime::cloneMemory(Memory* memory, Compartment* newCompartment)
 		runtimeData.base = newMemory->baseAddress;
 		runtimeData.numPages.store(newMemory->numPages, std::memory_order_release);
 		runtimeData.endAddress = newMemory->numReservedBytes;
+		runtimeData.memtagBase = newMemory->baseAddressTags;
+		auto memtagrdbf{newMemory->memtagRandomBufferBase};
+		if(memtagrdbf)
+		{
+			runtimeData.memtagRandomBuffer = {
+				memtagrdbf, memtagrdbf + memoryTagBufferBytes, memtagrdbf + memoryTagBufferBytes};
+		}
+		else { runtimeData.memtagRandomBuffer = {}; }
 	}
 
 	return newMemory;
@@ -167,6 +222,8 @@ Runtime::Memory::~Memory()
 		runtimeData.base = nullptr;
 		runtimeData.numPages.store(0, std::memory_order_release);
 		runtimeData.endAddress = 0;
+		runtimeData.memtagBase = nullptr;
+		runtimeData.memtagRandomBuffer = {};
 	}
 
 	// Remove the memory from the global array.
@@ -191,9 +248,22 @@ Runtime::Memory::~Memory()
 
 		Platform::deregisterVirtualAllocation(numPages >> pageBytesLog2);
 	}
+	if(baseAddressTags && numReservedBytes > 0)
+	{
+		auto wasmlog2m4 = pageBytesLog2 + 4u;
+		Platform::freeVirtualPages(baseAddressTags,
+								   (numReservedBytes + memoryNumGuardBytes) >> wasmlog2m4);
+		Platform::deregisterVirtualAllocation(numPages >> wasmlog2m4);
+	}
 
 	// Free the allocated quota.
 	if(resourceQuota) { resourceQuota->memoryPages.free(numPages); }
+
+	if(memtagRandomBufferBase)
+	{
+		::WAVM::Utils::secure_clear(memtagRandomBufferBase, memoryTagBufferBytes);
+		free(memtagRandomBufferBase);
+	}
 }
 
 bool Runtime::isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outMemoryAddress)
@@ -221,9 +291,10 @@ Uptr Runtime::getMemoryNumPages(const Memory* memory)
 }
 IR::MemoryType Runtime::getMemoryType(const Memory* memory)
 {
-	return IR::MemoryType(memory->isShared,
+	return IR::MemoryType{memory->isShared,
 						  memory->indexType,
-						  IR::SizeConstraints{getMemoryNumPages(memory), memory->maxPages});
+						  IR::SizeConstraints{getMemoryNumPages(memory), memory->maxPages},
+						  memory->baseAddressTags != nullptr};
 }
 
 GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPages)
@@ -253,16 +324,31 @@ GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOld
 			return GrowResult::outOfMaxSize;
 		}
 
+		auto wasmlog2 = getPlatformPagesPerWebAssemblyPageLog2();
+		auto grownpages = numPagesToGrow << wasmlog2;
 		// Try to commit the new pages, and return GrowResult::outOfMemory if the commit fails.
-		if(!Platform::commitVirtualPages(
-			   memory->baseAddress + oldNumPages * IR::numBytesPerPage,
-			   numPagesToGrow << getPlatformPagesPerWebAssemblyPageLog2()))
+		if(!Platform::commitVirtualPages(memory->baseAddress + oldNumPages * IR::numBytesPerPage,
+										 grownpages))
 		{
 			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
 			return GrowResult::outOfMemory;
 		}
-		Platform::registerVirtualAllocation(numPagesToGrow
-											<< getPlatformPagesPerWebAssemblyPageLog2());
+		if(memory->baseAddressTags)
+		{
+			auto wasmlog2m4 = wasmlog2 - 4u;
+			auto grownpagesTagged = numPagesToGrow << wasmlog2m4;
+			if(!Platform::commitVirtualPages(
+				   memory->baseAddressTags + oldNumPages * IR::numBytesTaggedPerPage,
+				   grownpagesTagged))
+			{
+				if(memory->resourceQuota)
+				{
+					memory->resourceQuota->memoryPages.free(numPagesToGrow);
+				}
+				return GrowResult::outOfMemory;
+			}
+		}
+		Platform::registerVirtualAllocation(grownpages);
 
 		const Uptr newNumPages = oldNumPages + numPagesToGrow;
 		memory->numPages.store(newNumPages, std::memory_order_release);
@@ -281,12 +367,20 @@ void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 {
 	WAVM_ASSERT(pageIndex + numPages > pageIndex);
 	WAVM_ASSERT((pageIndex + numPages) * IR::numBytesPerPage <= memory->numReservedBytes);
-
+	auto wasmlog2 = getPlatformPagesPerWebAssemblyPageLog2();
+	auto dcm = numPages << wasmlog2;
 	// Decommit the pages.
-	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage,
-								   numPages << getPlatformPagesPerWebAssemblyPageLog2());
+	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage, dcm);
+	Platform::deregisterVirtualAllocation(dcm);
 
-	Platform::deregisterVirtualAllocation(numPages << getPlatformPagesPerWebAssemblyPageLog2());
+	if(memory->baseAddressTags)
+	{
+		auto wasmlog2m4 = wasmlog2 - 4u;
+		auto dcmtagged = numPages << wasmlog2m4;
+		Platform::decommitVirtualPages(
+			memory->baseAddressTags + pageIndex * IR::numBytesTaggedPerPage, dcmtagged);
+		Platform::deregisterVirtualAllocation(dcmtagged);
+	}
 }
 
 U8* Runtime::getMemoryBaseAddress(Memory* memory) { return memory->baseAddress; }
@@ -297,6 +391,11 @@ static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 											 Uptr address,
 											 Uptr numBytes)
 {
+	if(memory->baseAddressTags)
+	{
+		if constexpr(sizeof(Uptr) == sizeof(uint_least64_t)) { address &= 0x00FFFFFFFFFFFFFF; }
+		else { address &= 0x3FFFFFFF; }
+	}
 	if(address + numBytes > memoryNumBytes || address + numBytes < address)
 	{
 		throwException(
@@ -443,4 +542,41 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	const U64 outOfBoundsAddress = U64(address) > memoryNumBytes ? U64(address) : memoryNumBytes;
 
 	throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, outOfBoundsAddress});
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "memoryTagRandomTagRefillFunction",
+							   void,
+							   memoryTagRandomTagRefillFunction,
+							   ::std::size_t nativeaddress)
+{
+	wavm_random_tag_fill_buffer_function(reinterpret_cast<void*>(nativeaddress));
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memoryTagFails", void, memoryTagFails)
+{
+	fputs("memoryTagFails fails\n", stderr);
+	std::abort();
+}
+#if 0
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "memoryTagFailsMore",
+							   void,
+							   memoryTagFailsMore,
+							   size_t addr,
+							   Uptr addrdiv16,
+							   uint32_t tginptr,
+							   uint32_t tginmem)
+{
+	fprintf(stderr,"memoryTagFailsMore fails: %p %llu tginptr:%u tginmem:%u\n",addr,addrdiv16,tginptr,tginmem);
+	std::abort();
+}
+#endif
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "memoryOutOfBoundsTrapSimple",
+							   void,
+							   outOfBoundsMemoryTrapSimple)
+{
+	fputs("memoryOutOfBoundsTrapSimple fails\n", stderr);
+	std::abort();
 }

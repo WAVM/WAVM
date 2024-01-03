@@ -482,12 +482,15 @@ namespace WAVM { namespace IR {
 	// The type of a memory
 	struct MemoryType
 	{
-		bool isShared;
-		IndexType indexType;
-		SizeConstraints size;
+		bool isShared{};
+		IndexType indexType{IndexType::i32};
+		SizeConstraints size{0, UINT64_MAX};
 
 		MemoryType() : isShared(false), indexType(IndexType::i32), size({0, UINT64_MAX}) {}
-		MemoryType(bool inIsShared, IndexType inIndexType, const SizeConstraints& inSize)
+		MemoryType(bool inIsShared,
+				   IndexType inIndexType,
+				   const SizeConstraints& inSize,
+				   bool inIsMemTagged)
 		: isShared(inIsShared), indexType(inIndexType), size(inSize)
 		{
 		}

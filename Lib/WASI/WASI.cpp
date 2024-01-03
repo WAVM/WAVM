@@ -69,13 +69,14 @@ WASI::Process::~Process()
 	}
 }
 
-std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
-											 std::vector<std::string>&& inArgs,
-											 std::vector<std::string>&& inEnvs,
-											 VFS::FileSystem* fileSystem,
-											 VFS::VFD* stdIn,
-											 VFS::VFD* stdOut,
-											 VFS::VFD* stdErr)
+std::shared_ptr<Process> WASI::createProcessWithFeatureSpec(Runtime::Compartment* compartment,
+															std::vector<std::string>&& inArgs,
+															std::vector<std::string>&& inEnvs,
+															VFS::FileSystem* fileSystem,
+															VFS::VFD* stdIn,
+															VFS::VFD* stdOut,
+															VFS::VFD* stdErr,
+															FeatureSpec const& featureSpec)
 {
 	std::shared_ptr<Process> process = std::make_shared<Process>();
 	process->args = std::move(inArgs);
@@ -86,12 +87,13 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 	setUserData(process->compartment, process.get(), nullptr);
 
 	Instance* wasi_snapshot_preview1
-		= Intrinsics::instantiateModule(compartment,
-										{WAVM_INTRINSIC_MODULE_REF(wasi),
-										 WAVM_INTRINSIC_MODULE_REF(wasiArgsEnvs),
-										 WAVM_INTRINSIC_MODULE_REF(wasiClocks),
-										 WAVM_INTRINSIC_MODULE_REF(wasiFile)},
-										"wasi_snapshot_preview1");
+		= Intrinsics::instantiateModuleWithFeatureSpec(compartment,
+													   {WAVM_INTRINSIC_MODULE_REF(wasi),
+														WAVM_INTRINSIC_MODULE_REF(wasiArgsEnvs),
+														WAVM_INTRINSIC_MODULE_REF(wasiClocks),
+														WAVM_INTRINSIC_MODULE_REF(wasiFile)},
+													   "wasi_snapshot_preview1",
+													   featureSpec);
 
 	process->resolver.moduleNameToInstanceMap.set("wasi_unstable", wasi_snapshot_preview1);
 	process->resolver.moduleNameToInstanceMap.set("wasi_snapshot_preview1", wasi_snapshot_preview1);
@@ -134,6 +136,26 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 	process->processClockOrigin = Platform::getClockTime(Platform::Clock::processCPUTime);
 
 	return process;
+}
+
+std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
+											 std::vector<std::string>&& inArgs,
+											 std::vector<std::string>&& inEnvs,
+											 VFS::FileSystem* fileSystem,
+											 VFS::VFD* stdIn,
+											 VFS::VFD* stdOut,
+											 VFS::VFD* stdErr)
+{
+	::WAVM::IR::FeatureSpec featureSpec(::FeatureLevel::wavm);
+	featureSpec.memtag = false;
+	return WASI::createProcessWithFeatureSpec(compartment,
+											  ::std::move(inArgs),
+											  ::std::move(inEnvs),
+											  fileSystem,
+											  stdIn,
+											  stdOut,
+											  stdErr,
+											  featureSpec);
 }
 
 Resolver& WASI::getProcessResolver(Process& process) { return process.resolver; }

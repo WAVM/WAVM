@@ -22,7 +22,8 @@ static Uptr internalGetPreferredVirtualPageSizeLog2()
 	GetSystemInfo(&systemInfo);
 	Uptr preferredVirtualPageSize = systemInfo.dwPageSize;
 	// Verify our assumption that the virtual page size is a power of two.
-	WAVM_ERROR_UNLESS(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
+	WAVM_ERROR_UNLESS((!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)))
+					  && ((preferredVirtualPageSize & 15u) == 0u));
 	return floorLogTwo(preferredVirtualPageSize);
 }
 Uptr Platform::getBytesPerPageLog2()

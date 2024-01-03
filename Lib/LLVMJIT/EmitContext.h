@@ -52,6 +52,8 @@ namespace WAVM { namespace LLVMJIT {
 		{
 			llvm::Value* basePointerVariable;
 			llvm::Value* endAddressVariable;
+			llvm::Value* memtagBasePointerVariable;
+			llvm::Value* memtagRandomBufferVariable;
 		};
 		std::vector<MemoryInfo> memoryInfos;
 
@@ -60,6 +62,7 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::BasicBlock* unwindToBlock;
 		};
 		std::vector<TryContext> tryStack;
+		bool isMemTagged = false;
 
 		EmitContext(LLVMContext& inLLVMContext, const std::vector<llvm::Constant*>& inMemoryOffsets)
 		: llvmContext(inLLVMContext)
@@ -113,7 +116,7 @@ namespace WAVM { namespace LLVMJIT {
 		void reloadMemoryBases()
 		{
 			llvm::Value* compartmentAddress = getCompartmentAddress();
-
+			bool ismemtagged = this->isMemTagged;
 			// Reload the memory base pointer and num reserved bytes values from the
 			// CompartmentRuntimeData.
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
@@ -146,6 +149,7 @@ namespace WAVM { namespace LLVMJIT {
 		void initContextVariables(llvm::Value* initialContextPointer, llvm::Type* iptrType)
 		{
 			memoryInfos.resize(memoryOffsets.size());
+			bool ismemtagged = this->isMemTagged;
 			for(Uptr memoryIndex = 0; memoryIndex < memoryOffsets.size(); ++memoryIndex)
 			{
 				MemoryInfo& memoryInfo = memoryInfos[memoryIndex];
@@ -157,6 +161,21 @@ namespace WAVM { namespace LLVMJIT {
 					iptrType,
 					nullptr,
 					"memoryNumReservedBytesMinusGuardBytes" + llvm::Twine(memoryIndex));
+
+				if(ismemtagged)
+				{
+					memoryInfo.memtagBasePointerVariable = irBuilder.CreateAlloca(
+						iptrType, nullptr, "memtagBasePointer" + llvm::Twine(memoryIndex));
+					memoryInfo.memtagRandomBufferVariable
+						= irBuilder.CreateAlloca(llvmContext.i8PtrType,
+												 nullptr,
+												 "memtagRandomBuffer" + llvm::Twine(memoryIndex));
+				}
+				else
+				{
+					memoryInfo.memtagBasePointerVariable = nullptr;
+					memoryInfo.memtagRandomBufferVariable = nullptr;
+				}
 			}
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");

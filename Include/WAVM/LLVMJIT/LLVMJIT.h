@@ -139,4 +139,7 @@ namespace WAVM { namespace LLVMJIT {
 
 	// Generates an invoke thunk for a specific function type.
 	WAVM_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);
+	// Generates an invoke thunk for a specific function type with Memtag.
+	WAVM_API Runtime::InvokeThunkPointer getInvokeThunkWithMemtagged(IR::FunctionType functionType,
+																	 bool isMemTagged);
 }}

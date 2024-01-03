@@ -439,10 +439,11 @@ wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits,
 									   wasm_shared_t shared,
 									   wasm_index_t index)
 {
-	return new wasm_memorytype_t(
-		MemoryType(
-			shared == WASM_SHARED, asIndexType(index), SizeConstraints{limits->min, limits->max}),
-		*limits);
+	return new wasm_memorytype_t(MemoryType(shared == WASM_SHARED,
+											asIndexType(index),
+											SizeConstraints{limits->min, limits->max},
+											false),
+								 *limits);
 }
 const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* type) { return &type->limits; }
 wasm_shared_t wasm_memorytype_shared(const wasm_memorytype_t* type)
@@ -1043,7 +1044,7 @@ wasm_memory_t* wasm_memory_new(wasm_compartment_t* compartment,
 							   const wasm_memorytype_t* type,
 							   const char* debug_name)
 {
-	Memory* memory = createMemory(compartment, type->type, std::string(debug_name));
+	Memory* memory = createMemory(compartment, type->type, std::string(debug_name), false);
 	addGCRoot(memory);
 	return memory;
 }

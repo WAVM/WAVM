@@ -2,6 +2,7 @@
 
 #include <initializer_list>
 #include <string>
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
@@ -23,6 +24,12 @@ namespace WAVM { namespace Intrinsics {
 
 		WAVM_API ~Module();
 	};
+
+	WAVM_API Runtime::Instance* instantiateModuleWithFeatureSpec(
+		Runtime::Compartment* compartment,
+		const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
+		std::string&& debugName,
+		::WAVM::IR::FeatureSpec const& featureSpec);
 
 	WAVM_API Runtime::Instance* instantiateModule(
 		Runtime::Compartment* compartment,

@@ -192,18 +192,15 @@ Foreign* Runtime::createForeign(Compartment* compartment,
 								void (*finalizer)(void*),
 								std::string&& debugName)
 {
-	Foreign* foreign = new Foreign(compartment, std::move(debugName));
+	::std::unique_ptr<Foreign> foreignuptr(new Foreign(compartment, std::move(debugName)));
+	Foreign* foreign = foreignuptr.get();
 	setUserData(foreign, userData, finalizer);
 
 	{
 		Platform::RWMutex::ExclusiveLock lock(compartment->mutex);
 		foreign->id = compartment->foreigns.add(UINTPTR_MAX, foreign);
-		if(foreign->id == UINTPTR_MAX)
-		{
-			delete foreign;
-			return nullptr;
-		}
+		if(foreign->id == UINTPTR_MAX) { return nullptr; }
 	}
 
-	return foreign;
+	return foreignuptr.release();
 }
