@@ -12,6 +12,8 @@ set(Sources
 	src/Registers.hpp
 	src/RWMutex.hpp
 	src/Unwind-sjlj.c
+	src/Unwind-seh.cpp
+	src/Unwind-wasm.c
 	src/UnwindCursor.hpp
 	src/UnwindLevel1-gcc-ext.c
 	src/UnwindLevel1.c
