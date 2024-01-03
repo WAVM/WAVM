@@ -12,9 +12,9 @@ namespace WAVM { namespace WASI {
 	WAVM_DEFINE_INTRINSIC_MODULE(wasiArgsEnvs)
 }}
 
+#include "DefineIntrinsicsI32.h"
 #include "WASIArgsEnvs.h"
-#include "WASIDefineIntrinsicsI32.h"
 #if UINT32_MAX < SIZE_MAX
+#include "DefineIntrinsicsI64.h"
 #include "WASIArgsEnvs.h"
-#include "WASIDefineIntrinsicsI64.h"
 #endif

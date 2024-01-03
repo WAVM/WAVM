@@ -45,6 +45,7 @@ else()
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 		list(APPEND UNWIND_COMPILER_OPTIONS "-Wno-maybe-uninitialized" "-Wno-unused-but-set-variable")
 	endif()
+	list(APPEND UNWIND_COMPILER_OPTIONS "-D_LIBUNWIND_IS_NATIVE_ONLY" "-Wno-dll-attribute-on-redeclaration")
 
 	WAVM_ADD_THIRD_PARTY_LIBRARY(WAVMUnwind
 		SOURCES ${Sources} ${PublicHeaders}
