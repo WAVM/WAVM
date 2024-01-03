@@ -272,22 +272,6 @@ void getValidEmitters(FunctionState& state,
 
 void getValidEmitters(FunctionState& state,
 					  std::vector<OperatorEmitFunc>& outValidOpEmitters,
-					  void (CodeStream::*emitOp)(NoImm),
-					  OpSignature (*sigFromImm)(const Module&, const NoImm&))
-{
-	NoImm imm;
-	const OpSignature sig = (*sigFromImm)(state.module_, imm);
-	if(state.isOpSignatureAllowed(sig))
-	{
-		outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
-			(state.codeStream.*emitOp)(imm);
-			state.applyOpSignature(sig);
-		});
-	}
-}
-
-void getValidEmitters(FunctionState& state,
-					  std::vector<OperatorEmitFunc>& outValidOpEmitters,
 					  void (CodeStream::*emitOp)(MemoryImm),
 					  OpSignature (*sigFromImm)(const Module&, const MemoryImm&))
 {

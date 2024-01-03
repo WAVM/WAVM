@@ -15,7 +15,6 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
-#include "WAVM/Utils/secure_clear.h"
 
 namespace WAVM { namespace Intrinsics {
 	struct Module;
@@ -90,8 +89,6 @@ namespace WAVM { namespace Runtime {
 		const U64 maxPages;
 
 		U8* baseAddress = nullptr;
-		U8* baseAddressTags = nullptr;
-		U8* memtagRandomBufferBase = nullptr;
 		Uptr numReservedBytes = 0;
 
 		mutable Platform::RWMutex resizingMutex;

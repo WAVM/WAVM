@@ -316,17 +316,6 @@ namespace WAVM { namespace Runtime {
 								 const IR::UntaggedValue arguments[] = nullptr,
 								 IR::UntaggedValue results[] = nullptr);
 
-	// Invokes a Function with the given array of arguments, and writes the results to the given
-	// results array. The sizes of the arguments and results arrays must match the number of
-	// arguments/results of the provided function type. If the provided function type does not match
-	// the actual type of the function, then an invokeSignatureMismatch exception is thrown.
-	WAVM_API void invokeFunctionWithMemTag(Context* context,
-										   const Function* function,
-										   IR::FunctionType invokeSig = IR::FunctionType(),
-										   const IR::UntaggedValue arguments[] = nullptr,
-										   IR::UntaggedValue results[] = nullptr,
-										   bool ismemtagged = false);
-
 	// Returns the type of a Function.
 	WAVM_API IR::FunctionType getFunctionType(const Function* function);
 
@@ -369,7 +358,6 @@ namespace WAVM { namespace Runtime {
 	WAVM_API Memory* createMemory(Compartment* compartment,
 								  IR::MemoryType type,
 								  std::string&& debugName,
-								  bool isMemTagged,
 								  ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 	// Gets the base address of the memory's data.

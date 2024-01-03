@@ -42,7 +42,7 @@
 	visitOp(0xfb01, rethrow            , "rethrow"                          , RethrowImm                , POLYMORPHIC               , exceptionHandling      )   \
 /* References                                                                                                                                                 */ \
 	visitOp(0x00d0, ref_null           , "ref.null"                         , ReferenceTypeImm          , POLYMORPHIC               , referenceTypes         )   \
-	visitOp(0x00d1, ref_is_null        , "ref.is_null"                      , NoImm                     , POLYMORPHIC               , referenceTypes         )\
+	visitOp(0x00d1, ref_is_null        , "ref.is_null"                      , NoImm                     , POLYMORPHIC               , referenceTypes         )
 
 #define WAVM_ENUM_OVERLOADED_OPERATORS(visitOp)                                                                                                                  \
 /*  visitOp(0x001b, select             , "select"                           , NoImm                     , POLYMORPHIC               , mvp                    )*/ \
@@ -199,13 +199,7 @@
 	visitOp(0xfe4b, i32_atomic_rmw16_cmpxchg_u, "i32.atomic.rmw16.cmpxchg_u", AtomicLoadOrStoreImm<1>             , atomiccmpxchg_i32         , atomics                )   \
 	visitOp(0xfe4c, i64_atomic_rmw8_cmpxchg_u , "i64.atomic.rmw8.cmpxchg_u" , AtomicLoadOrStoreImm<0>             , atomiccmpxchg_i64         , atomics                )   \
 	visitOp(0xfe4d, i64_atomic_rmw16_cmpxchg_u, "i64.atomic.rmw16.cmpxchg_u", AtomicLoadOrStoreImm<1>             , atomiccmpxchg_i64         , atomics                )   \
-	visitOp(0xfe4e, i64_atomic_rmw32_cmpxchg_u, "i64.atomic.rmw32.cmpxchg_u", AtomicLoadOrStoreImm<2>             , atomiccmpxchg_i64         , atomics                )   \
-	visitOp(0xfc20, memory_randomtag          , "memory.randomtag"          , NoImm                               , memory_randomtag          , memtag                 )   \
-	visitOp(0xfc21, memory_copytag            , "memory.copytag"            , NoImm                               , memory_copytag            , memtag                 )   \
-	visitOp(0xfc22, memory_subtag             , "memory.subtag"             , NoImm                               , memory_subtag             , memtag                 )   \
-	visitOp(0xfc23, memory_loadtag            , "memory.loadtag"            , NoImm                               , memory_loadtag            , memtag                 )   \
-	visitOp(0xfc24, memory_storetag           , "memory.storetag"           , NoImm                               , memory_storetag           , memtag                 )   \
-	visitOp(0xfc28, memory_randomstoretag     , "memory.randomstoretag"     , NoImm                               , memory_randomstoretag     , memtag                 )
+	visitOp(0xfe4e, i64_atomic_rmw32_cmpxchg_u, "i64.atomic.rmw32.cmpxchg_u", AtomicLoadOrStoreImm<2>             , atomiccmpxchg_i64         , atomics                )
 
 #define WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                                            \
 	visitOp(0x0001, nop                           , "nop"                           , NoImm                     , none_to_none              , mvp                    )   \

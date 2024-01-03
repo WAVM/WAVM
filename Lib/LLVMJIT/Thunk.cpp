@@ -61,9 +61,10 @@ private:
 	InvokeThunkCache() {}
 };
 
-InvokeThunkPointer LLVMJIT::getInvokeThunkWithMemtagged(FunctionType functionType, bool ismemtagged)
+InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 {
 	InvokeThunkCache& invokeThunkCache = InvokeThunkCache::get();
+
 	// First, take a shareable lock on the cache mutex, and check if the thunk is cached.
 	{
 		Platform::RWMutex::ShareableLock shareableLock(invokeThunkCache.mutex);
@@ -124,7 +125,6 @@ InvokeThunkPointer LLVMJIT::getInvokeThunkWithMemtagged(FunctionType functionTyp
 	llvm::Value* resultsArray = &*(function->args().begin() + 3);
 
 	EmitContext emitContext(llvmContext, {});
-	emitContext.isMemTagged = ismemtagged;
 	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
 
 	emitContext.initContextVariables(contextPointer, iptrType);
@@ -188,9 +188,4 @@ InvokeThunkPointer LLVMJIT::getInvokeThunkWithMemtagged(FunctionType functionTyp
 
 	invokeThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
-}
-
-InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
-{
-	return LLVMJIT::getInvokeThunkWithMemtagged(functionType, false);
 }

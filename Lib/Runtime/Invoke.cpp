@@ -15,12 +15,11 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-void Runtime::invokeFunctionWithMemTag(Context* context,
-									   const Function* function,
-									   FunctionType invokeSig,
-									   const UntaggedValue arguments[],
-									   UntaggedValue outResults[],
-									   bool isMemTagged)
+void Runtime::invokeFunction(Context* context,
+							 const Function* function,
+							 FunctionType invokeSig,
+							 const UntaggedValue arguments[],
+							 UntaggedValue outResults[])
 {
 	FunctionType functionType{function->encodedType};
 
@@ -58,7 +57,7 @@ void Runtime::invokeFunctionWithMemTag(Context* context,
 		= function->mutableData->invokeThunk.load(std::memory_order_acquire);
 	if(WAVM_UNLIKELY(!invokeThunk))
 	{
-		invokeThunk = LLVMJIT::getInvokeThunkWithMemtagged(functionType, isMemTagged);
+		invokeThunk = LLVMJIT::getInvokeThunk(functionType);
 
 		// Replace the cached thunk pointer, but since LLVMJIT::getInvokeThunk is guaranteed to
 		// return the same thunk when called with the same FunctionType, we can assume that any
@@ -96,13 +95,4 @@ void Runtime::invokeFunctionWithMemTag(Context* context,
 									 invokeContext.arguments,
 									 invokeContext.outResults);
 	});
-}
-
-void Runtime::invokeFunction(Context* context,
-							 const Function* function,
-							 FunctionType invokeSig,
-							 const UntaggedValue arguments[],
-							 UntaggedValue outResults[])
-{
-	Runtime::invokeFunctionWithMemTag(context, function, invokeSig, arguments, outResults, false);
 }

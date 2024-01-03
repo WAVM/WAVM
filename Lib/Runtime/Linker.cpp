@@ -120,7 +120,7 @@ bool Runtime::generateStub(const std::string& moduleName,
 	}
 	case IR::ExternKind::memory: {
 		outObject = asObject(Runtime::createMemory(
-			compartment, asMemoryType(type), std::string(exportName), false, resourceQuota));
+			compartment, asMemoryType(type), std::string(exportName), resourceQuota));
 		return outObject != nullptr;
 	}
 	case IR::ExternKind::table: {

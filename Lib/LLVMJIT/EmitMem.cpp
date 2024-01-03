@@ -10,7 +10,6 @@
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/ADT/SmallVector.h>
-#include <llvm/IR/Attributes.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -72,8 +71,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 											   llvm::Value* address,
 											   llvm::Value* numBytes,
 											   U64 offset,
-											   BoundsCheckOp boundsCheckOp,
-											   bool istagging = false)
+											   BoundsCheckOp boundsCheckOp)
 {
 	const MemoryType& memoryType
 		= functionContext.moduleContext.irModule.memories.getType(memoryIndex);
@@ -82,31 +80,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		  && functionContext.moduleContext.iptrValueType == ValueType::i64;
 
 	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
-	auto& meminfo{functionContext.memoryInfos[memoryIndex]};
 
-	auto memtagBasePointerVariable = meminfo.memtagBasePointerVariable;
-	::llvm::Value* taggedval{};
-	if(memtagBasePointerVariable) // memtag needs to ignore upper 8 bits
-	{
-		if(memoryType.indexType == IndexType::i64)
-		{
-			auto pointertype = address->getType();
-			address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i64Type);
-			taggedval = irBuilder.CreateTrunc(irBuilder.CreateLShr(address, 56),
-											  functionContext.llvmContext.i8Type);
-			address = irBuilder.CreateAnd(address, irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
-			address = irBuilder.CreateIntToPtr(address, pointertype);
-		}
-		else
-		{
-			auto pointertype = address->getType();
-			address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i32Type);
-			taggedval = irBuilder.CreateTrunc(irBuilder.CreateLShr(address, 30),
-											  functionContext.llvmContext.i8Type);
-			address = irBuilder.CreateAnd(address, irBuilder.getInt32(0x3FFFFFFF));
-			address = irBuilder.CreateIntToPtr(address, pointertype);
-		}
-	}
 	numBytes = irBuilder.CreateZExt(numBytes, address->getType());
 	WAVM_ASSERT(numBytes->getType() == address->getType());
 
@@ -162,7 +136,6 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		functionContext.emitConditionalTrapIntrinsic(
 			irBuilder.CreateOr(numBytesWasGreaterThanMemoryNumBytes,
 							   irBuilder.CreateICmpUGT(address, memoryNumBytesMinusNumBytes)),
-#if 0
 			"memoryOutOfBoundsTrap",
 			FunctionType(TypeTuple{},
 						 TypeTuple{functionContext.moduleContext.iptrValueType,
@@ -173,13 +146,7 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 			{address,
 			 numBytes,
 			 memoryNumBytes,
-			 emitLiteralIptr(memoryIndex, functionContext.moduleContext.iptrType)}
-#else
-			"memoryOutOfBoundsTrapSimple",
-			FunctionType({}, {}, IR::CallingConvention::intrinsic),
-			{}
-#endif
-		);
+			 emitLiteralIptr(memoryIndex, functionContext.moduleContext.iptrType)});
 	}
 	else if(is32bitMemoryOn64bitHost)
 	{
@@ -205,7 +172,6 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 	// This avoids the need to check the addition for overflow, and allows it to be used as the
 	// displacement in x86 addresses. Additionally, it allows the LLVM optimizer to reuse the bounds
 	// checking code for consecutive loads/stores to the same address.
-	auto addressoriginal = address;
 	if(offset && offset < Runtime::memoryNumGuardBytes)
 	{
 		llvm::Constant* offsetConstant
@@ -214,32 +180,6 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		address = irBuilder.CreateAdd(address, offsetConstant);
 	}
 
-	if(!istagging && memtagBasePointerVariable)
-	{
-		::llvm::Value* addressrshift{irBuilder.CreateLShr(addressoriginal, 4)};
-		::llvm::Value* tagbaseptrval = ::WAVM::LLVMJIT::wavmCreateLoad(
-			irBuilder, functionContext.llvmContext.i8PtrType, memtagBasePointerVariable);
-		::llvm::Value* tagbytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
-			irBuilder, functionContext.llvmContext.i8Type, tagbaseptrval, addressrshift);
-		::llvm::Value* taginmem = ::WAVM::LLVMJIT::wavmCreateLoad(
-			irBuilder, functionContext.llvmContext.i8Type, tagbytePointer);
-		functionContext.emitConditionalTrapIntrinsic(
-			irBuilder.CreateICmpNE(taggedval, taginmem),
-			"memoryTagFails",
-#if 0
-			FunctionType(TypeTuple{},
-						 TypeTuple{functionContext.moduleContext.iptrValueType,
-						 	functionContext.moduleContext.iptrValueType,
-								   IR::ValueType::i32,
-								   IR::ValueType::i32},
-						 IR::CallingConvention::intrinsic),
-			{irBuilder.CreatePtrToInt(tagbaseptrval,irBuilder.getInt64Ty()),addressrshift,irBuilder.CreateZExt(taggedval,irBuilder.getInt32Ty()),irBuilder.CreateZExt(taginmem,irBuilder.getInt32Ty())}
-#else
-			FunctionType(TypeTuple{}, TypeTuple{}, IR::CallingConvention::intrinsic),
-			{}
-#endif
-		);
-	}
 	return address;
 }
 
@@ -251,7 +191,6 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 		irBuilder, llvmContext.i8PtrType, memoryInfos[memoryIndex].basePointerVariable);
 	llvm::Value* bytePointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
 		irBuilder, llvmContext.i8Type, memoryBasePointer, boundedAddress);
-
 	// Cast the pointer to the appropriate type.
 #if LLVM_VERSION_MAJOR > 14
 	return bytePointer;
@@ -369,285 +308,6 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 						   numBytesUptr,
 						   LLVM_ALIGNMENT(1),
 						   true);
-}
-
-static inline bool isMemTaggedEnabled(EmitFunctionContext& functionContext, Uptr memoryIndex)
-{
-	return functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable != nullptr;
-}
-
-static inline ::llvm::Value* generateMemRandomTagByte(EmitFunctionContext& functionContext,
-													  Uptr memoryIndex)
-{
-	auto& irBuilder = functionContext.irBuilder;
-	auto& meminfo = functionContext.memoryInfos[memoryIndex];
-	::llvm::Value* memtagrandombufferptr = ::WAVM::LLVMJIT::wavmCreateLoad(
-		irBuilder, functionContext.llvmContext.i8PtrType, meminfo.memtagRandomBufferVariable);
-	auto* function = functionContext.function;
-	::llvm::BasicBlock* rdtagentryBlock
-		= ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "", function);
-	irBuilder.CreateBr(rdtagentryBlock);
-	irBuilder.SetInsertPoint(rdtagentryBlock);
-	::llvm::Value* arg0 = memtagrandombufferptr;
-
-	::llvm::Value* currptraddr
-		= irBuilder.CreateGEP(functionContext.llvmContext.i8PtrType, arg0, {irBuilder.getInt32(1)});
-	::llvm::Value* currptr = ::WAVM::LLVMJIT::wavmCreateLoad(
-		irBuilder, functionContext.llvmContext.i8PtrType, currptraddr);
-	::llvm::Value* endptraddr
-		= irBuilder.CreateGEP(functionContext.llvmContext.i8PtrType, arg0, {irBuilder.getInt32(2)});
-	::llvm::Value* endptr = ::WAVM::LLVMJIT::wavmCreateLoad(
-		irBuilder, functionContext.llvmContext.i8PtrType, endptraddr);
-	::llvm::Value* cmpres = irBuilder.CreateICmpEQ(currptr, endptr);
-	::llvm::BasicBlock* trueBlock
-		= ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "", function);
-	::llvm::BasicBlock* mergeBlock
-		= ::llvm::BasicBlock::Create(functionContext.moduleContext.llvmContext, "", function);
-	irBuilder.CreateCondBr(cmpres, trueBlock, mergeBlock);
-	irBuilder.SetInsertPoint(trueBlock);
-	::llvm::Value* begptr
-		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder, functionContext.llvmContext.i8PtrType, arg0);
-
-	IR::ValueType iptrnativeValueType;
-	::llvm::Type* ptrtype;
-	if constexpr(sizeof(::std::uint_least64_t) == sizeof(::std::size_t))
-	{
-		iptrnativeValueType = IR::ValueType::i64;
-		ptrtype = irBuilder.getInt64Ty();
-	}
-	else
-	{
-		iptrnativeValueType = IR::ValueType::i32;
-		ptrtype = irBuilder.getInt32Ty();
-	}
-
-	functionContext.emitRuntimeIntrinsic(
-		"memoryTagRandomTagRefillFunction",
-		FunctionType({}, {iptrnativeValueType}, IR::CallingConvention::intrinsic),
-		{irBuilder.CreatePtrToInt(begptr, ptrtype)});
-
-	irBuilder.CreateBr(mergeBlock);
-	irBuilder.SetInsertPoint(mergeBlock);
-	auto currphiNode = irBuilder.CreatePHI(functionContext.llvmContext.i8PtrType, 2);
-	currphiNode->addIncoming(begptr, trueBlock);
-	currphiNode->addIncoming(currptr, rdtagentryBlock);
-	::llvm::Value* rettag = ::WAVM::LLVMJIT::wavmCreateLoad(
-		irBuilder, functionContext.llvmContext.i8Type, currphiNode);
-	currptr = irBuilder.CreateGEP(
-		functionContext.llvmContext.i8PtrType, currphiNode, {irBuilder.getInt32(1)});
-	irBuilder.CreateStore(currptraddr, currptr);
-	return rettag;
-}
-
-static inline ::llvm::Value* TagMemPointer(EmitFunctionContext& functionContext,
-										   Uptr memoryIndex,
-										   ::llvm::Value* address,
-										   ::llvm::Value* color,
-										   bool addressuntagged)
-{
-	const MemoryType& memoryType
-		= functionContext.moduleContext.irModule.memories.getType(memoryIndex);
-
-	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
-
-	if(memoryType.indexType == IndexType::i64)
-	{
-		auto pointertype = address->getType();
-		address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i64Type);
-		color = irBuilder.CreateZExt(color, functionContext.llvmContext.i64Type);
-		color = irBuilder.CreateShl(color, 56);
-		if(!addressuntagged)
-		{
-			address = irBuilder.CreateAnd(address, irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
-		}
-		address = irBuilder.CreateOr(address, color);
-		address = irBuilder.CreateIntToPtr(address, pointertype);
-	}
-	else
-	{
-		auto pointertype = address->getType();
-		address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i32Type);
-		color = irBuilder.CreateZExt(color, functionContext.llvmContext.i32Type);
-		color = irBuilder.CreateShl(color, 30);
-		if(!addressuntagged)
-		{
-			address = irBuilder.CreateAnd(address, irBuilder.getInt32(0x3FFFFFFF));
-		}
-		address = irBuilder.CreateOr(address, color);
-		address = irBuilder.CreateIntToPtr(address, pointertype);
-	}
-	return address;
-}
-
-static inline ::llvm::Value* ComputeMemTagIndex(EmitFunctionContext& functionContext,
-												Uptr memoryIndex,
-												::llvm::Value*& address)
-{
-	MemoryType const& memoryType
-		= functionContext.moduleContext.irModule.memories.getType(memoryIndex);
-	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
-	if(memoryType.indexType == IndexType::i64)
-	{
-		address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i64Type);
-		address = irBuilder.CreateAnd(address, irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
-	}
-	else
-	{
-		address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i32Type);
-		address = irBuilder.CreateAnd(address, irBuilder.getInt32(0x3FFFFFFF));
-	}
-	auto* memtagBasePointerVariable
-		= functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable;
-	auto* memtagbase = ::WAVM::LLVMJIT::wavmCreateLoad(
-		irBuilder, functionContext.llvmContext.i8PtrType, memtagBasePointerVariable);
-	auto* realtagaddress = irBuilder.CreateGEP(
-		functionContext.llvmContext.i8Type, memtagbase, {irBuilder.CreateLShr(address, 4)});
-	return realtagaddress;
-}
-
-static inline ::llvm::Value* StoreTagIntoMem(EmitFunctionContext& functionContext,
-											 Uptr memoryIndex,
-											 ::llvm::Value* address,
-											 ::llvm::Value* taggedbytes,
-											 ::llvm::Value* color)
-{
-	MemoryType const& memoryType
-		= functionContext.moduleContext.irModule.memories.getType(memoryIndex);
-	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
-	if(memoryType.indexType == IndexType::i64)
-	{
-		address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i64Type);
-		if(color == nullptr)
-		{
-			color = irBuilder.CreateTrunc(irBuilder.CreateShl(address, 56),
-										  functionContext.llvmContext.i8Type);
-		}
-		address = irBuilder.CreateAnd(address, irBuilder.getInt64(0x00FFFFFFFFFFFFFF));
-	}
-	else
-	{
-		address = irBuilder.CreatePtrToInt(address, functionContext.llvmContext.i32Type);
-		if(color == nullptr)
-		{
-			color = irBuilder.CreateTrunc(irBuilder.CreateShl(address, 30),
-										  functionContext.llvmContext.i8Type);
-		}
-		address = irBuilder.CreateAnd(address, irBuilder.getInt32(0x3FFFFFFF));
-	}
-	auto* memtagBasePointerVariable
-		= functionContext.memoryInfos[memoryIndex].memtagBasePointerVariable;
-	auto* memtagbase = ::WAVM::LLVMJIT::wavmCreateLoad(
-		irBuilder, functionContext.llvmContext.i8PtrType, memtagBasePointerVariable);
-	auto* realtagaddress = irBuilder.CreateGEP(
-		functionContext.llvmContext.i8Type, memtagbase, {irBuilder.CreateLShr(address, 4)});
-	irBuilder.CreateMemSet(
-		realtagaddress, color, irBuilder.CreateLShr(taggedbytes, 4), LLVM_ALIGNMENT(1), false);
-	return address;
-}
-
-void EmitFunctionContext::memory_randomstoretag(NoImm)
-{
-	::llvm::Value* taggedbytes = pop();
-	::llvm::Value* memaddress = pop();
-	if(isMemTaggedEnabled(*this, 0))
-	{
-		auto color = generateMemRandomTagByte(*this, 0);
-		memaddress = StoreTagIntoMem(*this, 0, memaddress, taggedbytes, color);
-		memaddress = TagMemPointer(*this, 0, memaddress, color, true);
-	}
-	push(memaddress);
-}
-
-void EmitFunctionContext::memory_storetag(NoImm)
-{
-	::llvm::Value* taggedbytes = pop();
-	::llvm::Value* memaddress = pop();
-	if(isMemTaggedEnabled(*this, 0))
-	{
-		StoreTagIntoMem(*this, 0, memaddress, taggedbytes, nullptr);
-	}
-}
-
-void EmitFunctionContext::memory_randomtag(NoImm)
-{
-	::llvm::Value* memaddress = pop();
-	if(isMemTaggedEnabled(*this, 0))
-	{
-		auto color = generateMemRandomTagByte(*this, 0);
-		memaddress = TagMemPointer(*this, 0, memaddress, color, false);
-	}
-	push(memaddress);
-}
-
-void EmitFunctionContext::memory_subtag(NoImm)
-{
-	::llvm::Value* ptra = pop();
-	::llvm::Value* ptrb = pop();
-	llvm::IRBuilder<>& irBuilder = this->irBuilder;
-
-	if(isMemTaggedEnabled(*this, 0))
-	{
-		const MemoryType& memoryType = this->moduleContext.irModule.memories.getType(0);
-		::llvm::Value* mask = nullptr;
-		if(memoryType.indexType == IndexType::i64)
-		{
-			mask = irBuilder.getInt64(0x00FFFFFFFFFFFFFF);
-		}
-		else { mask = irBuilder.getInt32(0x3FFFFFFF); }
-		ptra = irBuilder.CreateAnd(ptra, mask);
-		ptrb = irBuilder.CreateAnd(ptrb, mask);
-	}
-	push(irBuilder.CreateSub(ptra, ptrb));
-}
-void EmitFunctionContext::memory_copytag(NoImm)
-{
-	::llvm::Value* memaddress1 = pop();
-	::llvm::Value* memaddress2 = pop();
-	if(isMemTaggedEnabled(*this, 0))
-	{
-		llvm::IRBuilder<>& irBuilder = this->irBuilder;
-		const MemoryType& memoryType = this->moduleContext.irModule.memories.getType(0);
-		if(memoryType.indexType == IndexType::i64)
-		{
-			memaddress1 = irBuilder.CreateOr(
-				irBuilder.CreateAnd(memaddress2, irBuilder.getInt64(0xFF00000000000000)),
-				irBuilder.CreateAnd(memaddress1, irBuilder.getInt64(0x00FFFFFFFFFFFFFF)));
-		}
-		else
-		{
-			memaddress1 = irBuilder.CreateOr(
-				irBuilder.CreateAnd(memaddress2, irBuilder.getInt32(0xC0000000)),
-				irBuilder.CreateAnd(memaddress1, irBuilder.getInt32(0x3FFFFFFF)));
-		}
-	}
-	push(memaddress1);
-}
-void EmitFunctionContext::memory_loadtag(NoImm)
-{
-	::llvm::Value* memaddress = pop();
-	if(isMemTaggedEnabled(*this, 0))
-	{
-		auto realaddr = ComputeMemTagIndex(*this, 0, memaddress);
-		llvm::IRBuilder<>& irBuilder = this->irBuilder;
-
-		const MemoryType& memoryType = this->moduleContext.irModule.memories.getType(0);
-		::llvm::Value* color
-			= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder, this->llvmContext.i8Type, realaddr);
-		uint32_t shiftval{};
-		if(memoryType.indexType == IndexType::i64)
-		{
-			color = irBuilder.CreateZExt(color, this->llvmContext.i64Type);
-			shiftval = 56;
-		}
-		else
-		{
-			color = irBuilder.CreateZExt(color, this->llvmContext.i32Type);
-			shiftval = 30;
-		}
-		color = irBuilder.CreateShl(color, irBuilder.getInt32(shiftval));
-		memaddress = irBuilder.CreateOr(memaddress, color);
-	}
-	push(memaddress);
 }
 
 //

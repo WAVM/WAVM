@@ -372,8 +372,7 @@ void EmitFunctionContext::emit()
 			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
 				llvm::ConstantExpr::getPtrToInt(function, moduleContext.iptrType),
-				emitLiteralIptr(__builtin_offsetof(Runtime::Function, code),
-								moduleContext.iptrType))});
+				emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType))});
 	}
 
 	// Decode the WebAssembly opcodes and emit LLVM IR for them.
@@ -401,8 +400,7 @@ void EmitFunctionContext::emit()
 			FunctionType({}, {ValueType::funcref}, IR::CallingConvention::intrinsic),
 			{llvm::ConstantExpr::getSub(
 				llvm::ConstantExpr::getPtrToInt(function, moduleContext.iptrType),
-				emitLiteralIptr(__builtin_offsetof(Runtime::Function, code),
-								moduleContext.iptrType))});
+				emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType))});
 	}
 
 	// Emit the function return.
