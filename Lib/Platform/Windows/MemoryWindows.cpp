@@ -91,7 +91,7 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 	{
 		MEM_ADDRESS_REQUIREMENTS addressRequirements = {0};
 		addressRequirements.Alignment = Uptr(1) << alignmentLog2;
-		MEM_EXTENDED_PARAMETER alignmentParam = {0};
+		MEM_EXTENDED_PARAMETER alignmentParam = {};
 		alignmentParam.Type = MemExtendedParameterAddressRequirements;
 		alignmentParam.Pointer = &addressRequirements;
 		outUnalignedBaseAddress = (U8*)(*virtualAlloc2)(
