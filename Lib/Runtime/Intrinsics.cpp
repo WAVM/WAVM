@@ -256,7 +256,8 @@ Instance* Intrinsics::instantiateModule(
 {
 	::WAVM::IR::FeatureSpec featureSpec(::FeatureLevel::wavm);
 	featureSpec.memtag = false;
-	return Intrinsics::instantiateModuleWithFeatureSpec(compartment,moduleRefs,::std::move(debugName),featureSpec);
+	return Intrinsics::instantiateModuleWithFeatureSpec(
+		compartment, moduleRefs, ::std::move(debugName), featureSpec);
 }
 
 HashMap<std::string, Intrinsics::Function*> Intrinsics::getUninstantiatedFunctions(

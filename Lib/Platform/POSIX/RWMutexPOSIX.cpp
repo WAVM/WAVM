@@ -35,10 +35,7 @@ void Platform::RWMutex::lock(LockShareability shareability)
 									   std::memory_order_relaxed);
 #endif
 	}
-	else
-	{
-		WAVM_ERROR_UNLESS(!pthread_rwlock_rdlock((pthread_rwlock_t*)&lockData));
-	}
+	else { WAVM_ERROR_UNLESS(!pthread_rwlock_rdlock((pthread_rwlock_t*)&lockData)); }
 }
 
 void Platform::RWMutex::unlock(LockShareability shareability)
@@ -50,10 +47,7 @@ void Platform::RWMutex::unlock(LockShareability shareability)
 		exclusiveLockingThreadId.store(0, std::memory_order_relaxed);
 #endif
 	}
-	else
-	{
-		WAVM_ERROR_UNLESS(!pthread_rwlock_unlock((pthread_rwlock_t*)&lockData));
-	}
+	else { WAVM_ERROR_UNLESS(!pthread_rwlock_unlock((pthread_rwlock_t*)&lockData)); }
 }
 
 #if WAVM_ENABLE_ASSERTS

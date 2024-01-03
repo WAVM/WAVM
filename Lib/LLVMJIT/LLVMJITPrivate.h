@@ -169,7 +169,9 @@ namespace WAVM { namespace LLVMJIT {
 	{
 		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
 		for(Uptr typeIndex = 0; typeIndex < typeTuple.size(); ++typeIndex)
-		{ llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]); }
+		{
+			llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]);
+		}
 		return llvm::StructType::get(llvmContext,
 									 llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
 	}
@@ -226,7 +228,9 @@ namespace WAVM { namespace LLVMJIT {
 			numParameters = numImplicitParameters + functionType.params().size();
 			llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 			if(callingConvention != IR::CallingConvention::c)
-			{ llvmArgTypes[0] = llvmContext.i8PtrType; }
+			{
+				llvmArgTypes[0] = llvmContext.i8PtrType;
+			}
 
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 			{
@@ -278,30 +282,28 @@ namespace WAVM { namespace LLVMJIT {
 		}
 	}
 
-	inline auto getMemoryOrTableIdFromOffset([[maybe_unused]] llvm::IRBuilder<>& irbuilder,llvm::Constant* Offset,::std::size_t offsetval)
+	inline auto getMemoryOrTableIdFromOffset([[maybe_unused]] llvm::IRBuilder<>& irbuilder,
+											 llvm::Constant* Offset,
+											 ::std::size_t offsetval)
 	{
-		auto subres = 
-			llvm::ConstantExpr::getSub(
-			Offset,
-			emitLiteralIptr(offsetval, Offset->getType()));
-		auto offsetres =
-			emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), Offset->getType());
+		auto subres
+			= llvm::ConstantExpr::getSub(Offset, emitLiteralIptr(offsetval, Offset->getType()));
+		auto offsetres = emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), Offset->getType());
 #if LLVM_VERSION_MAJOR < 15
-		return llvm::ConstantExpr::getExactUDiv(
-			subres,offsetres);
+		return llvm::ConstantExpr::getExactUDiv(subres, offsetres);
 #else
-		return irbuilder.CreateExactUDiv(subres,offsetres);
+		return irbuilder.CreateExactUDiv(subres, offsetres);
 #endif
 	}
-	inline auto getMemoryIdFromOffset(llvm::IRBuilder<>& irbuilder,llvm::Constant* memoryOffset)
+	inline auto getMemoryIdFromOffset(llvm::IRBuilder<>& irbuilder, llvm::Constant* memoryOffset)
 	{
-		return getMemoryOrTableIdFromOffset(irbuilder,memoryOffset,
-			offsetof(Runtime::CompartmentRuntimeData, memories));
+		return getMemoryOrTableIdFromOffset(
+			irbuilder, memoryOffset, offsetof(Runtime::CompartmentRuntimeData, memories));
 	}
 	inline auto getTableIdFromOffset(llvm::IRBuilder<>& irbuilder, llvm::Constant* tableOffset)
 	{
-		return getMemoryOrTableIdFromOffset(irbuilder,tableOffset,
-			offsetof(Runtime::CompartmentRuntimeData, tables));
+		return getMemoryOrTableIdFromOffset(
+			irbuilder, tableOffset, offsetof(Runtime::CompartmentRuntimeData, tables));
 	}
 
 	inline llvm::Type* getIptrType(LLVMContext& llvmContext, U32 numPointerBytes)
@@ -458,51 +460,64 @@ namespace WAVM { namespace LLVMJIT {
 								 Uptr sehTrampolineAddress);
 
 	template<typename T>
-	inline ::llvm::LoadInst* wavmCreateLoad(T& obj,[[maybe_unused]] ::llvm::Type* valuetype,::llvm::Value* ptr)
+	inline ::llvm::LoadInst* wavmCreateLoad(T& obj,
+											[[maybe_unused]] ::llvm::Type* valuetype,
+											::llvm::Value* ptr)
 	{
 #if LLVM_VERSION_MAJOR > 14
-		return obj.CreateLoad(valuetype,ptr);
+		return obj.CreateLoad(valuetype, ptr);
 #elif LLVM_VERSION_MAJOR > 12
-		return obj.CreateLoad(ptr->getType()->getScalarType()->getPointerElementType(),ptr);
+		return obj.CreateLoad(ptr->getType()->getScalarType()->getPointerElementType(), ptr);
 #else
 		return obj.CreateLoad(ptr);
 #endif
 	}
 
 	template<typename T>
-	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,::llvm::Type* ty,::llvm::Value* ptr,::llvm::ArrayRef<::llvm::Value *> idxlist)
+	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,
+												::llvm::Type* ty,
+												::llvm::Value* ptr,
+												::llvm::ArrayRef<::llvm::Value*> idxlist)
 	{
 		return
 #if LLVM_VERSION_MAJOR > 14
-		obj.CreateInBoundsGEP(ty, ptr, idxlist);
+			obj.CreateInBoundsGEP(ty, ptr, idxlist);
 #elif LLVM_VERSION_MAJOR > 12
-		obj.CreateInBoundsGEP(ptr->getType()->getScalarType()->getPointerElementType(), ptr, idxlist);
+			obj.CreateInBoundsGEP(
+				ptr->getType()->getScalarType()->getPointerElementType(), ptr, idxlist);
 #else
-		obj.CreateInBoundsGEP(ptr,idxlist);
+			obj.CreateInBoundsGEP(ptr, idxlist);
 #endif
 	}
 
 	template<typename T>
-	inline ::llvm::AtomicCmpXchgInst* wavmCreateAtomicCmpXchg(T& obj,::llvm::Value* Ptr,::llvm::Value* Cmp,::llvm::Value* New,
-		::llvm::AtomicOrdering SuccessOrdering,::llvm::AtomicOrdering FailureOrdering)
+	inline ::llvm::AtomicCmpXchgInst* wavmCreateAtomicCmpXchg(
+		T& obj,
+		::llvm::Value* Ptr,
+		::llvm::Value* Cmp,
+		::llvm::Value* New,
+		::llvm::AtomicOrdering SuccessOrdering,
+		::llvm::AtomicOrdering FailureOrdering)
 	{
 #if LLVM_VERSION_MAJOR > 12
-		return obj.CreateAtomicCmpXchg(Ptr,Cmp,New,::llvm::MaybeAlign(),SuccessOrdering,FailureOrdering);
+		return obj.CreateAtomicCmpXchg(
+			Ptr, Cmp, New, ::llvm::MaybeAlign(), SuccessOrdering, FailureOrdering);
 #else
-		return obj.CreateAtomicCmpXchg(Ptr,Cmp,New,SuccessOrdering,FailureOrdering);
+		return obj.CreateAtomicCmpXchg(Ptr, Cmp, New, SuccessOrdering, FailureOrdering);
 #endif
 	}
-
 
 	template<typename T>
 	inline ::llvm::AtomicRMWInst* wavmCreateAtomicRMW(T& obj,
-		::llvm::AtomicRMWInst::BinOp Op, ::llvm::Value *Ptr,
-                ::llvm::Value *Val, ::llvm::AtomicOrdering Ordering)
+													  ::llvm::AtomicRMWInst::BinOp Op,
+													  ::llvm::Value* Ptr,
+													  ::llvm::Value* Val,
+													  ::llvm::AtomicOrdering Ordering)
 	{
 #if LLVM_VERSION_MAJOR > 12
-		return obj.CreateAtomicRMW(Op,Ptr,Val,::llvm::MaybeAlign(),Ordering);
+		return obj.CreateAtomicRMW(Op, Ptr, Val, ::llvm::MaybeAlign(), Ordering);
 #else
-		return obj.CreateAtomicRMW(Op,Ptr,Val,Ordering);
+		return obj.CreateAtomicRMW(Op, Ptr, Val, Ordering);
 #endif
 	}
 

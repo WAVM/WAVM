@@ -69,7 +69,9 @@ const std::string& Runtime::getDebugName(const Runtime::Function* function)
 void Runtime::setUserData(Runtime::Object* object, void* userData, void (*finalizer)(void*))
 {
 	if(object->kind == ObjectKind::function)
-	{ setUserData(asFunction(object), userData, finalizer); }
+	{
+		setUserData(asFunction(object), userData, finalizer);
+	}
 	else
 	{
 		auto gcObject = (GCObject*)object;
@@ -197,10 +199,7 @@ Foreign* Runtime::createForeign(Compartment* compartment,
 	{
 		Platform::RWMutex::ExclusiveLock lock(compartment->mutex);
 		foreign->id = compartment->foreigns.add(UINTPTR_MAX, foreign);
-		if(foreign->id == UINTPTR_MAX)
-		{
-			return nullptr;
-		}
+		if(foreign->id == UINTPTR_MAX) { return nullptr; }
 	}
 
 	return foreignuptr.release();

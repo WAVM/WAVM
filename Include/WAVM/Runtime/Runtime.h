@@ -321,11 +321,11 @@ namespace WAVM { namespace Runtime {
 	// arguments/results of the provided function type. If the provided function type does not match
 	// the actual type of the function, then an invokeSignatureMismatch exception is thrown.
 	WAVM_API void invokeFunctionWithMemTag(Context* context,
-								 const Function* function,
-								 IR::FunctionType invokeSig = IR::FunctionType(),
-								 const IR::UntaggedValue arguments[] = nullptr,
-								 IR::UntaggedValue results[] = nullptr,
-								 bool ismemtagged = false);
+										   const Function* function,
+										   IR::FunctionType invokeSig = IR::FunctionType(),
+										   const IR::UntaggedValue arguments[] = nullptr,
+										   IR::UntaggedValue results[] = nullptr,
+										   bool ismemtagged = false);
 
 	// Returns the type of a Function.
 	WAVM_API IR::FunctionType getFunctionType(const Function* function);

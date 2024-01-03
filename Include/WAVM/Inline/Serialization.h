@@ -219,10 +219,7 @@ namespace WAVM { namespace Serialization {
 			memcpy(const_cast<char*>(string.data()), inputBytes, size);
 			string.shrink_to_fit();
 		}
-		else
-		{
-			serializeBytes(stream, (U8*)string.c_str(), size);
-		}
+		else { serializeBytes(stream, (U8*)string.c_str(), size); }
 	}
 
 	template<typename Stream, typename Element, typename Allocator, typename SerializeElement>
@@ -248,7 +245,9 @@ namespace WAVM { namespace Serialization {
 		else
 		{
 			for(Uptr index = 0; index < vector.size(); ++index)
-			{ serializeElement(stream, vector[index]); }
+			{
+				serializeElement(stream, vector[index]);
+			}
 		}
 	}
 

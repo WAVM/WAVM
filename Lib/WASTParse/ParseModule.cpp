@@ -349,7 +349,7 @@ static void parseImport(CursorState* cursor)
 			const SizeConstraints sizeConstraints = parseSizeConstraints(
 				cursor, indexType == IndexType::i32 ? IR::maxTable32Elems : IR::maxTable64Elems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			const bool isMemTagged =  cursor->moduleState->module_.featureSpec.memtag;
+			const bool isMemTagged = cursor->moduleState->module_.featureSpec.memtag;
 			createImport(cursor,
 						 name,
 						 std::move(moduleName),
@@ -1021,7 +1021,7 @@ static void parseMemory(CursorState* cursor)
 				cursor, indexType == IndexType::i32 ? IR::maxMemory32Pages : IR::maxMemory64Pages);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 			const bool isMemTagged = cursor->moduleState->module_.featureSpec.memtag;
-			return MemoryType(isShared, indexType, sizeConstraints,isMemTagged);
+			return MemoryType(isShared, indexType, sizeConstraints, isMemTagged);
 		},
 		// Parse a memory definition
 		[](CursorState* cursor, const Token*) {
@@ -1055,7 +1055,7 @@ static void parseMemory(CursorState* cursor)
 
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 			const bool isMemTagged = cursor->moduleState->module_.featureSpec.memtag;
-			return MemoryDef{MemoryType(isShared, indexType, sizeConstraints,isMemTagged)};
+			return MemoryDef{MemoryType(isShared, indexType, sizeConstraints, isMemTagged)};
 		});
 }
 

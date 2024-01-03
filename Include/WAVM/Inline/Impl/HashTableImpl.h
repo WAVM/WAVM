@@ -14,10 +14,7 @@ Uptr HashTable<HASHTABLE_ARGUMENTS>::calcProbeCount(Uptr bucketIndex) const
 	WAVM_ASSERT(!(hashToBucketIndexMask & Bucket::isOccupiedMask));
 	const Uptr idealBucketIndex = buckets[bucketIndex].hashAndOccupancy & hashToBucketIndexMask;
 	if(idealBucketIndex <= bucketIndex) { return bucketIndex - idealBucketIndex; }
-	else
-	{
-		return numBuckets() - idealBucketIndex + bucketIndex;
-	}
+	else { return numBuckets() - idealBucketIndex + bucketIndex; }
 }
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::clear()
@@ -164,10 +161,7 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForAdd(Uptr h
 	// If the bucket is empty, increment the number of elements in the table.
 	// The caller is expected to fill the bucket once this function returns.
 	if(!bucket.hashAndOccupancy) { ++numElements; }
-	else
-	{
-		WAVM_ASSERT(bucket.hashAndOccupancy == (hash | Bucket::isOccupiedMask));
-	}
+	else { WAVM_ASSERT(bucket.hashAndOccupancy == (hash | Bucket::isOccupiedMask)); }
 
 	return bucket;
 }
@@ -318,7 +312,9 @@ void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(Uptr& outTotalMemoryBytes
 		{
 			const Uptr bucketIndex = (idealBucketIndex + probeCount) & hashToBucketIndexMask;
 			if(!buckets[bucketIndex].hashAndOccupancy || probeCount > calcProbeCount(bucketIndex))
-			{ break; }
+			{
+				break;
+			}
 			++probeCount;
 		};
 
@@ -406,7 +402,9 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(con
 		{
 			buckets[bucketIndex].hashAndOccupancy = copy.buckets[bucketIndex].hashAndOccupancy;
 			if(buckets[bucketIndex].hashAndOccupancy)
-			{ buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.get()); }
+			{
+				buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.get());
+			}
 		}
 	}
 }

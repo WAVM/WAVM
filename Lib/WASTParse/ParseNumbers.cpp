@@ -22,10 +22,7 @@ static bool parseSign(const char*& nextChar)
 		++nextChar;
 		return true;
 	}
-	else if(*nextChar == '+')
-	{
-		++nextChar;
-	}
+	else if(*nextChar == '+') { ++nextChar; }
 	return false;
 }
 
@@ -196,7 +193,9 @@ template<typename Float> Float parseDecimalFloat(const char*& nextChar, ParseSta
 	char* endChar = nullptr;
 	Float result = strtox<Float>(noUnderscoreFirstChar, &endChar);
 	if(endChar == noUnderscoreFirstChar)
-	{ Errors::fatalf("strtof/strtod failed to parse number accepted by lexer"); }
+	{
+		Errors::fatalf("strtof/strtod failed to parse number accepted by lexer");
+	}
 
 	if(std::isinf(result)) { parseErrorf(parseState, firstChar, "float literal is too large"); }
 
@@ -261,20 +260,14 @@ template<typename Float> Float parseHexFloat(const char*& nextChar, ParseState* 
 				exponent += hasSeenPoint ? 0 : 4;
 			}
 		}
-		else if(*nextChar == '_')
-		{
-			++nextChar;
-		}
+		else if(*nextChar == '_') { ++nextChar; }
 		else if(*nextChar == '.')
 		{
 			WAVM_ASSERT(!hasSeenPoint);
 			hasSeenPoint = true;
 			++nextChar;
 		}
-		else
-		{
-			break;
-		}
+		else { break; }
 	}
 
 	// Parse an optional exponent.
@@ -381,7 +374,9 @@ bool tryParseInt(CursorState* cursor,
 				 bool allowSign = true)
 {
 	if(cursor->nextToken->type != t_decimalInt && cursor->nextToken->type != t_hexInt)
-	{ return false; }
+	{
+		return false;
+	}
 
 	const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
 	const bool isNegative = allowSign && parseSign(nextChar);
@@ -554,32 +549,44 @@ V128 WAST::parseV128(CursorState* cursor)
 	case t_i8x16:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
-		{ result.i8x16[laneIndex] = parseI8(cursor); }
+		{
+			result.i8x16[laneIndex] = parseI8(cursor);
+		}
 		break;
 	case t_i16x8:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
-		{ result.i16x8[laneIndex] = parseI16(cursor); }
+		{
+			result.i16x8[laneIndex] = parseI16(cursor);
+		}
 		break;
 	case t_i32x4:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-		{ result.i32x4[laneIndex] = parseI32(cursor); }
+		{
+			result.i32x4[laneIndex] = parseI32(cursor);
+		}
 		break;
 	case t_i64x2:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-		{ result.i64x2[laneIndex] = parseI64(cursor); }
+		{
+			result.i64x2[laneIndex] = parseI64(cursor);
+		}
 		break;
 	case t_f32x4:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-		{ result.f32x4[laneIndex] = parseF32(cursor); }
+		{
+			result.f32x4[laneIndex] = parseF32(cursor);
+		}
 		break;
 	case t_f64x2:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-		{ result.f64x2[laneIndex] = parseF64(cursor); }
+		{
+			result.f64x2[laneIndex] = parseF64(cursor);
+		}
 		break;
 	default:
 		parseErrorf(cursor->parseState,

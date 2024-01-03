@@ -82,7 +82,9 @@ WAVM_FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
 static void validateThreadId(Uptr threadId)
 {
 	if(threadId == 0 || !threads.contains(threadId))
-	{ throwException(ExceptionTypes::invalidArgument); }
+	{
+		throwException(ExceptionTypes::invalidArgument);
+	}
 }
 
 WAVM_DEFINE_INTRINSIC_MODULE(threadTest);
@@ -147,7 +149,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest,
 	if(!entryFunction
 	   || IR::FunctionType{entryFunction->encodedType}
 			  != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
-	{ throwException(Runtime::ExceptionTypes::indirectCallSignatureMismatch); }
+	{
+		throwException(Runtime::ExceptionTypes::indirectCallSignatureMismatch);
+	}
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.
@@ -197,10 +201,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, U64 th
 
 	Platform::Mutex::Lock resultLock(thread->resultMutex);
 	if(thread->threwException) { throwException(thread->exception); }
-	else
-	{
-		return thread->result;
-	}
+	else { return thread->result; }
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U64 threadId)

@@ -142,7 +142,9 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment, std::stri
 error:
 	// If there was an error, clean up the partially created compartment.
 	if(newCompartment)
-	{ WAVM_ERROR_UNLESS(tryCollectCompartment(GCPointer<Compartment>(newCompartment))); }
+	{
+		WAVM_ERROR_UNLESS(tryCollectCompartment(GCPointer<Compartment>(newCompartment)));
+	}
 	return nullptr;
 }
 

@@ -22,8 +22,8 @@ static Uptr internalGetPreferredVirtualPageSizeLog2()
 {
 	U32 preferredVirtualPageSize = sysconf(_SC_PAGESIZE);
 	// Verify our assumption that the virtual page size is a power of two.
-	WAVM_ERROR_UNLESS((!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)))&&
-		((preferredVirtualPageSize & 15u) == 0u));
+	WAVM_ERROR_UNLESS((!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)))
+					  && ((preferredVirtualPageSize & 15u) == 0u));
 	return floorLogTwo(preferredVirtualPageSize);
 }
 Uptr Platform::getBytesPerPageLog2()
@@ -68,9 +68,7 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 		}
 		return nullptr;
 	}
-	if (madvise(result, numBytes, MADV_DONTNEED) == -1) {
-		return nullptr;
-	}
+	if(madvise(result, numBytes, MADV_DONTNEED) == -1) { return nullptr; }
 	return (U8*)result;
 }
 
@@ -109,11 +107,15 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 		// middle.
 		const Uptr numHeadPaddingBytes = alignedAddress - address;
 		if(numHeadPaddingBytes > 0)
-		{ WAVM_ERROR_UNLESS(!munmap(unalignedBaseAddress, numHeadPaddingBytes)); }
+		{
+			WAVM_ERROR_UNLESS(!munmap(unalignedBaseAddress, numHeadPaddingBytes));
+		}
 
 		const Uptr numTailPaddingBytes = alignmentBytes - (alignedAddress - address);
 		if(numTailPaddingBytes > 0)
-		{ WAVM_ERROR_UNLESS(!munmap(result + (numPages << pageSizeLog2), numTailPaddingBytes)); }
+		{
+			WAVM_ERROR_UNLESS(!munmap(result + (numPages << pageSizeLog2), numTailPaddingBytes));
+		}
 
 		outUnalignedBaseAddress = result;
 		return result;

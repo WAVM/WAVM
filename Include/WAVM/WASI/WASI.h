@@ -2,9 +2,9 @@
 
 #include <functional>
 #include <memory>
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/IR/FeatureSpec.h"
 
 namespace WAVM { namespace VFS {
 	struct FileSystem;
@@ -27,14 +27,15 @@ namespace WAVM { namespace WASI {
 													VFS::VFD* stdOut,
 													VFS::VFD* stdErr);
 
-	WAVM_API std::shared_ptr<Process> createProcessWithFeatureSpec(Runtime::Compartment* compartment,
-													std::vector<std::string>&& inArgs,
-													std::vector<std::string>&& inEnvs,
-													VFS::FileSystem* fileSystem,
-													VFS::VFD* stdIn,
-													VFS::VFD* stdOut,
-													VFS::VFD* stdErr,
-													::WAVM::IR::FeatureSpec const& featureSpec);
+	WAVM_API std::shared_ptr<Process> createProcessWithFeatureSpec(
+		Runtime::Compartment* compartment,
+		std::vector<std::string>&& inArgs,
+		std::vector<std::string>&& inEnvs,
+		VFS::FileSystem* fileSystem,
+		VFS::VFD* stdIn,
+		VFS::VFD* stdOut,
+		VFS::VFD* stdErr,
+		::WAVM::IR::FeatureSpec const& featureSpec);
 
 	WAVM_API Runtime::Resolver& getProcessResolver(Process& process);
 

@@ -361,7 +361,7 @@ namespace WAVM { namespace IR {
 			return OpSignature({}, {indexType, indexType});
 #else
 
-			return OpSignature({},{ValueType::i64,ValueType::i64});
+			return OpSignature({}, {ValueType::i64, ValueType::i64});
 #endif
 		}
 		inline OpSignature memory_randomstoretag(const Module& module_, const NoImm& imm)
@@ -371,24 +371,24 @@ namespace WAVM { namespace IR {
 				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({indexType}, {indexType, indexType});
 #else
-			return OpSignature({ValueType::i64},{ValueType::i64,ValueType::i64});
+			return OpSignature({ValueType::i64}, {ValueType::i64, ValueType::i64});
 #endif
 		}
 		inline OpSignature memory_randomtag(const Module& module_, const NoImm& imm)
 		{
-			return OpSignature({ValueType::i64},{ValueType::i64});
+			return OpSignature({ValueType::i64}, {ValueType::i64});
 		}
 		inline OpSignature memory_copytag(const Module& module_, const NoImm& imm)
 		{
-			return OpSignature({ValueType::i64},{ValueType::i64,ValueType::i64});
+			return OpSignature({ValueType::i64}, {ValueType::i64, ValueType::i64});
 		}
 		inline OpSignature memory_subtag(const Module& module_, const NoImm& imm)
 		{
-			return OpSignature({ValueType::i64},{ValueType::i64,ValueType::i64});
+			return OpSignature({ValueType::i64}, {ValueType::i64, ValueType::i64});
 		}
 		inline OpSignature memory_loadtag(const Module& module_, const NoImm& imm)
 		{
-			return OpSignature({ValueType::i64},{ValueType::i64});
+			return OpSignature({ValueType::i64}, {ValueType::i64});
 		}
 	};
 }};

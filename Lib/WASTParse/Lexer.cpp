@@ -277,7 +277,9 @@ Token* WAST::lex(const char* string,
 	Timing::Timer timer;
 
 	if(stringLength > UINT32_MAX)
-	{ Errors::fatalf("cannot lex strings with more than %u characters", UINT32_MAX); }
+	{
+		Errors::fatalf("cannot lex strings with more than %u characters", UINT32_MAX);
+	}
 
 	// Allocate enough memory up front for a token and newline for each character in the input
 	// string.
@@ -391,10 +393,7 @@ Token* WAST::lex(const char* string,
 				const char* stringEnd = string + stringLength - 1;
 				while(nextChar < stringEnd && !isRecoveryPointChar(*nextChar)) { ++nextChar; }
 			}
-			else
-			{
-				break;
-			}
+			else { break; }
 		}
 	}
 
@@ -454,15 +453,14 @@ TextFileLocus WAST::calcLocusFromOffset(const char* string,
 	{
 		const Uptr medianLineIndex = (minLineIndex + maxLineIndex + 1) / 2;
 		if(charOffset < lineInfo->lineStarts[medianLineIndex])
-		{ maxLineIndex = medianLineIndex - 1; }
+		{
+			maxLineIndex = medianLineIndex - 1;
+		}
 		else if(charOffset > lineInfo->lineStarts[medianLineIndex])
 		{
 			minLineIndex = medianLineIndex;
 		}
-		else
-		{
-			minLineIndex = maxLineIndex = medianLineIndex;
-		}
+		else { minLineIndex = maxLineIndex = medianLineIndex; }
 	};
 	TextFileLocus result;
 	result.newlines = (U32)minLineIndex;

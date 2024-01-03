@@ -23,7 +23,9 @@ Platform::Mutex::Mutex()
 Platform::Mutex::~Mutex()
 {
 	if(!TryAcquireSRWLockExclusive((SRWLOCK*)&lockData))
-	{ Errors::fatal("Destroying Mutex that is locked"); }
+	{
+		Errors::fatal("Destroying Mutex that is locked");
+	}
 }
 
 void Platform::Mutex::lock()

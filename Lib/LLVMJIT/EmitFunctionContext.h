@@ -14,8 +14,8 @@ POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 namespace WAVM { namespace LLVMJIT {
 	struct localPointersRef
 	{
-		::llvm::Value *val{};
-		::llvm::Type *tp{};
+		::llvm::Value* val{};
+		::llvm::Type* tp{};
 	};
 	struct EmitFunctionContext : EmitContext
 	{
@@ -117,7 +117,9 @@ namespace WAVM { namespace LLVMJIT {
 		void pushMultiple(llvm::Value** values, Uptr numValues)
 		{
 			for(Uptr valueIndex = 0; valueIndex < numValues; ++valueIndex)
-			{ push(values[valueIndex]); }
+			{
+				push(values[valueIndex]);
+			}
 		}
 
 		// Creates a PHI node for the argument of branches to a basic block.

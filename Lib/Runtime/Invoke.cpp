@@ -16,11 +16,11 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
 void Runtime::invokeFunctionWithMemTag(Context* context,
-							 const Function* function,
-							 FunctionType invokeSig,
-							 const UntaggedValue arguments[],
-							 UntaggedValue outResults[],
-							 bool isMemTagged)
+									   const Function* function,
+									   FunctionType invokeSig,
+									   const UntaggedValue arguments[],
+									   UntaggedValue outResults[],
+									   bool isMemTagged)
 {
 	FunctionType functionType{function->encodedType};
 
@@ -104,5 +104,5 @@ void Runtime::invokeFunction(Context* context,
 							 const UntaggedValue arguments[],
 							 UntaggedValue outResults[])
 {
-	Runtime::invokeFunctionWithMemTag(context,function,invokeSig,arguments,outResults,false);
+	Runtime::invokeFunctionWithMemTag(context, function, invokeSig, arguments, outResults, false);
 }

@@ -2,10 +2,10 @@
 
 #include <initializer_list>
 #include <string>
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
-#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Runtime/Runtime.h"

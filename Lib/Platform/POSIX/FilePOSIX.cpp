@@ -204,10 +204,7 @@ struct POSIXDirEntStream : DirEntStream
 			// Reached the end of the directory.
 			return false;
 		}
-		else if(errno == ENOENT || errno == EOVERFLOW)
-		{
-			return false;
-		}
+		else if(errno == ENOENT || errno == EOVERFLOW) { return false; }
 		else
 		{
 			Errors::fatalfWithCallStack("readdir returned unexpected error: %s", strerror(errno));
@@ -284,7 +281,9 @@ struct POSIXFD : VFD
 		};
 
 		if(!FILE_OFFSET_IS_64BIT && (offset < INT32_MIN || offset > INT32_MAX))
-		{ return Result::invalidOffset; }
+		{
+			return Result::invalidOffset;
+		}
 		const I64 result = lseek(fd, off_t(offset), whence);
 		if(result == -1) { return errno == EINVAL ? Result::invalidOffset : asVFSResult(errno); }
 
@@ -299,10 +298,7 @@ struct POSIXFD : VFD
 		if(outNumBytesRead) { *outNumBytesRead = 0; }
 
 		if(numBuffers == 0) { return Result::success; }
-		else if(numBuffers > IOV_MAX)
-		{
-			return Result::tooManyBuffers;
-		}
+		else if(numBuffers > IOV_MAX) { return Result::tooManyBuffers; }
 
 		if(offset == nullptr)
 		{
@@ -323,7 +319,9 @@ struct POSIXFD : VFD
 			{
 				const IOReadBuffer& buffer = buffers[bufferIndex];
 				if(numBufferBytes + buffer.numBytes < numBufferBytes)
-				{ return Result::tooManyBufferBytes; }
+				{
+					return Result::tooManyBufferBytes;
+				}
 				numBufferBytes += buffer.numBytes;
 			}
 			if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
@@ -349,7 +347,9 @@ struct POSIXFD : VFD
 					const Uptr numBytesToCopy
 						= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
 					if(numBytesToCopy)
-					{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
+					{
+						memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy);
+					}
 					numBytesCopied += numBytesToCopy;
 				}
 
@@ -371,10 +371,7 @@ struct POSIXFD : VFD
 		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
 
 		if(numBuffers == 0) { return Result::success; }
-		else if(numBuffers > IOV_MAX)
-		{
-			return Result::tooManyBuffers;
-		}
+		else if(numBuffers > IOV_MAX) { return Result::tooManyBuffers; }
 
 		if(offset == nullptr)
 		{
@@ -394,7 +391,9 @@ struct POSIXFD : VFD
 			{
 				const IOWriteBuffer& buffer = buffers[bufferIndex];
 				if(numBufferBytes + buffer.numBytes < numBufferBytes)
-				{ return Result::tooManyBufferBytes; }
+				{
+					return Result::tooManyBufferBytes;
+				}
 				numBufferBytes += buffer.numBytes;
 			}
 			if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
@@ -411,7 +410,9 @@ struct POSIXFD : VFD
 				const Uptr numBytesToCopy
 					= std::min(buffer.numBytes, numBufferBytes - numBytesCopied);
 				if(numBytesToCopy)
-				{ memcpy(combinedBuffer + numBytesCopied, buffer.data, numBytesToCopy); }
+				{
+					memcpy(combinedBuffer + numBytesCopied, buffer.data, numBytesToCopy);
+				}
 				numBytesCopied += numBytesToCopy;
 			}
 
@@ -478,10 +479,7 @@ struct POSIXFD : VFD
 			outInfo.flags.syncLevel = VFDSync::contentsAfterWrite;
 #endif
 		}
-		else
-		{
-			outInfo.flags.syncLevel = VFDSync::none;
-		}
+		else { outInfo.flags.syncLevel = VFDSync::none; }
 
 		return Result::success;
 	}

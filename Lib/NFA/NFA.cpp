@@ -76,7 +76,9 @@ StateIndex NFA::getNonTerminalEdge(Builder* builder, StateIndex initialState, ch
 		builder->nfaStates[initialState].nextStateToPredicateMap)
 	{
 		if(nextStateToPredicatePair.key >= 0 && nextStateToPredicatePair.value.contains((U8)c))
-		{ return nextStateToPredicatePair.key; }
+		{
+			return nextStateToPredicatePair.key;
+		}
 	}
 
 	return unmatchedCharacterTerminal;
@@ -88,7 +90,9 @@ struct DFAState
 	DFAState()
 	{
 		for(Uptr charIndex = 0; charIndex < 256; ++charIndex)
-		{ nextStateByChar[charIndex] = unmatchedCharacterTerminal | edgeDoesntConsumeInputFlag; }
+		{
+			nextStateByChar[charIndex] = unmatchedCharacterTerminal | edgeDoesntConsumeInputFlag;
+		}
 	}
 };
 
@@ -125,7 +129,9 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 			if(scanState >= 0)
 			{
 				for(auto epsilonNextState : builder->nfaStates[scanState].epsilonNextStates)
-				{ addUnique(epsilonClosureCurrentStateSet, epsilonNextState); }
+				{
+					addUnique(epsilonClosureCurrentStateSet, epsilonNextState);
+				}
 			}
 		}
 
@@ -203,7 +209,9 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 		for(Uptr charIndex = 0; charIndex < 256; ++charIndex)
 		{
 			if(charToLocalStateSet[charIndex].isEmpty())
-			{ charToLocalStateSet[charIndex] = currentTerminalStateLocalSet; }
+			{
+				charToLocalStateSet[charIndex] = currentTerminalStateLocalSet;
+			}
 		}
 
 		// Find the set of unique local state sets that follow this state set.
@@ -234,13 +242,17 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 			}
 
 			if(nextStateSet.size() == 1 && *nextStateSet.begin() < 0)
-			{ localStateSetToDFAStateIndexMap.set(localNextStateSet, *nextStateSet.begin()); }
+			{
+				localStateSetToDFAStateIndexMap.set(localNextStateSet, *nextStateSet.begin());
+			}
 			else
 			{
 				// Find an existing DFA state corresponding to this NFA state set.
 				const StateIndex* nextDFAState = nfaStateSetToDFAStateMap.get(nextStateSet);
 				if(nextDFAState)
-				{ localStateSetToDFAStateIndexMap.set(localNextStateSet, *nextDFAState); }
+				{
+					localStateSetToDFAStateIndexMap.set(localNextStateSet, *nextDFAState);
+				}
 				else
 				{
 					// If no corresponding DFA state existing yet, create a new one and add it to
@@ -264,7 +276,9 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 			for(Uptr charIndex = 0; charIndex < 256; ++charIndex)
 			{
 				if(charToLocalStateSet[charIndex] == localStateSet)
-				{ dfaState.nextStateByChar[charIndex] = nextDFAStateIndex; }
+				{
+					dfaState.nextStateByChar[charIndex] = nextDFAStateIndex;
+				}
 			}
 		}
 		maxDFANextStates = std::max(maxDFANextStates, (Uptr)uniqueLocalNextStateSets.size());
@@ -391,7 +405,9 @@ NFA::Machine::Machine(Builder* builder)
 	// Build a map from character index to offset into [charClass][initialState] transition map.
 	WAVM_ASSERT((numClasses - 1) * (numStates - 1) <= UINT32_MAX);
 	for(Uptr charIndex = 0; charIndex < 256; ++charIndex)
-	{ charToOffsetMap[charIndex] = U32(numStates * characterToClassMap[charIndex]); }
+	{
+		charToOffsetMap[charIndex] = U32(numStates * characterToClassMap[charIndex]);
+	}
 
 	Timing::logTimer("reduced DFA character classes", timer);
 	Log::printf(Log::metrics, "  reduced DFA character classes to %" WAVM_PRIuPTR "\n", numClasses);
@@ -424,24 +440,15 @@ static std::string escapeString(const std::string& string)
 	{
 		auto c = string[charIndex];
 		if(c == '\\') { result += "\\\\"; }
-		else if(c == '\"')
-		{
-			result += "\\\"";
-		}
-		else if(c == '\n')
-		{
-			result += "\\n";
-		}
+		else if(c == '\"') { result += "\\\""; }
+		else if(c == '\n') { result += "\\n"; }
 		else if(c < 0x20 || c > 0x7e)
 		{
 			result += "\\\\";
 			result += nibbleToHexChar((c & 0xf0) >> 4);
 			result += nibbleToHexChar((c & 0x0f) >> 0);
 		}
-		else
-		{
-			result += c;
-		}
+		else { result += c; }
 	}
 	return result;
 }
@@ -485,7 +492,9 @@ static std::string getGraphEdgeLabel(const CharSet& charSet)
 				edgeLabel += "-";
 				charIndex += 2;
 				while(charIndex + 1 < 256 && charSet.contains((char)charIndex + 1) != isNegative)
-				{ ++charIndex; }
+				{
+					++charIndex;
+				}
 				edgeLabel += getGraphEdgeCharLabel(charIndex);
 			}
 		}

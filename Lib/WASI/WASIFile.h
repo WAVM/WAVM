@@ -10,7 +10,9 @@ static bool readUserString(Memory* memory,
 		[&] {
 			char* stringBytes = memoryArrayPtr<char>(memory, stringAddress, numStringBytes);
 			for(Uptr index = 0; index < numStringBytes; ++index)
-			{ outString += stringBytes[index]; }
+			{
+				outString += stringBytes[index];
+			}
 		},
 		[&succeeded](Exception* exception) {
 			WAVM_ERROR_UNLESS(getExceptionType(exception)
@@ -43,24 +45,28 @@ static __wasi_errno_t validatePath(Process* process,
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
-	{ return __WASI_EFAULT; }
+	{
+		return __WASI_EFAULT;
+	}
 
 	TRACE_SYSCALL_FLOW("Read path from process memory: %s", relativePath.c_str());
 
 	if(!getCanonicalPath(lockedDirFDE.fde->originalPath, relativePath, outCanonicalPath))
-	{ return __WASI_ENOTCAPABLE; }
+	{
+		return __WASI_ENOTCAPABLE;
+	}
 
-	TRACE_SYSCALL_FLOW( "Canonical path: %s", outCanonicalPath.c_str());
+	TRACE_SYSCALL_FLOW("Canonical path: %s", outCanonicalPath.c_str());
 
 	return __WASI_ESUCCESS;
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_prestat_get",
-							   __wasi_errno_return_t,
-							   wasi_fd_prestat_get,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr prestatAddress)
+									"fd_prestat_get",
+									__wasi_errno_return_t,
+									wasi_fd_prestat_get,
+									__wasi_fd_t fd,
+									WASIAddressIPtr prestatAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_prestat_get", "(%u, " WASIADDRESSIPTR_FORMAT ")", fd, prestatAddress);
 
@@ -70,7 +76,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	if(lockedFDE.fde->originalPath.size() > WASIADDRESSIPTR_MAX)
-	{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW);
+	}
 
 	wasi_prestat_iptr& prestat = memoryRef<wasi_prestat_iptr>(process->memory, prestatAddress);
 	prestat.pr_type = lockedFDE.fde->preopenedType;
@@ -81,15 +89,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_prestat_dir_name",
-							   __wasi_errno_return_t,
-							   wasi_fd_prestat_dir_name,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr bufferAddress,
-							   WASIAddressIPtr bufferLength)
+									"fd_prestat_dir_name",
+									__wasi_errno_return_t,
+									wasi_fd_prestat_dir_name,
+									__wasi_fd_t fd,
+									WASIAddressIPtr bufferAddress,
+									WASIAddressIPtr bufferLength)
 {
-	TRACE_SYSCALL_IPTR(
-		"fd_prestat_dir_name", "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")", fd, bufferAddress, bufferLength);
+	TRACE_SYSCALL_IPTR("fd_prestat_dir_name",
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
+					   fd,
+					   bufferAddress,
+					   bufferLength);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -99,7 +110,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	if(!lockedFDE.fde->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
 	if(bufferLength != lockedFDE.fde->originalPath.size())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
+	}
 
 	char* buffer = memoryArrayPtr<char>(process->memory, bufferAddress, bufferLength);
 	memcpy(buffer, lockedFDE.fde->originalPath.c_str(), bufferLength);
@@ -108,10 +121,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_close",
-							   __wasi_errno_return_t,
-							   wasi_fd_close,
-							   __wasi_fd_t fd)
+									"fd_close",
+									__wasi_errno_return_t,
+									wasi_fd_close,
+									__wasi_fd_t fd)
 {
 	TRACE_SYSCALL_IPTR("fd_close", "(%u)", fd);
 
@@ -120,7 +133,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	// Exclusively lock the fds mutex, and look up the FDE corresponding to the FD.
 	Platform::RWMutex::ExclusiveLock fdsLock(process->fdMapMutex);
 	if(fd < process->fdMap.getMinIndex() || fd > process->fdMap.getMaxIndex())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EBADF);
+	}
 	std::shared_ptr<FDE>* fdePointer = process->fdMap.get(fd);
 	if(!fdePointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	std::shared_ptr<FDE> fde = *fdePointer;
@@ -143,10 +158,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_datasync",
-							   __wasi_errno_return_t,
-							   wasi_fd_datasync,
-							   __wasi_fd_t fd)
+									"fd_datasync",
+									__wasi_errno_return_t,
+									wasi_fd_datasync,
+									__wasi_fd_t fd)
 {
 	TRACE_SYSCALL_IPTR("fd_datasync", "(%u)", fd);
 
@@ -174,7 +189,7 @@ static __wasi_errno_t readImpl(Process* process,
 
 	// Allocate memory for the IOReadBuffers.
 	IOReadBuffer* vfsReadBuffers = (IOReadBuffer*)malloc(numIOVs * sizeof(IOReadBuffer));
-	if(vfsReadBuffers==nullptr) { return __WASI_ENOMEM; }
+	if(vfsReadBuffers == nullptr) { return __WASI_ENOMEM; }
 
 	// Catch any out-of-bounds memory access exceptions that are thrown.
 	__wasi_errno_t result = __WASI_ESUCCESS;
@@ -187,7 +202,8 @@ static __wasi_errno_t readImpl(Process* process,
 			for(WASIAddressIPtr iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 			{
 				wasi_iovec_iptr iov = iovs[iovIndex];
-				TRACE_SYSCALL_FLOW("IOV[" WASIADDRESSIPTR_FORMAT "]=(buf=" WASIADDRESSIPTR_FORMAT ", buf_len=" WASIADDRESSIPTR_FORMAT ")",
+				TRACE_SYSCALL_FLOW("IOV[" WASIADDRESSIPTR_FORMAT "]=(buf=" WASIADDRESSIPTR_FORMAT
+								   ", buf_len=" WASIADDRESSIPTR_FORMAT ")",
 								   iovIndex,
 								   iov.buf,
 								   iov.buf_len);
@@ -237,7 +253,7 @@ static __wasi_errno_t writeImpl(Process* process,
 
 	// Allocate memory for the IOWriteBuffers.
 	IOWriteBuffer* vfsWriteBuffers = (IOWriteBuffer*)malloc(numIOVs * sizeof(IOWriteBuffer));
-	if(vfsWriteBuffers==nullptr) { return __WASI_ENOMEM; }
+	if(vfsWriteBuffers == nullptr) { return __WASI_ENOMEM; }
 
 	// Catch any out-of-bounds memory access exceptions that are thrown.
 	__wasi_errno_t result = __WASI_ESUCCESS;
@@ -250,7 +266,8 @@ static __wasi_errno_t writeImpl(Process* process,
 			for(WASIAddressIPtr iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 			{
 				wasi_ciovec_iptr iov = iovs[iovIndex];
-				TRACE_SYSCALL_FLOW("IOV[" WASIADDRESSIPTR_FORMAT "]=(buf=" WASIADDRESSIPTR_FORMAT ", buf_len=" WASIADDRESSIPTR_FORMAT ")",
+				TRACE_SYSCALL_FLOW("IOV[" WASIADDRESSIPTR_FORMAT "]=(buf=" WASIADDRESSIPTR_FORMAT
+								   ", buf_len=" WASIADDRESSIPTR_FORMAT ")",
 								   iovIndex,
 								   iov.buf,
 								   iov.buf_len);
@@ -285,22 +302,23 @@ static __wasi_errno_t writeImpl(Process* process,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_pread",
-							   __wasi_errno_return_t,
-							   wasi_fd_pread,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr iovsAddress,
-							   WASIAddressIPtr numIOVs,
-							   __wasi_filesize_t offset,
-							   WASIAddressIPtr numBytesReadAddress)
+									"fd_pread",
+									__wasi_errno_return_t,
+									wasi_fd_pread,
+									__wasi_fd_t fd,
+									WASIAddressIPtr iovsAddress,
+									WASIAddressIPtr numIOVs,
+									__wasi_filesize_t offset,
+									WASIAddressIPtr numBytesReadAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_pread",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT " , %" PRIu64 ", " WASIADDRESSIPTR_FORMAT ")",
-				  fd,
-				  iovsAddress,
-				  numIOVs,
-				  offset,
-				  numBytesReadAddress);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT " , %" PRIu64
+					   ", " WASIADDRESSIPTR_FORMAT ")",
+					   fd,
+					   iovsAddress,
+					   numIOVs,
+					   offset,
+					   numBytesReadAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -310,28 +328,30 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 
 	// Write the number of bytes read to memory.
 	WAVM_ASSERT(numBytesRead <= WASIADDRESSIPTR_MAX);
-	memoryRef<WASIAddressIPtr>(process->memory, numBytesReadAddress) = WASIAddressIPtr(numBytesRead);
+	memoryRef<WASIAddressIPtr>(process->memory, numBytesReadAddress)
+		= WASIAddressIPtr(numBytesRead);
 
 	return TRACE_SYSCALL_RETURN(result, "(numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_pwrite",
-							   __wasi_errno_return_t,
-							   wasi_fd_pwrite,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr iovsAddress,
-							   WASIAddressIPtr numIOVs,
-							   __wasi_filesize_t offset,
-							   WASIAddressIPtr numBytesWrittenAddress)
+									"fd_pwrite",
+									__wasi_errno_return_t,
+									wasi_fd_pwrite,
+									__wasi_fd_t fd,
+									WASIAddressIPtr iovsAddress,
+									WASIAddressIPtr numIOVs,
+									__wasi_filesize_t offset,
+									WASIAddressIPtr numBytesWrittenAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_pwrite",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", %" PRIu64 ", " WASIADDRESSIPTR_FORMAT ")",
-				  fd,
-				  iovsAddress,
-				  numIOVs,
-				  offset,
-				  numBytesWrittenAddress);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", %" PRIu64
+					   ", " WASIADDRESSIPTR_FORMAT ")",
+					   fd,
+					   iovsAddress,
+					   numIOVs,
+					   offset,
+					   numBytesWrittenAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -341,26 +361,28 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 
 	// Write the number of bytes written to memory.
 	WAVM_ASSERT(numBytesWritten <= WASIADDRESSIPTR_MAX);
-	memoryRef<WASIAddressIPtr>(process->memory, numBytesWrittenAddress) = WASIAddressIPtr(numBytesWritten);
+	memoryRef<WASIAddressIPtr>(process->memory, numBytesWrittenAddress)
+		= WASIAddressIPtr(numBytesWritten);
 
 	return TRACE_SYSCALL_RETURN(result, "(numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_read",
-							   __wasi_errno_return_t,
-							   wasi_fd_read,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr iovsAddress,
-							   WASIAddressIPtr numIOVs,
-							   WASIAddressIPtr numBytesReadAddress)
+									"fd_read",
+									__wasi_errno_return_t,
+									wasi_fd_read,
+									__wasi_fd_t fd,
+									WASIAddressIPtr iovsAddress,
+									WASIAddressIPtr numIOVs,
+									WASIAddressIPtr numBytesReadAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_read",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-				  fd,
-				  iovsAddress,
-				  numIOVs,
-				  numBytesReadAddress);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+					   ", " WASIADDRESSIPTR_FORMAT ")",
+					   fd,
+					   iovsAddress,
+					   numIOVs,
+					   numBytesReadAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -370,26 +392,28 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 
 	// Write the number of bytes read to memory.
 	WAVM_ASSERT(numBytesRead <= WASIADDRESSIPTR_MAX);
-	memoryRef<WASIAddressIPtr>(process->memory, numBytesReadAddress) = WASIAddressIPtr(numBytesRead);
+	memoryRef<WASIAddressIPtr>(process->memory, numBytesReadAddress)
+		= WASIAddressIPtr(numBytesRead);
 
 	return TRACE_SYSCALL_RETURN(result, "(numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_write",
-							   __wasi_errno_return_t,
-							   wasi_fd_write,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr iovsAddress,
-							   WASIAddressIPtr numIOVs,
-							   WASIAddressIPtr numBytesWrittenAddress)
+									"fd_write",
+									__wasi_errno_return_t,
+									wasi_fd_write,
+									__wasi_fd_t fd,
+									WASIAddressIPtr iovsAddress,
+									WASIAddressIPtr numIOVs,
+									WASIAddressIPtr numBytesWrittenAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_write",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-				  fd,
-				  iovsAddress,
-				  numIOVs,
-				  numBytesWrittenAddress);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+					   ", " WASIADDRESSIPTR_FORMAT ")",
+					   fd,
+					   iovsAddress,
+					   numIOVs,
+					   numBytesWrittenAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -399,17 +423,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 
 	// Write the number of bytes written to memory.
 	WAVM_ASSERT(numBytesWritten <= WASIADDRESSIPTR_MAX);
-	memoryRef<WASIAddressIPtr>(process->memory, numBytesWrittenAddress) = WASIAddressIPtr(numBytesWritten);
+	memoryRef<WASIAddressIPtr>(process->memory, numBytesWrittenAddress)
+		= WASIAddressIPtr(numBytesWritten);
 
 	return TRACE_SYSCALL_RETURN(result, "(numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_renumber",
-							   __wasi_errno_return_t,
-							   wasi_fd_renumber,
-							   __wasi_fd_t fromFD,
-							   __wasi_fd_t toFD)
+									"fd_renumber",
+									__wasi_errno_return_t,
+									wasi_fd_renumber,
+									__wasi_fd_t fromFD,
+									__wasi_fd_t toFD)
 {
 	TRACE_SYSCALL_IPTR("fd_renumber", "(%u, %u)", fromFD, toFD);
 
@@ -420,14 +445,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 
 	// Look up the FDE for the source FD.
 	if(fromFD < process->fdMap.getMinIndex() || fromFD > process->fdMap.getMaxIndex())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EBADF);
+	}
 	std::shared_ptr<FDE>* fromFDEPointer = process->fdMap.get(fromFD);
 	if(!fromFDEPointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	std::shared_ptr<FDE> fromFDE = *fromFDEPointer;
 
 	// Look up the FDE for the destination FD.
 	if(toFD < process->fdMap.getMinIndex() || toFD > process->fdMap.getMaxIndex())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EBADF);
+	}
 	std::shared_ptr<FDE>* toFDEPointer = process->fdMap.get(toFD);
 	if(!toFDEPointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	std::shared_ptr<FDE> toFDE = *toFDEPointer;
@@ -450,20 +479,20 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_seek",
-							   __wasi_errno_return_t,
-							   wasi_fd_seek,
-							   __wasi_fd_t fd,
-							   __wasi_filedelta_t offset,
-							   U32 whence,
-							   WASIAddressIPtr newOffsetAddress)
+									"fd_seek",
+									__wasi_errno_return_t,
+									wasi_fd_seek,
+									__wasi_fd_t fd,
+									__wasi_filedelta_t offset,
+									U32 whence,
+									WASIAddressIPtr newOffsetAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_seek",
-				  "(%u, %" PRIi64 ", %s, " WASIADDRESSIPTR_FORMAT ")",
-				  fd,
-				  offset,
-				  describeSeekWhence(whence).c_str(),
-				  newOffsetAddress);
+					   "(%u, %" PRIi64 ", %s, " WASIADDRESSIPTR_FORMAT ")",
+					   fd,
+					   offset,
+					   describeSeekWhence(whence).c_str(),
+					   newOffsetAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -488,11 +517,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_tell",
-							   __wasi_errno_return_t,
-							   wasi_fd_tell,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr offsetAddress)
+									"fd_tell",
+									__wasi_errno_return_t,
+									wasi_fd_tell,
+									__wasi_fd_t fd,
+									WASIAddressIPtr offsetAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_tell", "(%u, " WASIADDRESSIPTR_FORMAT ")", fd, offsetAddress);
 
@@ -510,11 +539,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_fdstat_get",
-							   __wasi_errno_return_t,
-							   wasi_fd_fdstat_get,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr fdstatAddress)
+									"fd_fdstat_get",
+									__wasi_errno_return_t,
+									wasi_fd_fdstat_get,
+									__wasi_fd_t fd,
+									WASIAddressIPtr fdstatAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_fdstat_get", "(%u, " WASIADDRESSIPTR_FORMAT ")", fd, fdstatAddress);
 
@@ -555,11 +584,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_fdstat_set_flags",
-							   __wasi_errno_return_t,
-							   wasi_fd_fdstat_set_flags,
-							   __wasi_fd_t fd,
-							   __wasi_fdflags_t flags)
+									"fd_fdstat_set_flags",
+									__wasi_errno_return_t,
+									wasi_fd_fdstat_set_flags,
+									__wasi_fd_t fd,
+									__wasi_fdflags_t flags)
 {
 	TRACE_SYSCALL_IPTR("fd_fdstat_set_flags", "(%u, 0x%04x)", fd, flags);
 
@@ -577,18 +606,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_fdstat_set_rights",
-							   __wasi_errno_return_t,
-							   wasi_fd_fdstat_set_rights,
-							   __wasi_fd_t fd,
-							   __wasi_rights_t rights,
-							   __wasi_rights_t inheritingRights)
+									"fd_fdstat_set_rights",
+									__wasi_errno_return_t,
+									wasi_fd_fdstat_set_rights,
+									__wasi_fd_t fd,
+									__wasi_rights_t rights,
+									__wasi_rights_t inheritingRights)
 {
 	TRACE_SYSCALL_IPTR("fd_fdstat_set_rights",
-				  "(%u, 0x%" PRIx64 ", 0x %" PRIx64 ") ",
-				  fd,
-				  rights,
-				  inheritingRights);
+					   "(%u, 0x%" PRIx64 ", 0x %" PRIx64 ") ",
+					   fd,
+					   rights,
+					   inheritingRights);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -604,10 +633,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_sync",
-							   __wasi_errno_return_t,
-							   wasi_fd_sync,
-							   __wasi_fd_t fd)
+									"fd_sync",
+									__wasi_errno_return_t,
+									wasi_fd_sync,
+									__wasi_fd_t fd)
 {
 	TRACE_SYSCALL_IPTR("fd_sync", "(%u)", fd);
 
@@ -621,13 +650,13 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_advise",
-							   __wasi_errno_return_t,
-							   wasi_fd_advise,
-							   __wasi_fd_t fd,
-							   __wasi_filesize_t offset,
-							   __wasi_filesize_t numBytes,
-							   __wasi_advice_t advice)
+									"fd_advise",
+									__wasi_errno_return_t,
+									wasi_fd_advise,
+									__wasi_fd_t fd,
+									__wasi_filesize_t offset,
+									__wasi_filesize_t numBytes,
+									__wasi_advice_t advice)
 {
 	TRACE_SYSCALL_IPTR(
 		"fd_advise", "(%u, %" PRIu64 ", %" PRIu64 ", 0x%02x)", fd, offset, numBytes, advice);
@@ -653,66 +682,68 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_allocate",
-							   __wasi_errno_return_t,
-							   wasi_fd_allocate,
-							   __wasi_fd_t fd,
-							   __wasi_filesize_t offset,
-							   __wasi_filesize_t numBytes)
+									"fd_allocate",
+									__wasi_errno_return_t,
+									wasi_fd_allocate,
+									__wasi_fd_t fd,
+									__wasi_filesize_t offset,
+									__wasi_filesize_t numBytes)
 {
-	UNIMPLEMENTED_SYSCALL_IPTR("fd_allocate", "(%u, %" PRIu64 ", %" PRIu64 ")", fd, offset, numBytes);
+	UNIMPLEMENTED_SYSCALL_IPTR(
+		"fd_allocate", "(%u, %" PRIu64 ", %" PRIu64 ")", fd, offset, numBytes);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_link",
-							   __wasi_errno_return_t,
-							   wasi_path_link,
-							   __wasi_fd_t dirFD,
-							   __wasi_lookupflags_t lookupFlags,
-							   WASIAddressIPtr oldPathAddress,
-							   WASIAddressIPtr numOldPathBytes,
-							   __wasi_fd_t newFD,
-							   WASIAddressIPtr newPathAddress,
-							   WASIAddressIPtr numNewPathBytes)
+									"path_link",
+									__wasi_errno_return_t,
+									wasi_path_link,
+									__wasi_fd_t dirFD,
+									__wasi_lookupflags_t lookupFlags,
+									WASIAddressIPtr oldPathAddress,
+									WASIAddressIPtr numOldPathBytes,
+									__wasi_fd_t newFD,
+									WASIAddressIPtr newPathAddress,
+									WASIAddressIPtr numNewPathBytes)
 {
 	UNIMPLEMENTED_SYSCALL_IPTR("path_link",
-						  "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", %u, " WASIADDRESSIPTR_FORMAT
-						  ", " WASIADDRESSIPTR_FORMAT ")",
-						  dirFD,
-						  lookupFlags,
-						  oldPathAddress,
-						  numOldPathBytes,
-						  newFD,
-						  newPathAddress,
-						  numNewPathBytes);
+							   "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+							   ", %u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
+							   dirFD,
+							   lookupFlags,
+							   oldPathAddress,
+							   numOldPathBytes,
+							   newFD,
+							   newPathAddress,
+							   numNewPathBytes);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_open",
-							   __wasi_errno_return_t,
-							   wasi_path_open,
-							   __wasi_fd_t dirFD,
-							   __wasi_lookupflags_t lookupFlags,
-							   WASIAddressIPtr pathAddress,
-							   WASIAddressIPtr numPathBytes,
-							   __wasi_oflags_t openFlags,
-							   __wasi_rights_t requestedRights,
-							   __wasi_rights_t requestedInheritingRights,
-							   __wasi_fdflags_t fdFlags,
-							   WASIAddressIPtr fdAddress)
+									"path_open",
+									__wasi_errno_return_t,
+									wasi_path_open,
+									__wasi_fd_t dirFD,
+									__wasi_lookupflags_t lookupFlags,
+									WASIAddressIPtr pathAddress,
+									WASIAddressIPtr numPathBytes,
+									__wasi_oflags_t openFlags,
+									__wasi_rights_t requestedRights,
+									__wasi_rights_t requestedInheritingRights,
+									__wasi_fdflags_t fdFlags,
+									WASIAddressIPtr fdAddress)
 {
 	TRACE_SYSCALL_IPTR("path_open",
-				  "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT " , 0x%x , 0x%" PRIx64 ", 0x%" PRIx64 
-				  ", 0x%04x, " WASIADDRESSIPTR_FORMAT ")",
-				  dirFD,
-				  lookupFlags,
-				  pathAddress,
-				  numPathBytes,
-				  openFlags,
-				  requestedRights,
-				  requestedInheritingRights,
-				  fdFlags,
-				  fdAddress);
+					   "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+					   " , 0x%x , 0x%" PRIx64 ", 0x%" PRIx64 ", 0x%04x, " WASIADDRESSIPTR_FORMAT
+					   ")",
+					   dirFD,
+					   lookupFlags,
+					   pathAddress,
+					   numPathBytes,
+					   openFlags,
+					   requestedRights,
+					   requestedInheritingRights,
+					   fdFlags,
+					   fdAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -723,10 +754,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	const bool write = requestedRights
 					   & (__WASI_RIGHT_FD_DATASYNC | __WASI_RIGHT_FD_WRITE
 						  | __WASI_RIGHT_FD_ALLOCATE | __WASI_RIGHT_FD_FILESTAT_SET_SIZE);
-	const FileAccessMode accessMode
-		= read && write ? FileAccessMode::readWrite
-						: read ? FileAccessMode::readOnly
-							   : write ? FileAccessMode::writeOnly : FileAccessMode::none;
+	const FileAccessMode accessMode = read && write ? FileAccessMode::readWrite
+									  : read        ? FileAccessMode::readOnly
+									  : write       ? FileAccessMode::writeOnly
+													: FileAccessMode::none;
 
 	FileCreateMode createMode = FileCreateMode::openExisting;
 	switch(openFlags & (__WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC))
@@ -743,8 +774,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	case __WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC:
 	case __WASI_O_EXCL | __WASI_O_TRUNC:
 	case __WASI_O_EXCL:
-	default:
-	 return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
+	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
 	};
 
 	if(openFlags & __WASI_O_CREAT) { requiredDirRights |= __WASI_RIGHT_PATH_CREATE_FILE; }
@@ -752,7 +782,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 
 	VFDFlags vfsVFDFlags = translateWASIVFDFlags(fdFlags, requiredDirInheritingRights);
 	if(write && !(fdFlags & __WASI_FDFLAG_APPEND) && !(openFlags & __WASI_O_TRUNC))
-	{ requiredDirInheritingRights |= __WASI_RIGHT_FD_SEEK; }
+	{
+		requiredDirInheritingRights |= __WASI_RIGHT_FD_SEEK;
+	}
 
 	std::string canonicalPath;
 	const __wasi_errno_t pathError = validatePath(process,
@@ -793,22 +825,23 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_readdir",
-							   __wasi_errno_return_t,
-							   wasi_fd_readdir,
-							   __wasi_fd_t dirFD,
-							   WASIAddressIPtr bufferAddress,
-							   WASIAddressIPtr numBufferBytes,
-							   __wasi_dircookie_t firstCookie,
-							   WASIAddressIPtr outNumBufferBytesUsedAddress)
+									"fd_readdir",
+									__wasi_errno_return_t,
+									wasi_fd_readdir,
+									__wasi_fd_t dirFD,
+									WASIAddressIPtr bufferAddress,
+									WASIAddressIPtr numBufferBytes,
+									__wasi_dircookie_t firstCookie,
+									WASIAddressIPtr outNumBufferBytesUsedAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_readdir",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", 0x%" PRIx64 ", " WASIADDRESSIPTR_FORMAT ")",
-				  dirFD,
-				  bufferAddress,
-				  numBufferBytes,
-				  firstCookie,
-				  outNumBufferBytesUsedAddress);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", 0x%" PRIx64
+					   ", " WASIADDRESSIPTR_FORMAT ")",
+					   dirFD,
+					   bufferAddress,
+					   numBufferBytes,
+					   firstCookie,
+					   outNumBufferBytesUsedAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -827,7 +860,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 	else if(lockedFDE.fde->dirEntStream->tell() != firstCookie)
 	{
 		if(!lockedFDE.fde->dirEntStream->seek(firstCookie))
-		{ return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+		{
+			return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
+		}
 	}
 
 	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
@@ -866,46 +901,48 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_readlink",
-							   __wasi_errno_return_t,
-							   wasi_path_readlink,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr pathAddress,
-							   WASIAddressIPtr numPathBytes,
-							   WASIAddressIPtr bufferAddress,
-							   WASIAddressIPtr numBufferBytes,
-							   WASIAddressIPtr outNumBufferBytesUsedAddress)
+									"path_readlink",
+									__wasi_errno_return_t,
+									wasi_path_readlink,
+									__wasi_fd_t fd,
+									WASIAddressIPtr pathAddress,
+									WASIAddressIPtr numPathBytes,
+									WASIAddressIPtr bufferAddress,
+									WASIAddressIPtr numBufferBytes,
+									WASIAddressIPtr outNumBufferBytesUsedAddress)
 {
 	UNIMPLEMENTED_SYSCALL_IPTR("path_readlink",
-						  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
-						  ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-						  fd,
-						  pathAddress,
-						  numPathBytes,
-						  bufferAddress,
-						  numBufferBytes,
-						  outNumBufferBytesUsedAddress);
+							   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+							   ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+							   ", " WASIADDRESSIPTR_FORMAT ")",
+							   fd,
+							   pathAddress,
+							   numPathBytes,
+							   bufferAddress,
+							   numBufferBytes,
+							   outNumBufferBytesUsedAddress);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_rename",
-							   __wasi_errno_return_t,
-							   wasi_path_rename,
-							   __wasi_fd_t oldFD,
-							   WASIAddressIPtr oldPathAddress,
-							   WASIAddressIPtr numOldPathBytes,
-							   __wasi_fd_t newFD,
-							   WASIAddressIPtr newPathAddress,
-							   WASIAddressIPtr numNewPathBytes)
+									"path_rename",
+									__wasi_errno_return_t,
+									wasi_path_rename,
+									__wasi_fd_t oldFD,
+									WASIAddressIPtr oldPathAddress,
+									WASIAddressIPtr numOldPathBytes,
+									__wasi_fd_t newFD,
+									WASIAddressIPtr newPathAddress,
+									WASIAddressIPtr numNewPathBytes)
 {
 	TRACE_SYSCALL_IPTR("path_rename",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", %u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-				  oldFD,
-				  oldPathAddress,
-				  numOldPathBytes,
-				  newFD,
-				  newPathAddress,
-				  numNewPathBytes);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+					   ", %u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
+					   oldFD,
+					   oldPathAddress,
+					   numOldPathBytes,
+					   newFD,
+					   newPathAddress,
+					   numNewPathBytes);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -936,11 +973,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_filestat_get",
-							   __wasi_errno_return_t,
-							   wasi_fd_filestat_get,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr filestatAddress)
+									"fd_filestat_get",
+									__wasi_errno_return_t,
+									wasi_fd_filestat_get,
+									__wasi_fd_t fd,
+									WASIAddressIPtr filestatAddress)
 {
 	TRACE_SYSCALL_IPTR("fd_filestat_get", "(%u, " WASIADDRESSIPTR_FORMAT ")", fd, filestatAddress);
 
@@ -980,20 +1017,20 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_filestat_set_times",
-							   __wasi_errno_return_t,
-							   wasi_fd_filestat_set_times,
-							   __wasi_fd_t fd,
-							   __wasi_timestamp_t lastAccessTime64,
-							   __wasi_timestamp_t lastWriteTime64,
-							   __wasi_fstflags_t flags)
+									"fd_filestat_set_times",
+									__wasi_errno_return_t,
+									wasi_fd_filestat_set_times,
+									__wasi_fd_t fd,
+									__wasi_timestamp_t lastAccessTime64,
+									__wasi_timestamp_t lastWriteTime64,
+									__wasi_fstflags_t flags)
 {
 	TRACE_SYSCALL_IPTR("fd_filestat_set_times",
-				  "(%u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
-				  fd,
-				  lastAccessTime64,
-				  lastWriteTime64,
-				  flags);
+					   "(%u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
+					   fd,
+					   lastAccessTime64,
+					   lastWriteTime64,
+					   flags);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -1035,11 +1072,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "fd_filestat_set_size",
-							   __wasi_errno_return_t,
-							   wasi_fd_filestat_set_size,
-							   __wasi_fd_t fd,
-							   __wasi_filesize_t numBytes)
+									"fd_filestat_set_size",
+									__wasi_errno_return_t,
+									wasi_fd_filestat_set_size,
+									__wasi_fd_t fd,
+									__wasi_filesize_t numBytes)
 {
 	TRACE_SYSCALL_IPTR("fd_filestat_set_size", "(%u, %" PRIu64 ")", fd, numBytes);
 
@@ -1052,22 +1089,23 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_filestat_get",
-							   __wasi_errno_return_t,
-							   wasi_path_filestat_get,
-							   __wasi_fd_t dirFD,
-							   __wasi_lookupflags_t lookupFlags,
-							   WASIAddressIPtr pathAddress,
-							   WASIAddressIPtr numPathBytes,
-							   WASIAddressIPtr filestatAddress)
+									"path_filestat_get",
+									__wasi_errno_return_t,
+									wasi_path_filestat_get,
+									__wasi_fd_t dirFD,
+									__wasi_lookupflags_t lookupFlags,
+									WASIAddressIPtr pathAddress,
+									WASIAddressIPtr numPathBytes,
+									WASIAddressIPtr filestatAddress)
 {
 	TRACE_SYSCALL_IPTR("path_filestat_get",
-				  "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-				  dirFD,
-				  lookupFlags,
-				  pathAddress,
-				  numPathBytes,
-				  filestatAddress);
+					   "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+					   ", " WASIADDRESSIPTR_FORMAT ")",
+					   dirFD,
+					   lookupFlags,
+					   pathAddress,
+					   numPathBytes,
+					   filestatAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -1113,26 +1151,27 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_filestat_set_times",
-							   __wasi_errno_return_t,
-							   wasi_path_filestat_set_times,
-							   __wasi_fd_t dirFD,
-							   __wasi_lookupflags_t lookupFlags,
-							   WASIAddressIPtr pathAddress,
-							   WASIAddressIPtr numPathBytes,
-							   __wasi_timestamp_t lastAccessTime64,
-							   __wasi_timestamp_t lastWriteTime64,
-							   __wasi_fstflags_t flags)
+									"path_filestat_set_times",
+									__wasi_errno_return_t,
+									wasi_path_filestat_set_times,
+									__wasi_fd_t dirFD,
+									__wasi_lookupflags_t lookupFlags,
+									WASIAddressIPtr pathAddress,
+									WASIAddressIPtr numPathBytes,
+									__wasi_timestamp_t lastAccessTime64,
+									__wasi_timestamp_t lastWriteTime64,
+									__wasi_fstflags_t flags)
 {
 	TRACE_SYSCALL_IPTR("path_filestat_set_times",
-				  "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", %" PRIu64 ", %" PRIu64 ", 0x%04x)",
-				  dirFD,
-				  lookupFlags,
-				  pathAddress,
-				  numPathBytes,
-				  lastAccessTime64,
-				  lastWriteTime64,
-				  flags);
+					   "(%u, 0x%08x, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+					   ", %" PRIu64 ", %" PRIu64 ", 0x%04x)",
+					   dirFD,
+					   lookupFlags,
+					   pathAddress,
+					   numPathBytes,
+					   lastAccessTime64,
+					   lastWriteTime64,
+					   flags);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -1181,34 +1220,38 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_symlink",
-							   __wasi_errno_return_t,
-							   wasi_path_symlink,
-							   WASIAddressIPtr oldPathAddress,
-							   WASIAddressIPtr numOldPathBytes,
-							   __wasi_fd_t fd,
-							   WASIAddressIPtr newPathAddress,
-							   WASIAddressIPtr numNewPathBytes)
+									"path_symlink",
+									__wasi_errno_return_t,
+									wasi_path_symlink,
+									WASIAddressIPtr oldPathAddress,
+									WASIAddressIPtr numOldPathBytes,
+									__wasi_fd_t fd,
+									WASIAddressIPtr newPathAddress,
+									WASIAddressIPtr numNewPathBytes)
 {
 	UNIMPLEMENTED_SYSCALL_IPTR("path_symlink",
-						  "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ", %u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-						  oldPathAddress,
-						  numOldPathBytes,
-						  fd,
-						  newPathAddress,
-						  numNewPathBytes);
+							   "(" WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT
+							   ", %u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
+							   oldPathAddress,
+							   numOldPathBytes,
+							   fd,
+							   newPathAddress,
+							   numNewPathBytes);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_unlink_file",
-							   __wasi_errno_return_t,
-							   wasi_path_unlink_file,
-							   __wasi_fd_t dirFD,
-							   WASIAddressIPtr pathAddress,
-							   WASIAddressIPtr numPathBytes)
+									"path_unlink_file",
+									__wasi_errno_return_t,
+									wasi_path_unlink_file,
+									__wasi_fd_t dirFD,
+									WASIAddressIPtr pathAddress,
+									WASIAddressIPtr numPathBytes)
 {
-	TRACE_SYSCALL_IPTR(
-		"path_unlink_file", "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")", dirFD, pathAddress, numPathBytes);
+	TRACE_SYSCALL_IPTR("path_unlink_file",
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
+					   dirFD,
+					   pathAddress,
+					   numPathBytes);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -1231,18 +1274,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_remove_directory",
-							   __wasi_errno_return_t,
-							   wasi_path_remove_directory,
-							   __wasi_fd_t dirFD,
-							   WASIAddressIPtr pathAddress,
-							   WASIAddressIPtr numPathBytes)
+									"path_remove_directory",
+									__wasi_errno_return_t,
+									wasi_path_remove_directory,
+									__wasi_fd_t dirFD,
+									WASIAddressIPtr pathAddress,
+									WASIAddressIPtr numPathBytes)
 {
 	TRACE_SYSCALL_IPTR("path_remove_directory",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-				  dirFD,
-				  pathAddress,
-				  numPathBytes);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
+					   dirFD,
+					   pathAddress,
+					   numPathBytes);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
@@ -1264,18 +1307,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION_IPTR(wasiFile,
-							   "path_create_directory",
-							   __wasi_errno_return_t,
-							   wasi_path_create_directory,
-							   __wasi_fd_t dirFD,
-							   WASIAddressIPtr pathAddress,
-							   WASIAddressIPtr numPathBytes)
+									"path_create_directory",
+									__wasi_errno_return_t,
+									wasi_path_create_directory,
+									__wasi_fd_t dirFD,
+									WASIAddressIPtr pathAddress,
+									WASIAddressIPtr numPathBytes)
 {
 	TRACE_SYSCALL_IPTR("path_create_directory",
-				  "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
-				  dirFD,
-				  pathAddress,
-				  numPathBytes);
+					   "(%u, " WASIADDRESSIPTR_FORMAT ", " WASIADDRESSIPTR_FORMAT ")",
+					   dirFD,
+					   pathAddress,
+					   numPathBytes);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
