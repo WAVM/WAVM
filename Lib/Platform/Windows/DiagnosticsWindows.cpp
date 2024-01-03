@@ -13,7 +13,7 @@
 #undef min
 #undef max
 
-#include <DbgHelp.h>
+#include <dbghelp.h>
 #include <string>
 
 using namespace WAVM;
