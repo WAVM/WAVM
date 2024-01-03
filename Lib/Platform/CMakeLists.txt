@@ -126,9 +126,9 @@ endif()
 if(${wavmiswindows})
 
 if (${compilerisgnu})
-	list(APPEND PLATFORM_PRIVATE_LIBS Bcrypt)
+	list(APPEND PLATFORM_PRIVATE_LIBS bcrypt)
 elseif()
-	list(APPEND PLATFORM_PRIVATE_LIBS "Bcrypt.lib")
+	list(APPEND PLATFORM_PRIVATE_LIBS "bcrypt.lib")
 endif()
 endif()
 
