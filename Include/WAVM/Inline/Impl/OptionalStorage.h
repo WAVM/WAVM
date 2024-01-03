@@ -2,6 +2,8 @@
 
 #include <new>
 #include <type_traits>
+#include <array>
+#include <cstddef>
 #include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM {
@@ -31,7 +33,7 @@ namespace WAVM {
 #endif
 
 	private:
-		typename std::aligned_storage<sizeof(Contents), alignof(Contents)>::type contents;
+		alignas(alignof(Contents)) ::std::array<::std::byte,sizeof(Contents)> contents;
 	};
 
 	// Partial specialization for types with trivial destructors.
@@ -56,7 +58,7 @@ namespace WAVM {
 #endif
 
 	private:
-		typename std::aligned_storage<sizeof(Contents), alignof(Contents)>::type contents;
+		alignas(alignof(Contents)) ::std::array<::std::byte,sizeof(Contents)> contents;
 	};
 
 	namespace OptionalStorageAssertions {
