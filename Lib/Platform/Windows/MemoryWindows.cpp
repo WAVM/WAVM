@@ -11,7 +11,7 @@
 #undef min
 #undef max
 
-#include <Psapi.h>
+#include <psapi.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
