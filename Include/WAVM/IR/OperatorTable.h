@@ -200,6 +200,10 @@
 	visitOp(0xfe4c, i64_atomic_rmw8_cmpxchg_u , "i64.atomic.rmw8.cmpxchg_u" , AtomicLoadOrStoreImm<0>             , atomiccmpxchg_i64         , atomics                )   \
 	visitOp(0xfe4d, i64_atomic_rmw16_cmpxchg_u, "i64.atomic.rmw16.cmpxchg_u", AtomicLoadOrStoreImm<1>             , atomiccmpxchg_i64         , atomics                )   \
 	visitOp(0xfe4e, i64_atomic_rmw32_cmpxchg_u, "i64.atomic.rmw32.cmpxchg_u", AtomicLoadOrStoreImm<2>             , atomiccmpxchg_i64         , atomics                )   \
+	visitOp(0xfc20, memory_randomtag          , "memory.randomtag"          , NoImm                               , memory_randomtag          , memtag                 )   \
+	visitOp(0xfc21, memory_copytag            , "memory.copytag"            , NoImm                               , memory_copytag            , memtag                 )   \
+	visitOp(0xfc22, memory_subtag             , "memory.subtag"             , NoImm                               , memory_subtag             , memtag                 )   \
+	visitOp(0xfc23, memory_loadtag            , "memory.loadtag"            , NoImm                               , memory_loadtag            , memtag                 )   \
 	visitOp(0xfc24, memory_storetag           , "memory.storetag"           , NoImm                               , memory_storetag           , memtag                 )   \
 	visitOp(0xfc28, memory_randomstoretag     , "memory.randomstoretag"     , NoImm                               , memory_randomstoretag     , memtag                 )
 
