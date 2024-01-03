@@ -470,7 +470,6 @@ static inline ::llvm::Value* StoreTagIntoMem(EmitFunctionContext& functionContex
 	llvm::IRBuilder<>& irBuilder = functionContext.irBuilder;
 	if(memoryType.indexType==IndexType::i64)
 	{
-		auto pointertype = address->getType();
 		address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i64Type);
 		if(color == nullptr)
 		{
@@ -480,7 +479,6 @@ static inline ::llvm::Value* StoreTagIntoMem(EmitFunctionContext& functionContex
 	}
 	else
 	{
-		auto pointertype = address->getType();
 		address=irBuilder.CreatePtrToInt(address,functionContext.llvmContext.i32Type);
 		if(color == nullptr)
 		{
