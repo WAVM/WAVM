@@ -34,5 +34,4 @@ static bool getPlatformClock(__wasi_clockid_t clock, Platform::Clock& outPlatfor
 #if UINT32_MAX < SIZE_MAX
 #include "DefineIntrinsicsI64.h"
 #include "WASIClocks.h"
-#include "WASIDefineIntrinsicsI64.h"
 #endif
