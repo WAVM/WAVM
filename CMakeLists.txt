@@ -461,7 +461,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		endif()
 
 		# Compile with all warnings, and fatal warnings.
-		target_compile_options(${TARGET_NAME} PRIVATE "/W4")
+		target_compile_options(${TARGET_NAME} PRIVATE "/W3")
 
 		# Disable warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4127") # conditional expression is constant
