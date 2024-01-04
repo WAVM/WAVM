@@ -20,14 +20,14 @@ constexpr Uptr softMaxInstructionsInFunction = 15;
 
 struct ModuleState
 {
-	Module& module;
+	Module& module_;
 	std::vector<Uptr> declaredFunctionIndices;
 	std::vector<ElemSegmentAndTableImm> validElemSegmentAndTableImms;
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
 	RandomStream& random;
 
-	ModuleState(Module& inModule, RandomStream& inRandom) : module(inModule), random(inRandom) {}
+	ModuleState(Module& inModule, RandomStream& inRandom) : module_(inModule), random(inRandom) {}
 };
 
 using CodeStream = CodeValidationProxyStream<OperatorEncoderStream>;
@@ -58,7 +58,7 @@ struct FunctionState
 
 	ModuleState& moduleState;
 	ModuleValidationState& moduleValidationState;
-	const Module& module;
+	const Module& module_;
 	const FunctionType functionType;
 	FunctionDef& functionDef;
 
@@ -78,8 +78,8 @@ struct FunctionState
 				  FunctionDef& inFunctionDef)
 	: moduleState(inModuleState)
 	, moduleValidationState(inModuleValidationState)
-	, module(inModuleState.module)
-	, functionType(inModuleState.module.types[inFunctionDef.type.index])
+	, module_(inModuleState.module_)
+	, functionType(inModuleState.module_.types[inFunctionDef.type.index])
 	, functionDef(inFunctionDef)
 	, numLocals(functionType.params().size() + functionDef.nonParameterLocalTypes.size())
 	, opEncoder(codeByteStream)
@@ -93,7 +93,9 @@ struct FunctionState
 	{
 		// Ensure the stack has enough values for the operator's parameters.
 		if(params.size() + offsetFromTopOfStack > stack.size() - controlStack.back().outerStackSize)
-		{ return false; }
+		{
+			return false;
+		}
 
 		// Check that the types of values on top of the stack are the right type for the
 		// operator's parameters.
@@ -101,7 +103,9 @@ struct FunctionState
 		{
 			if(!isSubtype(stack[stack.size() - offsetFromTopOfStack - params.size() + paramIndex],
 						  params[paramIndex]))
-			{ return false; }
+			{
+				return false;
+			}
 		}
 		return true;
 	};
@@ -224,27 +228,29 @@ static void generateImm(const FunctionState& state,
 						ShuffleImm<numLanes>& outImm)
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
-	{ outImm.laneIndices[laneIndex] = random.get<U8>(numLanes * 2 - 1); }
+	{
+		outImm.laneIndices[laneIndex] = random.get<U8>(numLanes * 2 - 1);
+	}
 }
 
 static bool isImmValid(const FunctionState& state, ImmTypeAsValue<DataSegmentImm>)
 {
-	return state.module.dataSegments.size();
+	return state.module_.dataSegments.size();
 }
 static void generateImm(const FunctionState& state, RandomStream& random, DataSegmentImm& outImm)
 {
-	WAVM_ASSERT(state.module.dataSegments.size());
-	outImm.dataSegmentIndex = random.get(state.module.dataSegments.size() - 1);
+	WAVM_ASSERT(state.module_.dataSegments.size());
+	outImm.dataSegmentIndex = random.get(state.module_.dataSegments.size() - 1);
 }
 
 static bool isImmValid(const FunctionState& state, ImmTypeAsValue<ElemSegmentImm>)
 {
-	return state.module.elemSegments.size();
+	return state.module_.elemSegments.size();
 }
 static void generateImm(const FunctionState& state, RandomStream& random, ElemSegmentImm& outImm)
 {
-	WAVM_ASSERT(state.module.elemSegments.size());
-	outImm.elemSegmentIndex = random.get(state.module.elemSegments.size() - 1);
+	WAVM_ASSERT(state.module_.elemSegments.size());
+	outImm.elemSegmentIndex = random.get(state.module_.elemSegments.size() - 1);
 }
 
 template<typename Imm>
@@ -269,11 +275,11 @@ void getValidEmitters(FunctionState& state,
 					  void (CodeStream::*emitOp)(MemoryImm),
 					  OpSignature (*sigFromImm)(const Module&, const MemoryImm&))
 {
-	for(Uptr memoryIndex = 0; memoryIndex < state.module.memories.size(); ++memoryIndex)
+	for(Uptr memoryIndex = 0; memoryIndex < state.module_.memories.size(); ++memoryIndex)
 	{
 		MemoryImm imm;
 		imm.memoryIndex = memoryIndex;
-		const OpSignature sig = (*sigFromImm)(state.module, imm);
+		const OpSignature sig = (*sigFromImm)(state.module_, imm);
 		if(state.isOpSignatureAllowed(sig))
 		{
 			outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
@@ -289,15 +295,16 @@ void getValidEmitters(FunctionState& state,
 					  void (CodeStream::*emitOp)(MemoryCopyImm),
 					  OpSignature (*sigFromImm)(const Module&, const MemoryCopyImm&))
 {
-	for(Uptr destMemoryIndex = 0; destMemoryIndex < state.module.memories.size(); ++destMemoryIndex)
+	for(Uptr destMemoryIndex = 0; destMemoryIndex < state.module_.memories.size();
+		++destMemoryIndex)
 	{
-		for(Uptr sourceMemoryIndex = 0; sourceMemoryIndex < state.module.memories.size();
+		for(Uptr sourceMemoryIndex = 0; sourceMemoryIndex < state.module_.memories.size();
 			++sourceMemoryIndex)
 		{
 			MemoryCopyImm imm;
 			imm.destMemoryIndex = destMemoryIndex;
 			imm.sourceMemoryIndex = sourceMemoryIndex;
-			const OpSignature sig = (*sigFromImm)(state.module, imm);
+			const OpSignature sig = (*sigFromImm)(state.module_, imm);
 			if(state.isOpSignatureAllowed(sig))
 			{
 				outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
@@ -314,11 +321,11 @@ void getValidEmitters(FunctionState& state,
 					  void (CodeStream::*emitOp)(TableImm),
 					  OpSignature (*sigFromImm)(const Module&, const TableImm&))
 {
-	for(Uptr tableIndex = 0; tableIndex < state.module.tables.size(); ++tableIndex)
+	for(Uptr tableIndex = 0; tableIndex < state.module_.tables.size(); ++tableIndex)
 	{
 		TableImm imm;
 		imm.tableIndex = tableIndex;
-		const OpSignature sig = (*sigFromImm)(state.module, imm);
+		const OpSignature sig = (*sigFromImm)(state.module_, imm);
 		if(state.isOpSignatureAllowed(sig))
 		{
 			outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
@@ -334,19 +341,19 @@ void getValidEmitters(FunctionState& state,
 					  void (CodeStream::*emitOp)(TableCopyImm),
 					  OpSignature (*sigFromImm)(const Module&, const TableCopyImm&))
 {
-	for(Uptr destTableIndex = 0; destTableIndex < state.module.tables.size(); ++destTableIndex)
+	for(Uptr destTableIndex = 0; destTableIndex < state.module_.tables.size(); ++destTableIndex)
 	{
-		for(Uptr sourceTableIndex = 0; sourceTableIndex < state.module.tables.size();
+		for(Uptr sourceTableIndex = 0; sourceTableIndex < state.module_.tables.size();
 			++sourceTableIndex)
 		{
-			const TableType& destTableType = state.module.tables.getType(destTableIndex);
-			const TableType& sourceTableType = state.module.tables.getType(sourceTableIndex);
+			const TableType& destTableType = state.module_.tables.getType(destTableIndex);
+			const TableType& sourceTableType = state.module_.tables.getType(sourceTableIndex);
 			if(isSubtype(sourceTableType.elementType, destTableType.elementType))
 			{
 				TableCopyImm imm;
 				imm.destTableIndex = destTableIndex;
 				imm.sourceTableIndex = sourceTableIndex;
-				const OpSignature sig = (*sigFromImm)(state.module, imm);
+				const OpSignature sig = (*sigFromImm)(state.module_, imm);
 				if(state.isOpSignatureAllowed(sig))
 				{
 					outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
@@ -365,20 +372,20 @@ void getValidEmitters(FunctionState& state,
 					  void (CodeStream::*emitOp)(LoadOrStoreImm<naturalAlignmentLog2>),
 					  OpSignature (*sigFromImm)(const Module&, const BaseLoadOrStoreImm&))
 {
-	for(Uptr memoryIndex = 0; memoryIndex < state.module.memories.size(); ++memoryIndex)
+	for(Uptr memoryIndex = 0; memoryIndex < state.module_.memories.size(); ++memoryIndex)
 	{
 		LoadOrStoreImm<naturalAlignmentLog2> sigImm;
 		sigImm.memoryIndex = memoryIndex;
 		sigImm.alignmentLog2 = 0;
 		sigImm.offset = 0;
-		const OpSignature sig = (*sigFromImm)(state.module, sigImm);
+		const OpSignature sig = (*sigFromImm)(state.module_, sigImm);
 		if(state.isOpSignatureAllowed(sig))
 		{
 			outValidOpEmitters.push_back([&state, emitOp, sig, memoryIndex](RandomStream& random) {
 				LoadOrStoreImm<naturalAlignmentLog2> imm;
 				imm.memoryIndex = memoryIndex;
 				imm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
-				imm.offset = random.get(state.module.memories.getType(imm.memoryIndex).indexType
+				imm.offset = random.get(state.module_.memories.getType(imm.memoryIndex).indexType
 												== IndexType::i32
 											? UINT32_MAX
 											: UINT64_MAX);
@@ -397,21 +404,21 @@ void getValidEmitters(
 	OpSignature (*sigFromImm)(const Module&,
 							  const LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>&))
 {
-	for(Uptr memoryIndex = 0; memoryIndex < state.module.memories.size(); ++memoryIndex)
+	for(Uptr memoryIndex = 0; memoryIndex < state.module_.memories.size(); ++memoryIndex)
 	{
 		LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> sigImm;
 		sigImm.memoryIndex = memoryIndex;
 		sigImm.alignmentLog2 = 0;
 		sigImm.offset = 0;
 		sigImm.laneIndex = 0;
-		const OpSignature sig = (*sigFromImm)(state.module, sigImm);
+		const OpSignature sig = (*sigFromImm)(state.module_, sigImm);
 		if(state.isOpSignatureAllowed(sig))
 		{
 			outValidOpEmitters.push_back([&state, emitOp, sig, memoryIndex](RandomStream& random) {
 				LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes> imm;
 				imm.memoryIndex = memoryIndex;
 				imm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
-				imm.offset = random.get(state.module.memories.getType(imm.memoryIndex).indexType
+				imm.offset = random.get(state.module_.memories.getType(imm.memoryIndex).indexType
 												== IndexType::i32
 											? UINT32_MAX
 											: UINT64_MAX);
@@ -429,20 +436,20 @@ void getValidEmitters(FunctionState& state,
 					  void (CodeStream::*emitOp)(AtomicLoadOrStoreImm<naturalAlignmentLog2>),
 					  OpSignature (*sigFromImm)(const Module&, const BaseLoadOrStoreImm&))
 {
-	for(Uptr memoryIndex = 0; memoryIndex < state.module.memories.size(); ++memoryIndex)
+	for(Uptr memoryIndex = 0; memoryIndex < state.module_.memories.size(); ++memoryIndex)
 	{
 		AtomicLoadOrStoreImm<naturalAlignmentLog2> sigImm;
 		sigImm.memoryIndex = memoryIndex;
 		sigImm.alignmentLog2 = 0;
 		sigImm.offset = 0;
-		const OpSignature sig = (*sigFromImm)(state.module, sigImm);
+		const OpSignature sig = (*sigFromImm)(state.module_, sigImm);
 		if(state.isOpSignatureAllowed(sig))
 		{
 			outValidOpEmitters.push_back([&state, emitOp, sig, memoryIndex](RandomStream& random) {
 				AtomicLoadOrStoreImm<naturalAlignmentLog2> imm;
 				imm.memoryIndex = memoryIndex;
 				imm.alignmentLog2 = naturalAlignmentLog2;
-				imm.offset = random.get(state.module.memories.getType(imm.memoryIndex).indexType
+				imm.offset = random.get(state.module_.memories.getType(imm.memoryIndex).indexType
 												== IndexType::i32
 											? UINT32_MAX
 											: UINT64_MAX);
@@ -458,14 +465,14 @@ void getValidEmitters(FunctionState& state,
 					  void (CodeStream::*emitOp)(DataSegmentAndMemImm),
 					  OpSignature (*sigFromImm)(const Module&, const DataSegmentAndMemImm&))
 {
-	for(Uptr segmentIndex = 0; segmentIndex < state.module.dataSegments.size(); ++segmentIndex)
+	for(Uptr segmentIndex = 0; segmentIndex < state.module_.dataSegments.size(); ++segmentIndex)
 	{
-		for(Uptr memoryIndex = 0; memoryIndex < state.module.memories.size(); ++memoryIndex)
+		for(Uptr memoryIndex = 0; memoryIndex < state.module_.memories.size(); ++memoryIndex)
 		{
 			DataSegmentAndMemImm imm;
 			imm.dataSegmentIndex = segmentIndex;
 			imm.memoryIndex = memoryIndex;
-			const OpSignature sig = (*sigFromImm)(state.module, imm);
+			const OpSignature sig = (*sigFromImm)(state.module_, imm);
 			if(state.isOpSignatureAllowed(sig))
 			{
 				outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
@@ -484,7 +491,7 @@ void getValidEmitters(FunctionState& state,
 {
 	for(const ElemSegmentAndTableImm& imm : state.moduleState.validElemSegmentAndTableImms)
 	{
-		const OpSignature sig = (*sigFromImm)(state.module, imm);
+		const OpSignature sig = (*sigFromImm)(state.module_, imm);
 		if(state.isOpSignatureAllowed(sig))
 		{
 			outValidOpEmitters.push_back([&state, emitOp, sig, imm](RandomStream& random) {
@@ -534,12 +541,16 @@ static FunctionType generateFunctionType(RandomStream& random)
 	std::vector<ValueType> functionParams;
 	const Uptr numParams = random.get(4);
 	for(Uptr paramIndex = 0; paramIndex < numParams; ++paramIndex)
-	{ functionParams.push_back(generateValueType(random)); };
+	{
+		functionParams.push_back(generateValueType(random));
+	};
 
 	std::vector<ValueType> functionResults;
 	const Uptr numResults = random.get(2);
 	for(Uptr resultIndex = 0; resultIndex < numResults; ++resultIndex)
-	{ functionResults.push_back(generateValueType(random)); }
+	{
+		functionResults.push_back(generateValueType(random));
+	}
 
 	return FunctionType({functionResults}, {functionParams});
 }
@@ -583,7 +594,9 @@ FunctionType generateBlockSig(RandomStream& random, TypeTuple params)
 	ValueType results[maxResults];
 	const Uptr numResults = random.get(4);
 	for(Uptr resultIndex = 0; resultIndex < numResults; ++resultIndex)
-	{ results[resultIndex] = generateValueType(random); }
+	{
+		results[resultIndex] = generateValueType(random);
+	}
 
 	return FunctionType(TypeTuple(results, numResults), params);
 }
@@ -594,9 +607,11 @@ IndexedBlockType getIndexedBlockType(ModuleState& moduleState, const FunctionTyp
 	{
 		IndexedBlockType result;
 		result.format = IndexedBlockType::functionType;
-		result.index = moduleState.functionTypeMap.getOrAdd(sig, moduleState.module.types.size());
-		if(result.index == moduleState.module.types.size())
-		{ moduleState.module.types.push_back(sig); }
+		result.index = moduleState.functionTypeMap.getOrAdd(sig, moduleState.module_.types.size());
+		if(result.index == moduleState.module_.types.size())
+		{
+			moduleState.module_.types.push_back(sig);
+		}
 		return result;
 	}
 	else
@@ -645,7 +660,9 @@ void FunctionState::generateFunction(RandomStream& random)
 
 						stack.resize(controlStack.back().outerStackSize);
 						for(ValueType elseParam : controlStack.back().elseParams)
-						{ stack.push_back(elseParam); }
+						{
+							stack.push_back(elseParam);
+						}
 
 						// Change the current control context type to an else clause.
 						controlStack.back().type = ControlContext::Type::ifElse;
@@ -673,7 +690,7 @@ void FunctionState::generateFunction(RandomStream& random)
 			}
 		}
 
-		// Build a list of the non-parametric operators that are valid given the module and the
+		// Build a list of the non-parametric operators that are valid given the module_ and the
 		// current state of the stack.
 		for(Uptr opIndex = 0; opIndex < numNonParametricOps; ++opIndex)
 		{
@@ -720,9 +737,9 @@ void FunctionState::generateFunction(RandomStream& random)
 			}
 		}
 
-		for(Uptr globalIndex = 0; globalIndex < module.globals.size(); ++globalIndex)
+		for(Uptr globalIndex = 0; globalIndex < module_.globals.size(); ++globalIndex)
 		{
-			const GlobalType globalType = module.globals.getType(globalIndex);
+			const GlobalType globalType = module_.globals.getType(globalIndex);
 
 			if(stack.size() > controlStack.back().outerStackSize
 			   && isSubtype(stack.back(), globalType.valueType) && globalType.isMutable)
@@ -744,9 +761,9 @@ void FunctionState::generateFunction(RandomStream& random)
 			}
 		}
 
-		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		for(Uptr tableIndex = 0; tableIndex < module_.tables.size(); ++tableIndex)
 		{
-			const TableType& tableType = module.tables.getType(tableIndex);
+			const TableType& tableType = module_.tables.getType(tableIndex);
 
 			// TODO: table.grow and table.fill
 
@@ -774,9 +791,9 @@ void FunctionState::generateFunction(RandomStream& random)
 				if(tableType.elementType == ReferenceType::funcref)
 				{
 					// call_indirect
-					for(Uptr typeIndex = 0; typeIndex < module.types.size(); ++typeIndex)
+					for(Uptr typeIndex = 0; typeIndex < module_.types.size(); ++typeIndex)
 					{
-						const FunctionType calleeType = module.types[typeIndex];
+						const FunctionType calleeType = module_.types[typeIndex];
 						const TypeTuple params = calleeType.params();
 						const TypeTuple results = calleeType.results();
 
@@ -786,7 +803,9 @@ void FunctionState::generateFunction(RandomStream& random)
 
 						// Ensure the stack has enough values for the operator's parameters.
 						if(params.size() + 1 > stack.size() - controlStack.back().outerStackSize)
-						{ continue; }
+						{
+							continue;
+						}
 
 						// Check whether the top of the stack is compatible with function's
 						// parameters.
@@ -802,7 +821,9 @@ void FunctionState::generateFunction(RandomStream& random)
 
 									// Push the function's results onto the stack.
 									for(ValueType result : calleeType.results())
-									{ stack.push_back(result); }
+									{
+										stack.push_back(result);
+									}
 								});
 						}
 					}
@@ -909,7 +930,9 @@ void FunctionState::generateFunction(RandomStream& random)
 				const TypeTuple params = targetContext.params;
 
 				if(params.size() + 1 > stack.size() - controlStack.back().outerStackSize)
-				{ continue; }
+				{
+					continue;
+				}
 
 				// Check whether the top of the stack is compatible with branch target's parameters.
 				if(doesStackMatchParams(params, /*offsetFromTopOfStack*/ 1))
@@ -967,10 +990,10 @@ void FunctionState::generateFunction(RandomStream& random)
 		}
 
 		// call
-		for(Uptr functionIndex = 0; functionIndex < module.functions.size(); ++functionIndex)
+		for(Uptr functionIndex = 0; functionIndex < module_.functions.size(); ++functionIndex)
 		{
 			const FunctionType calleeType
-				= module.types[module.functions.getType(functionIndex).index];
+				= module_.types[module_.functions.getType(functionIndex).index];
 			const TypeTuple params = calleeType.params();
 			const TypeTuple results = calleeType.results();
 
@@ -986,8 +1009,8 @@ void FunctionState::generateFunction(RandomStream& random)
 			{
 				validOpEmitters.push_back([this, functionIndex](RandomStream& random) {
 					const FunctionType calleeType
-						= moduleState.module
-							  .types[moduleState.module.functions.getType(functionIndex).index];
+						= moduleState.module_
+							  .types[moduleState.module_.functions.getType(functionIndex).index];
 
 					codeStream.call({functionIndex});
 
@@ -1028,7 +1051,7 @@ void FunctionState::generateFunction(RandomStream& random)
 	functionDef.code = codeByteStream.getBytes();
 };
 
-static InitializerExpression generateInitializerExpression(Module& module,
+static InitializerExpression generateInitializerExpression(Module& module_,
 														   RandomStream& random,
 														   ValueType type)
 {
@@ -1048,8 +1071,8 @@ static InitializerExpression generateInitializerExpression(Module& module,
 		return InitializerExpression(ReferenceType::externref);
 	}
 	case ValueType::funcref: {
-		const Uptr functionIndex = random.get(module.functions.size());
-		return functionIndex == module.functions.size()
+		const Uptr functionIndex = random.get(module_.functions.size());
+		return functionIndex == module_.functions.size()
 				   ? InitializerExpression(ReferenceType::funcref)
 				   : InitializerExpression(InitializerExpression::Type::ref_func, functionIndex);
 	}
@@ -1060,17 +1083,17 @@ static InitializerExpression generateInitializerExpression(Module& module,
 	}
 }
 
-void IR::generateValidModule(Module& module, RandomStream& random)
+void IR::generateValidModule(Module& module_, RandomStream& random)
 {
-	ModuleState moduleState(module, random);
+	ModuleState moduleState(module_, random);
 
-	WAVM_ASSERT(module.featureSpec.simd);
-	WAVM_ASSERT(module.featureSpec.atomics);
-	WAVM_ASSERT(module.featureSpec.exceptionHandling);
-	WAVM_ASSERT(module.featureSpec.multipleResultsAndBlockParams);
-	WAVM_ASSERT(module.featureSpec.bulkMemoryOperations);
-	WAVM_ASSERT(module.featureSpec.referenceTypes);
-	WAVM_ASSERT(module.featureSpec.sharedTables);
+	WAVM_ASSERT(module_.featureSpec.simd);
+	WAVM_ASSERT(module_.featureSpec.atomics);
+	WAVM_ASSERT(module_.featureSpec.exceptionHandling);
+	WAVM_ASSERT(module_.featureSpec.multipleResultsAndBlockParams);
+	WAVM_ASSERT(module_.featureSpec.bulkMemoryOperations);
+	WAVM_ASSERT(module_.featureSpec.referenceTypes);
+	WAVM_ASSERT(module_.featureSpec.sharedTables);
 
 	// Generate some memories.
 	const Uptr numMemories = random.get(3);
@@ -1082,11 +1105,11 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 		type.size.min = random.get<U64>(100);
 		type.size.max = type.size.min + random.get<U64>(IR::maxMemory32Pages - type.size.min);
 
-		if(random.get(1)) { module.memories.defs.push_back({type}); }
+		if(random.get(1)) { module_.memories.defs.push_back({type}); }
 		else
 		{
-			module.imports.push_back({ExternKind::memory, module.memories.imports.size()});
-			module.memories.imports.push_back({type, "env", "memory"});
+			module_.imports.push_back({ExternKind::memory, module_.memories.imports.size()});
+			module_.memories.imports.push_back({type, "env", "memory"});
 		}
 	}
 
@@ -1101,11 +1124,11 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 		type.size.min = random.get<U64>(100);
 		type.size.max = IR::maxTable32Elems;
 
-		if(random.get(1)) { module.tables.defs.push_back({type}); }
+		if(random.get(1)) { module_.tables.defs.push_back({type}); }
 		else
 		{
-			module.imports.push_back({ExternKind::table, module.tables.imports.size()});
-			module.tables.imports.push_back({type, "env", "table"});
+			module_.imports.push_back({ExternKind::table, module_.tables.imports.size()});
+			module_.tables.imports.push_back({type, "env", "table"});
 		}
 	}
 
@@ -1119,15 +1142,15 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 		const GlobalType globalType{globalValueType, isMutable};
 		if(random.get(1))
 		{
-			module.imports.push_back({ExternKind::global, module.globals.imports.size()});
-			module.globals.imports.push_back(
+			module_.imports.push_back({ExternKind::global, module_.globals.imports.size()});
+			module_.globals.imports.push_back(
 				{globalType, "env", "global" + std::to_string(globalIndex)});
 		}
 		else
 		{
 			InitializerExpression initializer
-				= generateInitializerExpression(module, random, globalValueType);
-			module.globals.defs.push_back({globalType, initializer});
+				= generateInitializerExpression(module_, random, globalValueType);
+			module_.globals.defs.push_back({globalType, initializer});
 		}
 	};
 
@@ -1138,42 +1161,44 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 		const Uptr numSegmentBytes = random.get(100);
 		std::vector<U8> bytes;
 		for(Uptr byteIndex = 0; byteIndex < numSegmentBytes; ++byteIndex)
-		{ bytes.push_back(random.get<U8>(255)); }
-		if(!module.memories.size() || random.get(1))
 		{
-			module.dataSegments.push_back(
+			bytes.push_back(random.get<U8>(255));
+		}
+		if(!module_.memories.size() || random.get(1))
+		{
+			module_.dataSegments.push_back(
 				{false, UINTPTR_MAX, {}, std::make_shared<std::vector<U8>>(std::move(bytes))});
 		}
 		else
 		{
-			const Uptr memoryIndex = random.get(module.memories.size() - 1);
-			const MemoryType& memoryType = module.memories.getType(memoryIndex);
-			module.dataSegments.push_back(
+			const Uptr memoryIndex = random.get(module_.memories.size() - 1);
+			const MemoryType& memoryType = module_.memories.getType(memoryIndex);
+			module_.dataSegments.push_back(
 				{true,
 				 memoryIndex,
-				 generateInitializerExpression(module, random, asValueType(memoryType.indexType)),
+				 generateInitializerExpression(module_, random, asValueType(memoryType.indexType)),
 				 std::make_shared<std::vector<U8>>(std::move(bytes))});
 		}
 	};
 
 	// Create some function imports/defs
 	const Uptr numFunctions = 1 + random.get(4);
-	while(module.functions.size() < numFunctions)
+	while(module_.functions.size() < numFunctions)
 	{
 		// Generate a signature.
 		FunctionType functionType = generateFunctionType(random);
 		const Uptr functionTypeIndex
-			= moduleState.functionTypeMap.getOrAdd(functionType, module.types.size());
-		if(functionTypeIndex == module.types.size()) { module.types.push_back(functionType); }
+			= moduleState.functionTypeMap.getOrAdd(functionType, module_.types.size());
+		if(functionTypeIndex == module_.types.size()) { module_.types.push_back(functionType); }
 
 		if(random.get(1))
 		{
 			// Generate a function import.
-			module.imports.push_back({ExternKind::function, module.functions.imports.size()});
-			module.functions.imports.push_back(
+			module_.imports.push_back({ExternKind::function, module_.functions.imports.size()});
+			module_.functions.imports.push_back(
 				{{functionTypeIndex},
 				 "env",
-				 "func" + std::to_string(module.functions.imports.size())});
+				 "func" + std::to_string(module_.functions.imports.size())});
 		}
 		else
 		{
@@ -1185,9 +1210,11 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 			// Generate locals.
 			const Uptr numNonParameterLocals = random.get(4);
 			for(Uptr localIndex = 0; localIndex < numNonParameterLocals; ++localIndex)
-			{ functionDef.nonParameterLocalTypes.push_back(generateValueType(random)); }
+			{
+				functionDef.nonParameterLocalTypes.push_back(generateValueType(random));
+			}
 
-			module.functions.defs.push_back(std::move(functionDef));
+			module_.functions.defs.push_back(std::move(functionDef));
 		}
 	};
 
@@ -1215,15 +1242,19 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 					break;
 				}
 				case ReferenceType::funcref: {
-					const Uptr functionIndex = random.get(module.functions.size());
-					if(functionIndex == module.functions.size())
-					{ contents->elemExprs.push_back(ElemExpr(ReferenceType::funcref)); }
+					const Uptr functionIndex = random.get(module_.functions.size());
+					if(functionIndex == module_.functions.size())
+					{
+						contents->elemExprs.push_back(ElemExpr(ReferenceType::funcref));
+					}
 					else
 					{
 						contents->elemExprs.push_back(
 							ElemExpr(ElemExpr::Type::ref_func, functionIndex));
 						if(declaredFunctionIndexSet.add(functionIndex))
-						{ moduleState.declaredFunctionIndices.push_back(functionIndex); }
+						{
+							moduleState.declaredFunctionIndices.push_back(functionIndex);
+						}
 					}
 					break;
 				}
@@ -1242,31 +1273,39 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 				switch(contents->externKind)
 				{
 				case ExternKind::function:
-					if(module.functions.size())
+					if(module_.functions.size())
 					{
-						const Uptr functionIndex = random.get(module.functions.size() - 1);
+						const Uptr functionIndex = random.get(module_.functions.size() - 1);
 						contents->elemIndices.push_back(functionIndex);
 						if(declaredFunctionIndexSet.add(functionIndex))
-						{ moduleState.declaredFunctionIndices.push_back(functionIndex); }
+						{
+							moduleState.declaredFunctionIndices.push_back(functionIndex);
+						}
 					}
 					break;
 				case ExternKind::table:
-					if(module.tables.size())
-					{ contents->elemIndices.push_back(random.get(module.tables.size() - 1)); }
+					if(module_.tables.size())
+					{
+						contents->elemIndices.push_back(random.get(module_.tables.size() - 1));
+					}
 					break;
 				case ExternKind::memory:
-					if(module.memories.size())
-					{ contents->elemIndices.push_back(random.get(module.memories.size() - 1)); }
+					if(module_.memories.size())
+					{
+						contents->elemIndices.push_back(random.get(module_.memories.size() - 1));
+					}
 					break;
 				case ExternKind::global:
-					if(module.globals.size())
-					{ contents->elemIndices.push_back(random.get(module.globals.size() - 1)); }
+					if(module_.globals.size())
+					{
+						contents->elemIndices.push_back(random.get(module_.globals.size() - 1));
+					}
 					break;
 				case ExternKind::exceptionType:
-					if(module.exceptionTypes.size())
+					if(module_.exceptionTypes.size())
 					{
 						contents->elemIndices.push_back(
-							random.get(module.exceptionTypes.size() - 1));
+							random.get(module_.exceptionTypes.size() - 1));
 					}
 					break;
 
@@ -1280,11 +1319,13 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 		};
 
 		std::vector<Uptr> validTableIndices;
-		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		for(Uptr tableIndex = 0; tableIndex < module_.tables.size(); ++tableIndex)
 		{
-			const ReferenceType tableElemType = module.tables.getType(tableIndex).elementType;
+			const ReferenceType tableElemType = module_.tables.getType(tableIndex).elementType;
 			if(isSubtype(segmentElemType, tableElemType))
-			{ validTableIndices.push_back(tableIndex); }
+			{
+				validTableIndices.push_back(tableIndex);
+			}
 		}
 
 		ElemSegment::Type elemSegmentType = ElemSegment::Type::passive;
@@ -1307,36 +1348,36 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 		switch(elemSegmentType)
 		{
 		case ElemSegment::Type::passive: {
-			module.elemSegments.push_back({ElemSegment::Type::passive,
-										   UINTPTR_MAX,
-										   InitializerExpression(),
-										   std::move(contents)});
+			module_.elemSegments.push_back({ElemSegment::Type::passive,
+											UINTPTR_MAX,
+											InitializerExpression(),
+											std::move(contents)});
 			break;
 		}
 		case ElemSegment::Type::active: {
 			const Uptr validTableIndex = random.get(validTableIndices.size() - 1);
-			const TableType& tableType = module.tables.getType(validTableIndices[validTableIndex]);
-			module.elemSegments.push_back(
+			const TableType& tableType = module_.tables.getType(validTableIndices[validTableIndex]);
+			module_.elemSegments.push_back(
 				{ElemSegment::Type::active,
 				 validTableIndices[validTableIndex],
-				 generateInitializerExpression(module, random, asValueType(tableType.indexType)),
+				 generateInitializerExpression(module_, random, asValueType(tableType.indexType)),
 				 std::move(contents)});
 			break;
 		}
 		case ElemSegment::Type::declared: {
-			module.elemSegments.push_back({ElemSegment::Type::declared,
-										   UINTPTR_MAX,
-										   InitializerExpression(),
-										   std::move(contents)});
+			module_.elemSegments.push_back({ElemSegment::Type::declared,
+											UINTPTR_MAX,
+											InitializerExpression(),
+											std::move(contents)});
 			break;
 		}
 		default: WAVM_UNREACHABLE();
 		};
 
 		// Precalculate a list of element-table pairs that are valid for a table.init
-		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		for(Uptr tableIndex = 0; tableIndex < module_.tables.size(); ++tableIndex)
 		{
-			if(isSubtype(segmentElemType, module.tables.getType(tableIndex).elementType))
+			if(isSubtype(segmentElemType, module_.tables.getType(tableIndex).elementType))
 			{
 				moduleState.validElemSegmentAndTableImms.push_back(
 					ElemSegmentAndTableImm{segmentIndex, tableIndex});
@@ -1345,12 +1386,12 @@ void IR::generateValidModule(Module& module, RandomStream& random)
 	};
 
 	std::shared_ptr<ModuleValidationState> moduleValidationState
-		= createModuleValidationState(module);
+		= createModuleValidationState(module_);
 
 	validatePreCodeSections(*moduleValidationState);
 
 	// Generate a few functions.
-	for(FunctionDef& functionDef : module.functions.defs)
+	for(FunctionDef& functionDef : module_.functions.defs)
 	{
 		FunctionState functionState(moduleState, *moduleValidationState, functionDef);
 		functionState.generateFunction(random);

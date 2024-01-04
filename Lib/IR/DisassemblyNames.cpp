@@ -18,7 +18,7 @@ using namespace WAVM::Serialization;
 
 enum class NameSubsectionType : U8
 {
-	module = 0,
+	module_ = 0,
 	function = 1,
 	local = 2,
 	label = 3,
@@ -75,7 +75,7 @@ static void serializeNameMap(OutputStream& stream, const std::vector<std::string
 	}
 }
 
-static void deserializeNameSubsection(const Module& module,
+static void deserializeNameSubsection(const Module& module_,
 									  DisassemblyNames& outNames,
 									  InputStream& stream)
 {
@@ -88,7 +88,7 @@ static void deserializeNameSubsection(const Module& module,
 	MemoryInputStream substream(stream.advance(numSubsectionBytes), numSubsectionBytes);
 	switch((NameSubsectionType)subsectionType)
 	{
-	case NameSubsectionType::module: {
+	case NameSubsectionType::module_: {
 		serialize(substream, outNames.moduleName);
 		break;
 	}
@@ -104,7 +104,9 @@ static void deserializeNameSubsection(const Module& module,
 			serialize(substream, functionName);
 
 			if(functionIndex < outNames.functions.size())
-			{ outNames.functions[functionIndex].name = std::move(functionName); }
+			{
+				outNames.functions[functionIndex].name = std::move(functionName);
+			}
 		}
 		break;
 	}
@@ -138,7 +140,7 @@ static void deserializeNameSubsection(const Module& module,
 		break;
 	}
 	case NameSubsectionType::label: {
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"label name subsection requires extendedNameSection feature");
@@ -156,7 +158,7 @@ static void deserializeNameSubsection(const Module& module,
 			{
 				deserializeNameMap(substream,
 								   outNames.functions[functionIndex].labels,
-								   module.featureSpec.maxLabelsPerFunction);
+								   module_.featureSpec.maxLabelsPerFunction);
 			}
 			else
 			{
@@ -173,7 +175,7 @@ static void deserializeNameSubsection(const Module& module,
 		break;
 	}
 	case NameSubsectionType::type:
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"type name subsection requires extendedNameSection feature");
@@ -181,7 +183,7 @@ static void deserializeNameSubsection(const Module& module,
 		deserializeNameMap(substream, outNames.types, outNames.types.size());
 		break;
 	case NameSubsectionType::table:
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"table name subsection requires extendedNameSection feature");
@@ -189,7 +191,7 @@ static void deserializeNameSubsection(const Module& module,
 		deserializeNameMap(substream, outNames.tables, outNames.tables.size());
 		break;
 	case NameSubsectionType::memory:
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"memory name subsection requires extendedNameSection feature");
@@ -197,7 +199,7 @@ static void deserializeNameSubsection(const Module& module,
 		deserializeNameMap(substream, outNames.memories, outNames.memories.size());
 		break;
 	case NameSubsectionType::global:
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"global name subsection requires extendedNameSection feature");
@@ -205,7 +207,7 @@ static void deserializeNameSubsection(const Module& module,
 		deserializeNameMap(substream, outNames.globals, outNames.globals.size());
 		break;
 	case NameSubsectionType::elemSegment:
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"elem segment name subsection requires extendedNameSection feature");
@@ -213,7 +215,7 @@ static void deserializeNameSubsection(const Module& module,
 		deserializeNameMap(substream, outNames.elemSegments, outNames.elemSegments.size());
 		break;
 	case NameSubsectionType::dataSegment:
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"data segment name subsection requires extendedNameSection feature");
@@ -221,7 +223,7 @@ static void deserializeNameSubsection(const Module& module,
 		deserializeNameMap(substream, outNames.dataSegments, outNames.dataSegments.size());
 		break;
 	case NameSubsectionType::exceptionTypes:
-		if(!module.featureSpec.extendedNameSection)
+		if(!module_.featureSpec.extendedNameSection)
 		{
 			throw FatalSerializationException(
 				"exception type name subsection requires extendedNameSection feature");
@@ -236,45 +238,46 @@ static void deserializeNameSubsection(const Module& module,
 	};
 }
 
-void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
+void IR::getDisassemblyNames(const Module& module_, DisassemblyNames& outNames)
 {
 	// Fill in the output with the correct number of blank names.
-	for(const auto& functionImport : module.functions.imports)
+	for(const auto& functionImport : module_.functions.imports)
 	{
 		DisassemblyNames::Function functionNames;
-		functionNames.locals.resize(module.types[functionImport.type.index].params().size());
+		functionNames.locals.resize(module_.types[functionImport.type.index].params().size());
 		outNames.functions.push_back(std::move(functionNames));
 	}
-	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
+	for(Uptr functionDefIndex = 0; functionDefIndex < module_.functions.defs.size();
 		++functionDefIndex)
 	{
-		const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
+		const FunctionDef& functionDef = module_.functions.defs[functionDefIndex];
 		DisassemblyNames::Function functionNames;
 		functionNames.locals.insert(functionNames.locals.begin(),
-									module.types[functionDef.type.index].params().size()
+									module_.types[functionDef.type.index].params().size()
 										+ functionDef.nonParameterLocalTypes.size(),
 									"");
 		outNames.functions.push_back(std::move(functionNames));
 	}
 
-	outNames.types.insert(outNames.types.end(), module.types.size(), "");
-	outNames.tables.insert(outNames.tables.end(), module.tables.size(), "");
-	outNames.memories.insert(outNames.memories.end(), module.memories.size(), "");
-	outNames.globals.insert(outNames.globals.end(), module.globals.size(), "");
-	outNames.elemSegments.insert(outNames.elemSegments.end(), module.elemSegments.size(), "");
-	outNames.dataSegments.insert(outNames.dataSegments.end(), module.dataSegments.size(), "");
-	outNames.exceptionTypes.insert(outNames.exceptionTypes.end(), module.exceptionTypes.size(), "");
+	outNames.types.insert(outNames.types.end(), module_.types.size(), "");
+	outNames.tables.insert(outNames.tables.end(), module_.tables.size(), "");
+	outNames.memories.insert(outNames.memories.end(), module_.memories.size(), "");
+	outNames.globals.insert(outNames.globals.end(), module_.globals.size(), "");
+	outNames.elemSegments.insert(outNames.elemSegments.end(), module_.elemSegments.size(), "");
+	outNames.dataSegments.insert(outNames.dataSegments.end(), module_.dataSegments.size(), "");
+	outNames.exceptionTypes.insert(
+		outNames.exceptionTypes.end(), module_.exceptionTypes.size(), "");
 
 	// Deserialize the name section, if it is present.
 	Uptr customSectionIndex = 0;
-	if(findCustomSection(module, "name", customSectionIndex))
+	if(findCustomSection(module_, "name", customSectionIndex))
 	{
 		try
 		{
-			const CustomSection& nameSection = module.customSections[customSectionIndex];
+			const CustomSection& nameSection = module_.customSections[customSectionIndex];
 			MemoryInputStream stream(nameSection.data.data(), nameSection.data.size());
 
-			while(stream.capacity()) { deserializeNameSubsection(module, outNames, stream); };
+			while(stream.capacity()) { deserializeNameSubsection(module_, outNames, stream); };
 		}
 		catch(FatalSerializationException const& exception)
 		{
@@ -305,25 +308,24 @@ void serializeNameSubsection(OutputStream& stream,
 	serialize(stream, bytes);
 }
 
-void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
+void IR::setDisassemblyNames(Module& module_, const DisassemblyNames& names)
 {
 	// Remove any existing name sections.
-	for(auto customSection = module.customSections.begin();
-		customSection != module.customSections.end();)
+	for(auto customSection = module_.customSections.begin();
+		customSection != module_.customSections.end();)
 	{
 		if(customSection->name == "name")
-		{ customSection = module.customSections.erase(customSection); }
-		else
 		{
-			++customSection;
+			customSection = module_.customSections.erase(customSection);
 		}
+		else { ++customSection; }
 	}
 
 	ArrayOutputStream stream;
 
 	// Module name
 	serializeNameSubsection(
-		stream, NameSubsectionType::module, [&names](OutputStream& subsectionStream) {
+		stream, NameSubsectionType::module_, [&names](OutputStream& subsectionStream) {
 			std::string moduleName = names.moduleName;
 			serialize(subsectionStream, moduleName);
 		});
@@ -353,7 +355,7 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 			}
 		});
 
-	if(module.featureSpec.extendedNameSection)
+	if(module_.featureSpec.extendedNameSection)
 	{
 		// Label names.
 		serializeNameSubsection(
@@ -412,9 +414,9 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 
 	CustomSection customSection;
 
-	customSection.afterSection = getMaxPresentSection(module, OrderedSectionID::data);
+	customSection.afterSection = getMaxPresentSection(module_, OrderedSectionID::data);
 	customSection.name = "name";
 	customSection.data = stream.getBytes();
 
-	insertCustomSection(module, std::move(customSection));
+	insertCustomSection(module_, std::move(customSection));
 }

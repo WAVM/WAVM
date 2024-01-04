@@ -117,83 +117,83 @@ namespace WAVM { namespace IR {
 											   {ValueType::v128, ValueType::f64}};
 
 		// Memory/table index polymorphic signatures.
-		inline OpSignature load(const Module& module,
+		inline OpSignature load(const Module& module_,
 								const BaseLoadOrStoreImm& imm,
 								ValueType resultType)
 		{
 			return OpSignature({resultType},
-							   {asValueType(module.memories.getType(imm.memoryIndex).indexType)});
+							   {asValueType(module_.memories.getType(imm.memoryIndex).indexType)});
 		}
-		inline OpSignature load_i32(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature load_i32(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return load(module, imm, ValueType::i32);
+			return load(module_, imm, ValueType::i32);
 		}
-		inline OpSignature load_i64(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature load_i64(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return load(module, imm, ValueType::i64);
+			return load(module_, imm, ValueType::i64);
 		}
-		inline OpSignature load_f32(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature load_f32(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return load(module, imm, ValueType::f32);
+			return load(module_, imm, ValueType::f32);
 		}
-		inline OpSignature load_f64(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature load_f64(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return load(module, imm, ValueType::f64);
+			return load(module_, imm, ValueType::f64);
 		}
-		inline OpSignature load_v128(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature load_v128(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return load(module, imm, ValueType::v128);
+			return load(module_, imm, ValueType::v128);
 		}
 		template<Uptr naturalAlignmentLog2, Uptr numLanes>
 		inline OpSignature load_v128_lane(
-			const Module& module,
+			const Module& module_,
 			const LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>& imm)
 		{
-			return OpSignature(
-				{ValueType::v128},
-				{asValueType(module.memories.getType(imm.memoryIndex).indexType), ValueType::v128});
+			return OpSignature({ValueType::v128},
+							   {asValueType(module_.memories.getType(imm.memoryIndex).indexType),
+								ValueType::v128});
 		}
 
-		inline OpSignature store(const Module& module,
+		inline OpSignature store(const Module& module_,
 								 const BaseLoadOrStoreImm& imm,
 								 ValueType valueType)
 		{
 			return OpSignature(
-				{}, {asValueType(module.memories.getType(imm.memoryIndex).indexType), valueType});
+				{}, {asValueType(module_.memories.getType(imm.memoryIndex).indexType), valueType});
 		}
-		inline OpSignature store_i32(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature store_i32(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return store(module, imm, ValueType::i32);
+			return store(module_, imm, ValueType::i32);
 		}
-		inline OpSignature store_i64(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature store_i64(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return store(module, imm, ValueType::i64);
+			return store(module_, imm, ValueType::i64);
 		}
-		inline OpSignature store_f32(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature store_f32(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return store(module, imm, ValueType::f32);
+			return store(module_, imm, ValueType::f32);
 		}
-		inline OpSignature store_f64(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature store_f64(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return store(module, imm, ValueType::f64);
+			return store(module_, imm, ValueType::f64);
 		}
-		inline OpSignature store_v128(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature store_v128(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return store(module, imm, ValueType::v128);
+			return store(module_, imm, ValueType::v128);
 		}
 		template<Uptr naturalAlignmentLog2, Uptr numLanes>
 		inline OpSignature store_v128_lane(
-			const Module& module,
+			const Module& module_,
 			const LoadOrStoreLaneImm<naturalAlignmentLog2, numLanes>& imm)
 		{
-			return store(module, imm, ValueType::v128);
+			return store(module_, imm, ValueType::v128);
 		}
 
 		template<Uptr numVectors>
-		inline OpSignature load_v128xN(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature load_v128xN(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			switch(numVectors)
 			{
 			case 2: return OpSignature({ValueType::v128, ValueType::v128}, {indexType});
@@ -208,10 +208,10 @@ namespace WAVM { namespace IR {
 			};
 		}
 		template<Uptr numVectors>
-		inline OpSignature store_v128xN(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature store_v128xN(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			switch(numVectors)
 			{
 			case 2: return OpSignature({}, {indexType, ValueType::v128, ValueType::v128});
@@ -229,57 +229,57 @@ namespace WAVM { namespace IR {
 			};
 		}
 
-		inline OpSignature size(const Module& module, const MemoryImm& imm)
+		inline OpSignature size(const Module& module_, const MemoryImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({indexType}, {});
 		}
-		inline OpSignature size(const Module& module, const TableImm& imm)
+		inline OpSignature size(const Module& module_, const TableImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.tables.getType(imm.tableIndex).indexType);
+				= asValueType(module_.tables.getType(imm.tableIndex).indexType);
 			return OpSignature({indexType}, {});
 		}
 
-		inline OpSignature grow(const Module& module, const MemoryImm& imm)
+		inline OpSignature grow(const Module& module_, const MemoryImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({indexType}, {indexType});
 		}
 
-		inline OpSignature init(const Module& module, const DataSegmentAndMemImm& imm)
+		inline OpSignature init(const Module& module_, const DataSegmentAndMemImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({}, {indexType, indexType, indexType});
 		}
-		inline OpSignature init(const Module& module, const ElemSegmentAndTableImm& imm)
+		inline OpSignature init(const Module& module_, const ElemSegmentAndTableImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.tables.getType(imm.tableIndex).indexType);
+				= asValueType(module_.tables.getType(imm.tableIndex).indexType);
 			return OpSignature({}, {indexType, indexType, indexType});
 		}
 
-		inline OpSignature copy(const Module& module, const MemoryCopyImm& imm)
+		inline OpSignature copy(const Module& module_, const MemoryCopyImm& imm)
 		{
 			const ValueType destIndexType
-				= asValueType(module.memories.getType(imm.destMemoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.destMemoryIndex).indexType);
 			const ValueType sourceIndexType
-				= asValueType(module.memories.getType(imm.sourceMemoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.sourceMemoryIndex).indexType);
 			const ValueType numBytesType
 				= destIndexType == ValueType::i64 && sourceIndexType == ValueType::i64
 					  ? ValueType::i64
 					  : ValueType::i32;
 			return OpSignature({}, {destIndexType, sourceIndexType, numBytesType});
 		}
-		inline OpSignature copy(const Module& module, const TableCopyImm& imm)
+		inline OpSignature copy(const Module& module_, const TableCopyImm& imm)
 		{
 			const ValueType destIndexType
-				= asValueType(module.tables.getType(imm.destTableIndex).indexType);
+				= asValueType(module_.tables.getType(imm.destTableIndex).indexType);
 			const ValueType sourceIndexType
-				= asValueType(module.tables.getType(imm.sourceTableIndex).indexType);
+				= asValueType(module_.tables.getType(imm.sourceTableIndex).indexType);
 			const ValueType numBytesType
 				= destIndexType == ValueType::i64 && sourceIndexType == ValueType::i64
 					  ? ValueType::i64
@@ -287,71 +287,71 @@ namespace WAVM { namespace IR {
 			return OpSignature({}, {destIndexType, sourceIndexType, numBytesType});
 		}
 
-		inline OpSignature fill(const Module& module, const MemoryImm& imm)
+		inline OpSignature fill(const Module& module_, const MemoryImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({}, {indexType, ValueType::i32, indexType});
 		}
-		inline OpSignature fill(const Module& module, const TableImm& imm)
+		inline OpSignature fill(const Module& module_, const TableImm& imm)
 		{
-			const TableType& tableType = module.tables.getType(imm.tableIndex);
+			const TableType& tableType = module_.tables.getType(imm.tableIndex);
 			const ValueType indexType = asValueType(tableType.indexType);
 			const ValueType elementType = asValueType(tableType.elementType);
 			return OpSignature({}, {indexType, elementType, indexType});
 		}
 
-		inline OpSignature notify(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature notify(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({ValueType::i32}, {indexType, ValueType::i32});
 		}
-		inline OpSignature wait32(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature wait32(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({ValueType::i32}, {indexType, ValueType::i32, ValueType::i64});
 		}
-		inline OpSignature wait64(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature wait64(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({ValueType::i32}, {indexType, ValueType::i64, ValueType::i64});
 		}
 
-		inline OpSignature atomicrmw(const Module& module,
+		inline OpSignature atomicrmw(const Module& module_,
 									 const BaseLoadOrStoreImm& imm,
 									 ValueType valueType)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({valueType}, {indexType, valueType});
 		}
-		inline OpSignature atomicrmw_i32(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature atomicrmw_i32(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return atomicrmw(module, imm, ValueType::i32);
+			return atomicrmw(module_, imm, ValueType::i32);
 		}
-		inline OpSignature atomicrmw_i64(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature atomicrmw_i64(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return atomicrmw(module, imm, ValueType::i64);
+			return atomicrmw(module_, imm, ValueType::i64);
 		}
 
-		inline OpSignature atomiccmpxchg(const Module& module,
+		inline OpSignature atomiccmpxchg(const Module& module_,
 										 const BaseLoadOrStoreImm& imm,
 										 ValueType valueType)
 		{
 			const ValueType indexType
-				= asValueType(module.memories.getType(imm.memoryIndex).indexType);
+				= asValueType(module_.memories.getType(imm.memoryIndex).indexType);
 			return OpSignature({valueType}, {indexType, valueType, valueType});
 		}
-		inline OpSignature atomiccmpxchg_i32(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature atomiccmpxchg_i32(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return atomiccmpxchg(module, imm, ValueType::i32);
+			return atomiccmpxchg(module_, imm, ValueType::i32);
 		}
-		inline OpSignature atomiccmpxchg_i64(const Module& module, const BaseLoadOrStoreImm& imm)
+		inline OpSignature atomiccmpxchg_i64(const Module& module_, const BaseLoadOrStoreImm& imm)
 		{
-			return atomiccmpxchg(module, imm, ValueType::i64);
+			return atomiccmpxchg(module_, imm, ValueType::i64);
 		}
 	};
 }};

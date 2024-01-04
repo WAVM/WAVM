@@ -29,7 +29,9 @@ bool loadTextOrBinaryModule(const char* filename, IR::Module& outModule)
 	{
 		WASM::LoadError loadError;
 		if(WASM::loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule, &loadError))
-		{ return true; }
+		{
+			return true;
+		}
 		else
 		{
 			Log::printf(Log::error, "%s\n", loadError.message.c_str());
@@ -163,7 +165,9 @@ int execCompileCommand(int argc, char** argv)
 
 			const char* formatString = argv[argIndex] + strlen("--format=");
 			if(!strcmp(formatString, "precompiled-wasm"))
-			{ outputFormat = OutputFormat::precompiledModule; }
+			{
+				outputFormat = OutputFormat::precompiledModule;
+			}
 			else if(!strcmp(formatString, "unoptimized-llvmir"))
 			{
 				outputFormat = OutputFormat::unoptimizedLLVMIR;
@@ -172,14 +176,8 @@ int execCompileCommand(int argc, char** argv)
 			{
 				outputFormat = OutputFormat::optimizedLLVMIR;
 			}
-			else if(!strcmp(formatString, "object"))
-			{
-				outputFormat = OutputFormat::object;
-			}
-			else if(!strcmp(formatString, "assembly"))
-			{
-				outputFormat = OutputFormat::assembly;
-			}
+			else if(!strcmp(formatString, "object")) { outputFormat = OutputFormat::object; }
+			else if(!strcmp(formatString, "assembly")) { outputFormat = OutputFormat::assembly; }
 			else
 			{
 				Log::printf(Log::error,
@@ -191,14 +189,8 @@ int execCompileCommand(int argc, char** argv)
 				return EXIT_FAILURE;
 			}
 		}
-		else if(!inputFilename)
-		{
-			inputFilename = argv[argIndex];
-		}
-		else if(!outputFilename)
-		{
-			outputFilename = argv[argIndex];
-		}
+		else if(!inputFilename) { inputFilename = argv[argIndex]; }
+		else if(!outputFilename) { outputFilename = argv[argIndex]; }
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
@@ -253,7 +245,9 @@ int execCompileCommand(int argc, char** argv)
 	};
 
 	if(outputFormat == OutputFormat::unspecified)
-	{ outputFormat = OutputFormat::precompiledModule; }
+	{
+		outputFormat = OutputFormat::precompiledModule;
+	}
 
 	// Load the module IR.
 	IR::Module irModule(featureSpec);

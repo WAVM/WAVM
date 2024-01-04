@@ -448,11 +448,11 @@ namespace WAVM { namespace Runtime {
 											 const std::vector<U8>& objectCode);
 
 	// Accesses the IR for a compiled module.
-	WAVM_API const IR::Module& getModuleIR(ModuleConstRefParam module);
+	WAVM_API const IR::Module& getModuleIR(ModuleConstRefParam module_);
 
 	// Extracts the compiled object code for a module. This may be used as an input to
 	// loadPrecompiledModule to bypass redundant compilations of the module.
-	WAVM_API std::vector<U8> getObjectCode(ModuleConstRefParam module);
+	WAVM_API std::vector<U8> getObjectCode(ModuleConstRefParam module_);
 
 	//
 	// Instances
@@ -463,7 +463,7 @@ namespace WAVM { namespace Runtime {
 	// Instantiates a module, bindings its imports to the specified objects. May throw a runtime
 	// exception for bad segment offsets.
 	WAVM_API Instance* instantiateModule(Compartment* compartment,
-										 ModuleConstRefParam module,
+										 ModuleConstRefParam module_,
 										 ImportBindings&& imports,
 										 std::string&& debugName,
 										 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());

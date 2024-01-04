@@ -105,11 +105,15 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 		// middle.
 		const Uptr numHeadPaddingBytes = alignedAddress - address;
 		if(numHeadPaddingBytes > 0)
-		{ WAVM_ERROR_UNLESS(!munmap(unalignedBaseAddress, numHeadPaddingBytes)); }
+		{
+			WAVM_ERROR_UNLESS(!munmap(unalignedBaseAddress, numHeadPaddingBytes));
+		}
 
 		const Uptr numTailPaddingBytes = alignmentBytes - (alignedAddress - address);
 		if(numTailPaddingBytes > 0)
-		{ WAVM_ERROR_UNLESS(!munmap(result + (numPages << pageSizeLog2), numTailPaddingBytes)); }
+		{
+			WAVM_ERROR_UNLESS(!munmap(result + (numPages << pageSizeLog2), numTailPaddingBytes));
+		}
 
 		outUnalignedBaseAddress = result;
 		return result;

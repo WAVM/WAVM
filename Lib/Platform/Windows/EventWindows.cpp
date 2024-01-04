@@ -5,8 +5,12 @@
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef min
+#undef max
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -35,9 +39,9 @@ bool Platform::Event::wait(Time waitDuration)
 		{
 			const I128 durationMS
 				= currentTime.ns > untilTime.ns ? 0 : (untilTime.ns - currentTime.ns) / 1000000;
-			const U32 durationMS32
-				= durationMS <= 0 ? 0
-								  : durationMS >= UINT32_MAX ? (UINT32_MAX - 1) : U32(durationMS);
+			const U32 durationMS32 = durationMS <= 0            ? 0
+									 : durationMS >= UINT32_MAX ? (UINT32_MAX - 1)
+																: U32(durationMS);
 
 			const U32 waitResult = WaitForSingleObject(handle, durationMS32);
 			if(waitResult != WAIT_TIMEOUT)

@@ -20,7 +20,9 @@ static std::string generateRandomString()
 	const Uptr numChars = rand() % maxChars;
 	char* buffer = (char*)alloca(numChars + 1);
 	for(Uptr charIndex = 0; charIndex < numChars; ++charIndex)
-	{ buffer[charIndex] = 0x20 + (rand() % (0x7E - 0x20)); }
+	{
+		buffer[charIndex] = 0x20 + (rand() % (0x7E - 0x20));
+	}
 	buffer[numChars] = 0;
 	return std::string(buffer);
 }
@@ -67,10 +69,7 @@ static void testStringMap()
 		{
 			const U32* valuePtr = map.get(pairs[j].key);
 			if(j <= i) { WAVM_ERROR_UNLESS(valuePtr && *valuePtr == pairs[j].value); }
-			else
-			{
-				WAVM_ERROR_UNLESS(!valuePtr);
-			}
+			else { WAVM_ERROR_UNLESS(!valuePtr); }
 		}
 	}
 
@@ -83,10 +82,7 @@ static void testStringMap()
 		{
 			const U32* valuePtr = map.get(pairs[j].key);
 			if(j > i) { WAVM_ERROR_UNLESS(valuePtr && *valuePtr == pairs[j].value); }
-			else
-			{
-				WAVM_ERROR_UNLESS(!valuePtr);
-			}
+			else { WAVM_ERROR_UNLESS(!valuePtr); }
 		}
 	}
 }

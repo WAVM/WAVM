@@ -46,10 +46,7 @@ int main(int argc, char** argv)
 			fprintf(stderr, "Couldn't read directory '%s': %s\n", argv[1], strerror(errno));
 			return 1;
 		}
-		else
-		{
-			break;
-		}
+		else { break; }
 	}
 
 	printf("\n");

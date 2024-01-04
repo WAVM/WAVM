@@ -5,8 +5,12 @@
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Diagnostics.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef min
+#undef max
 
 namespace WAVM { namespace Platform {
 	void initThread();

@@ -55,7 +55,9 @@ PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::Type
 
 	PHIVector result;
 	for(Uptr elementIndex = 0; elementIndex < type.size(); ++elementIndex)
-	{ result.push_back(irBuilder.CreatePHI(asLLVMType(llvmContext, type[elementIndex]), 2)); }
+	{
+		result.push_back(irBuilder.CreatePHI(asLLVMType(llvmContext, type[elementIndex]), 2));
+	}
 
 	if(originalBlock) { irBuilder.SetInsertPoint(originalBlock); }
 
@@ -75,10 +77,7 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 		default: WAVM_UNREACHABLE();
 		};
 	}
-	else
-	{
-		return value;
-	}
+	else { return value; }
 }
 
 // Debug logging.
@@ -271,10 +270,7 @@ struct UnreachableOpVisitor
 	void end(NoImm imm)
 	{
 		if(!unreachableControlDepth) { context.end(imm); }
-		else
-		{
-			--unreachableControlDepth;
-		}
+		else { --unreachableControlDepth; }
 	}
 
 	void try_(ControlStructureImm imm) { ++unreachableControlDepth; }
@@ -299,7 +295,9 @@ void EmitFunctionContext::emit()
 	// Create debug info for the function.
 	llvm::SmallVector<llvm::Metadata*, 10> diFunctionParameterTypes;
 	for(auto parameterType : functionType.params())
-	{ diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]); }
+	{
+		diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]);
+	}
 	auto diParamArray = moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes);
 	auto diFunctionType = moduleContext.diBuilder.createSubroutineType(diParamArray);
 	diFunction = moduleContext.diBuilder.createFunction(
@@ -312,12 +310,13 @@ void EmitFunctionContext::emit()
 #if LLVM_VERSION_MAJOR >= 8
 		0,
 		llvm::DINode::FlagZero,
-		llvm::DISubprogram::SPFlagDefinition | llvm::DISubprogram::SPFlagOptimized);
+		llvm::DISubprogram::SPFlagDefinition | llvm::DISubprogram::SPFlagOptimized
 #else
 		false,
 		true,
-		0);
+		0
 #endif
+	);
 	function->setSubprogram(diFunction);
 
 	// Create an initial basic block for the function.
@@ -345,8 +344,13 @@ void EmitFunctionContext::emit()
 			= localIndex < functionType.params().size()
 				  ? functionType.params()[localIndex]
 				  : functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
-		auto localPointer = irBuilder.CreateAlloca(asLLVMType(llvmContext, localType), nullptr, "");
+		auto llvmtype = asLLVMType(llvmContext, localType);
+		auto localPointer = irBuilder.CreateAlloca(llvmtype, nullptr, "");
+#if LLVM_VERSION_MAJOR > 14
+		localPointers.push_back(::WAVM::LLVMJIT::localPointersRef{localPointer, llvmtype});
+#else
 		localPointers.push_back(localPointer);
+#endif
 
 		if(localIndex < functionType.params().size())
 		{
@@ -385,10 +389,7 @@ void EmitFunctionContext::emit()
 			llvm::DILocation::get(llvmContext, (unsigned int)opIndex++, 0, diFunction));
 
 		if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
-		else
-		{
-			decoder.decodeOp(unreachableOpVisitor);
-		}
+		else { decoder.decodeOp(unreachableOpVisitor); }
 	};
 	WAVM_ASSERT(irBuilder.GetInsertBlock() == returnBlock);
 

@@ -38,10 +38,7 @@ int main(int argc, char** argv)
 				printf("Failed to write to stdout: %s.\n", strerror(errno));
 				return 1;
 			}
-			else
-			{
-				numWrittenBytes += writeResult;
-			}
+			else { numWrittenBytes += writeResult; }
 		};
 
 		if(numBytesRead < sizeof(buffer)) { break; }

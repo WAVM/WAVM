@@ -9,5 +9,5 @@ namespace WAVM {
 namespace WAVM { namespace IR {
 	struct Module;
 
-	WAVM_API void generateValidModule(IR::Module& module, RandomStream& randomStream);
+	WAVM_API void generateValidModule(IR::Module& module_, RandomStream& randomStream);
 }}

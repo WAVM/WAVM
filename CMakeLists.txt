@@ -65,6 +65,19 @@ include(CPack)
 
 option(WAVM_ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
+
+if(DEFINED WAVM_CXX_STANDARD_VERSION)
+if(NOT DEFINED WAVM_LIB_CXX_STANDARD_VERSION)
+set(WAVM_LIB_CXX_STANDARD_VERSION ${WAVM_CXX_STANDARD_VERSION})
+endif()
+else()
+set(WAVM_CXX_STANDARD_VERSION 14)
+endif()
+
+if(NOT DEFINED WAVM_LIB_CXX_STANDARD_VERSION)
+set(WAVM_LIB_CXX_STANDARD_VERSION 11)
+endif()
+
 set(WAVM_ENABLE_LTO "OFF" CACHE STRING "enable link-time optimization (off, on, or thin)")
 
 option(WAVM_ENABLE_FUZZ_TARGETS "build the fuzz targets" ON)
@@ -448,19 +461,20 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 			   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/Include>
 	)
 
-	# Target C++14.
-	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_14)
+	# Target C++14. Allow users to switch standard
+	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_${WAVM_CXX_STANDARD_VERSION})
 	
 	# Set sanitizer options.
 	WAVM_SET_TARGET_SANITIZER_OPTIONS(${TARGET_NAME})
 	
 	if(MSVC)
 		# Compile files in parallel.
-		target_compile_options(${TARGET_NAME} PRIVATE "/MP")
+		if(NOT (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+			target_compile_options(${TARGET_NAME} PRIVATE "/MP")
+		endif()
 
 		# Compile with all warnings, and fatal warnings.
-		target_compile_options(${TARGET_NAME} PRIVATE "/W4")
-		target_compile_options(${TARGET_NAME} PRIVATE "/WX")
+		target_compile_options(${TARGET_NAME} PRIVATE "/W3")
 
 		# Disable warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4127") # conditional expression is constant
@@ -494,7 +508,6 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# Compile with all+extra warnings and fatal warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wextra")
-		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
 
 		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
 		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
@@ -633,7 +646,7 @@ function(WAVM_ADD_THIRD_PARTY_LIBRARY LIB_NAME)
 	add_library(${LIB_NAME} STATIC ${LIB_SOURCES} ${LIB_NONCOMPILED_SOURCES})
 	
 	# Target C++11.
-	target_compile_features(${LIB_NAME} PRIVATE cxx_std_11)
+	target_compile_features(${LIB_NAME} PRIVATE cxx_std_${WAVM_LIB_CXX_STANDARD_VERSION})
 
 	# Set the configured sanitizer and linker options.
 	if(NOT ${LIB_NAME} STREQUAL "WAVMUnwind")
@@ -686,9 +699,9 @@ set_target_properties(libWAVM PROPERTIES
 )
 
 # Set up the WAVM_API definitions.
-if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
-	target_compile_definitions(libWAVM PRIVATE "\"WAVM_API=__declspec(dllexport)\"")
-	target_compile_definitions(libWAVM INTERFACE "\"WAVM_API=__declspec(dllimport)\"")
+if(NOT WAVM_ENABLE_STATIC_LINKING AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Windows") OR (${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN") OR (${CMAKE_SYSTEM_NAME} STREQUAL "MSYS")))
+	target_compile_definitions(libWAVM PRIVATE "WAVM_API=__declspec(dllexport)")
+	target_compile_definitions(libWAVM INTERFACE "WAVM_API=__declspec(dllimport)")
 elseif(NOT WAVM_ENABLE_STATIC_LINKING AND CXX_HAS_FVISIBILITY_HIDDEN)
 	target_compile_definitions(libWAVM PUBLIC "WAVM_API=__attribute__((visibility(\"default\")))")
 else()

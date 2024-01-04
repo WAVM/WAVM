@@ -117,10 +117,7 @@ namespace WAVM {
 				else
 				{
 					if(category == "metrics") { Log::setCategoryEnabled(Log::metrics, true); }
-					else if(category == "debug")
-					{
-						Log::setCategoryEnabled(Log::debug, true);
-					}
+					else if(category == "debug") { Log::setCategoryEnabled(Log::debug, true); }
 					else if(category == "trace-validation")
 					{
 						Log::setCategoryEnabled(Log::traceValidation, true);
@@ -138,10 +135,7 @@ namespace WAVM {
 					}
 
 					if(!c) { break; }
-					else
-					{
-						category.clear();
-					}
+					else { category.clear(); }
 				}
 			}
 		}

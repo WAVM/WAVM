@@ -46,7 +46,7 @@ void Emscripten::joinAllThreads(Process& process)
 		WAVM_ASSERT(it != process.threads.end());
 
 		emabi::pthread_t threadId = it.getIndex();
-		IntrusiveSharedPtr<Thread> thread = std::move(*it);
+		IntrusiveSharedPtr<Thread> thread = *it;
 		process.threads.removeOrFail(threadId);
 
 		threadsLock.unlock();
@@ -278,7 +278,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(envThreads,
 	// Validate that the entry function is non-null and has the correct type i32->i32
 	if(!threadFunc
 	   || getFunctionType(threadFunc) != FunctionType({ValueType::i32}, {ValueType::i32}))
-	{ throwException(Runtime::ExceptionTypes::indirectCallSignatureMismatch); }
+	{
+		throwException(Runtime::ExceptionTypes::indirectCallSignatureMismatch);
+	}
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.

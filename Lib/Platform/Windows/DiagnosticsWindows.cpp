@@ -6,10 +6,14 @@
 #include "WAVM/Platform/Mutex.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef min
+#undef max
 
-#include <DbgHelp.h>
+#include <dbghelp.h>
 #include <string>
 
 using namespace WAVM;
@@ -36,15 +40,15 @@ struct DbgHelp
 private:
 	DbgHelp()
 	{
-		HMODULE dbgHelpModule = ::LoadLibraryA("Dbghelp.dll");
+		HMODULE dbgHelpModule = ::LoadLibraryW(L"Dbghelp.dll");
 		if(dbgHelpModule)
 		{
-			symFromAddr = (SymFromAddr)::GetProcAddress(dbgHelpModule, "SymFromAddr");
+			symFromAddr = (SymFromAddr)(void*)::GetProcAddress(dbgHelpModule, "SymFromAddr");
 
 			// Initialize the debug symbol lookup.
 			typedef BOOL(WINAPI * SymInitialize)(HANDLE, PCTSTR, BOOL);
 			SymInitialize symInitialize
-				= (SymInitialize)::GetProcAddress(dbgHelpModule, "SymInitialize");
+				= (SymInitialize)(void*)::GetProcAddress(dbgHelpModule, "SymInitialize");
 			if(symInitialize) { symInitialize(GetCurrentProcess(), nullptr, TRUE); }
 		}
 	}
@@ -52,9 +56,9 @@ private:
 
 static HMODULE getCurrentModule()
 {
-	HMODULE module = nullptr;
-	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCTSTR)getCurrentModule, &module);
-	return module;
+	HMODULE module_ = nullptr;
+	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCTSTR)getCurrentModule, &module_);
+	return module_;
 }
 
 static HMODULE getModuleFromBaseAddress(Uptr baseAddress)
@@ -62,10 +66,10 @@ static HMODULE getModuleFromBaseAddress(Uptr baseAddress)
 	return reinterpret_cast<HMODULE>(baseAddress);
 }
 
-static std::string getModuleName(HMODULE module)
+static std::string getModuleName(HMODULE module_)
 {
 	char moduleFilename[MAX_PATH + 1];
-	U32 moduleFilenameResult = GetModuleFileNameA(module, moduleFilename, MAX_PATH + 1);
+	U32 moduleFilenameResult = GetModuleFileNameA(module_, moduleFilename, MAX_PATH + 1);
 	return std::string(moduleFilename, moduleFilenameResult);
 }
 
@@ -76,11 +80,10 @@ static std::string trimModuleName(std::string moduleName)
 	if(lastBackslashOffset != UINTPTR_MAX && moduleName.size() >= lastBackslashOffset
 	   && moduleName.substr(0, lastBackslashOffset)
 			  == thisModuleName.substr(0, lastBackslashOffset))
-	{ return moduleName.substr(lastBackslashOffset + 1); }
-	else
 	{
-		return moduleName;
+		return moduleName.substr(lastBackslashOffset + 1);
 	}
+	else { return moduleName; }
 }
 
 bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
@@ -103,7 +106,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 	if(!dbgHelp->symFromAddr(GetCurrentProcess(), ip, &displacement, symbolInfo)) { return false; }
 	else
 	{
-		outSource.module
+		outSource.module_
 			= trimModuleName(getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase))));
 		outSource.function = std::string(symbolInfo->Name, symbolInfo->NameLen);
 		outSource.instructionOffset = Uptr(displacement);

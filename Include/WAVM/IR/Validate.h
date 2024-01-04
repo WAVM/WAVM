@@ -62,7 +62,7 @@ namespace WAVM { namespace IR {
 	};
 
 	WAVM_API std::shared_ptr<ModuleValidationState> createModuleValidationState(
-		const Module& module);
+		const Module& module_);
 
 	WAVM_API void validateTypes(ModuleValidationState& state);
 	WAVM_API void validateImports(ModuleValidationState& state);

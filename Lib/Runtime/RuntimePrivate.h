@@ -384,7 +384,7 @@ namespace WAVM { namespace Runtime {
 		FunctionImportBinding(void* inNativeFunction) : nativeFunction(inNativeFunction) {}
 	};
 	Instance* instantiateModuleInternal(Compartment* compartment,
-										ModuleConstRefParam module,
+										ModuleConstRefParam module_,
 										std::vector<FunctionImportBinding>&& functionImports,
 										std::vector<Table*>&& tableImports,
 										std::vector<Memory*>&& memoryImports,

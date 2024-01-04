@@ -16,7 +16,7 @@
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
 #include "WAVM/WASI/WASI.h"
-#include "WAVM/WASI/WASIABI.h"
+#include "WAVM/WASI/WASIABI64.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -53,123 +53,6 @@ bool ProcessResolver::resolve(const std::string& moduleName,
 	}
 
 	return false;
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
-							   "poll_oneoff",
-							   __wasi_errno_return_t,
-							   wasi_poll_oneoff,
-							   WASIAddress inAddress,
-							   WASIAddress outAddress,
-							   WASIAddress numSubscriptions,
-							   WASIAddress outNumEventsAddress)
-{
-	UNIMPLEMENTED_SYSCALL("poll_oneoff",
-						  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT
-						  ")",
-						  inAddress,
-						  outAddress,
-						  numSubscriptions,
-						  outNumEventsAddress);
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi, "proc_exit", void, wasi_proc_exit, __wasi_exitcode_t exitCode)
-{
-	TRACE_SYSCALL("proc_exit", "(%u)", exitCode);
-	throw ExitException{exitCode};
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
-							   "proc_raise",
-							   __wasi_errno_return_t,
-							   wasi_proc_raise,
-							   __wasi_signal_t sig)
-{
-	// proc_raise will possibly be removed: https://github.com/WebAssembly/WASI/issues/7
-	UNIMPLEMENTED_SYSCALL("proc_raise", "(%u)", sig);
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
-							   "random_get",
-							   __wasi_errno_return_t,
-							   wasi_random_get,
-							   WASIAddress bufferAddress,
-							   WASIAddress numBufferBytes)
-{
-	TRACE_SYSCALL("random_get", "(" WASIADDRESS_FORMAT ", %u)", bufferAddress, numBufferBytes);
-
-	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
-
-	__wasi_errno_t result = __WASI_ESUCCESS;
-	Runtime::catchRuntimeExceptions(
-		[&] {
-			U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
-			Platform::getCryptographicRNG(buffer, numBufferBytes);
-		},
-		[&](Runtime::Exception* exception) {
-			WAVM_ASSERT(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
-			result = __WASI_EFAULT;
-		});
-
-	return TRACE_SYSCALL_RETURN(result);
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
-							   "sock_recv",
-							   __wasi_errno_return_t,
-							   wasi_sock_recv,
-							   __wasi_fd_t sock,
-							   WASIAddress ri_data,
-							   WASIAddress ri_data_len,
-							   __wasi_riflags_t ri_flags,
-							   WASIAddress ro_datalen,
-							   WASIAddress ro_flags)
-{
-	UNIMPLEMENTED_SYSCALL("sock_recv",
-						  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%04x, " WASIADDRESS_FORMAT
-						  ", " WASIADDRESS_FORMAT ")",
-						  sock,
-						  ri_data,
-						  ri_data_len,
-						  ri_flags,
-						  ro_datalen,
-						  ro_flags);
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
-							   "sock_send",
-							   __wasi_errno_return_t,
-							   wasi_sock_send,
-							   __wasi_fd_t sock,
-							   WASIAddress si_data,
-							   WASIAddress si_data_len,
-							   __wasi_siflags_t si_flags,
-							   WASIAddress so_datalen)
-{
-	UNIMPLEMENTED_SYSCALL("sock_send",
-						  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%04x, " WASIADDRESS_FORMAT ")",
-						  sock,
-						  si_data,
-						  si_data_len,
-						  si_flags,
-						  so_datalen);
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
-							   "sock_shutdown",
-							   __wasi_errno_return_t,
-							   wasi_sock_shutdown,
-							   __wasi_fd_t sock,
-							   __wasi_sdflags_t how)
-{
-	UNIMPLEMENTED_SYSCALL("sock_shutdown", "(%u, 0x%02x)", sock, how);
-}
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_return_t, wasi_sched_yield)
-{
-	TRACE_SYSCALL("sched_yield", "()");
-	Platform::yieldToAnotherThread();
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 WASI::Process::~Process()
@@ -275,3 +158,10 @@ I32 WASI::catchExit(std::function<I32()>&& thunk)
 		return I32(exitException.exitCode);
 	}
 }
+
+#include "DefineIntrinsicsI32.h"
+#include "WASIOther.h"
+#if UINT32_MAX < SIZE_MAX
+#include "DefineIntrinsicsI64.h"
+#include "WASIOther.h"
+#endif

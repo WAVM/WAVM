@@ -20,8 +20,7 @@ template<typename Element> HashSetIterator<Element>::operator bool() const
 
 template<typename Element> void HashSetIterator<Element>::operator++()
 {
-	do
-	{
+	do {
 		++bucket;
 	} while(bucket < endBucket && !bucket->hashAndOccupancy);
 }

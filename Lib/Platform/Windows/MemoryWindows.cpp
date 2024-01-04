@@ -4,10 +4,14 @@
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef min
+#undef max
 
-#include <Psapi.h>
+#include <psapi.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -53,9 +57,7 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 	return (U8*)VirtualAlloc(nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS);
 }
 
-#define ENABLE_VIRTUALALLOC2 defined(MEM_EXTENDED_PARAMETER_TYPE_BITS)
-
-#if ENABLE_VIRTUALALLOC2
+#ifdef MEM_EXTENDED_PARAMETER_TYPE_BITS
 typedef void*(
 	__stdcall* VirtualAlloc2PointerType)(HANDLE, PVOID, size_t, ULONG, ULONG, PVOID, ULONG);
 static VirtualAlloc2PointerType loadVirtualAlloc2()
@@ -65,7 +67,7 @@ static VirtualAlloc2PointerType loadVirtualAlloc2()
 	HMODULE kernelBaseHandle = LoadLibraryA("kernelbase.dll");
 	if(!kernelBaseHandle) { return nullptr; }
 	VirtualAlloc2PointerType virtualAlloc2 = reinterpret_cast<VirtualAlloc2PointerType>(
-		::GetProcAddress(kernelBaseHandle, "VirtualAlloc2"));
+		reinterpret_cast<void*>(::GetProcAddress(kernelBaseHandle, "VirtualAlloc2")));
 	WAVM_ERROR_UNLESS(FreeLibrary(kernelBaseHandle));
 	return virtualAlloc2;
 }
@@ -83,13 +85,13 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 	const Uptr pageSizeLog2 = getBytesPerPageLog2();
 	const Uptr numBytes = numPages << pageSizeLog2;
 
-#if ENABLE_VIRTUALALLOC2
+#ifdef MEM_EXTENDED_PARAMETER_TYPE_BITS
 	// If VirtualAlloc2 is available on the host Windows version, use it to allocate aligned memory.
 	if(const VirtualAlloc2PointerType virtualAlloc2 = getVirtualAlloc2())
 	{
 		MEM_ADDRESS_REQUIREMENTS addressRequirements = {0};
 		addressRequirements.Alignment = Uptr(1) << alignmentLog2;
-		MEM_EXTENDED_PARAMETER alignmentParam = {0};
+		MEM_EXTENDED_PARAMETER alignmentParam = {};
 		alignmentParam.Type = MemExtendedParameterAddressRequirements;
 		alignmentParam.Pointer = &addressRequirements;
 		outUnalignedBaseAddress = (U8*)(*virtualAlloc2)(

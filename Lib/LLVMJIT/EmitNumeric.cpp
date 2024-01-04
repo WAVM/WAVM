@@ -902,7 +902,9 @@ void EmitFunctionContext::i8x16_shuffle(IR::ShuffleImm<16> imm)
 	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	LLVM_LANE_INDEX_TYPE laneIndices[16];
 	for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
-	{ laneIndices[laneIndex] = LLVM_LANE_INDEX_TYPE(imm.laneIndices[laneIndex]); }
+	{
+		laneIndices[laneIndex] = LLVM_LANE_INDEX_TYPE(imm.laneIndices[laneIndex]);
+	}
 	push(irBuilder.CreateShuffleVector(
 		left, right, llvm::ArrayRef<LLVM_LANE_INDEX_TYPE>(laneIndices, 16)));
 }

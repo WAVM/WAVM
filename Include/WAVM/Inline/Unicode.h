@@ -10,13 +10,13 @@ namespace WAVM { namespace Unicode {
 		else if(codePoint < 0x800)
 		{
 			outString += char((codePoint >> 6) & 0x1F) | 0xC0;
-			outString += char((codePoint)&0x3F) | 0x80;
+			outString += char((codePoint) & 0x3F) | 0x80;
 		}
 		else if(codePoint < 0x10000)
 		{
 			outString += char((codePoint >> 12) & 0x0F) | 0xE0;
 			outString += char((codePoint >> 6) & 0x3F) | 0x80;
-			outString += char((codePoint)&0x3F) | 0x80;
+			outString += char((codePoint) & 0x3F) | 0x80;
 		}
 		else
 		{
@@ -24,7 +24,7 @@ namespace WAVM { namespace Unicode {
 			outString += char((codePoint >> 18) & 0x07) | 0xF0;
 			outString += char((codePoint >> 12) & 0x3F) | 0x80;
 			outString += char((codePoint >> 6) & 0x3F) | 0x80;
-			outString += char((codePoint)&0x3F) | 0x80;
+			outString += char((codePoint) & 0x3F) | 0x80;
 		}
 	}
 
@@ -42,7 +42,9 @@ namespace WAVM { namespace Unicode {
 		else if(*nextChar >= 0xc2 && *nextChar <= 0xdf)
 		{
 			if(nextChar + 1 >= endChar || nextChar[1] < 0x80 || nextChar[1] > 0xbf)
-			{ return false; }
+			{
+				return false;
+			}
 
 			outCodePoint = (U32(nextChar[0] & 0x1F) << 6) | U32(nextChar[1] & 0x3F);
 			nextChar += 2;
@@ -54,19 +56,25 @@ namespace WAVM { namespace Unicode {
 			{
 				if(nextChar + 2 >= endChar || nextChar[1] < 0xa0 || nextChar[1] > 0xbf
 				   || nextChar[2] < 0x80 || nextChar[2] > 0xbf)
-				{ return false; }
+				{
+					return false;
+				}
 			}
 			else if(*nextChar == 0xed)
 			{
 				if(nextChar + 2 >= endChar || nextChar[1] < 0x80 || nextChar[1] > 0x9f
 				   || nextChar[2] < 0x80 || nextChar[2] > 0xbf)
-				{ return false; }
+				{
+					return false;
+				}
 			}
 			else if(*nextChar >= 0xe1 && *nextChar <= 0xef)
 			{
 				if(nextChar + 2 >= endChar || nextChar[1] < 0x80 || nextChar[1] > 0xbf
 				   || nextChar[2] < 0x80 || nextChar[2] > 0xbf)
-				{ return false; }
+				{
+					return false;
+				}
 			}
 			outCodePoint = (U32(nextChar[0] & 0x0F) << 12) | (U32(nextChar[1] & 0x3F) << 6)
 						   | U32(nextChar[2] & 0x3F);
@@ -80,21 +88,27 @@ namespace WAVM { namespace Unicode {
 				if(nextChar + 3 >= endChar || nextChar[1] < 0x90 || nextChar[1] > 0xbf
 				   || nextChar[2] < 0x80 || nextChar[2] > 0xbf || nextChar[3] < 0x80
 				   || nextChar[3] > 0xbf)
-				{ return false; }
+				{
+					return false;
+				}
 			}
 			else if(*nextChar >= 0xf1 && *nextChar <= 0xf3)
 			{
 				if(nextChar + 3 >= endChar || nextChar[1] < 0x80 || nextChar[1] > 0xbf
 				   || nextChar[2] < 0x80 || nextChar[2] > 0xbf || nextChar[3] < 0x80
 				   || nextChar[3] > 0xbf)
-				{ return false; }
+				{
+					return false;
+				}
 			}
 			else if(*nextChar == 0xf4)
 			{
 				if(nextChar + 3 >= endChar || nextChar[1] < 0x80 || nextChar[1] > 0x8f
 				   || nextChar[2] < 0x80 || nextChar[2] > 0xbf || nextChar[3] < 0x80
 				   || nextChar[3] > 0xbf)
-				{ return false; }
+				{
+					return false;
+				}
 			}
 
 			outCodePoint = (U32(nextChar[0] & 0x07) << 18) | (U32(nextChar[1] & 0x3F) << 12)
@@ -102,10 +116,7 @@ namespace WAVM { namespace Unicode {
 			nextChar += 4;
 			return true;
 		}
-		else
-		{
-			return false;
-		}
+		else { return false; }
 	}
 
 	inline bool decodeUTF16CodePoint(const U16*& nextChar16,
@@ -128,15 +139,9 @@ namespace WAVM { namespace Unicode {
 				nextChar16 += 2;
 				return true;
 			}
-			else
-			{
-				return false;
-			}
+			else { return false; }
 		}
-		else
-		{
-			return false;
-		}
+		else { return false; }
 	}
 
 	inline const U8* validateUTF8String(const U8* nextChar, const U8* endChar)
@@ -162,7 +167,9 @@ namespace WAVM { namespace Unicode {
 	{
 		U32 codePoint;
 		while(nextChar != endChar && decodeUTF8CodePoint(nextChar, endChar, codePoint))
-		{ encodeUTF16CodePoint(codePoint, outString); };
+		{
+			encodeUTF16CodePoint(codePoint, outString);
+		};
 		return nextChar;
 	}
 
@@ -171,7 +178,9 @@ namespace WAVM { namespace Unicode {
 	{
 		U32 codePoint;
 		while(nextChar != endChar && decodeUTF16CodePoint(nextChar, endChar, codePoint))
-		{ encodeUTF8CodePoint(codePoint, outString); };
+		{
+			encodeUTF8CodePoint(codePoint, outString);
+		};
 		return nextChar;
 	}
 }}

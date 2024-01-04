@@ -9,5 +9,5 @@ namespace WAVM { namespace IR {
 
 namespace WAVM { namespace WAST {
 	// Prints a module in WAST format.
-	WAVM_API std::string print(const IR::Module& module);
+	WAVM_API std::string print(const IR::Module& module_);
 }}

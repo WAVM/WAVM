@@ -19,13 +19,13 @@ using namespace WAVM::IR;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
-	Module module(FeatureLevel::wavm);
-	module.featureSpec.maxLabelsPerFunction = 65536;
-	module.featureSpec.maxLocals = 1024;
-	module.featureSpec.maxDataSegments = 65536;
-	if(WASM::loadBinaryModule(data, numBytes, module))
+	Module module_(FeatureLevel::wavm);
+	module_.featureSpec.maxLabelsPerFunction = 65536;
+	module_.featureSpec.maxLocals = 1024;
+	module_.featureSpec.maxDataSegments = 65536;
+	if(WASM::loadBinaryModule(data, numBytes, module_))
 	{
-		const std::string wastString = WAST::print(module);
+		const std::string wastString = WAST::print(module_);
 
 		Module wastModule(FeatureLevel::wavm);
 		std::vector<WAST::Error> parseErrors;
@@ -39,26 +39,20 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 		// Strip any name section from both WAST and WASM module, since disassembling and
 		// re-assembling the module doesn't produce exactly the same name section.
-		for(auto sectionIt = module.customSections.begin();
-			sectionIt != module.customSections.end();)
+		for(auto sectionIt = module_.customSections.begin();
+			sectionIt != module_.customSections.end();)
 		{
 			if(sectionIt->name != "name") { ++sectionIt; }
-			else
-			{
-				sectionIt = module.customSections.erase(sectionIt);
-			}
+			else { sectionIt = module_.customSections.erase(sectionIt); }
 		}
 		for(auto sectionIt = wastModule.customSections.begin();
 			sectionIt != wastModule.customSections.end();)
 		{
 			if(sectionIt->name != "name") { ++sectionIt; }
-			else
-			{
-				sectionIt = wastModule.customSections.erase(sectionIt);
-			}
+			else { sectionIt = wastModule.customSections.erase(sectionIt); }
 		}
 
-		ModuleMatcher moduleMatcher(module, wastModule);
+		ModuleMatcher moduleMatcher(module_, wastModule);
 		moduleMatcher.verify();
 	}
 

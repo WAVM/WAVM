@@ -29,13 +29,13 @@ namespace WAVM { namespace Platform {
 	// Describes the source of an instruction in a native module.
 	struct InstructionSource
 	{
-		std::string module;
+		std::string module_;
 		std::string function;
 		Uptr instructionOffset;
 
 		friend std::string asString(const InstructionSource& source)
 		{
-			std::string result = source.module;
+			std::string result = source.module_;
 			if(source.function.size())
 			{
 				result += '!';

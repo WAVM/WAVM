@@ -72,7 +72,9 @@ WAVM_PACKED_STRUCT(struct TimeKey {
 	{
 		WAVM_ASSERT(time.ns >= 0);
 		for(Uptr byteIndex = 0; byteIndex < 16; ++byteIndex)
-		{ bytes[15 - byteIndex] = U8((time.ns >> (byteIndex * 8)) & 0xff); }
+		{
+			bytes[15 - byteIndex] = U8((time.ns >> (byteIndex * 8)) & 0xff);
+		}
 	}
 
 	Time getTime() const
@@ -80,7 +82,9 @@ WAVM_PACKED_STRUCT(struct TimeKey {
 		Time result;
 		result.ns = 0;
 		for(Uptr byteIndex = 0; byteIndex < 16; ++byteIndex)
-		{ result.ns |= I128(bytes[15 - byteIndex]) << (byteIndex * 8); }
+		{
+			result.ns |= I128(bytes[15 - byteIndex]) << (byteIndex * 8);
+		}
 		return result;
 	}
 });
@@ -221,7 +225,9 @@ struct Database
 	static void getKeyValue(MDB_txn* txn, MDB_dbi dbi, const Key& key, Value& outValue)
 	{
 		if(!tryGetKeyValue(txn, dbi, key, outValue) || testSoftFailure())
-		{ throw Exception(Exception::Type::keyNotFound); }
+		{
+			throw Exception(Exception::Type::keyNotFound);
+		}
 	}
 
 	// Writes a key+value pair to a table.
@@ -248,7 +254,9 @@ struct Database
 	static void putKeyValue(MDB_txn* txn, MDB_dbi dbi, const Key& key, const Value& value)
 	{
 		if(!tryPutKeyValue(txn, dbi, key, value) || testSoftFailure())
-		{ throw Exception(Exception::Type::mapIsFull); }
+		{
+			throw Exception(Exception::Type::mapIsFull);
+		}
 	}
 
 	// Deletes a key from a table.
@@ -274,7 +282,9 @@ struct Database
 	template<typename Key> static void deleteKey(MDB_txn* txn, MDB_dbi dbi, const Key& key)
 	{
 		if(!tryDeleteKey(txn, dbi, key) || testSoftFailure())
-		{ throw Exception(Exception::Type::keyNotFound); }
+		{
+			throw Exception(Exception::Type::keyNotFound);
+		}
 	}
 
 	// Opens a cursor for the given table. All errors are fatal.
@@ -344,9 +354,13 @@ struct ScopedTxn
 		txn = nullptr;
 
 		if(commitResult == ENOSPC || testSoftFailure())
-		{ throw Database::Exception(Database::Exception::Type::diskIsFull); }
+		{
+			throw Database::Exception(Database::Exception::Type::diskIsFull);
+		}
 		if(commitResult)
-		{ Errors::fatalf("mdb_txn_commit failed: %s", mdb_strerror(commitResult)); }
+		{
+			Errors::fatalf("mdb_txn_commit failed: %s", mdb_strerror(commitResult));
+		}
 	}
 
 private:
@@ -400,7 +414,9 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			U64 dbVersion = UINT64_MAX;
 			bool writeVersion = false;
 			if(!Database::tryGetKeyValue(txn, versionTable, versionString, dbVersion))
-			{ writeVersion = true; }
+			{
+				writeVersion = true;
+			}
 			else if(dbVersion != CURRENT_DB_VERSION)
 			{
 				writeVersion = true;
@@ -513,7 +529,9 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			// database consistent if a cached object is being redundantly added for some reason.
 			Metadata metadata;
 			if(Database::tryGetKeyValue(txn, metaTable, moduleKey, metadata))
-			{ Database::deleteKey(txn, lruTable, metadata.lastAccessTimeKey); }
+			{
+				Database::deleteKey(txn, lruTable, metadata.lastAccessTimeKey);
+			}
 			metadata.lastAccessTimeKey = now;
 
 			// Add the module to the object, metadata, and LRU tables.
@@ -546,11 +564,11 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 			while(getResult)
 			{
 				Log::printf(Log::debug,
-							"  %16" PRIx64 "|%16" PRIx64 "%16" PRIx64 " %zu bytes\n",
+							"  %16" PRIx64 "|%16" PRIx64 "%16" PRIx64 " %" PRIuLEAST64 " bytes\n",
 							moduleKey.getCodeKey(),
 							moduleKey.moduleHashU64s[0],
 							moduleKey.moduleHashU64s[1],
-							objectBytesVal.mv_size);
+							static_cast<uint_least64_t>(objectBytesVal.mv_size));
 
 				getResult = Database::tryGetCursor(cursor, moduleKey, objectBytesVal, MDB_NEXT);
 			};
@@ -619,7 +637,9 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 
 		U8 moduleHashBytes[16];
 		if(blake2b(moduleHashBytes, sizeof(moduleHashBytes), wasmBytes, numWASMBytes, nullptr, 0))
-		{ Errors::fatal("blake2b error"); }
+		{
+			Errors::fatal("blake2b error");
+		}
 
 		Timing::logRatePerSecond(
 			"Hashed module key", hashTimer, numWASMBytes / 1024.0 / 1024.0, "MiB");
@@ -629,7 +649,9 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		try
 		{
 			if(tryGetCachedObject(moduleHashBytes, wasmBytes, numWASMBytes, objectCode))
-			{ return objectCode; }
+			{
+				return objectCode;
+			}
 		}
 		catch(Database::Exception const& exception)
 		{
@@ -673,7 +695,9 @@ private:
 		ModuleKey moduleKey;
 		MDB_cursor* cursor = Database::openCursor(txn, lruTable);
 		if(!Database::tryGetCursor(cursor, lastAccessTimeKey, moduleKey, MDB_FIRST))
-		{ return false; }
+		{
+			return false;
+		}
 		Database::closeCursor(cursor);
 
 		// Delete the cached object identified by the oldest entry in the LRU table from all tables.
@@ -701,6 +725,8 @@ OpenResult ObjectCache::open(const char* path,
 	LMDBObjectCache lmdbObjectCache;
 	OpenResult result = lmdbObjectCache.init(path, maxBytes, codeKey);
 	if(result == OpenResult::success)
-	{ outObjectCache = std::make_shared<LMDBObjectCache>(std::move(lmdbObjectCache)); }
+	{
+		outObjectCache = std::make_shared<LMDBObjectCache>(std::move(lmdbObjectCache));
+	}
 	return result;
 }

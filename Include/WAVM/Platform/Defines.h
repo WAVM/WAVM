@@ -46,13 +46,14 @@
 #endif
 
 // WAVM_DEBUG_TRAP macro: breaks a debugger if one is attached, or aborts the program if not.
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 #define WAVM_DEBUG_TRAP() __debugbreak()
-#elif defined(__GNUC__) && !WAVM_ENABLE_LIBFUZZER && (defined(__i386__) || defined(__x86_64__))
-#define WAVM_DEBUG_TRAP() __asm__ __volatile__("int3")
-#elif defined(__GNUC__) && !WAVM_ENABLE_LIBFUZZER && defined(__aarch64__)
-// See https://github.com/scottt/debugbreak/blob/master/debugbreak.h#L101
-#define WAVM_DEBUG_TRAP() __asm__ __volatile__(".inst 0xe7f001f0")
+#elif defined(__has_builtin)
+#if __has_builtin(__builtin_trap)
+#define WAVM_DEBUG_TRAP() __builtin_trap()
+#else
+#define WAVM_DEBUG_TRAP() abort()
+#endif
 #else
 // Use abort() instead of trap instructions when fuzzing, since
 // libfuzzer doesn't handle the breakpoint trap.
@@ -95,7 +96,6 @@
 
 #ifndef WAVM_FALLTHROUGH
 #define WAVM_FALLTHROUGH                                                                           \
-	do                                                                                             \
-	{                                                                                              \
+	do {                                                                                           \
 	} while(0) /* fallthrough */
 #endif

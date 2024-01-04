@@ -32,8 +32,13 @@ using namespace WAVM::LLVMJIT;
 namespace LLVMRuntimeSymbols {
 #ifdef _WIN32
 	// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
+#ifdef __MINGW32__
+	extern "C" void ___chkstk_ms();
+	extern "C" void __gxx_personality_seh0();
+#else
 	extern "C" void __chkstk();
 	extern "C" void __CxxFrameHandler3();
+#endif
 #else
 #if defined(__APPLE__)
 	// LLVM's memset intrinsic lowers to calling __bzero on MacOS when writing a constant zero.
@@ -51,8 +56,13 @@ namespace LLVMRuntimeSymbols {
 		{"memmove", (void*)&memmove},
 		{"memset", (void*)&memset},
 #ifdef _WIN32
+#ifdef __MINGW32__
+		{"___chkstk_ms", (void*)&___chkstk_ms},
+		{"__gxx_personality_seh0", (void*)&__gxx_personality_seh0},
+#else
 		{"__chkstk", (void*)&__chkstk},
 		{"__CxxFrameHandler3", (void*)&__CxxFrameHandler3},
+#endif
 #else
 #if defined(__APPLE__)
 		{"__bzero", (void*)&__bzero},
@@ -109,9 +119,13 @@ LLVMContext::LLVMContext()
 	i64Type = llvm::Type::getInt64Ty(*this);
 	f32Type = llvm::Type::getFloatTy(*this);
 	f64Type = llvm::Type::getDoubleTy(*this);
+#if LLVM_VERSION_MAJOR > 14
+	i8PtrType = llvm::PointerType::get(*this, 0);
+	externrefType = i8PtrType;
+#else
 	i8PtrType = i8Type->getPointerTo();
-
 	externrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
+#endif
 
 	i8x8Type = FixedVectorType::get(i8Type, 8);
 	i16x4Type = FixedVectorType::get(i16Type, 4);
@@ -200,14 +214,18 @@ TargetValidationResult LLVMJIT::validateTargetMachine(
 	{
 		// If the SIMD feature is enabled, then require the SSE4.1 CPU feature.
 		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+sse4.1"))
-		{ return TargetValidationResult::x86CPUDoesNotSupportSSE41; }
+		{
+			return TargetValidationResult::x86CPUDoesNotSupportSSE41;
+		}
 
 		return TargetValidationResult::valid;
 	}
 	else if(targetArch == llvm::Triple::aarch64)
 	{
 		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+neon"))
-		{ return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+		{
+			return TargetValidationResult::wavmDoesNotSupportSIMDOnArch;
+		}
 
 		return TargetValidationResult::valid;
 	}

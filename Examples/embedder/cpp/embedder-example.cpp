@@ -50,9 +50,11 @@ int main(int argc, char** argv)
 	IR::Module irModule;
 	std::vector<WAST::Error> wastErrors;
 	if(!WAST::parseModule(helloWAST, sizeof(helloWAST), irModule, wastErrors))
-	{ return EXIT_FAILURE; }
+	{
+		return EXIT_FAILURE;
+	}
 
-	ModuleRef module = compileModule(irModule);
+	ModuleRef module_ = compileModule(irModule);
 
 	// Create a WAVM compartment and context.
 	GCPointer<Compartment> compartment = createCompartment();
@@ -70,7 +72,7 @@ int main(int argc, char** argv)
 		[&]() {
 			// Instantiate the WASM module using the intrinsic function as its import.
 			GCPointer<Instance> instance
-				= instantiateModule(compartment, module, {asObject(intrinsicFunction)}, "hello");
+				= instantiateModule(compartment, module_, {asObject(intrinsicFunction)}, "hello");
 
 			// Extract exports.
 			const FunctionType i32_to_i32({ValueType::i32}, {ValueType::i32});

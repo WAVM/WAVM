@@ -221,7 +221,8 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 			};
 		}
 	}))
-	{};
+	{
+	};
 
 	// Parse the result types: (result <value type>*)*
 	while(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
@@ -294,13 +295,15 @@ IndexedFunctionType WAST::resolveFunctionType(ModuleState* moduleState,
 											  const UnresolvedFunctionType& unresolvedType)
 {
 	if(!unresolvedType.reference)
-	{ return getUniqueFunctionTypeIndex(moduleState, unresolvedType.explicitType); }
+	{
+		return getUniqueFunctionTypeIndex(moduleState, unresolvedType.explicitType);
+	}
 	else
 	{
 		// Resolve the referenced type.
 		const Uptr referencedFunctionTypeIndex = resolveRef(moduleState->parseState,
 															moduleState->typeNameToIndexMap,
-															moduleState->module.types.size(),
+															moduleState->module_.types.size(),
 															unresolvedType.reference);
 
 		// Validate that if the function definition has both a type reference and explicit
@@ -310,7 +313,7 @@ IndexedFunctionType WAST::resolveFunctionType(ModuleState* moduleState,
 		if(hasExplicitParametersOrResultType)
 		{
 			if(referencedFunctionTypeIndex != UINTPTR_MAX
-			   && moduleState->module.types[referencedFunctionTypeIndex]
+			   && moduleState->module_.types[referencedFunctionTypeIndex]
 					  != unresolvedType.explicitType)
 			{
 				parseErrorf(
@@ -318,7 +321,7 @@ IndexedFunctionType WAST::resolveFunctionType(ModuleState* moduleState,
 					unresolvedType.reference.token,
 					"referenced function type (%s) does not match declared parameters and "
 					"results (%s)",
-					asString(moduleState->module.types[referencedFunctionTypeIndex]).c_str(),
+					asString(moduleState->module_.types[referencedFunctionTypeIndex]).c_str(),
 					asString(unresolvedType.explicitType).c_str());
 			}
 		}
@@ -330,13 +333,13 @@ IndexedFunctionType WAST::resolveFunctionType(ModuleState* moduleState,
 IndexedFunctionType WAST::getUniqueFunctionTypeIndex(ModuleState* moduleState,
 													 FunctionType functionType)
 {
-	// If this type is not in the module's type table yet, add it.
+	// If this type is not in the module_'s type table yet, add it.
 	Uptr& functionTypeIndex
 		= moduleState->functionTypeToIndexMap.getOrAdd(functionType, UINTPTR_MAX);
 	if(functionTypeIndex == UINTPTR_MAX)
 	{
-		functionTypeIndex = moduleState->module.types.size();
-		moduleState->module.types.push_back(functionType);
+		functionTypeIndex = moduleState->module_.types.size();
+		moduleState->module_.types.push_back(functionType);
 		moduleState->disassemblyNames.types.emplace_back();
 	}
 	return IndexedFunctionType{functionTypeIndex};
@@ -347,7 +350,9 @@ static void parseStringChars(const char*& nextChar, ParseState* parseState, std:
 bool WAST::tryParseName(CursorState* cursor, Name& outName)
 {
 	if(cursor->nextToken->type != t_quotedName && cursor->nextToken->type != t_name)
-	{ return false; }
+	{
+		return false;
+	}
 
 	const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;
 	const char* nextChar = firstChar;
@@ -356,8 +361,10 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 
 	if(cursor->nextToken->type == t_quotedName)
 	{
-		if(!cursor->moduleState->module.featureSpec.quotedNamesInTextFormat)
-		{ parseErrorf(cursor->parseState, cursor->nextToken, "quoted names are disabled"); }
+		if(!cursor->moduleState->module_.featureSpec.quotedNamesInTextFormat)
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "quoted names are disabled");
+		}
 
 		WAVM_ASSERT(*nextChar == '\"');
 		++nextChar;
@@ -389,10 +396,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 		{
 			const char c = *nextChar;
 			if(isNameChar(c)) { ++nextChar; }
-			else
-			{
-				break;
-			}
+			else { break; }
 		};
 
 		outName = Name(firstChar + 1, U32(nextChar - firstChar - 1), cursor->nextToken->begin);
@@ -513,10 +517,7 @@ Uptr WAST::resolveRef(ParseState* parseState,
 			parseErrorf(parseState, ref.token, "unknown name");
 			return UINTPTR_MAX;
 		}
-		else
-		{
-			return nameIndexPair->value;
-		}
+		else { return nameIndexPair->value; }
 	}
 
 	case Reference::Type::invalid:
@@ -531,27 +532,27 @@ Uptr WAST::resolveExternRef(ModuleState* moduleState, ExternKind externKind, con
 	case ExternKind::function:
 		return resolveRef(moduleState->parseState,
 						  moduleState->functionNameToIndexMap,
-						  moduleState->module.functions.size(),
+						  moduleState->module_.functions.size(),
 						  ref);
 	case ExternKind::table:
 		return resolveRef(moduleState->parseState,
 						  moduleState->tableNameToIndexMap,
-						  moduleState->module.tables.size(),
+						  moduleState->module_.tables.size(),
 						  ref);
 	case ExternKind::memory:
 		return resolveRef(moduleState->parseState,
 						  moduleState->memoryNameToIndexMap,
-						  moduleState->module.memories.size(),
+						  moduleState->module_.memories.size(),
 						  ref);
 	case ExternKind::global:
 		return resolveRef(moduleState->parseState,
 						  moduleState->globalNameToIndexMap,
-						  moduleState->module.globals.size(),
+						  moduleState->module_.globals.size(),
 						  ref);
 	case ExternKind::exceptionType:
 		return resolveRef(moduleState->parseState,
 						  moduleState->exceptionTypeNameToIndexMap,
-						  moduleState->module.exceptionTypes.size(),
+						  moduleState->module_.exceptionTypes.size(),
 						  ref);
 
 	case ExternKind::invalid:
@@ -562,14 +563,8 @@ Uptr WAST::resolveExternRef(ModuleState* moduleState, ExternKind externKind, con
 bool WAST::tryParseHexit(const char*& nextChar, U8& outValue)
 {
 	if(*nextChar >= '0' && *nextChar <= '9') { outValue = *nextChar - '0'; }
-	else if(*nextChar >= 'a' && *nextChar <= 'f')
-	{
-		outValue = *nextChar - 'a' + 10;
-	}
-	else if(*nextChar >= 'A' && *nextChar <= 'F')
-	{
-		outValue = *nextChar - 'A' + 10;
-	}
+	else if(*nextChar >= 'a' && *nextChar <= 'f') { outValue = *nextChar - 'a' + 10; }
+	else if(*nextChar >= 'A' && *nextChar <= 'F') { outValue = *nextChar - 'A' + 10; }
 	else
 	{
 		outValue = 0;
@@ -589,7 +584,9 @@ static void parseCharEscapeCode(const char*& nextChar,
 		// Parse an 8-bit literal from two hexits.
 		U8 secondNibble;
 		if(!tryParseHexit(nextChar, secondNibble))
-		{ parseErrorf(parseState, nextChar, "expected hexit"); }
+		{
+			parseErrorf(parseState, nextChar, "expected hexit");
+		}
 		outString += char(firstNibble * 16 + secondNibble);
 	}
 	else

@@ -31,11 +31,10 @@ static void printClock(clockid_t clockId, const char* name)
 	}
 
 	if(clockId == CLOCK_REALTIME)
-	{ printf("%s: %s + %lu ns\n", name, formatTime(ts.tv_sec), ts.tv_nsec); }
-	else
 	{
-		printf("%s: %" PRIu64 " s + %lu ns\n", name, (uint64_t)ts.tv_sec, ts.tv_nsec);
+		printf("%s: %s + %lu ns\n", name, formatTime(ts.tv_sec), ts.tv_nsec);
 	}
+	else { printf("%s: %" PRIu64 " s + %lu ns\n", name, (uint64_t)ts.tv_sec, ts.tv_nsec); }
 }
 
 int main(int argc, char** argv)

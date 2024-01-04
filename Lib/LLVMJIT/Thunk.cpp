@@ -85,7 +85,9 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	Runtime::Function*& invokeThunkFunction
 		= invokeThunkCache.typeToFunctionMap.getOrAdd(functionType, nullptr);
 	if(invokeThunkFunction)
-	{ return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code)); }
+	{
+		return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
+	}
 
 	// Create a FunctionMutableData object for the thunk.
 	FunctionMutableData* functionMutableData
@@ -133,19 +135,28 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	{
 		const ValueType paramType = functionType.params()[argIndex];
 		llvm::Value* argOffset = emitLiteral(llvmContext, argIndex * sizeof(UntaggedValue));
+		auto typeptr = asLLVMType(llvmContext, paramType);
 		llvm::Value* arg = emitContext.loadFromUntypedPointer(
-			emitContext.irBuilder.CreateInBoundsGEP(argsArray, {argOffset}),
-			asLLVMType(llvmContext, paramType),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+				emitContext.irBuilder, llvmContext.i8Type, argsArray, {argOffset}),
+			typeptr,
 			alignof(UntaggedValue));
 		arguments.push_back(arg);
 	}
 
 	// Call the function.
-	llvm::Value* functionCode = emitContext.irBuilder.CreateInBoundsGEP(
-		calleeFunction, {emitLiteralIptr(offsetof(Runtime::Function, code), iptrType)});
+	llvm::Value* functionCode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+		emitContext.irBuilder,
+		llvmContext.i8Type,
+		calleeFunction,
+		{emitLiteralIptr(offsetof(Runtime::Function, code), iptrType)});
 	ValueVector results = emitContext.emitCallOrInvoke(
+#if LLVM_VERSION_MAJOR > 14
+		functionCode,
+#else
 		emitContext.irBuilder.CreatePointerCast(
 			functionCode, asLLVMType(llvmContext, functionType)->getPointerTo()),
+#endif
 		arguments,
 		functionType);
 
@@ -157,13 +168,14 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		llvm::Value* result = results[resultIndex];
 		emitContext.storeToUntypedPointer(
 			result,
-			emitContext.irBuilder.CreateInBoundsGEP(resultsArray, {resultOffset}),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+				emitContext.irBuilder, llvmContext.i8Type, resultsArray, {resultOffset}),
 			alignof(UntaggedValue));
 	}
 
 	// Return the new context pointer.
-	emitContext.irBuilder.CreateRet(
-		emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable));
+	emitContext.irBuilder.CreateRet(::WAVM::LLVMJIT::wavmCreateLoad(
+		emitContext.irBuilder, iptrType->getPointerTo(), emitContext.contextPointerVariable));
 
 	// Compile the LLVM IR to object code.
 	std::vector<U8> objectBytes

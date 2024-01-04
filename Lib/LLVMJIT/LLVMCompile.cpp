@@ -18,7 +18,11 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm-c/Disassembler.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
+#if __has_include(<llvm/ADT/Triple.h>)
 #include <llvm/ADT/Triple.h>
+#elif __has_include(<llvm/TargetParser/Triple.h>)
+#include <llvm/TargetParser/Triple.h>
+#endif
 #include <llvm/ADT/ilist_iterator.h>
 #include <llvm/CodeGen/TargetSubtargetInfo.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -29,7 +33,9 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/Object/SymbolSize.h>
 #include <llvm/Pass.h>
 #include <llvm/Support/FileSystem.h>
+#if __has_include(<llvm/Support/Host.h>)
 #include <llvm/Support/Host.h>
+#endif
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/Scalar.h>
@@ -93,7 +99,9 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 	fpm.add(llvm::createPromoteMemoryToRegisterPass());
 	fpm.add(llvm::createInstructionCombiningPass());
 	fpm.add(llvm::createCFGSimplificationPass());
+#if LLVM_VERSION_MAJOR < 17
 	fpm.add(llvm::createJumpThreadingPass());
+#endif
 #if LLVM_VERSION_MAJOR >= 12
 	// LLVM 12 removed the constant propagation pass in favor of the instsimplify pass, which is
 	// itself marked as legacy.
@@ -110,7 +118,9 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 
 	fpm.doInitialization();
 	for(auto functionIt = llvmModule.begin(); functionIt != llvmModule.end(); ++functionIt)
-	{ fpm.run(*functionIt); }
+	{
+		fpm.run(*functionIt);
+	}
 
 	if(shouldLogMetrics)
 	{
@@ -280,7 +290,9 @@ std::string LLVMJIT::disassembleObject(const TargetSpec& targetSpec,
 #if LLVM_VERSION_MAJOR >= 9
 			if(llvm::Expected<llvm::StringRef> maybeSectionContents
 			   = (*symbolSection)->getContents())
-			{ sectionContents = maybeSectionContents.get(); }
+			{
+				sectionContents = maybeSectionContents.get();
+			}
 #else
 			(*symbolSection)->getContents(sectionContents);
 #endif
