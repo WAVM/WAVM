@@ -62,7 +62,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 	if(dladdr((void*)ip, &symbolInfo))
 	{
 		WAVM_ASSERT(symbolInfo.dli_fname);
-		outSource.module = symbolInfo.dli_fname;
+		outSource.module_ = symbolInfo.dli_fname;
 		if(!symbolInfo.dli_sname)
 		{
 			outSource.function = std::string();
@@ -80,10 +80,7 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 					free(demangledBuffer);
 				}
 			}
-			else
-			{
-				outSource.function = symbolInfo.dli_sname;
-			}
+			else { outSource.function = symbolInfo.dli_sname; }
 			outSource.instructionOffset = ip - reinterpret_cast<Uptr>(symbolInfo.dli_saddr);
 		}
 		return true;

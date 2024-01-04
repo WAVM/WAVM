@@ -31,8 +31,21 @@ set(WindowsSources
 	Windows/ThreadWindows.cpp
 	Windows/WindowsPrivate.h)
 
+
+set(wavmiswindows ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+
+set(compilerisgnu ${CMAKE_CXX_COMPILER_FRONTEND_VARIANT} STREQUAL "GNU")
+
+if(${wavmiswindows})
+if (${compilerisgnu})
+set(Win32Sources "")
+set(Win64Sources "")
+else()
 set(Win32Sources Windows/Win32.asm)
-set(Win64Sources Windows/Win64.asm)
+set(Win64Sources "")
+endif()
+
+endif()
 
 set(Headers
 	${WAVM_INCLUDE_DIR}/Platform/Clock.h
@@ -48,7 +61,8 @@ set(Headers
 	${WAVM_INCLUDE_DIR}/Platform/RWMutex.h
 	${WAVM_INCLUDE_DIR}/Platform/Thread.h)
 
-if(MSVC)
+
+if(${wavmiswindows})
 	list(APPEND Headers ${POSIXSources})
 	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 		set(Sources ${WindowsSources} ${Win32Sources})
@@ -109,11 +123,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND PLATFORM_PRIVATE_LIBS rt)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-	list(APPEND PLATFORM_PRIVATE_LIBS "Bcrypt.lib")
+if(${wavmiswindows})
+
+if (${compilerisgnu})
+	list(APPEND PLATFORM_PRIVATE_LIBS bcrypt)
+elseif()
+	list(APPEND PLATFORM_PRIVATE_LIBS "bcrypt.lib")
+endif()
 endif()
 
-if(NOT MSVC)
+if(NOT ${wavmiswindows})
 	list(APPEND PLATFORM_PRIVATE_LIBS dl)
 endif()
 

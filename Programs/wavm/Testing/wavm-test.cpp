@@ -50,36 +50,15 @@ void showTestHelp(Log::Category outputCategory)
 static TestCommand parseTestCommand(const char* string)
 {
 	if(!strcmp(string, "dumpmodules")) { return TestCommand::dumpModules; }
-	else if(!strcmp(string, "hashmap"))
-	{
-		return TestCommand::hashMap;
-	}
-	else if(!strcmp(string, "hashset"))
-	{
-		return TestCommand::hashSet;
-	}
-	else if(!strcmp(string, "i128"))
-	{
-		return TestCommand::i128;
-	}
+	else if(!strcmp(string, "hashmap")) { return TestCommand::hashMap; }
+	else if(!strcmp(string, "hashset")) { return TestCommand::hashSet; }
+	else if(!strcmp(string, "i128")) { return TestCommand::i128; }
 #if WAVM_ENABLE_RUNTIME
-	else if(!strcmp(string, "c-api"))
-	{
-		return TestCommand::cAPI;
-	}
-	else if(!strcmp(string, "benchmark"))
-	{
-		return TestCommand::benchmark;
-	}
-	else if(!strcmp(string, "script"))
-	{
-		return TestCommand::script;
-	}
+	else if(!strcmp(string, "c-api")) { return TestCommand::cAPI; }
+	else if(!strcmp(string, "benchmark")) { return TestCommand::benchmark; }
+	else if(!strcmp(string, "script")) { return TestCommand::script; }
 #endif
-	else
-	{
-		return TestCommand::invalid;
-	}
+	else { return TestCommand::invalid; }
 }
 
 int execTestCommand(int argc, char** argv)

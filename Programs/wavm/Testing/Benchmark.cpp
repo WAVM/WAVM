@@ -117,8 +117,8 @@ void runInvokeBench()
 
 	// Instantiate the module.
 	GCPointer<Compartment> compartment = Runtime::createCompartment();
-	auto module = compileModule(irModule);
-	auto instance = instantiateModule(compartment, module, {}, "nopModule");
+	auto module_ = compileModule(irModule);
+	auto instance = instantiateModule(compartment, module_, {}, "nopModule");
 	auto function = asFunction(getInstanceExport(instance, "nopFunction"));
 
 	// Call the nop function once to ensure the time to create the invoke thunk isn't benchmarked.
@@ -140,7 +140,9 @@ void runInvokeBench()
 
 			Timing::Timer timer;
 			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-			{ (*(NopFunctionPointer)&threadArgs->function->code[0])(contextRuntimeData); }
+			{
+				(*(NopFunctionPointer)&threadArgs->function->code[0])(contextRuntimeData);
+			}
 			timer.stop();
 
 			threadArgs->elapsedNanoseconds = timer.getNanoseconds() / F64(numInvokesPerThread);
@@ -200,7 +202,7 @@ static constexpr const char* intrinsicBenchModuleWAST
 
 void runIntrinsicBench()
 {
-	// Parse the intrinsic benchmark module.
+	// Parse the intrinsic benchmark module_.
 	std::vector<WAST::Error> parseErrors;
 	IR::Module irModule;
 	if(!WAST::parseModule(
@@ -218,9 +220,9 @@ void runIntrinsicBench()
 	auto intrinsicIdentityFunction = getInstanceExport(intrinsicInstance, "identity");
 
 	// Instantiate the WASM module.
-	auto module = compileModule(irModule);
+	auto module_ = compileModule(irModule);
 	auto instance = instantiateModule(
-		compartment, module, {intrinsicIdentityFunction}, "benchmarkIntrinsicModule");
+		compartment, module_, {intrinsicIdentityFunction}, "benchmarkIntrinsicModule");
 	auto function = asFunction(getInstanceExport(instance, "benchmarkIntrinsicFunc"));
 
 	// Call the benchmark function once to ensure the time to create the invoke thunk isn't

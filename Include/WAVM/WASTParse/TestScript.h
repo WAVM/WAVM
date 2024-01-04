@@ -89,13 +89,13 @@ namespace WAVM { namespace WAST {
 	struct ModuleAction : Action
 	{
 		std::string internalModuleName;
-		std::unique_ptr<IR::Module> module;
+		std::unique_ptr<IR::Module> module_;
 		ModuleAction(TextFileLocus&& inLocus,
 					 std::string&& inInternalModuleName,
 					 std::unique_ptr<IR::Module>&& inModule)
 		: Action(ActionType::_module, std::move(inLocus))
 		, internalModuleName(inInternalModuleName)
-		, module(std::move(inModule))
+		, module_(std::move(inModule))
 		{
 		}
 	};

@@ -50,10 +50,7 @@ bool HashMap<HASHMAP_ARGUMENTS>::add(const Key& key, ValueArgs&&... valueArgs)
 		bucket.storage.construct(key, std::forward<ValueArgs>(valueArgs)...);
 		return true;
 	}
-	else
-	{
-		return false;
-	}
+	else { return false; }
 }
 
 template<HASHMAP_PARAMETERS>
@@ -80,10 +77,7 @@ Value& HashMap<HASHMAP_ARGUMENTS>::set(const Key& key, ValueArgs&&... valueArgs)
 		bucket.hashAndOccupancy = hashAndOccupancy;
 		bucket.storage.construct(key, std::forward<ValueArgs>(valueArgs)...);
 	}
-	else
-	{
-		bucket.storage.get().value = Value(std::forward<ValueArgs>(valueArgs)...);
-	}
+	else { bucket.storage.get().value = Value(std::forward<ValueArgs>(valueArgs)...); }
 	return bucket.storage.get().value;
 }
 
@@ -237,8 +231,7 @@ template<typename Key, typename Value> HashMapIterator<Key, Value>::operator boo
 
 template<typename Key, typename Value> void HashMapIterator<Key, Value>::operator++()
 {
-	do
-	{
+	do {
 		++bucket;
 	} while(bucket < endBucket && !bucket->hashAndOccupancy);
 }

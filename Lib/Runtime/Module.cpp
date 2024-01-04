@@ -95,5 +95,5 @@ ModuleRef Runtime::loadPrecompiledModule(const IR::Module& irModule,
 	return std::make_shared<Module>(IR::Module(irModule), std::vector<U8>(objectCode));
 }
 
-const IR::Module& Runtime::getModuleIR(ModuleConstRefParam module) { return module->ir; }
-std::vector<U8> Runtime::getObjectCode(ModuleConstRefParam module) { return module->objectCode; }
+const IR::Module& Runtime::getModuleIR(ModuleConstRefParam module_) { return module_->ir; }
+std::vector<U8> Runtime::getObjectCode(ModuleConstRefParam module_) { return module_->objectCode; }

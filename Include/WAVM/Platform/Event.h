@@ -23,8 +23,18 @@ namespace WAVM { namespace Platform {
 		WAVM_API void signal();
 
 	private:
-#ifdef WIN32
+#ifdef _WIN32
 		void* handle;
+#elif defined(__BIONIC__)
+		struct PthreadMutex
+		{
+			Uptr data[5];
+		} pthreadMutex;
+		struct PthreadCond
+		{
+			Uptr data[6];
+		} pthreadCond;
+
 #elif defined(__linux__) && defined(__x86_64__)
 		struct PthreadMutex
 		{

@@ -73,14 +73,20 @@ struct LLVMJIT::GlobalModuleState
 		static std::shared_ptr<GlobalModuleState> singleton = std::make_shared<GlobalModuleState>();
 		return singleton;
 	}
-
+	GlobalModuleState(GlobalModuleState const&) = delete;
+	GlobalModuleState& operator=(GlobalModuleState const&) = delete;
 	// These constructor and destructor should not be called directly, but must be public in order
 	// to be accessible by std::make_shared.
-	GlobalModuleState()
+	explicit GlobalModuleState()
 	{
 		gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
 	}
-	~GlobalModuleState() { delete gdbRegistrationListener; }
+	~GlobalModuleState()
+	{
+#if LLVM_VERSION_MAJOR < 15
+		delete gdbRegistrationListener;
+#endif
+	}
 };
 
 // Allocates memory for the LLVM object loader.
@@ -101,7 +107,9 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 		deregisterEHFrames();
 
 		if(!KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED)
-		{ Platform::freeVirtualPages(imageBaseAddress, numAllocatedImagePages); }
+		{
+			Platform::freeVirtualPages(imageBaseAddress, numAllocatedImagePages);
+		}
 		else
 		{
 			// Decommit the image pages, but leave them reserved to catch any references to them
@@ -139,12 +147,21 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	}
 
 	virtual bool needsToReserveAllocationSpace() override { return true; }
+#if LLVM_VERSION_MAJOR >= 16
+	virtual void reserveAllocationSpace(uintptr_t numCodeBytes,
+										::llvm::Align codeAlignment,
+										uintptr_t numReadOnlyBytes,
+										::llvm::Align readOnlyAlignment,
+										uintptr_t numReadWriteBytes,
+										::llvm::Align readWriteAlignment) override
+#else
 	virtual void reserveAllocationSpace(uintptr_t numCodeBytes,
 										U32 codeAlignment,
 										uintptr_t numReadOnlyBytes,
 										U32 readOnlyAlignment,
 										uintptr_t numReadWriteBytes,
 										U32 readWriteAlignment) override
+#endif
 	{
 		if(USE_WINDOWS_SEH)
 		{
@@ -165,7 +182,9 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
 			if(!imageBaseAddress
 			   || !Platform::commitVirtualPages(imageBaseAddress, numAllocatedImagePages))
-			{ Errors::fatal("memory allocation for JIT code failed"); }
+			{
+				Errors::fatal("memory allocation for JIT code failed");
+			}
 			Platform::registerVirtualAllocation(numAllocatedImagePages
 												<< Platform::getBytesPerPageLog2());
 			codeSection.baseAddress = imageBaseAddress;
@@ -289,7 +308,9 @@ private:
 
 		// Check that enough space was reserved in the section.
 		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
-		{ Errors::fatal("didn't reserve enough space in section"); }
+		{
+			Errors::fatal("didn't reserve enough space in section");
+		}
 
 		// Drop the '.' or '__' prefix on section names.
 		if(sectionName.size() && sectionName[0] == '.') { sectionName = sectionName.drop_front(1); }
@@ -373,7 +394,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 		{
 			LookupFlagsResult result;
 			for(auto symbol : symbols)
-			{ result.emplace(symbol, findSymbolImpl(symbol).getFlags()); }
+			{
+				result.emplace(symbol, findSymbolImpl(symbol).getFlags());
+			}
 			return result;
 		}
 #else
@@ -467,12 +490,15 @@ Module::Module(const std::vector<U8>& objectBytes,
 	std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo> loadedObject = loader.loadObject(*object);
 	loader.finalizeWithMemoryManagerLocking();
 	if(loader.hasError())
-	{ Errors::fatalf("RuntimeDyld failed: %s", loader.getErrorString().data()); }
+	{
+		Errors::fatalf("RuntimeDyld failed: %s", loader.getErrorString().data());
+	}
 
 	if(USE_WINDOWS_SEH && pdataCopy)
 	{
 		// Lookup the real address of _CxxFrameHandler3.
-		const llvm::JITEvaluatedSymbol sehHandlerSymbol = resolveJITImport("__CxxFrameHandler3");
+		const llvm::JITEvaluatedSymbol sehHandlerSymbol
+			= resolveJITImport(WINDOWS_SEH_HANDLER_NAME);
 		WAVM_ERROR_UNLESS(sehHandlerSymbol);
 		const U64 sehHandlerAddress = U64(sehHandlerSymbol.getAddress());
 
@@ -561,7 +587,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 		WAVM_ASSERT(*address <= UINTPTR_MAX);
 		Uptr loadedAddress = Uptr(*address);
 		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
-		{ loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get()); }
+		{
+			loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
+		}
 
 		std::map<U32, U32> offsetToOpIndexMap;
 #if !LAZY_PARSE_DWARF_LINE_INFO
@@ -578,7 +606,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 			= dwarfContext->getLineInfoForAddressRange(loadedAddress, symbolSizePair.second);
 #endif
 		for(auto lineInfo : lineInfoTable)
-		{ offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
+		{
+			offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line);
+		}
 #endif
 
 		// Add the function to the module's name and address to function maps.
@@ -763,7 +793,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	std::type_info* runtimeExceptionPointerTypeInfo = nullptr;
 	try
 	{
-		throw(Runtime::Exception*) nullptr;
+		throw (Runtime::Exception*)nullptr;
 	}
 	catch(Runtime::Exception*)
 	{
@@ -797,7 +827,9 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	const Uptr codeAddress = reinterpret_cast<Uptr>(outSource.function->code);
 	if(address < codeAddress
 	   || address >= codeAddress + outSource.function->mutableData->numCodeBytes)
-	{ return false; }
+	{
+		return false;
+	}
 
 #if LAZY_PARSE_DWARF_LINE_INFO
 	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
@@ -820,10 +852,7 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	for(auto offsetMapIt : outSource.function->mutableData->offsetToOpIndexMap)
 	{
 		if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
-		else
-		{
-			break;
-		}
+		else { break; }
 	}
 
 	outSource.instructionIndex = opIndex > 0 ? Uptr(opIndex) : 0;

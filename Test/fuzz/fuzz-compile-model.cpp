@@ -22,7 +22,7 @@ namespace WAVM { namespace IR {
 using namespace WAVM;
 using namespace WAVM::IR;
 
-static void compileModule(const IR::Module& module, RandomStream& random)
+static void compileModule(const IR::Module& module_, RandomStream& random)
 {
 	static const LLVMJIT::TargetSpec possibleTargetSpecs[]
 		= {LLVMJIT::TargetSpec{"x86_64-pc-windows-msvc", "skylake-avx512"},
@@ -39,22 +39,22 @@ static void compileModule(const IR::Module& module, RandomStream& random)
 	WAVM_ERROR_UNLESS(LLVMJIT::validateTarget(targetSpec, FeatureLevel::proposed)
 					  == LLVMJIT::TargetValidationResult::valid);
 
-	std::vector<U8> objectCode = LLVMJIT::compileModule(module, targetSpec);
+	std::vector<U8> objectCode = LLVMJIT::compileModule(module_, targetSpec);
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	RandomStream random(data, numBytes);
 
-	IR::Module module(FeatureLevel::wavm);
-	IR::generateValidModule(module, random);
+	IR::Module module_(FeatureLevel::wavm);
+	IR::generateValidModule(module_, random);
 
 #if !WAVM_ENABLE_LIBFUZZER
-	std::string wastString = WAST::print(module);
+	std::string wastString = WAST::print(module_);
 	Log::printf(Log::Category::debug, "Generated module WAST:\n%s\n", wastString.c_str());
 #endif
 
-	compileModule(module, random);
+	compileModule(module_, random);
 
 	return 0;
 }

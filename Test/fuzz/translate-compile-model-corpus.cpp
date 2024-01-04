@@ -57,10 +57,10 @@ I32 main(int argc, char** argv)
 		{
 			RandomStream random(inputBytes.data(), inputBytes.size());
 
-			IR::Module module(IR::FeatureLevel::wavm);
-			IR::generateValidModule(module, random);
+			IR::Module module_(IR::FeatureLevel::wavm);
+			IR::generateValidModule(module_, random);
 
-			std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
+			std::vector<U8> wasmBytes = WASM::saveBinaryModule(module_);
 			const std::string wasmFilePath
 				= wasmOutputDir + "/compile-model-translated-" + dirEnt.name + ".wasm";
 			if(!saveFile(wasmFilePath.c_str(), wasmBytes.data(), wasmBytes.size()))
@@ -69,7 +69,7 @@ I32 main(int argc, char** argv)
 				break;
 			}
 
-			std::string wastString = WAST::print(module);
+			std::string wastString = WAST::print(module_);
 			const std::string wastFilePath
 				= wastOutputDir + "/compile-model-translated-" + dirEnt.name + ".wast";
 			if(!saveFile(wastFilePath.c_str(), wastString.data(), wastString.size()))

@@ -35,24 +35,15 @@ static std::string escapeString(const char* string, Uptr numChars)
 	{
 		auto c = string[charIndex];
 		if(c == '\\') { result += "\\\\"; }
-		else if(c == '\"')
-		{
-			result += "\\\"";
-		}
-		else if(c == '\n')
-		{
-			result += "\\n";
-		}
+		else if(c == '\"') { result += "\\\""; }
+		else if(c == '\n') { result += "\\n"; }
 		else if(c < 0x20 || c > 0x7e)
 		{
 			result += '\\';
 			result += nibbleToHexChar((c & 0xf0) >> 4);
 			result += nibbleToHexChar((c & 0x0f) >> 0);
 		}
-		else
-		{
-			result += c;
-		}
+		else { result += c; }
 	}
 	return result;
 }
@@ -68,14 +59,8 @@ static std::string escapeName(const std::string& name)
 	for(char c : name)
 	{
 		if(c == '(') { escapedName += "_lparen_"; }
-		else if(c == ')')
-		{
-			escapedName += "_rparen_";
-		}
-		else if(c == ' ')
-		{
-			escapedName += '_';
-		}
+		else if(c == ')') { escapedName += "_rparen_"; }
+		else if(c == ' ') { escapedName += '_'; }
 		else if(!isNameChar(c))
 		{
 			escapedName += '_';
@@ -83,10 +68,7 @@ static std::string escapeName(const std::string& name)
 			escapedName += nibbleToHexChar((c & 0x0f) >> 0);
 			escapedName += '_';
 		}
-		else
-		{
-			escapedName += c;
-		}
+		else { escapedName += c; }
 	}
 
 	return escapedName;
@@ -132,10 +114,7 @@ static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentL
 			result.insert(result.end(), indentDepth * spacesPerIndentLevel, ' ');
 			++next;
 		}
-		else
-		{
-			result += *next++;
-		}
+		else { result += *next++; }
 	}
 	return result;
 }
@@ -302,8 +281,7 @@ struct NameScope
 		if(!name.size() || !nameSet.add(name))
 		{
 			Uptr& numPrecedingDuplicates = nameToUniqueIndexMap.getOrAdd(name, 0);
-			do
-			{
+			do {
 				name = baseName + std::to_string(numPrecedingDuplicates);
 				++numPrecedingDuplicates;
 			} while(!nameSet.add(name));
@@ -327,20 +305,20 @@ private:
 
 struct ModulePrintContext
 {
-	const Module& module;
+	const Module& module_;
 	std::string& string;
 
 	DisassemblyNames names;
 
 	ModulePrintContext(const Module& inModule, std::string& inString)
-	: module(inModule), string(inString)
+	: module_(inModule), string(inString)
 	{
 		// Start with the names from the module's user name section, but make sure they are unique,
 		// and add the "$" sigil.
-		IR::getDisassemblyNames(module, names);
+		IR::getDisassemblyNames(module_, names);
 		const Uptr numGlobalNames = names.types.size() + names.tables.size() + names.memories.size()
 									+ names.globals.size() + names.exceptionTypes.size();
-		NameScope globalNameScope('$', module.featureSpec.quotedNamesInTextFormat, numGlobalNames);
+		NameScope globalNameScope('$', module_.featureSpec.quotedNamesInTextFormat, numGlobalNames);
 		for(auto& name : names.types) { globalNameScope.map(name); }
 		for(auto& name : names.tables) { globalNameScope.map(name); }
 		for(auto& name : names.memories) { globalNameScope.map(name); }
@@ -353,7 +331,7 @@ struct ModulePrintContext
 			globalNameScope.map(function.name);
 
 			NameScope localNameScope(
-				'$', module.featureSpec.quotedNamesInTextFormat, function.locals.size());
+				'$', module_.featureSpec.quotedNamesInTextFormat, function.locals.size());
 			for(auto& name : function.locals) { localNameScope.map(name); }
 		}
 	}
@@ -406,7 +384,7 @@ struct FunctionPrintContext
 	typedef void Result;
 
 	ModulePrintContext& moduleContext;
-	const Module& module;
+	const Module& module_;
 	const FunctionDef& functionDef;
 	FunctionType functionType;
 	std::string& string;
@@ -418,15 +396,17 @@ struct FunctionPrintContext
 
 	FunctionPrintContext(ModulePrintContext& inModuleContext, Uptr functionDefIndex)
 	: moduleContext(inModuleContext)
-	, module(inModuleContext.module)
-	, functionDef(inModuleContext.module.functions.defs[functionDefIndex])
-	, functionType(inModuleContext.module.types[functionDef.type.index])
+	, module_(inModuleContext.module_)
+	, functionDef(inModuleContext.module_.functions.defs[functionDefIndex])
+	, functionType(inModuleContext.module_.types[functionDef.type.index])
 	, string(inModuleContext.string)
-	, labelNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex]
-					 .labels)
-	, localNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex]
-					 .locals)
-	, labelNameScope('$', inModuleContext.module.featureSpec.quotedNamesInTextFormat, 4)
+	, labelNames(
+		  inModuleContext.names.functions[module_.functions.imports.size() + functionDefIndex]
+			  .labels)
+	, localNames(
+		  inModuleContext.names.functions[module_.functions.imports.size() + functionDefIndex]
+			  .locals)
+	, labelNameScope('$', inModuleContext.module_.featureSpec.quotedNamesInTextFormat, 4)
 	, labelIndex(0)
 	{
 	}
@@ -491,10 +471,7 @@ struct FunctionPrintContext
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
 			if(targetIndex % numTargetsPerLine == 0) { string += '\n'; }
-			else
-			{
-				string += ' ';
-			}
+			else { string += ' '; }
 			string += getBranchTargetId(targetDepths[targetIndex]);
 		}
 		string += '\n';
@@ -595,7 +572,7 @@ struct FunctionPrintContext
 
 	void printControlSignature(IndexedBlockType indexedSignature)
 	{
-		FunctionType signature = resolveBlockType(module, indexedSignature);
+		FunctionType signature = resolveBlockType(module_, indexedSignature);
 		print(string, signature);
 	}
 
@@ -789,7 +766,7 @@ struct FunctionPrintContext
 #define PRINT_OP(opcode, name, nameString, Imm, printOperands, requiredFeature)                    \
 	void name(Imm imm)                                                                             \
 	{                                                                                              \
-		WAVM_ASSERT(module.featureSpec.requiredFeature);                                           \
+		WAVM_ASSERT(module_.featureSpec.requiredFeature);                                          \
 		string += "\n" nameString;                                                                 \
 		printImm(imm);                                                                             \
 	}
@@ -842,22 +819,22 @@ private:
 	void enterUnreachable() {}
 };
 
-template<typename Type> void printImportType(std::string& string, const Module& module, Type type)
+template<typename Type> void printImportType(std::string& string, const Module& module_, Type type)
 {
 	print(string, type);
 }
 template<>
 void printImportType<IndexedFunctionType>(std::string& string,
-										  const Module& module,
+										  const Module& module_,
 										  IndexedFunctionType type)
 {
-	print(string, module.types[type.index]);
+	print(string, module_.types[type.index]);
 }
 
 template<typename Type>
 void printImport(std::string& string,
-				 const Module& module,
-				 const Import<Type>& import,
+				 const Module& module_,
+				 const Import<Type>& import_,
 				 Uptr importIndex,
 				 const char* name,
 				 const char* typeTag)
@@ -865,80 +842,80 @@ void printImport(std::string& string,
 	string += '\n';
 	ScopedTagPrinter importTag(string, "import");
 	string += " \"";
-	string += escapeString(import.moduleName.c_str(), import.moduleName.length());
+	string += escapeString(import_.moduleName.c_str(), import_.moduleName.length());
 	string += "\" \"";
-	string += escapeString(import.exportName.c_str(), import.exportName.length());
+	string += escapeString(import_.exportName.c_str(), import_.exportName.length());
 	string += "\" (";
 	string += typeTag;
 	string += ' ';
 	string += name;
-	printImportType(string, module, import.type);
+	printImportType(string, module_, import_.type);
 	string += ')';
 }
 
 void ModulePrintContext::printModule()
 {
-	ScopedTagPrinter moduleTag(string, "module");
+	ScopedTagPrinter moduleTag(string, "module_");
 
 	// Print the custom sections that precede all known sections.
 	printCustomSectionsAfterKnownSection(OrderedSectionID::moduleBeginning);
 
 	// Print the types.
-	for(Uptr typeIndex = 0; typeIndex < module.types.size(); ++typeIndex)
+	for(Uptr typeIndex = 0; typeIndex < module_.types.size(); ++typeIndex)
 	{
 		string += '\n';
 		ScopedTagPrinter typeTag(string, "type");
 		string += ' ';
 		string += names.types[typeIndex];
 		string += " (func";
-		print(string, module.types[typeIndex]);
+		print(string, module_.types[typeIndex]);
 		string += ')';
 	}
 	printCustomSectionsAfterKnownSection(OrderedSectionID::type);
 
-	// Print the module imports.
-	for(const auto& import : module.imports)
+	// Print the module_ imports.
+	for(const auto& import_ : module_.imports)
 	{
-		switch(import.kind)
+		switch(import_.kind)
 		{
 		case ExternKind::function:
 			printImport(string,
-						module,
-						module.functions.imports[import.index],
-						import.index,
-						names.functions[import.index].name.c_str(),
+						module_,
+						module_.functions.imports[import_.index],
+						import_.index,
+						names.functions[import_.index].name.c_str(),
 						"func");
 			break;
 		case ExternKind::table:
 			printImport(string,
-						module,
-						module.tables.imports[import.index],
-						import.index,
-						names.tables[import.index].c_str(),
+						module_,
+						module_.tables.imports[import_.index],
+						import_.index,
+						names.tables[import_.index].c_str(),
 						"table");
 			break;
 		case ExternKind::memory:
 			printImport(string,
-						module,
-						module.memories.imports[import.index],
-						import.index,
-						names.memories[import.index].c_str(),
+						module_,
+						module_.memories.imports[import_.index],
+						import_.index,
+						names.memories[import_.index].c_str(),
 						"memory");
 			break;
 		case ExternKind::global:
 			printImport(string,
-						module,
-						module.globals.imports[import.index],
-						import.index,
-						names.globals[import.index].c_str(),
+						module_,
+						module_.globals.imports[import_.index],
+						import_.index,
+						names.globals[import_.index].c_str(),
 						"global");
 			break;
 		case ExternKind::exceptionType:
 			printImport(string,
-						module,
-						module.exceptionTypes.imports[import.index],
-						import.index,
-						names.exceptionTypes[import.index].c_str(),
+						module_,
+						module_.exceptionTypes.imports[import_.index],
+						import_.index,
+						names.exceptionTypes[import_.index].c_str(),
 						"exception_type");
 			break;
 
@@ -946,7 +923,7 @@ void ModulePrintContext::printModule()
 		default: WAVM_UNREACHABLE();
 		};
 	}
-	printCustomSectionsAfterKnownSection(OrderedSectionID::import);
+	printCustomSectionsAfterKnownSection(OrderedSectionID::import_);
 
 	// Print the custom sections that are meant to occur after the function declaration section
 	// here. The text format prints the function declarations later, at the same time as their code,
@@ -955,39 +932,39 @@ void ModulePrintContext::printModule()
 	printCustomSectionsAfterKnownSection(OrderedSectionID::function);
 
 	// Print the module memory definitions.
-	for(Uptr defIndex = 0; defIndex < module.memories.defs.size(); ++defIndex)
+	for(Uptr defIndex = 0; defIndex < module_.memories.defs.size(); ++defIndex)
 	{
-		const MemoryDef& memoryDef = module.memories.defs[defIndex];
+		const MemoryDef& memoryDef = module_.memories.defs[defIndex];
 		string += '\n';
 		ScopedTagPrinter memoryTag(string, "memory");
 		string += ' ';
-		string += names.memories[module.memories.imports.size() + defIndex];
+		string += names.memories[module_.memories.imports.size() + defIndex];
 		string += ' ';
 		print(string, memoryDef.type);
 	}
 	printCustomSectionsAfterKnownSection(OrderedSectionID::memory);
 
 	// Print the module table definitions.
-	for(Uptr defIndex = 0; defIndex < module.tables.defs.size(); ++defIndex)
+	for(Uptr defIndex = 0; defIndex < module_.tables.defs.size(); ++defIndex)
 	{
-		const TableDef& tableDef = module.tables.defs[defIndex];
+		const TableDef& tableDef = module_.tables.defs[defIndex];
 		string += '\n';
 		ScopedTagPrinter memoryTag(string, "table");
 		string += ' ';
-		string += names.tables[module.tables.imports.size() + defIndex];
+		string += names.tables[module_.tables.imports.size() + defIndex];
 		string += ' ';
 		print(string, tableDef.type);
 	}
 	printCustomSectionsAfterKnownSection(OrderedSectionID::table);
 
 	// Print the module global definitions.
-	for(Uptr defIndex = 0; defIndex < module.globals.defs.size(); ++defIndex)
+	for(Uptr defIndex = 0; defIndex < module_.globals.defs.size(); ++defIndex)
 	{
-		const GlobalDef& globalDef = module.globals.defs[defIndex];
+		const GlobalDef& globalDef = module_.globals.defs[defIndex];
 		string += '\n';
 		ScopedTagPrinter memoryTag(string, "global");
 		string += ' ';
-		string += names.globals[module.globals.imports.size() + defIndex];
+		string += names.globals[module_.globals.imports.size() + defIndex];
 		string += ' ';
 		print(string, globalDef.type);
 		string += ' ';
@@ -996,19 +973,19 @@ void ModulePrintContext::printModule()
 	printCustomSectionsAfterKnownSection(OrderedSectionID::global);
 
 	// Print the module exception type definitions.
-	for(Uptr defIndex = 0; defIndex < module.exceptionTypes.defs.size(); ++defIndex)
+	for(Uptr defIndex = 0; defIndex < module_.exceptionTypes.defs.size(); ++defIndex)
 	{
-		const ExceptionTypeDef& exceptionTypeDef = module.exceptionTypes.defs[defIndex];
+		const ExceptionTypeDef& exceptionTypeDef = module_.exceptionTypes.defs[defIndex];
 		string += '\n';
 		ScopedTagPrinter exceptionTypeTag(string, "exception_type");
 		string += ' ';
-		string += names.exceptionTypes[module.exceptionTypes.imports.size() + defIndex];
+		string += names.exceptionTypes[module_.exceptionTypes.imports.size() + defIndex];
 		print(string, exceptionTypeDef.type);
 	}
 	printCustomSectionsAfterKnownSection(OrderedSectionID::exceptionType);
 
 	// Print the module exports.
-	for(auto export_ : module.exports)
+	for(auto export_ : module_.exports)
 	{
 		string += '\n';
 		ScopedTagPrinter exportTag(string, "export");
@@ -1033,20 +1010,20 @@ void ModulePrintContext::printModule()
 	printCustomSectionsAfterKnownSection(OrderedSectionID::export_);
 
 	// Print the start function.
-	if(module.startFunctionIndex != UINTPTR_MAX)
+	if(module_.startFunctionIndex != UINTPTR_MAX)
 	{
 		string += '\n';
 		ScopedTagPrinter startTag(string, "start");
 		string += ' ';
-		string += names.functions[module.startFunctionIndex].name;
+		string += names.functions[module_.startFunctionIndex].name;
 	}
 
 	printCustomSectionsAfterKnownSection(OrderedSectionID::start);
 
 	// Print the elem segments.
-	for(Uptr segmentIndex = 0; segmentIndex < module.elemSegments.size(); ++segmentIndex)
+	for(Uptr segmentIndex = 0; segmentIndex < module_.elemSegments.size(); ++segmentIndex)
 	{
-		const ElemSegment& elemSegment = module.elemSegments[segmentIndex];
+		const ElemSegment& elemSegment = module_.elemSegments[segmentIndex];
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "elem");
 		string += ' ';
@@ -1063,10 +1040,7 @@ void ModulePrintContext::printModule()
 			string += ' ';
 			printInitializerExpression(elemSegment.baseOffset);
 		}
-		else if(elemSegment.type == ElemSegment::Type::declared)
-		{
-			string += " declare";
-		}
+		else if(elemSegment.type == ElemSegment::Type::declared) { string += " declare"; }
 
 		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)
 		{
@@ -1147,12 +1121,12 @@ void ModulePrintContext::printModule()
 	printCustomSectionsAfterKnownSection(OrderedSectionID::dataCount);
 
 	// Print the function definitions.
-	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
+	for(Uptr functionDefIndex = 0; functionDefIndex < module_.functions.defs.size();
 		++functionDefIndex)
 	{
-		const Uptr functionIndex = module.functions.imports.size() + functionDefIndex;
-		const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
-		FunctionType functionType = module.types[functionDef.type.index];
+		const Uptr functionIndex = module_.functions.imports.size() + functionDefIndex;
+		const FunctionDef& functionDef = module_.functions.defs[functionDefIndex];
+		FunctionType functionType = module_.types[functionDef.type.index];
 		FunctionPrintContext functionContext(*this, functionDefIndex);
 
 		string += "\n\n";
@@ -1211,9 +1185,9 @@ void ModulePrintContext::printModule()
 	printCustomSectionsAfterKnownSection(OrderedSectionID::code);
 
 	// Print the data segments
-	for(Uptr segmentIndex = 0; segmentIndex < module.dataSegments.size(); ++segmentIndex)
+	for(Uptr segmentIndex = 0; segmentIndex < module_.dataSegments.size(); ++segmentIndex)
 	{
-		const DataSegment& dataSegment = module.dataSegments[segmentIndex];
+		const DataSegment& dataSegment = module_.dataSegments[segmentIndex];
 		string += "\n\n";
 		ScopedTagPrinter dataTag(string, "data");
 		string += ' ';
@@ -1247,7 +1221,7 @@ void ModulePrintContext::printCustomSectionsAfterKnownSection(OrderedSectionID a
 {
 	// Print custom sections (other than the name section) that are tagged as occurring after the
 	// given section ID.
-	for(const auto& customSection : module.customSections)
+	for(const auto& customSection : module_.customSections)
 	{
 		if(customSection.afterSection == afterSection)
 		{
@@ -1256,16 +1230,16 @@ void ModulePrintContext::printCustomSectionsAfterKnownSection(OrderedSectionID a
 			if(customSection.name != "name")
 			{
 				string += "\n\n";
-				if(!module.featureSpec.customSectionsInTextFormat) { string += ";;"; }
+				if(!module_.featureSpec.customSectionsInTextFormat) { string += ";;"; }
 				string += "(custom_section \"";
 				string += escapeString(customSection.name.c_str(), customSection.name.length());
 				string += '\"';
-				if(module.featureSpec.customSectionsInTextFormat) { string += INDENT_STRING; }
+				if(module_.featureSpec.customSectionsInTextFormat) { string += INDENT_STRING; }
 
 				if(customSection.afterSection != OrderedSectionID::moduleBeginning)
 				{
 					string += '\n';
-					if(!module.featureSpec.customSectionsInTextFormat) { string += ";;  "; }
+					if(!module_.featureSpec.customSectionsInTextFormat) { string += ";;  "; }
 					string += "(after ";
 					string += asString(customSection.afterSection);
 					string += ')';
@@ -1275,7 +1249,7 @@ void ModulePrintContext::printCustomSectionsAfterKnownSection(OrderedSectionID a
 				for(Uptr offset = 0; offset < customSection.data.size(); offset += numBytesPerLine)
 				{
 					string += '\n';
-					if(!module.featureSpec.customSectionsInTextFormat) { string += ";;  "; }
+					if(!module_.featureSpec.customSectionsInTextFormat) { string += ";;  "; }
 					string += '\"';
 					string += escapeString(
 						(const char*)customSection.data.data() + offset,
@@ -1284,7 +1258,7 @@ void ModulePrintContext::printCustomSectionsAfterKnownSection(OrderedSectionID a
 				}
 
 				string += ')';
-				if(module.featureSpec.customSectionsInTextFormat) { string += DEDENT_STRING; }
+				if(module_.featureSpec.customSectionsInTextFormat) { string += DEDENT_STRING; }
 				string += "\n\n";
 			}
 		}
@@ -1379,7 +1353,9 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 
 					linkingSectionString += "\n;; ";
 					if(functionIndex < names.functions.size())
-					{ linkingSectionString += names.functions[functionIndex].name; }
+					{
+						linkingSectionString += names.functions[functionIndex].name;
+					}
 					else
 					{
 						linkingSectionString
@@ -1491,29 +1467,23 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 					case SymbolKind::function: {
 						kindName = "function ";
 						serializeVarUInt32(substream, index);
-						if(index < module.functions.imports.size())
+						if(index < module_.functions.imports.size())
 						{
-							symbolName = module.functions.imports[index].moduleName + "."
-										 + module.functions.imports[index].exportName;
+							symbolName = module_.functions.imports[index].moduleName + "."
+										 + module_.functions.imports[index].exportName;
 						}
-						else
-						{
-							serialize(substream, symbolName);
-						}
+						else { serialize(substream, symbolName); }
 						break;
 					}
 					case SymbolKind::global: {
 						kindName = "global ";
 						serializeVarUInt32(substream, index);
-						if(index < module.globals.imports.size())
+						if(index < module_.globals.imports.size())
 						{
-							symbolName = module.globals.imports[index].moduleName + "."
-										 + module.globals.imports[index].exportName;
+							symbolName = module_.globals.imports[index].moduleName + "."
+										 + module_.globals.imports[index].exportName;
 						}
-						else
-						{
-							serialize(substream, symbolName);
-						}
+						else { serialize(substream, symbolName); }
 						break;
 					}
 					case SymbolKind::data: {
@@ -1528,12 +1498,11 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 						kindName = "section ";
 						serializeVarUInt32(substream, index);
 
-						if(index < module.customSections.size())
-						{ symbolName = module.customSections[index].name; }
-						else
+						if(index < module_.customSections.size())
 						{
-							symbolName = "*invalid index*";
+							symbolName = module_.customSections[index].name;
 						}
+						else { symbolName = "*invalid index*"; }
 
 						break;
 					}
@@ -1552,7 +1521,9 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 					{
 					case SymbolKind::function:
 						if(index < names.functions.size())
-						{ linkingSectionString += " " + names.functions[index].name; }
+						{
+							linkingSectionString += " " + names.functions[index].name;
+						}
 						else
 						{
 							linkingSectionString
@@ -1561,7 +1532,9 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 						break;
 					case SymbolKind::global:
 						if(index < names.globals.size())
-						{ linkingSectionString += " " + names.globals[index]; }
+						{
+							linkingSectionString += " " + names.globals[index];
+						}
 						else
 						{
 							linkingSectionString
@@ -1646,10 +1619,10 @@ void FunctionPrintContext::printFunctionBody()
 	string += INDENT_STRING "\n";
 }
 
-std::string WAST::print(const Module& module)
+std::string WAST::print(const Module& module_)
 {
 	std::string string;
-	ModulePrintContext context(module, string);
+	ModulePrintContext context(module_, string);
 	context.printModule();
 	return expandIndentation(std::move(string));
 }

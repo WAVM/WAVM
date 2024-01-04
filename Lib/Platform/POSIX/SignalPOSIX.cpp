@@ -59,7 +59,9 @@ static void maskSignals(int how)
 	{
 	case SIGFPE:
 		if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF)
-		{ Errors::fatalfWithCallStack("unknown SIGFPE code"); }
+		{
+			Errors::fatalfWithCallStack("unknown SIGFPE code");
+		}
 		signal.type = Signal::Type::intDivideByZeroOrOverflow;
 		break;
 	case SIGSEGV:
@@ -171,8 +173,7 @@ static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const 
 {
 	const U8* next = ehFrames;
 	const U8* end = ehFrames + numBytes;
-	do
-	{
+	do {
 		const U8* cfi = next;
 		Uptr numCFIBytes = *((const U32*)next);
 		next += 4;

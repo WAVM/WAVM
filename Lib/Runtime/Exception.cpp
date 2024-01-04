@@ -90,7 +90,9 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 			Uptr numOmittedFrames = 2;
 			while(frameIndex + numOmittedFrames < callStack.frames.size()
 				  && describedIPs.contains(callStack.frames[frameIndex + numOmittedFrames].ip))
-			{ ++numOmittedFrames; }
+			{
+				++numOmittedFrames;
+			}
 
 			frameDescriptions.emplace_back("<" + std::to_string(numOmittedFrames)
 										   + " redundant frames omitted>");
@@ -104,11 +106,10 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 			std::string frameDescription;
 			InstructionSource source;
 			if(!getInstructionSourceByAddress(frameIP, source))
-			{ frameDescription = "<unknown function>"; }
-			else
 			{
-				frameDescription = asString(source);
+				frameDescription = "<unknown function>";
 			}
+			else { frameDescription = asString(source); }
 
 			describedIPs.add(frameIP);
 			frameDescriptions.push_back(frameDescription);
@@ -180,7 +181,9 @@ Exception* Runtime::createException(ExceptionType* type,
 	Exception* exception = new(malloc(Exception::calcNumBytes(params.size())))
 		Exception(type->id, type, isUserException, std::move(callStack));
 	if(params.size())
-	{ memcpy(exception->arguments, arguments, sizeof(IR::UntaggedValue) * params.size()); }
+	{
+		memcpy(exception->arguments, arguments, sizeof(IR::UntaggedValue) * params.size());
+	}
 	return exception;
 }
 

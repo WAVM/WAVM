@@ -85,5 +85,5 @@ namespace WAVM { namespace Runtime {
 		bool success{false};
 	};
 
-	WAVM_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);
+	WAVM_API LinkResult linkModule(const IR::Module& module_, Resolver& resolver);
 }}

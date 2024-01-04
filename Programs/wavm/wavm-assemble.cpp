@@ -25,7 +25,9 @@ static bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
 
 	std::vector<WAST::Error> parseErrors;
 	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), outModule, parseErrors))
-	{ return true; }
+	{
+		return true;
+	}
 	else
 	{
 		Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
@@ -57,7 +59,9 @@ int execAssembleCommand(int argc, char** argv)
 	for(Iptr argIndex = 0; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "-n") || !strcmp(argv[argIndex], "--omit-names"))
-		{ omitNames = true; }
+		{
+			omitNames = true;
+		}
 		else if(!strcmp(argv[argIndex], "--enable"))
 		{
 			++argIndex;
@@ -78,14 +82,8 @@ int execAssembleCommand(int argc, char** argv)
 				return false;
 			}
 		}
-		else if(!inputFilename)
-		{
-			inputFilename = argv[argIndex];
-		}
-		else if(!outputFilename)
-		{
-			outputFilename = argv[argIndex];
-		}
+		else if(!inputFilename) { inputFilename = argv[argIndex]; }
+		else if(!outputFilename) { outputFilename = argv[argIndex]; }
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);
@@ -101,19 +99,19 @@ int execAssembleCommand(int argc, char** argv)
 	}
 
 	// Load the WAST module.
-	IR::Module module(featureSpec);
-	if(!loadTextModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
+	IR::Module module_(featureSpec);
+	if(!loadTextModuleFromFile(inputFilename, module_)) { return EXIT_FAILURE; }
 
 	// If the command-line switch to omit names was specified, strip the name section.
 	if(omitNames)
 	{
-		for(auto sectionIt = module.customSections.begin();
-			sectionIt != module.customSections.end();
+		for(auto sectionIt = module_.customSections.begin();
+			sectionIt != module_.customSections.end();
 			++sectionIt)
 		{
 			if(sectionIt->name == "name")
 			{
-				module.customSections.erase(sectionIt);
+				module_.customSections.erase(sectionIt);
 				break;
 			}
 		}
@@ -122,7 +120,7 @@ int execAssembleCommand(int argc, char** argv)
 	// Serialize the WASM module.
 
 	Timing::Timer saveTimer;
-	std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
+	std::vector<U8> wasmBytes = WASM::saveBinaryModule(module_);
 
 	Timing::logRatePerSecond(
 		"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");

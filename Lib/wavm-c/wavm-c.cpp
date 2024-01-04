@@ -113,9 +113,9 @@ struct wasm_memorytype_t : wasm_externtype_t
 };
 struct wasm_module_t
 {
-	ModuleRef module;
+	ModuleRef module_;
 
-	wasm_module_t(ModuleRef inModule) : module(inModule) {}
+	wasm_module_t(ModuleRef inModule) : module_(inModule) {}
 };
 
 static wasm_index_t as_index(IndexType indexType)
@@ -732,15 +732,20 @@ void wasm_val_copy(wasm_valkind_t kind, wasm_val_t* out, const wasm_val_t* val)
 }
 
 // wasm_module_t
-void wasm_module_delete(wasm_module_t* module) { delete module; }
-wasm_module_t* wasm_module_copy(wasm_module_t* module) { return new wasm_module_t{module->module}; }
+void wasm_module_delete(wasm_module_t* module_) { delete module_; }
+wasm_module_t* wasm_module_copy(wasm_module_t* module_)
+{
+	return new wasm_module_t{module_->module_};
+}
 wasm_module_t* wasm_module_new(wasm_engine_t* engine, const char* wasmBytes, uintptr_t numWASMBytes)
 {
 	WASM::LoadError loadError;
-	ModuleRef module;
+	ModuleRef module_;
 	if(loadBinaryModule(
-		   (const U8*)wasmBytes, numWASMBytes, module, engine->config.featureSpec, &loadError))
-	{ return new wasm_module_t{module}; }
+		   (const U8*)wasmBytes, numWASMBytes, module_, engine->config.featureSpec, &loadError))
+	{
+		return new wasm_module_t{module_};
+	}
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
@@ -757,17 +762,19 @@ wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, siz
 	if(!WAST::parseModule(text, num_text_chars, irModule, parseErrors))
 	{
 		if(Log::isCategoryEnabled(Log::debug))
-		{ WAST::reportParseErrors("wasm_module_new_text", text, parseErrors, Log::debug); }
+		{
+			WAST::reportParseErrors("wasm_module_new_text", text, parseErrors, Log::debug);
+		}
 		return nullptr;
 	}
 
-	ModuleRef module = compileModule(irModule);
-	return new wasm_module_t{module};
+	ModuleRef module_ = compileModule(irModule);
+	return new wasm_module_t{module_};
 }
 
-char* wasm_module_print(const wasm_module_t* module, size_t* out_num_chars)
+char* wasm_module_print(const wasm_module_t* module_, size_t* out_num_chars)
 {
-	const std::string wastString = WAST::print(getModuleIR(module->module));
+	const std::string wastString = WAST::print(getModuleIR(module_->module_));
 
 	char* returnBuffer = (char*)malloc(wastString.size() + 1);
 	memcpy(returnBuffer, wastString.c_str(), wastString.size());
@@ -782,7 +789,9 @@ bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 	IR::Module irModule;
 	WASM::LoadError loadError;
 	if(WASM::loadBinaryModule((const U8*)binary, numBinaryBytes, irModule, &loadError))
-	{ return true; }
+	{
+		return true;
+	}
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
@@ -790,19 +799,19 @@ bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 	}
 }
 
-size_t wasm_module_num_imports(const wasm_module_t* module)
+size_t wasm_module_num_imports(const wasm_module_t* module_)
 {
-	return getModuleIR(module->module).imports.size();
+	return getModuleIR(module_->module_).imports.size();
 }
-void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t* out_import)
+void wasm_module_import(const wasm_module_t* module_, size_t index, wasm_import_t* out_import)
 {
-	const IR::Module& irModule = getModuleIR(module->module);
+	const IR::Module& irModule = getModuleIR(module_->module_);
 	const KindAndIndex& kindAndIndex = irModule.imports[index];
 	switch(kindAndIndex.kind)
 	{
 	case ExternKind::function: {
 		const auto& functionImport = irModule.functions.imports[kindAndIndex.index];
-		out_import->module = functionImport.moduleName.c_str();
+		out_import->module_ = functionImport.moduleName.c_str();
 		out_import->num_module_bytes = functionImport.moduleName.size();
 		out_import->name = functionImport.exportName.c_str();
 		out_import->num_name_bytes = functionImport.exportName.size();
@@ -811,7 +820,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	}
 	case ExternKind::table: {
 		const auto& tableImport = irModule.tables.imports[kindAndIndex.index];
-		out_import->module = tableImport.moduleName.c_str();
+		out_import->module_ = tableImport.moduleName.c_str();
 		out_import->num_module_bytes = tableImport.moduleName.size();
 		out_import->name = tableImport.exportName.c_str();
 		out_import->num_name_bytes = tableImport.exportName.size();
@@ -820,7 +829,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	}
 	case ExternKind::memory: {
 		const auto& memoryImport = irModule.memories.imports[kindAndIndex.index];
-		out_import->module = memoryImport.moduleName.c_str();
+		out_import->module_ = memoryImport.moduleName.c_str();
 		out_import->num_module_bytes = memoryImport.moduleName.size();
 		out_import->name = memoryImport.exportName.c_str();
 		out_import->num_name_bytes = memoryImport.exportName.size();
@@ -829,7 +838,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	}
 	case ExternKind::global: {
 		const auto& globalImport = irModule.globals.imports[kindAndIndex.index];
-		out_import->module = globalImport.moduleName.c_str();
+		out_import->module_ = globalImport.moduleName.c_str();
 		out_import->num_module_bytes = globalImport.moduleName.size();
 		out_import->name = globalImport.exportName.c_str();
 		out_import->num_name_bytes = globalImport.exportName.size();
@@ -844,13 +853,13 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	default: WAVM_UNREACHABLE();
 	};
 }
-size_t wasm_module_num_exports(const wasm_module_t* module)
+size_t wasm_module_num_exports(const wasm_module_t* module_)
 {
-	return getModuleIR(module->module).exports.size();
+	return getModuleIR(module_->module_).exports.size();
 }
-void wasm_module_export(const wasm_module_t* module, size_t index, wasm_export_t* out_export)
+void wasm_module_export(const wasm_module_t* module_, size_t index, wasm_export_t* out_export)
 {
-	const IR::Module& irModule = getModuleIR(module->module);
+	const IR::Module& irModule = getModuleIR(module_->module_);
 	const Export& export_ = irModule.exports[index];
 	out_export->name = export_.name.c_str();
 	out_export->num_name_bytes = export_.name.size();
@@ -930,7 +939,9 @@ wasm_trap_t* wasm_func_call(wasm_store_t* store,
 			auto wavmArgs
 				= (UntaggedValue*)alloca(functionType.params().size() * sizeof(UntaggedValue));
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
-			{ memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t)); }
+			{
+				memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t));
+			}
 
 			auto wavmResults
 				= (UntaggedValue*)alloca(functionType.results().size() * sizeof(UntaggedValue));
@@ -1113,24 +1124,26 @@ IMPLEMENT_EXTERN_SUBTYPE(memory, Memory)
 
 // wasm_instance_t
 wasm_instance_t* wasm_instance_new(wasm_store_t* store,
-								   const wasm_module_t* module,
+								   const wasm_module_t* module_,
 								   const wasm_extern_t* const imports[],
 								   wasm_trap_t** out_trap,
 								   const char* debug_name)
 {
-	const IR::Module& irModule = getModuleIR(module->module);
+	const IR::Module& irModule = getModuleIR(module_->module_);
 
 	if(out_trap) { *out_trap = nullptr; }
 
 	ImportBindings importBindings;
 	for(Uptr importIndex = 0; importIndex < irModule.imports.size(); ++importIndex)
-	{ importBindings.push_back(const_cast<Object*>(imports[importIndex])); }
+	{
+		importBindings.push_back(const_cast<Object*>(imports[importIndex]));
+	}
 
 	Instance* instance = nullptr;
 	catchRuntimeExceptions(
-		[store, module, &importBindings, &instance, debug_name]() {
+		[store, module_, &importBindings, &instance, debug_name]() {
 			instance = instantiateModule(getCompartment(store),
-										 module->module,
+										 module_->module_,
 										 std::move(importBindings),
 										 std::string(debug_name));
 
@@ -1141,10 +1154,7 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 		},
 		[&](Runtime::Exception* exception) {
 			if(out_trap) { *out_trap = exception; }
-			else
-			{
-				destroyException(exception);
-			}
+			else { destroyException(exception); }
 		});
 
 	return instance;

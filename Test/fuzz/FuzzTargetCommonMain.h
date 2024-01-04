@@ -111,7 +111,9 @@ I32 main(int argc, char** argv)
 	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
 	const Uptr numThreads = std::min(numHardwareThreads, Uptr(sharedState.inputFilePaths.size()));
 	for(Uptr threadIndex = 0; threadIndex < numThreads; ++threadIndex)
-	{ threads.push_back(Platform::createThread(8 * 1024 * 1024, threadMain, &sharedState)); }
+	{
+		threads.push_back(Platform::createThread(8 * 1024 * 1024, threadMain, &sharedState));
+	}
 
 	// Wait for the threads to exit.
 	I64 numInputsProcessed = 0;

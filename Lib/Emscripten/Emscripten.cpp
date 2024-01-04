@@ -387,10 +387,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 		memoryRef<U8>(process->memory, address) = 1;
 		return 1;
 	}
-	else
-	{
-		return emabi::esuccess;
-	}
+	else { return emabi::esuccess; }
 }
 WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   "___cxa_guard_release",
@@ -754,7 +751,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 					   numBytes,
 					   &numBytesRead)
 				  != VFS::Result::success)
-		{ return -1; }
+		{
+			return -1;
+		}
 		totalNumBytesRead += numBytesRead;
 		if(numBytesRead < numBytes) { break; }
 	}
@@ -1231,7 +1230,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 							   emabi::Result,
 							   emscripten_clock_gettime,
 							   U32 clockId,
-							   U32 timespecAddress)
+							   emabi::Address timespecAddress)
 {
 	Emscripten::Process* process = getProcess(contextRuntimeData);
 
@@ -1317,8 +1316,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "args_sizes_get",
 							   __wasi_errno_return_t,
 							   wasi_args_sizes_get,
-							   U32 argcAddress,
-							   U32 argBufSizeAddress)
+							   emabi::Address argcAddress,
+							   emabi::Address argBufSizeAddress)
 {
 	Process* process = getProcess(contextRuntimeData);
 
@@ -1326,7 +1325,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 	for(const std::string& arg : process->args) { numArgBufferBytes += arg.size() + 1; }
 
 	if(process->args.size() > emabi::addressMax || numArgBufferBytes > emabi::addressMax)
-	{ return __WASI_EOVERFLOW; }
+	{
+		return __WASI_EOVERFLOW;
+	}
 	memoryRef<emabi::Address>(process->memory, argcAddress) = emabi::Address(process->args.size());
 	memoryRef<emabi::Address>(process->memory, argBufSizeAddress)
 		= emabi::Address(numArgBufferBytes);
@@ -1338,8 +1339,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 							   "args_get",
 							   __wasi_errno_return_t,
 							   wasi_args_get,
-							   U32 argvAddress,
-							   U32 argBufAddress)
+							   emabi::Address argvAddress,
+							   emabi::Address argBufAddress)
 {
 	Process* process = getProcess(contextRuntimeData);
 
@@ -1351,7 +1352,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 
 		if(numArgBytes > emabi::addressMax
 		   || nextArgBufAddress > emabi::addressMax - numArgBytes - 1)
-		{ return __WASI_EOVERFLOW; }
+		{
+			return __WASI_EOVERFLOW;
+		}
 
 		if(numArgBytes > 0)
 		{
@@ -1381,7 +1384,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 	for(const std::string& env : process->envs) { numEnvBufferBytes += env.size() + 1; }
 
 	if(process->envs.size() > emabi::addressMax || numEnvBufferBytes > emabi::addressMax)
-	{ return __WASI_EOVERFLOW; }
+	{
+		return __WASI_EOVERFLOW;
+	}
 	memoryRef<emabi::Address>(process->memory, envCountAddress)
 		= emabi::Address(process->envs.size());
 	memoryRef<emabi::Address>(process->memory, envBufSizeAddress)
@@ -1407,7 +1412,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 
 		if(numEnvBytes > emabi::addressMax
 		   || nextEnvBufAddress > emabi::addressMax - numEnvBytes - 1)
-		{ return __WASI_EOVERFLOW; }
+		{
+			return __WASI_EOVERFLOW;
+		}
 
 		if(numEnvBytes > 0)
 		{
@@ -1431,9 +1438,9 @@ Emscripten::Process::~Process()
 	joinAllThreads(*this);
 }
 
-static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMetadata& outMetadata)
+static bool loadEmscriptenMetadata(const IR::Module& module_, EmscriptenModuleMetadata& outMetadata)
 {
-	for(const CustomSection& customSection : module.customSections)
+	for(const CustomSection& customSection : module_.customSections)
 	{
 		if(customSection.name == "emscripten_metadata")
 		{
@@ -1448,7 +1455,7 @@ static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMet
 				if(outMetadata.metadataVersionMajor != 0 || outMetadata.metadataVersionMinor < 2)
 				{
 					Log::printf(Log::error,
-								"Unsupported Emscripten module metadata version: %u\n",
+								"Unsupported Emscripten module_ metadata version: %u\n",
 								outMetadata.metadataVersionMajor);
 					return false;
 				}
@@ -1465,11 +1472,10 @@ static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMet
 				serializeVarUInt32(sectionStream, outMetadata.tempDoubleAddress);
 
 				if(outMetadata.metadataVersionMinor >= 3)
-				{ serializeVarUInt32(sectionStream, outMetadata.standaloneWASM); }
-				else
 				{
-					outMetadata.standaloneWASM = 0;
+					serializeVarUInt32(sectionStream, outMetadata.standaloneWASM);
 				}
+				else { outMetadata.standaloneWASM = 0; }
 
 				return true;
 			}
@@ -1522,14 +1528,14 @@ std::shared_ptr<Emscripten::Process> Emscripten::createProcess(Compartment* comp
 
 bool Emscripten::initializeProcess(Process& process,
 								   Context* context,
-								   const IR::Module& module,
+								   const IR::Module& module_,
 								   Runtime::Instance* instance)
 {
 	process.instance = instance;
 
 	// Read the module metadata.
 	EmscriptenModuleMetadata metadata;
-	if(loadEmscriptenMetadata(module, metadata))
+	if(loadEmscriptenMetadata(module_, metadata))
 	{
 		// Check the ABI version used by the module.
 		if(metadata.abiVersionMajor != 0)
@@ -1555,7 +1561,7 @@ bool Emscripten::initializeProcess(Process& process,
 	process.memory = asMemoryNullable(getInstanceExport(instance, "memory"));
 	if(!process.memory)
 	{
-		Log::printf(Log::error, "Emscripten module does not export memory.\n");
+		Log::printf(Log::error, "Emscripten module_ does not export memory.\n");
 		return false;
 	}
 
@@ -1600,18 +1606,9 @@ bool Emscripten::Process::resolve(const std::string& moduleName,
 {
 	Runtime::Instance* intrinsicInstance = nullptr;
 	if(moduleName == "env") { intrinsicInstance = env; }
-	else if(moduleName == "asm2wasm")
-	{
-		intrinsicInstance = asm2wasm;
-	}
-	else if(moduleName == "global")
-	{
-		intrinsicInstance = global;
-	}
-	else if(moduleName == "wasi_snapshot_preview1")
-	{
-		intrinsicInstance = wasi_snapshot_preview1;
-	}
+	else if(moduleName == "asm2wasm") { intrinsicInstance = asm2wasm; }
+	else if(moduleName == "global") { intrinsicInstance = global; }
+	else if(moduleName == "wasi_snapshot_preview1") { intrinsicInstance = wasi_snapshot_preview1; }
 
 	if(intrinsicInstance)
 	{

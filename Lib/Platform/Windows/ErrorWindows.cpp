@@ -5,8 +5,12 @@
 #include "WAVM/Platform/Error.h"
 #include "WAVM/Platform/Mutex.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef min
+#undef max
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -26,11 +30,10 @@ static void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
 		std::string frameDescription;
 		Platform::InstructionSource source;
 		if(!Platform::getInstructionSourceByAddress(callStack.frames[frameIndex].ip, source))
-		{ frameDescription = "<unknown function>"; }
-		else
 		{
-			frameDescription = asString(source);
+			frameDescription = "<unknown function>";
 		}
+		else { frameDescription = asString(source); }
 		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
 	}
 	std::fflush(stderr);

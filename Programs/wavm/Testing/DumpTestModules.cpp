@@ -45,17 +45,17 @@ static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 	WAVM_ERROR_UNLESS(saveFile(outputPath.c_str(), wasmBytes, numBytes));
 }
 
-static void dumpModule(const Module& module, const char* outputDir, DumpFormat dumpFormat)
+static void dumpModule(const Module& module_, const char* outputDir, DumpFormat dumpFormat)
 {
 	if(dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both)
 	{
-		const std::string wastString = WAST::print(module);
+		const std::string wastString = WAST::print(module_);
 		dumpWAST(wastString, outputDir);
 	}
 
 	if(dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both)
 	{
-		std::vector<U8> wasmBytes = WASM::saveBinaryModule(module);
+		std::vector<U8> wasmBytes = WASM::saveBinaryModule(module_);
 		dumpWASM(wasmBytes.data(), wasmBytes.size(), outputDir);
 	}
 }
@@ -77,7 +77,7 @@ static void dumpCommandModules(const char* filename,
 						"Dumping module at %s:%s...\n",
 						filename,
 						moduleAction->locus.describe().c_str());
-			dumpModule(*moduleAction->module, outputDir, dumpFormat);
+			dumpModule(*moduleAction->module_, outputDir, dumpFormat);
 			break;
 		}
 		case ActionType::invoke:
@@ -92,7 +92,7 @@ static void dumpCommandModules(const char* filename,
 					"Dumping unlinkable module at %s:%s...\n",
 					filename,
 					assertUnlinkableCommand->locus.describe().c_str());
-		dumpModule(*assertUnlinkableCommand->moduleAction->module, outputDir, dumpFormat);
+		dumpModule(*assertUnlinkableCommand->moduleAction->module_, outputDir, dumpFormat);
 		break;
 	}
 	case Command::assert_invalid:
@@ -105,7 +105,9 @@ static void dumpCommandModules(const char* filename,
 
 		if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::text
 		   && (dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both))
-		{ dumpWAST(assertInvalidOrMalformedCommand->quotedModuleString, outputDir); }
+		{
+			dumpWAST(assertInvalidOrMalformedCommand->quotedModuleString, outputDir);
+		}
 		else if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::binary
 				&& (dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both))
 		{
@@ -119,7 +121,9 @@ static void dumpCommandModules(const char* filename,
 	case Command::thread: {
 		auto threadCommand = (ThreadCommand*)command;
 		for(auto& innerCommand : threadCommand->commands)
-		{ dumpCommandModules(filename, innerCommand.get(), outputDir, dumpFormat); }
+		{
+			dumpCommandModules(filename, innerCommand.get(), outputDir, dumpFormat);
+		}
 		break;
 	}
 
@@ -168,10 +172,7 @@ int execDumpTestModules(int argc, char** argv)
 		{
 			dumpFormat = dumpFormat == DumpFormat::wast ? DumpFormat::both : DumpFormat::wasm;
 		}
-		else if(!filename)
-		{
-			filename = argv[argumentIndex];
-		}
+		else if(!filename) { filename = argv[argumentIndex]; }
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
@@ -214,7 +215,9 @@ int execDumpTestModules(int argc, char** argv)
 	if(!testErrors.size())
 	{
 		for(auto& command : testCommands)
-		{ dumpCommandModules(filename, command.get(), outputDir, dumpFormat); }
+		{
+			dumpCommandModules(filename, command.get(), outputDir, dumpFormat);
+		}
 		return EXIT_SUCCESS;
 	}
 	else

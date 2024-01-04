@@ -5,8 +5,12 @@
 #include "WAVM/Platform/Clock.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef min
+#undef max
 
 using namespace WAVM;
 using namespace WAVM::Platform;

@@ -88,9 +88,9 @@ int main(int argc, char** argv)
 	if(!readFile(argv[1], wasmBytes)) { return EXIT_FAILURE; }
 
 	WASM::LoadError loadError;
-	ModuleRef module;
+	ModuleRef module_;
 	if(!loadBinaryModule(
-		   wasmBytes.data(), wasmBytes.size(), module, FeatureLevel::mature, &loadError))
+		   wasmBytes.data(), wasmBytes.size(), module_, FeatureLevel::mature, &loadError))
 	{
 		fprintf(stderr, "Couldn't load '%s': %s\n", argv[1], loadError.message.c_str());
 		return EXIT_FAILURE;
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
 						Platform::getStdFD(Platform::StdDevice::err));
 
 	// Link the WASM module with the WASI exports.
-	LinkResult linkResult = linkModule(getModuleIR(module), getProcessResolver(*process));
+	LinkResult linkResult = linkModule(getModuleIR(module_), getProcessResolver(*process));
 	if(!linkResult.success)
 	{
 		fprintf(stderr, "Failed to link '%s':\n", argv[1]);
@@ -134,11 +134,13 @@ int main(int argc, char** argv)
 
 	// Instantiate the linked module.
 	GCPointer<Instance> instance = instantiateModule(
-		compartment, module, std::move(linkResult.resolvedImports), std::string(argv[1]));
+		compartment, module_, std::move(linkResult.resolvedImports), std::string(argv[1]));
 
 	// Link WASI with the memory exported by the WASM module.
 	if(Memory* memory = asMemoryNullable(getInstanceExport(instance, "memory")))
-	{ setProcessMemory(*process, memory); }
+	{
+		setProcessMemory(*process, memory);
+	}
 	else
 	{
 		fprintf(stderr, "Failed to find memory export in '%s'.\n", argv[1]);

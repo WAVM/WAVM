@@ -7,8 +7,16 @@
 #include "WAVM/Platform/Signal.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#undef min
+#undef max
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#define WAVMSIGNALENABLESEH
+#endif
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -21,7 +29,9 @@ void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr nu
 	// Register our manually fixed up copy of the function table.
 	if(!RtlAddFunctionTable(
 		   (RUNTIME_FUNCTION*)ehFrames, numFunctions, reinterpret_cast<ULONG_PTR>(imageBase)))
-	{ Errors::fatal("RtlAddFunctionTable failed"); }
+	{
+		Errors::fatal("RtlAddFunctionTable failed");
+	}
 #else
 	Errors::fatal("registerEHFrames isn't implemented on 32-bit Windows");
 #endif
@@ -34,7 +44,7 @@ void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr 
 	Errors::fatal("deregisterEHFrames isn't implemented on 32-bit Windows");
 #endif
 }
-
+#ifdef WAVMSIGNALENABLESEH
 static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& outSignal)
 {
 	// Decide how to handle this exception code.
@@ -71,10 +81,7 @@ static LONG CALLBACK sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exc
 		CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
 
 		if((*filter)(context, signal, std::move(callStack))) { return EXCEPTION_EXECUTE_HANDLER; }
-		else
-		{
-			return EXCEPTION_CONTINUE_SEARCH;
-		}
+		else { return EXCEPTION_CONTINUE_SEARCH; }
 	}
 }
 
@@ -82,26 +89,32 @@ static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointe
 											 bool (*filter)(void*, Signal, CallStack&&),
 											 void* context)
 {
+#ifdef WAVMSIGNALENABLESEH
 	__try
 	{
+#endif
 		return sehSignalFilterFunctionNonReentrant(exceptionPointers, filter, context);
+#ifdef WAVMSIGNALENABLESEH
 	}
 	__except(Errors::fatal("reentrant exception"), true)
 	{
 		WAVM_UNREACHABLE();
 	}
+#endif
 }
-
+#endif
 bool Platform::catchSignals(void (*thunk)(void*),
 							bool (*filter)(void*, Signal, CallStack&&),
 							void* context)
 {
+#ifdef WAVMSIGNALENABLESEH
 	initThread();
-
 	__try
 	{
+#endif
 		(*thunk)(context);
 		return false;
+#ifdef WAVMSIGNALENABLESEH
 	}
 	__except(sehSignalFilterFunction(GetExceptionInformation(), filter, context))
 	{
@@ -110,4 +123,5 @@ bool Platform::catchSignals(void (*thunk)(void*),
 
 		return true;
 	}
+#endif
 }

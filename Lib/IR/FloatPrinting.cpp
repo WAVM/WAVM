@@ -90,8 +90,10 @@ template<typename Float> static std::string floatAsString(Float f)
 
 			// Print the exponent digits.
 			WAVM_ASSERT(exponent < 10000);
-			const Uptr numDigits
-				= exponent >= 1000 ? 4 : exponent >= 100 ? 3 : exponent >= 10 ? 2 : 1;
+			const Uptr numDigits = exponent >= 1000  ? 4
+								   : exponent >= 100 ? 3
+								   : exponent >= 10  ? 2
+													 : 1;
 			for(Uptr digitIndex = 0; digitIndex < numDigits; ++digitIndex)
 			{
 				nextChar[numDigits - digitIndex - 1] = '0' + exponent % 10;

@@ -41,6 +41,12 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/Target/TargetMachine.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
+#ifdef __MINGW32__
+#define WINDOWS_SEH_HANDLER_NAME "__gxx_personality_seh0"
+#else
+#define WINDOWS_SEH_HANDLER_NAME "__CxxFrameHandler3"
+#endif
+
 #define LAZY_PARSE_DWARF_LINE_INFO (LLVM_VERSION_MAJOR >= 9)
 
 namespace llvm {
@@ -163,7 +169,9 @@ namespace WAVM { namespace LLVMJIT {
 	{
 		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
 		for(Uptr typeIndex = 0; typeIndex < typeTuple.size(); ++typeIndex)
-		{ llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]); }
+		{
+			llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]);
+		}
 		return llvm::StructType::get(llvmContext,
 									 llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
 	}
@@ -220,7 +228,9 @@ namespace WAVM { namespace LLVMJIT {
 			numParameters = numImplicitParameters + functionType.params().size();
 			llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 			if(callingConvention != IR::CallingConvention::c)
-			{ llvmArgTypes[0] = llvmContext.i8PtrType; }
+			{
+				llvmArgTypes[0] = llvmContext.i8PtrType;
+			}
 
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 			{
@@ -272,24 +282,28 @@ namespace WAVM { namespace LLVMJIT {
 		}
 	}
 
-	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant* memoryOffset)
+	inline auto getMemoryOrTableIdFromOffset([[maybe_unused]] llvm::IRBuilder<>& irbuilder,
+											 llvm::Constant* Offset,
+											 ::std::size_t offsetval)
 	{
-		return llvm::ConstantExpr::getExactUDiv(
-			llvm::ConstantExpr::getSub(
-				memoryOffset,
-				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, memories),
-								memoryOffset->getType())),
-			emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), memoryOffset->getType()));
+		auto subres
+			= llvm::ConstantExpr::getSub(Offset, emitLiteralIptr(offsetval, Offset->getType()));
+		auto offsetres = emitLiteralIptr(sizeof(Runtime::MemoryRuntimeData), Offset->getType());
+#if LLVM_VERSION_MAJOR < 15
+		return llvm::ConstantExpr::getExactUDiv(subres, offsetres);
+#else
+		return irbuilder.CreateExactUDiv(subres, offsetres);
+#endif
 	}
-
-	inline llvm::Constant* getTableIdFromOffset(llvm::Constant* tableOffset)
+	inline auto getMemoryIdFromOffset(llvm::IRBuilder<>& irbuilder, llvm::Constant* memoryOffset)
 	{
-		return llvm::ConstantExpr::getExactUDiv(
-			llvm::ConstantExpr::getSub(
-				tableOffset,
-				emitLiteralIptr(offsetof(Runtime::CompartmentRuntimeData, tables),
-								tableOffset->getType())),
-			emitLiteralIptr(sizeof(Runtime::TableRuntimeData), tableOffset->getType()));
+		return getMemoryOrTableIdFromOffset(
+			irbuilder, memoryOffset, __builtin_offsetof(Runtime::CompartmentRuntimeData, memories));
+	}
+	inline auto getTableIdFromOffset(llvm::IRBuilder<>& irbuilder, llvm::Constant* tableOffset)
+	{
+		return getMemoryOrTableIdFromOffset(
+			irbuilder, tableOffset, __builtin_offsetof(Runtime::CompartmentRuntimeData, tables));
 	}
 
 	inline llvm::Type* getIptrType(LLVMContext& llvmContext, U32 numPointerBytes)
@@ -326,17 +340,29 @@ namespace WAVM { namespace LLVMJIT {
 
 			// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that
 			// WAVM should use once we can depend on it.
-			attrs = attrs.addAttribute(function->getContext(),
-									   llvm::AttributeList::FunctionIndex,
-									   "no-frame-pointer-elim",
-									   "true");
+			attrs =
+#if LLVM_VERSION_MAJOR > 13
+				attrs.addAttributeAtIndex
+#else
+				attrs.addAttribute
+#endif
+				(function->getContext(),
+				 llvm::AttributeList::FunctionIndex,
+				 "no-frame-pointer-elim",
+				 "true");
 
 			// Set the probe-stack attribute: this will cause functions that allocate more than a
 			// page of stack space to call the wavm_probe_stack function defined in POSIX.S
-			attrs = attrs.addAttribute(function->getContext(),
-									   llvm::AttributeList::FunctionIndex,
-									   "probe-stack",
-									   "wavm_probe_stack");
+			attrs =
+#if LLVM_VERSION_MAJOR > 13
+				attrs.addAttributeAtIndex
+#else
+				attrs.addAttribute
+#endif
+				(function->getContext(),
+				 llvm::AttributeList::FunctionIndex,
+				 "probe-stack",
+				 "wavm_probe_stack");
 
 			function->setAttributes(attrs);
 		}
@@ -432,4 +458,67 @@ namespace WAVM { namespace LLVMJIT {
 								 const llvm::object::SectionRef& xdataSection,
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
+
+	template<typename T>
+	inline ::llvm::LoadInst* wavmCreateLoad(T& obj,
+											[[maybe_unused]] ::llvm::Type* valuetype,
+											::llvm::Value* ptr)
+	{
+#if LLVM_VERSION_MAJOR > 14
+		return obj.CreateLoad(valuetype, ptr);
+#elif LLVM_VERSION_MAJOR > 12
+		return obj.CreateLoad(ptr->getType()->getScalarType()->getPointerElementType(), ptr);
+#else
+		return obj.CreateLoad(ptr);
+#endif
+	}
+
+	template<typename T>
+	inline ::llvm::Value* wavmCreateInBoundsGEP(T& obj,
+												::llvm::Type* ty,
+												::llvm::Value* ptr,
+												::llvm::ArrayRef<::llvm::Value*> idxlist)
+	{
+		return
+#if LLVM_VERSION_MAJOR > 14
+			obj.CreateInBoundsGEP(ty, ptr, idxlist);
+#elif LLVM_VERSION_MAJOR > 12
+			obj.CreateInBoundsGEP(
+				ptr->getType()->getScalarType()->getPointerElementType(), ptr, idxlist);
+#else
+			obj.CreateInBoundsGEP(ptr, idxlist);
+#endif
+	}
+
+	template<typename T>
+	inline ::llvm::AtomicCmpXchgInst* wavmCreateAtomicCmpXchg(
+		T& obj,
+		::llvm::Value* Ptr,
+		::llvm::Value* Cmp,
+		::llvm::Value* New,
+		::llvm::AtomicOrdering SuccessOrdering,
+		::llvm::AtomicOrdering FailureOrdering)
+	{
+#if LLVM_VERSION_MAJOR > 12
+		return obj.CreateAtomicCmpXchg(
+			Ptr, Cmp, New, ::llvm::MaybeAlign(), SuccessOrdering, FailureOrdering);
+#else
+		return obj.CreateAtomicCmpXchg(Ptr, Cmp, New, SuccessOrdering, FailureOrdering);
+#endif
+	}
+
+	template<typename T>
+	inline ::llvm::AtomicRMWInst* wavmCreateAtomicRMW(T& obj,
+													  ::llvm::AtomicRMWInst::BinOp Op,
+													  ::llvm::Value* Ptr,
+													  ::llvm::Value* Val,
+													  ::llvm::AtomicOrdering Ordering)
+	{
+#if LLVM_VERSION_MAJOR > 12
+		return obj.CreateAtomicRMW(Op, Ptr, Val, ::llvm::MaybeAlign(), Ordering);
+#else
+		return obj.CreateAtomicRMW(Op, Ptr, Val, Ordering);
+#endif
+	}
+
 }}

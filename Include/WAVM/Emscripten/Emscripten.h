@@ -32,7 +32,7 @@ namespace WAVM { namespace Emscripten {
 													VFS::VFD* stdErr = nullptr);
 	WAVM_API bool initializeProcess(Process& process,
 									Runtime::Context* context,
-									const IR::Module& module,
+									const IR::Module& module_,
 									Runtime::Instance* instance);
 
 	WAVM_API Runtime::Resolver& getInstanceResolver(Process& process);

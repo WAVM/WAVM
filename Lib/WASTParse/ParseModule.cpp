@@ -80,17 +80,16 @@ static IndexType parseOptionalIndexType(CursorState* cursor)
 		++cursor->nextToken;
 		return IndexType::i64;
 	}
-	else
-	{
-		return IndexType::i32;
-	}
+	else { return IndexType::i32; }
 }
 
 static SizeConstraints parseSizeConstraints(CursorState* cursor, U64 maxMax)
 {
 	SizeConstraints result;
 	if(!tryParseSizeConstraints(cursor, maxMax, result))
-	{ parseErrorf(cursor->parseState, cursor->nextToken, "expected size constraints"); }
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected size constraints");
+	}
 	return result;
 }
 
@@ -191,10 +190,7 @@ static UnresolvedInitializerExpression parseInitializerExpression(CursorState* c
 	{
 		parseParenthesized(cursor, [&] { result = parseInitializerInstruction(cursor); });
 	}
-	else
-	{
-		result = parseInitializerInstruction(cursor);
-	}
+	else { result = parseInitializerInstruction(cursor); }
 
 	return result;
 }
@@ -219,7 +215,7 @@ static InitializerExpression resolveInitializerExpression(
 		return InitializerExpression(InitializerExpression::Type::global_get,
 									 resolveRef(moduleState->parseState,
 												moduleState->globalNameToIndexMap,
-												moduleState->module.globals.size(),
+												moduleState->module_.globals.size(),
 												unresolvedExpression.ref));
 	case UnresolvedInitializerExpression::Type::ref_null:
 		return InitializerExpression(unresolvedExpression.nullReferenceType);
@@ -227,7 +223,7 @@ static InitializerExpression resolveInitializerExpression(
 		return InitializerExpression(InitializerExpression::Type::ref_func,
 									 resolveRef(moduleState->parseState,
 												moduleState->functionNameToIndexMap,
-												moduleState->module.functions.size(),
+												moduleState->module_.functions.size(),
 												unresolvedExpression.ref));
 	case UnresolvedInitializerExpression::Type::invalid: return InitializerExpression();
 	default: WAVM_UNREACHABLE();
@@ -236,10 +232,10 @@ static InitializerExpression resolveInitializerExpression(
 
 static void errorIfFollowsDefinitions(CursorState* cursor)
 {
-	if(cursor->moduleState->module.functions.defs.size()
-	   || cursor->moduleState->module.tables.defs.size()
-	   || cursor->moduleState->module.memories.defs.size()
-	   || cursor->moduleState->module.globals.defs.size())
+	if(cursor->moduleState->module_.functions.defs.size()
+	   || cursor->moduleState->module_.tables.defs.size()
+	   || cursor->moduleState->module_.memories.defs.size()
+	   || cursor->moduleState->module_.globals.defs.size())
 	{
 		parseErrorf(cursor->parseState,
 					cursor->nextToken,
@@ -262,7 +258,7 @@ static Uptr createImport(CursorState* cursor,
 	bindName(cursor->parseState, nameToIndexMap, name, indexSpace.size());
 	disassemblyNameArray.push_back({name.getString()});
 	indexSpace.imports.push_back({type, std::move(moduleName), std::move(exportName)});
-	cursor->moduleState->module.imports.push_back({kind, importIndex});
+	cursor->moduleState->module_.imports.push_back({kind, importIndex});
 	return importIndex;
 }
 
@@ -273,10 +269,7 @@ static bool parseOptionalSharedDeclaration(CursorState* cursor)
 		++cursor->nextToken;
 		return true;
 	}
-	else
-	{
-		return false;
-	}
+	else { return false; }
 }
 
 static void parseImport(CursorState* cursor)
@@ -299,7 +292,7 @@ static void parseImport(CursorState* cursor)
 		case t_global:
 		case t_exception_type: ++cursor->nextToken; break;
 		default:
-			parseErrorf(cursor->parseState, cursor->nextToken, "invalid import type");
+			parseErrorf(cursor->parseState, cursor->nextToken, "invalid import_ type");
 			throw RecoverParseException();
 		}
 
@@ -320,7 +313,7 @@ static void parseImport(CursorState* cursor)
 												  std::move(moduleName),
 												  std::move(exportName),
 												  cursor->moduleState->functionNameToIndexMap,
-												  cursor->moduleState->module.functions,
+												  cursor->moduleState->module_.functions,
 												  cursor->moduleState->disassemblyNames.functions,
 												  {UINTPTR_MAX},
 												  ExternKind::function);
@@ -329,7 +322,7 @@ static void parseImport(CursorState* cursor)
 			// Resolve the function import type after all type declarations have been parsed.
 			cursor->moduleState->postTypeCallbacks.push_back(
 				[unresolvedFunctionType, importIndex](ModuleState* moduleState) {
-					moduleState->module.functions.imports[importIndex].type
+					moduleState->module_.functions.imports[importIndex].type
 						= resolveFunctionType(moduleState, unresolvedFunctionType);
 				});
 			break;
@@ -345,7 +338,7 @@ static void parseImport(CursorState* cursor)
 						 std::move(moduleName),
 						 std::move(exportName),
 						 cursor->moduleState->tableNameToIndexMap,
-						 cursor->moduleState->module.tables,
+						 cursor->moduleState->module_.tables,
 						 cursor->moduleState->disassemblyNames.tables,
 						 TableType{elemType, isShared, indexType, sizeConstraints},
 						 ExternKind::table);
@@ -361,7 +354,7 @@ static void parseImport(CursorState* cursor)
 						 std::move(moduleName),
 						 std::move(exportName),
 						 cursor->moduleState->memoryNameToIndexMap,
-						 cursor->moduleState->module.memories,
+						 cursor->moduleState->module_.memories,
 						 cursor->moduleState->disassemblyNames.memories,
 						 MemoryType{isShared, indexType, sizeConstraints},
 						 ExternKind::memory);
@@ -374,7 +367,7 @@ static void parseImport(CursorState* cursor)
 						 std::move(moduleName),
 						 std::move(exportName),
 						 cursor->moduleState->globalNameToIndexMap,
-						 cursor->moduleState->module.globals,
+						 cursor->moduleState->module_.globals,
 						 cursor->moduleState->disassemblyNames.globals,
 						 globalType,
 						 ExternKind::global);
@@ -387,7 +380,7 @@ static void parseImport(CursorState* cursor)
 						 std::move(moduleName),
 						 std::move(exportName),
 						 cursor->moduleState->exceptionTypeNameToIndexMap,
-						 cursor->moduleState->module.exceptionTypes,
+						 cursor->moduleState->module_.exceptionTypes,
 						 cursor->moduleState->disassemblyNames.exceptionTypes,
 						 ExceptionType{params},
 						 ExternKind::exceptionType);
@@ -447,11 +440,11 @@ static void parseExport(CursorState* cursor)
 			throw RecoverParseException();
 		}
 
-		const Uptr exportIndex = cursor->moduleState->module.exports.size();
-		cursor->moduleState->module.exports.push_back({std::move(exportName), exportKind, 0});
+		const Uptr exportIndex = cursor->moduleState->module_.exports.size();
+		cursor->moduleState->module_.exports.push_back({std::move(exportName), exportKind, 0});
 
 		cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
-			moduleState->module.exports[exportIndex].index
+			moduleState->module_.exports[exportIndex].index
 				= resolveExternRef(moduleState, exportKind, exportRef);
 		});
 	});
@@ -472,8 +465,8 @@ static void parseType(CursorState* cursor)
 		FunctionType functionType
 			= parseFunctionType(cursor, parameterNameToIndexMap, localDisassemblyNames);
 
-		const Uptr functionTypeIndex = cursor->moduleState->module.types.size();
-		cursor->moduleState->module.types.push_back(functionType);
+		const Uptr functionTypeIndex = cursor->moduleState->module_.types.size();
+		cursor->moduleState->module_.types.push_back(functionType);
 		cursor->moduleState->functionTypeToIndexMap.set(functionType, functionTypeIndex);
 
 		bindName(
@@ -512,7 +505,9 @@ static void parseData(CursorState* cursor)
 		}
 
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
-		{ baseAddress = parseInitializerExpression(cursor); }
+		{
+			baseAddress = parseInitializerExpression(cursor);
+		}
 		else
 		{
 			parseParenthesized(cursor, [&]() {
@@ -529,8 +524,8 @@ static void parseData(CursorState* cursor)
 	// Create the data segment.
 	std::vector<U8> dataVector((const U8*)dataString.data(),
 							   (const U8*)dataString.data() + dataString.size());
-	const Uptr dataSegmentIndex = cursor->moduleState->module.dataSegments.size();
-	cursor->moduleState->module.dataSegments.push_back(
+	const Uptr dataSegmentIndex = cursor->moduleState->module_.dataSegments.size();
+	cursor->moduleState->module_.dataSegments.push_back(
 		{isActive,
 		 UINTPTR_MAX,
 		 InitializerExpression(),
@@ -550,7 +545,7 @@ static void parseData(CursorState* cursor)
 	if(isActive)
 	{
 		cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
-			if(!moduleState->module.memories.size())
+			if(!moduleState->module_.memories.size())
 			{
 				parseErrorf(
 					moduleState->parseState,
@@ -559,11 +554,11 @@ static void parseData(CursorState* cursor)
 			}
 			else
 			{
-				DataSegment& dataSegment = moduleState->module.dataSegments[dataSegmentIndex];
+				DataSegment& dataSegment = moduleState->module_.dataSegments[dataSegmentIndex];
 				dataSegment.memoryIndex = memoryRef
 											  ? resolveRef(moduleState->parseState,
 														   moduleState->memoryNameToIndexMap,
-														   moduleState->module.memories.size(),
+														   moduleState->module_.memories.size(),
 														   memoryRef)
 											  : 0;
 				dataSegment.baseOffset = resolveInitializerExpression(moduleState, baseAddress);
@@ -641,10 +636,7 @@ static UnresolvedElem parseElemSegmentItemExpr(CursorState* cursor)
 			++cursor->nextToken;
 			result = parseElemSegmentExpr(cursor);
 		}
-		else
-		{
-			result = parseElemSegmentExpr(cursor);
-		}
+		else { result = parseElemSegmentExpr(cursor); }
 	});
 	return result;
 }
@@ -689,12 +681,12 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	}
 
 	// Create the elem segment.
-	const Uptr elemSegmentIndex = cursor->moduleState->module.elemSegments.size();
+	const Uptr elemSegmentIndex = cursor->moduleState->module_.elemSegments.size();
 	auto contents = std::make_shared<ElemSegment::Contents>();
 	contents->encoding = encoding;
 	contents->elemType = elemType;
 	contents->externKind = externKind;
-	cursor->moduleState->module.elemSegments.push_back(
+	cursor->moduleState->module_.elemSegments.push_back(
 		{segmentType, UINTPTR_MAX, InitializerExpression(), std::move(contents)});
 
 	if(segmentName)
@@ -716,11 +708,11 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 															 baseIndex,
 															 encoding,
 															 externKind](ModuleState* moduleState) {
-		ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
+		ElemSegment& elemSegment = moduleState->module_.elemSegments[elemSegmentIndex];
 
 		if(segmentType == ElemSegment::Type::active)
 		{
-			if(!moduleState->module.tables.size())
+			if(!moduleState->module_.tables.size())
 			{
 				parseErrorf(
 					moduleState->parseState,
@@ -732,7 +724,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 			{
 				elemSegment.tableIndex = tableRef ? resolveRef(moduleState->parseState,
 															   moduleState->tableNameToIndexMap,
-															   moduleState->module.tables.size(),
+															   moduleState->module_.tables.size(),
 															   tableRef)
 												  : 0;
 				elemSegment.baseOffset = resolveInitializerExpression(moduleState, baseIndex);
@@ -757,7 +749,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 						= ElemExpr(ElemExpr::Type::ref_func,
 								   resolveRef(moduleState->parseState,
 											  moduleState->functionNameToIndexMap,
-											  moduleState->module.functions.size(),
+											  moduleState->module_.functions.size(),
 											  unresolvedElem.ref));
 					break;
 
@@ -818,7 +810,9 @@ static void parseElem(CursorState* cursor)
 		}
 
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
-		{ baseIndex = parseInitializerExpression(cursor); }
+		{
+			baseIndex = parseInitializerExpression(cursor);
+		}
 		else
 		{
 			parseParenthesized(cursor, [&]() {
@@ -832,10 +826,7 @@ static void parseElem(CursorState* cursor)
 	ReferenceType elemRefType = ReferenceType::none;
 	ElemSegment::Encoding encoding;
 	if(tryParseExternKind(cursor, elemExternKind)) { encoding = ElemSegment::Encoding::index; }
-	else if(tryParseReferenceType(cursor, elemRefType))
-	{
-		encoding = ElemSegment::Encoding::expr;
-	}
+	else if(tryParseReferenceType(cursor, elemRefType)) { encoding = ElemSegment::Encoding::expr; }
 	else
 	{
 		encoding = ElemSegment::Encoding::index;
@@ -876,7 +867,7 @@ static void parseObjectDefOrImport(CursorState* cursor,
 	while(true)
 	{
 		const bool isExport = tryParseParenthesizedTagged(cursor, t_export, [&] {
-			cursor->moduleState->module.exports.push_back(
+			cursor->moduleState->module_.exports.push_back(
 				{parseUTF8String(cursor), kind, indexSpace.size()});
 		});
 		if(!isExport) { break; }
@@ -918,7 +909,7 @@ static void parseFunc(CursorState* cursor)
 	parseObjectDefOrImport(
 		cursor,
 		cursor->moduleState->functionNameToIndexMap,
-		cursor->moduleState->module.functions,
+		cursor->moduleState->module_.functions,
 		cursor->moduleState->disassemblyNames.functions,
 		t_func,
 		ExternKind::function,
@@ -930,10 +921,10 @@ static void parseFunc(CursorState* cursor)
 				= parseFunctionTypeRefAndOrDecl(cursor, localNameToIndexMap, localDisassemblyNames);
 
 			// Resolve the function import type after all type declarations have been parsed.
-			const Uptr importIndex = cursor->moduleState->module.functions.imports.size();
+			const Uptr importIndex = cursor->moduleState->module_.functions.imports.size();
 			cursor->moduleState->postTypeCallbacks.push_back(
 				[unresolvedFunctionType, importIndex](ModuleState* moduleState) {
-					moduleState->module.functions.imports[importIndex].type
+					moduleState->module_.functions.imports[importIndex].type
 						= resolveFunctionType(moduleState, unresolvedFunctionType);
 				});
 			return IndexedFunctionType{UINTPTR_MAX};
@@ -946,7 +937,7 @@ static void parseTable(CursorState* cursor)
 	parseObjectDefOrImport(
 		cursor,
 		cursor->moduleState->tableNameToIndexMap,
-		cursor->moduleState->module.tables,
+		cursor->moduleState->module_.tables,
 		cursor->moduleState->disassemblyNames.tables,
 		t_table,
 		ExternKind::table,
@@ -979,13 +970,15 @@ static void parseTable(CursorState* cursor)
 				parseParenthesized(cursor, [&] {
 					require(cursor, t_elem);
 
-					const Uptr tableIndex = cursor->moduleState->module.tables.size();
+					const Uptr tableIndex = cursor->moduleState->module_.tables.size();
 
 					ElemSegment::Encoding encoding = ElemSegment::Encoding::index;
 					ExternKind elemExternKind = ExternKind::invalid;
 					ReferenceType elemRefType = ReferenceType::none;
 					if(cursor->nextToken->type != t_leftParenthesis)
-					{ elemExternKind = ExternKind::function; }
+					{
+						elemExternKind = ExternKind::function;
+					}
 					else
 					{
 						encoding = ElemSegment::Encoding::expr;
@@ -1016,7 +1009,7 @@ static void parseMemory(CursorState* cursor)
 	parseObjectDefOrImport(
 		cursor,
 		cursor->moduleState->memoryNameToIndexMap,
-		cursor->moduleState->module.memories,
+		cursor->moduleState->module_.memories,
 		cursor->moduleState->disassemblyNames.memories,
 		t_memory,
 		ExternKind::memory,
@@ -1049,9 +1042,9 @@ static void parseMemory(CursorState* cursor)
 										   (const U8*)dataString.data() + dataString.size());
 				sizeConstraints.min = sizeConstraints.max
 					= (dataVector.size() + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
-				cursor->moduleState->module.dataSegments.push_back(
+				cursor->moduleState->module_.dataSegments.push_back(
 					{true,
-					 cursor->moduleState->module.memories.size(),
+					 cursor->moduleState->module_.memories.size(),
 					 indexType == IndexType::i32 ? InitializerExpression(I32(0))
 												 : InitializerExpression(I64(0)),
 					 std::make_shared<std::vector<U8>>(std::move(dataVector))});
@@ -1068,7 +1061,7 @@ static void parseGlobal(CursorState* cursor)
 	parseObjectDefOrImport(
 		cursor,
 		cursor->moduleState->globalNameToIndexMap,
-		cursor->moduleState->module.globals,
+		cursor->moduleState->module_.globals,
 		cursor->moduleState->disassemblyNames.globals,
 		t_global,
 		ExternKind::global,
@@ -1083,11 +1076,11 @@ static void parseGlobal(CursorState* cursor)
 			// function/global names declared after this global.
 			const UnresolvedInitializerExpression unresolvedInitializerExpression
 				= parseInitializerExpression(cursor);
-			const Uptr globalDefIndex = cursor->moduleState->module.globals.defs.size();
+			const Uptr globalDefIndex = cursor->moduleState->module_.globals.defs.size();
 			cursor->moduleState->postDeclarationCallbacks.push_back(
 				[cursor, globalDefIndex, unresolvedInitializerExpression](
 					ModuleState* moduleState) {
-					cursor->moduleState->module.globals.defs[globalDefIndex].initializer
+					cursor->moduleState->module_.globals.defs[globalDefIndex].initializer
 						= resolveInitializerExpression(cursor->moduleState,
 													   unresolvedInitializerExpression);
 				});
@@ -1101,7 +1094,7 @@ static void parseExceptionType(CursorState* cursor)
 	parseObjectDefOrImport(
 		cursor,
 		cursor->moduleState->exceptionTypeNameToIndexMap,
-		cursor->moduleState->module.exceptionTypes,
+		cursor->moduleState->module_.exceptionTypes,
 		cursor->moduleState->disassemblyNames.exceptionTypes,
 		t_exception_type,
 		ExternKind::exceptionType,
@@ -1134,14 +1127,16 @@ static void parseStart(CursorState* cursor)
 
 	Reference functionRef;
 	if(!tryParseNameOrIndexRef(cursor, functionRef))
-	{ parseErrorf(cursor->parseState, cursor->nextToken, "expected function name or index"); }
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected function name or index");
+	}
 
 	cursor->moduleState->postDeclarationCallbacks.push_back([functionRef](
 																ModuleState* moduleState) {
-		moduleState->module.startFunctionIndex = resolveRef(moduleState->parseState,
-															moduleState->functionNameToIndexMap,
-															moduleState->module.functions.size(),
-															functionRef);
+		moduleState->module_.startFunctionIndex = resolveRef(moduleState->parseState,
+															 moduleState->functionNameToIndexMap,
+															 moduleState->module_.functions.size(),
+															 functionRef);
 	});
 }
 
@@ -1151,13 +1146,13 @@ static OrderedSectionID parseOrderedSectionID(CursorState* cursor)
 	switch(cursor->nextToken->type)
 	{
 	case t_type: result = OrderedSectionID::type; break;
-	case t_import: result = OrderedSectionID::import; break;
+	case t_import: result = OrderedSectionID::import_; break;
 	case t_func: result = OrderedSectionID::function; break;
 	case t_table: result = OrderedSectionID::table; break;
 	case t_memory: result = OrderedSectionID::memory; break;
 	case t_global: result = OrderedSectionID::global; break;
 	case t_exception_type:
-		if(!cursor->moduleState->module.featureSpec.exceptionHandling)
+		if(!cursor->moduleState->module_.featureSpec.exceptionHandling)
 		{
 			parseErrorf(
 				cursor->parseState,
@@ -1170,7 +1165,7 @@ static OrderedSectionID parseOrderedSectionID(CursorState* cursor)
 	case t_start: result = OrderedSectionID::start; break;
 	case t_elem: result = OrderedSectionID::elem; break;
 	case t_data_count:
-		if(!cursor->moduleState->module.featureSpec.bulkMemoryOperations)
+		if(!cursor->moduleState->module_.featureSpec.bulkMemoryOperations)
 		{
 			parseErrorf(
 				cursor->parseState,
@@ -1192,7 +1187,7 @@ static OrderedSectionID parseOrderedSectionID(CursorState* cursor)
 
 static void parseCustomSection(CursorState* cursor)
 {
-	if(!cursor->moduleState->module.featureSpec.customSectionsInTextFormat)
+	if(!cursor->moduleState->module_.featureSpec.customSectionsInTextFormat)
 	{
 		parseErrorf(
 			cursor->parseState,
@@ -1220,9 +1215,9 @@ static void parseCustomSection(CursorState* cursor)
 	customSection.afterSection = afterSection;
 
 	// Ensure that custom sections do not occur out-of-order w.r.t. afterSection.
-	if(cursor->moduleState->module.customSections.size())
+	if(cursor->moduleState->module_.customSections.size())
 	{
-		const CustomSection& lastCustomSection = cursor->moduleState->module.customSections.back();
+		const CustomSection& lastCustomSection = cursor->moduleState->module_.customSections.back();
 		if(lastCustomSection.afterSection > afterSection)
 		{
 			WAVM_ASSERT(cursor->moduleState->lastCustomSectionToken);
@@ -1245,8 +1240,8 @@ static void parseCustomSection(CursorState* cursor)
 	customSection.data = std::vector<U8>((const U8*)dataString.data(),
 										 (const U8*)dataString.data() + dataString.size());
 
-	// Add the custom section to the module.
-	cursor->moduleState->module.customSections.push_back(std::move(customSection));
+	// Add the custom section to the module_.
+	cursor->moduleState->module_.customSections.push_back(std::move(customSection));
 
 	// After all declarations have been parsed, validate that the custom section ordering constraint
 	// doesn't reference a virtual section that may not be present in the binary encoding of the
@@ -1254,30 +1249,30 @@ static void parseCustomSection(CursorState* cursor)
 	// encoded in a binary module.
 	cursor->moduleState->postDeclarationCallbacks.push_back(
 		[customSectionToken, afterSection](ModuleState* moduleState) {
-			const IR::Module& module = moduleState->module;
+			const IR::Module& module_ = moduleState->module_;
 			bool hasPrecedingSection = true;
 			switch(afterSection)
 			{
 			case OrderedSectionID::moduleBeginning: break;
-			case OrderedSectionID::type: hasPrecedingSection = hasTypeSection(module); break;
-			case OrderedSectionID::import: hasPrecedingSection = hasImportSection(module); break;
+			case OrderedSectionID::type: hasPrecedingSection = hasTypeSection(module_); break;
+			case OrderedSectionID::import_: hasPrecedingSection = hasImportSection(module_); break;
 			case OrderedSectionID::function:
-				hasPrecedingSection = hasFunctionSection(module);
+				hasPrecedingSection = hasFunctionSection(module_);
 				break;
-			case OrderedSectionID::table: hasPrecedingSection = hasTableSection(module); break;
-			case OrderedSectionID::memory: hasPrecedingSection = hasMemorySection(module); break;
-			case OrderedSectionID::global: hasPrecedingSection = hasGlobalSection(module); break;
+			case OrderedSectionID::table: hasPrecedingSection = hasTableSection(module_); break;
+			case OrderedSectionID::memory: hasPrecedingSection = hasMemorySection(module_); break;
+			case OrderedSectionID::global: hasPrecedingSection = hasGlobalSection(module_); break;
 			case OrderedSectionID::exceptionType:
-				hasPrecedingSection = hasExceptionTypeSection(module);
+				hasPrecedingSection = hasExceptionTypeSection(module_);
 				break;
-			case OrderedSectionID::export_: hasPrecedingSection = hasExportSection(module); break;
-			case OrderedSectionID::start: hasPrecedingSection = hasStartSection(module); break;
-			case OrderedSectionID::elem: hasPrecedingSection = hasElemSection(module); break;
+			case OrderedSectionID::export_: hasPrecedingSection = hasExportSection(module_); break;
+			case OrderedSectionID::start: hasPrecedingSection = hasStartSection(module_); break;
+			case OrderedSectionID::elem: hasPrecedingSection = hasElemSection(module_); break;
 			case OrderedSectionID::dataCount:
-				hasPrecedingSection = hasDataCountSection(module);
+				hasPrecedingSection = hasDataCountSection(module_);
 				break;
-			case OrderedSectionID::code: hasPrecedingSection = hasCodeSection(module); break;
-			case OrderedSectionID::data: hasPrecedingSection = hasDataSection(module); break;
+			case OrderedSectionID::code: hasPrecedingSection = hasCodeSection(module_); break;
+			case OrderedSectionID::data: hasPrecedingSection = hasDataSection(module_); break;
 			default: WAVM_UNREACHABLE();
 			};
 
@@ -1349,20 +1344,26 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 
 		// Parse the module's declarations.
 		while(cursor->nextToken->type != t_rightParenthesis && cursor->nextToken->type != t_eof)
-		{ parseDeclaration(cursor); };
+		{
+			parseDeclaration(cursor);
+		};
 
 		// Process the callbacks requested after all type declarations have been parsed.
 		if(!cursor->parseState->unresolvedErrors.size())
 		{
 			for(const auto& callback : cursor->moduleState->postTypeCallbacks)
-			{ callback(&moduleState); }
+			{
+				callback(&moduleState);
+			}
 		}
 
 		// Process the callbacks requested after all declarations have been parsed.
 		if(!cursor->parseState->unresolvedErrors.size())
 		{
 			for(const auto& callback : cursor->moduleState->postDeclarationCallbacks)
-			{ callback(&moduleState); }
+			{
+				callback(&moduleState);
+			}
 		}
 
 		// After all declarations have been parsed, but before function bodies are parsed, validate
@@ -1386,7 +1387,9 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		if(!cursor->parseState->unresolvedErrors.size())
 		{
 			for(const auto& callback : cursor->moduleState->functionBodyCallbacks)
-			{ callback(&moduleState); }
+			{
+				callback(&moduleState);
+			}
 		}
 
 		// After function bodies have been parsed, validate the parts of the module that correspond
