@@ -38,5 +38,12 @@
 		}                                                                                          \
 	}
 
+#if defined(_MSC_VER) && !defined(__clang__)
 #define WAVM_UNREACHABLE()                                                                         \
-	while(true) { WAVM_DEBUG_TRAP(); };
+	__debugbreak();                                                                            \
+	__assume(0)
+#else
+#define WAVM_UNREACHABLE()                                                                         \
+	WAVM_DEBUG_TRAP();                                                                         \
+	__builtin_unreachable()
+#endif
