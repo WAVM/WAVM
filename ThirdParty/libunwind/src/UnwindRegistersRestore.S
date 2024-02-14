@@ -1,27 +1,32 @@
-//===-------------------- UnwindRegistersRestore.S ------------------------===//
+//===----------------------------------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
 #include "assembly.h"
 
+#define FROM_0_TO_15 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+#define FROM_16_TO_31 16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+
+#define FROM_0_TO_31 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+#define FROM_32_TO_63 32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63
+
+#if defined(_AIX)
+  .toc
+#else
   .text
+#endif
 
 #if !defined(__USING_SJLJ_EXCEPTIONS__)
 
 #if defined(__i386__)
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_x866jumptoEv)
+DEFINE_LIBUNWIND_FUNCTION(__libunwind_Registers_x86_jumpto)
 #
-# void libunwind::Registers_x86::jumpto()
+# extern "C" void __libunwind_Registers_x86_jumpto(Registers_x86 *);
 #
-#if defined(_WIN32)
-# On windows, the 'this' pointer is passed in ecx instead of on the stack
-  movl   %ecx, %eax
-#else
 # On entry:
 #  +                       +
 #  +-----------------------+
@@ -30,8 +35,9 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_x866jumptoEv)
 #  + return address        +
 #  +-----------------------+   <-- SP
 #  +                       +
+
+  _LIBUNWIND_CET_ENDBR
   movl   4(%esp), %eax
-#endif
   # set up eax and ret on new stack location
   movl  28(%eax), %edx # edx holds new stack pointer
   subl  $8,%edx
@@ -52,7 +58,8 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_x866jumptoEv)
   # skip ss
   # skip eflags
   pop    %eax  # eax was already pushed on new stack
-  ret        # eip was already pushed on new stack
+  pop    %ecx
+  jmp    *%ecx
   # skip cs
   # skip ds
   # skip es
@@ -61,9 +68,9 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_x866jumptoEv)
 
 #elif defined(__x86_64__)
 
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind16Registers_x86_646jumptoEv)
+DEFINE_LIBUNWIND_FUNCTION(__libunwind_Registers_x86_64_jumpto)
 #
-# void libunwind::Registers_x86_64::jumpto()
+# extern "C" void __libunwind_Registers_x86_64_jumpto(Registers_x86_64 *);
 #
 #if defined(_WIN64)
 # On entry, thread_state pointer is in rcx; move it into rdi
@@ -76,6 +83,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind16Registers_x86_646jumptoEv)
 # On entry, thread_state pointer is in rdi
 #endif
 
+  _LIBUNWIND_CET_ENDBR
   movq  56(%rdi), %rax # rax holds new stack pointer
   subq  $16, %rax
   movq  %rax, 56(%rdi)
@@ -125,12 +133,13 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind16Registers_x86_646jumptoEv)
 #endif
   movq  56(%rdi), %rsp  # cut back rsp to new location
   pop    %rdi      # rdi was saved here earlier
-  ret            # rip was saved here
+  pop    %rcx
+  jmpq   *%rcx
 
 
 #elif defined(__powerpc64__)
 
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_ppc646jumptoEv)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind15Registers_ppc646jumptoEv)
 //
 // void libunwind::Registers_ppc64::jumpto()
 //
@@ -140,7 +149,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_ppc646jumptoEv)
 
 // load register (GPR)
 #define PPC64_LR(n) \
-  ld    %r##n, (8 * (n + 2))(%r3)
+  ld    n, (8 * (n + 2))(3)
 
   // restore integral registers
   // skip r0 for now
@@ -176,18 +185,29 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_ppc646jumptoEv)
   PPC64_LR(30)
   PPC64_LR(31)
 
-#ifdef PPC64_HAS_VMX
+#if defined(__VSX__)
 
   // restore VS registers
   // (note that this also restores floating point registers and V registers,
   // because part of VS is mapped to these registers)
 
-  addi  %r4, %r3, PPC64_OFFS_FP
+  addi  4, 3, PPC64_OFFS_FP
 
 // load VS register
+#ifdef __LITTLE_ENDIAN__
+// For little-endian targets, we need a swap since lxvd2x will load the register
+// in the incorrect doubleword order.
+// FIXME: when supporting targets older than Power9 on LE is no longer required,
+//        this can be changed to simply `lxv n, (16 * n)(4)`.
 #define PPC64_LVS(n)         \
-  lxvd2x  %vs##n, 0, %r4    ;\
-  addi    %r4, %r4, 16
+  lxvd2x  n, 0, 4           ;\
+  xxswapd n, n              ;\
+  addi    4, 4, 16
+#else
+#define PPC64_LVS(n)         \
+  lxvd2x  n, 0, 4           ;\
+  addi    4, 4, 16
+#endif
 
   // restore the first 32 VS regs (and also all floating point regs)
   PPC64_LVS(0)
@@ -223,27 +243,43 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_ppc646jumptoEv)
   PPC64_LVS(30)
   PPC64_LVS(31)
 
-  // use VRSAVE to conditionally restore the remaining VS regs,
-  // that are where the V regs are mapped
+#ifdef __LITTLE_ENDIAN__
+#define PPC64_CLVS_RESTORE(n)                    \
+  addi   4, 3, PPC64_OFFS_FP + n * 16           ;\
+  lxvd2x n, 0, 4                                ;\
+  xxswapd n, n
+#else
+#define PPC64_CLVS_RESTORE(n)                    \
+  addi   4, 3, PPC64_OFFS_FP + n * 16           ;\
+  lxvd2x n, 0, 4
+#endif
 
-  ld    %r5, PPC64_OFFS_VRSAVE(%r3)   // test VRsave
-  cmpwi %r5, 0
+#if !defined(_AIX)
+  // use VRSAVE to conditionally restore the remaining VS regs, that are
+  // where the V regs are mapped. In the AIX ABI, VRSAVE is not used.
+  ld    5, PPC64_OFFS_VRSAVE(3)   // test VRsave
+  cmpwi 5, 0
   beq   Lnovec
 
 // conditionally load VS
-#define PPC64_CLVS_BOTTOM(n)               \
-  beq    Ldone##n                         ;\
-  addi   %r4, %r3, PPC64_OFFS_FP + n * 16 ;\
-  lxvd2x %vs##n, 0, %r4                   ;\
+#define PPC64_CLVSl(n)                           \
+  andis. 0, 5, (1 PPC_LEFT_SHIFT(47-n))         ;\
+  beq    Ldone##n                               ;\
+  PPC64_CLVS_RESTORE(n)                         ;\
 Ldone##n:
 
-#define PPC64_CLVSl(n)           \
-  andis. %r0, %r5, (1<<(47-n))  ;\
-PPC64_CLVS_BOTTOM(n)
+#define PPC64_CLVSh(n)                           \
+  andi.  0, 5, (1 PPC_LEFT_SHIFT(63-n))         ;\
+  beq    Ldone##n                               ;\
+  PPC64_CLVS_RESTORE(n)                         ;\
+Ldone##n:
 
-#define PPC64_CLVSh(n)           \
-  andi.  %r0, %r5, (1<<(63-n))  ;\
-PPC64_CLVS_BOTTOM(n)
+#else
+
+#define PPC64_CLVSl(n) PPC64_CLVS_RESTORE(n)
+#define PPC64_CLVSh(n) PPC64_CLVS_RESTORE(n)
+
+#endif // !defined(_AIX)
 
   PPC64_CLVSl(32)
   PPC64_CLVSl(33)
@@ -282,7 +318,7 @@ PPC64_CLVS_BOTTOM(n)
 
 // load FP register
 #define PPC64_LF(n) \
-  lfd   %f##n, (PPC64_OFFS_FP + n * 16)(%r3)
+  lfd   n, (PPC64_OFFS_FP + n * 16)(3)
 
   // restore float registers
   PPC64_LF(0)
@@ -318,32 +354,45 @@ PPC64_CLVS_BOTTOM(n)
   PPC64_LF(30)
   PPC64_LF(31)
 
-  // restore vector registers if any are in use
-  ld    %r5, PPC64_OFFS_VRSAVE(%r3)   // test VRsave
-  cmpwi %r5, 0
+#if defined(__ALTIVEC__)
+
+#define PPC64_CLV_UNALIGNED_RESTORE(n)       \
+  ld     0, (PPC64_OFFS_V + n * 16)(3)      ;\
+  std    0, 0(4)                            ;\
+  ld     0, (PPC64_OFFS_V + n * 16 + 8)(3)  ;\
+  std    0, 8(4)                            ;\
+  lvx    n, 0, 4
+
+#if !defined(_AIX)
+  // restore vector registers if any are in use. In the AIX ABI, VRSAVE is
+  // not used.
+  ld    5, PPC64_OFFS_VRSAVE(3)   // test VRsave
+  cmpwi 5, 0
   beq   Lnovec
 
-  subi  %r4, %r1, 16
+#define PPC64_CLV_UNALIGNEDl(n)              \
+  andis. 0, 5, (1 PPC_LEFT_SHIFT(15-n))     ;\
+  beq    Ldone##n                           ;\
+  PPC64_CLV_UNALIGNED_RESTORE(n)            ;\
+Ldone  ## n:
+
+#define PPC64_CLV_UNALIGNEDh(n)              \
+  andi.  0, 5, (1 PPC_LEFT_SHIFT(31-n))     ;\
+  beq    Ldone##n                           ;\
+  PPC64_CLV_UNALIGNED_RESTORE(n)            ;\
+Ldone  ## n:
+
+#else
+
+#define PPC64_CLV_UNALIGNEDl(n) PPC64_CLV_UNALIGNED_RESTORE(n)
+#define PPC64_CLV_UNALIGNEDh(n) PPC64_CLV_UNALIGNED_RESTORE(n)
+
+#endif // !defined(_AIX)
+
+  subi  4, 1, 16
   // r4 is now a 16-byte aligned pointer into the red zone
   // the _vectorScalarRegisters may not be 16-byte aligned
   // so copy via red zone temp buffer
-
-#define PPC64_CLV_UNALIGNED_BOTTOM(n)            \
-  beq    Ldone##n                               ;\
-  ld     %r0, (PPC64_OFFS_V + n * 16)(%r3)      ;\
-  std    %r0, 0(%r4)                            ;\
-  ld     %r0, (PPC64_OFFS_V + n * 16 + 8)(%r3)  ;\
-  std    %r0, 8(%r4)                            ;\
-  lvx    %v##n, 0, %r4                          ;\
-Ldone  ## n:
-
-#define PPC64_CLV_UNALIGNEDl(n)  \
-  andis. %r0, %r5, (1<<(15-n))  ;\
-PPC64_CLV_UNALIGNED_BOTTOM(n)
-
-#define PPC64_CLV_UNALIGNEDh(n)  \
-  andi.  %r0, %r5, (1<<(31-n))  ;\
-PPC64_CLV_UNALIGNED_BOTTOM(n)
 
   PPC64_CLV_UNALIGNEDl(0)
   PPC64_CLV_UNALIGNEDl(1)
@@ -379,137 +428,156 @@ PPC64_CLV_UNALIGNED_BOTTOM(n)
   PPC64_CLV_UNALIGNEDh(31)
 
 #endif
+#endif
 
 Lnovec:
-  ld    %r0, PPC64_OFFS_CR(%r3)
-  mtcr  %r0
-  ld    %r0, PPC64_OFFS_SRR0(%r3)
-  mtctr %r0
+  ld    0, PPC64_OFFS_CR(3)
+  mtcr  0
+  ld    0, PPC64_OFFS_SRR0(3)
+  mtctr 0
 
+#if defined(_AIX)
+  // After setting GPR1 to a higher address, AIX wipes out the original
+  // stack space below that address invalidated by the new GPR1 value. Use
+  // GPR0 to save the value of GPR3 in the context before it is wiped out.
+  // This compromises the content of GPR0 which is a volatile register.
+  ld 0, (8 * (3 + 2))(3)
+#else
   PPC64_LR(0)
+#endif
   PPC64_LR(5)
   PPC64_LR(4)
   PPC64_LR(1)
+#if defined(_AIX)
+  mr 3, 0
+#else
   PPC64_LR(3)
+#endif
   bctr
 
-#elif defined(__ppc__)
+#elif defined(__powerpc__)
 
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_ppc6jumptoEv)
-;
-; void libunwind::Registers_ppc::jumpto()
-;
-; On entry:
-;  thread_state pointer is in r3
-;
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_ppc6jumptoEv)
+//
+// void libunwind::Registers_ppc::jumpto()
+//
+// On entry:
+//  thread_state pointer is in r3
+//
 
-  ; restore integral registerrs
-  ; skip r0 for now
-  ; skip r1 for now
-  lwz     r2, 16(r3)
-  ; skip r3 for now
-  ; skip r4 for now
-  ; skip r5 for now
-  lwz     r6, 32(r3)
-  lwz     r7, 36(r3)
-  lwz     r8, 40(r3)
-  lwz     r9, 44(r3)
-  lwz    r10, 48(r3)
-  lwz    r11, 52(r3)
-  lwz    r12, 56(r3)
-  lwz    r13, 60(r3)
-  lwz    r14, 64(r3)
-  lwz    r15, 68(r3)
-  lwz    r16, 72(r3)
-  lwz    r17, 76(r3)
-  lwz    r18, 80(r3)
-  lwz    r19, 84(r3)
-  lwz    r20, 88(r3)
-  lwz    r21, 92(r3)
-  lwz    r22, 96(r3)
-  lwz    r23,100(r3)
-  lwz    r24,104(r3)
-  lwz    r25,108(r3)
-  lwz    r26,112(r3)
-  lwz    r27,116(r3)
-  lwz    r28,120(r3)
-  lwz    r29,124(r3)
-  lwz    r30,128(r3)
-  lwz    r31,132(r3)
+  // restore integral registers
+  // skip r0 for now
+  // skip r1 for now
+  lwz     2,  16(3)
+  // skip r3 for now
+  // skip r4 for now
+  // skip r5 for now
+  lwz     6,  32(3)
+  lwz     7,  36(3)
+  lwz     8,  40(3)
+  lwz     9,  44(3)
+  lwz     10, 48(3)
+  lwz     11, 52(3)
+  lwz     12, 56(3)
+  lwz     13, 60(3)
+  lwz     14, 64(3)
+  lwz     15, 68(3)
+  lwz     16, 72(3)
+  lwz     17, 76(3)
+  lwz     18, 80(3)
+  lwz     19, 84(3)
+  lwz     20, 88(3)
+  lwz     21, 92(3)
+  lwz     22, 96(3)
+  lwz     23,100(3)
+  lwz     24,104(3)
+  lwz     25,108(3)
+  lwz     26,112(3)
+  lwz     27,116(3)
+  lwz     28,120(3)
+  lwz     29,124(3)
+  lwz     30,128(3)
+  lwz     31,132(3)
 
-  ; restore float registers
-  lfd    f0, 160(r3)
-  lfd    f1, 168(r3)
-  lfd    f2, 176(r3)
-  lfd    f3, 184(r3)
-  lfd    f4, 192(r3)
-  lfd    f5, 200(r3)
-  lfd    f6, 208(r3)
-  lfd    f7, 216(r3)
-  lfd    f8, 224(r3)
-  lfd    f9, 232(r3)
-  lfd    f10,240(r3)
-  lfd    f11,248(r3)
-  lfd    f12,256(r3)
-  lfd    f13,264(r3)
-  lfd    f14,272(r3)
-  lfd    f15,280(r3)
-  lfd    f16,288(r3)
-  lfd    f17,296(r3)
-  lfd    f18,304(r3)
-  lfd    f19,312(r3)
-  lfd    f20,320(r3)
-  lfd    f21,328(r3)
-  lfd    f22,336(r3)
-  lfd    f23,344(r3)
-  lfd    f24,352(r3)
-  lfd    f25,360(r3)
-  lfd    f26,368(r3)
-  lfd    f27,376(r3)
-  lfd    f28,384(r3)
-  lfd    f29,392(r3)
-  lfd    f30,400(r3)
-  lfd    f31,408(r3)
+#ifndef __NO_FPRS__
+  // restore float registers
+  lfd     0, 160(3)
+  lfd     1, 168(3)
+  lfd     2, 176(3)
+  lfd     3, 184(3)
+  lfd     4, 192(3)
+  lfd     5, 200(3)
+  lfd     6, 208(3)
+  lfd     7, 216(3)
+  lfd     8, 224(3)
+  lfd     9, 232(3)
+  lfd     10,240(3)
+  lfd     11,248(3)
+  lfd     12,256(3)
+  lfd     13,264(3)
+  lfd     14,272(3)
+  lfd     15,280(3)
+  lfd     16,288(3)
+  lfd     17,296(3)
+  lfd     18,304(3)
+  lfd     19,312(3)
+  lfd     20,320(3)
+  lfd     21,328(3)
+  lfd     22,336(3)
+  lfd     23,344(3)
+  lfd     24,352(3)
+  lfd     25,360(3)
+  lfd     26,368(3)
+  lfd     27,376(3)
+  lfd     28,384(3)
+  lfd     29,392(3)
+  lfd     30,400(3)
+  lfd     31,408(3)
+#endif
 
-  ; restore vector registers if any are in use
-  lwz    r5,156(r3)  ; test VRsave
-  cmpwi  r5,0
-  beq    Lnovec
+#if defined(__ALTIVEC__)
 
-  subi  r4,r1,16
-  rlwinm  r4,r4,0,0,27  ; mask low 4-bits
-  ; r4 is now a 16-byte aligned pointer into the red zone
-  ; the _vectorRegisters may not be 16-byte aligned so copy via red zone temp buffer
+#define LOAD_VECTOR_RESTORE(_index)                 \
+  lwz     0, 424+_index*16(3)             SEPARATOR \
+  stw     0, 0(4)                         SEPARATOR \
+  lwz     0, 424+_index*16+4(3)           SEPARATOR \
+  stw     0, 4(4)                         SEPARATOR \
+  lwz     0, 424+_index*16+8(3)           SEPARATOR \
+  stw     0, 8(4)                         SEPARATOR \
+  lwz     0, 424+_index*16+12(3)          SEPARATOR \
+  stw     0, 12(4)                        SEPARATOR \
+  lvx     _index, 0, 4
 
+#if !defined(_AIX)
+  // restore vector registers if any are in use. In the AIX ABI, VRSAVE
+  // is not used.
+  lwz     5, 156(3)       // test VRsave
+  cmpwi   5, 0
+  beq     Lnovec
 
-#define LOAD_VECTOR_UNALIGNEDl(_index) \
-  andis.  r0,r5,(1<<(15-_index))  @\
-  beq    Ldone  ## _index     @\
-  lwz    r0, 424+_index*16(r3)  @\
-  stw    r0, 0(r4)        @\
-  lwz    r0, 424+_index*16+4(r3)  @\
-  stw    r0, 4(r4)        @\
-  lwz    r0, 424+_index*16+8(r3)  @\
-  stw    r0, 8(r4)        @\
-  lwz    r0, 424+_index*16+12(r3)@\
-  stw    r0, 12(r4)        @\
-  lvx    v ## _index,0,r4    @\
-Ldone  ## _index:
+#define LOAD_VECTOR_UNALIGNEDl(_index)                   \
+  andis.  0, 5, (1 PPC_LEFT_SHIFT(15-_index))  SEPARATOR \
+  beq     Ldone ## _index                      SEPARATOR \
+  LOAD_VECTOR_RESTORE(_index)                  SEPARATOR \
+  Ldone ## _index:
 
-#define LOAD_VECTOR_UNALIGNEDh(_index) \
-  andi.  r0,r5,(1<<(31-_index))  @\
-  beq    Ldone  ## _index    @\
-  lwz    r0, 424+_index*16(r3)  @\
-  stw    r0, 0(r4)        @\
-  lwz    r0, 424+_index*16+4(r3)  @\
-  stw    r0, 4(r4)        @\
-  lwz    r0, 424+_index*16+8(r3)  @\
-  stw    r0, 8(r4)        @\
-  lwz    r0, 424+_index*16+12(r3)@\
-  stw    r0, 12(r4)        @\
-  lvx    v ## _index,0,r4    @\
-  Ldone  ## _index:
+#define LOAD_VECTOR_UNALIGNEDh(_index)                   \
+  andi.   0, 5, (1 PPC_LEFT_SHIFT(31-_index))  SEPARATOR \
+  beq     Ldone ## _index                      SEPARATOR \
+  LOAD_VECTOR_RESTORE(_index)                  SEPARATOR \
+  Ldone ## _index:
 
+#else
+
+#define LOAD_VECTOR_UNALIGNEDl(_index) LOAD_VECTOR_RESTORE(_index)
+#define LOAD_VECTOR_UNALIGNEDh(_index) LOAD_VECTOR_RESTORE(_index)
+
+#endif // !defined(_AIX)
+
+  subi    4, 1, 16
+  rlwinm  4, 4, 0, 0, 27  // mask low 4-bits
+  // r4 is now a 16-byte aligned pointer into the red zone
+  // the _vectorRegisters may not be 16-byte aligned so copy via red zone temp buffer
 
   LOAD_VECTOR_UNALIGNEDl(0)
   LOAD_VECTOR_UNALIGNEDl(1)
@@ -543,31 +611,32 @@ Ldone  ## _index:
   LOAD_VECTOR_UNALIGNEDh(29)
   LOAD_VECTOR_UNALIGNEDh(30)
   LOAD_VECTOR_UNALIGNEDh(31)
+#endif
 
 Lnovec:
-  lwz    r0, 136(r3) ; __cr
-  mtocrf  255,r0
-  lwz    r0, 148(r3) ; __ctr
-  mtctr  r0
-  lwz    r0, 0(r3)  ; __ssr0
-  mtctr  r0
-  lwz    r0, 8(r3)  ; do r0 now
-  lwz    r5,28(r3)  ; do r5 now
-  lwz    r4,24(r3)  ; do r4 now
-  lwz    r1,12(r3)  ; do sp now
-  lwz    r3,20(r3)  ; do r3 last
+  lwz     0, 136(3)   // __cr
+  mtcr    0
+  lwz     0, 148(3)   // __ctr
+  mtctr   0
+  lwz     0,   0(3)   // __ssr0
+  mtctr   0
+  lwz     0,   8(3)   // do r0 now
+  lwz     5,  28(3)   // do r5 now
+  lwz     4,  24(3)   // do r4 now
+  lwz     1,  12(3)   // do sp now
+  lwz     3,  20(3)   // do r3 last
   bctr
 
-#elif defined(__arm64__) || defined(__aarch64__)
+#elif defined(__aarch64__)
 
 //
-// void libunwind::Registers_arm64::jumpto()
+// extern "C" void __libunwind_Registers_arm64_jumpto(Registers_arm64 *);
 //
 // On entry:
 //  thread_state pointer is in x0
 //
   .p2align 2
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_arm646jumptoEv)
+DEFINE_LIBUNWIND_FUNCTION(__libunwind_Registers_arm64_jumpto)
   // skip restore of x0,x1 for now
   ldp    x2, x3,  [x0, #0x010]
   ldp    x4, x5,  [x0, #0x020]
@@ -576,7 +645,8 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_arm646jumptoEv)
   ldp    x10,x11, [x0, #0x050]
   ldp    x12,x13, [x0, #0x060]
   ldp    x14,x15, [x0, #0x070]
-  ldp    x16,x17, [x0, #0x080]
+  // x16 and x17 were clobbered by the call into the unwinder, so no point in
+  // restoring them.
   ldp    x18,x19, [x0, #0x090]
   ldp    x20,x21, [x0, #0x0A0]
   ldp    x22,x23, [x0, #0x0B0]
@@ -584,8 +654,6 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_arm646jumptoEv)
   ldp    x26,x27, [x0, #0x0D0]
   ldp    x28,x29, [x0, #0x0E0]
   ldr    x30,     [x0, #0x100]  // restore pc into lr
-  ldr    x1,      [x0, #0x0F8]
-  mov    sp,x1                  // restore sp
 
   ldp    d0, d1,  [x0, #0x110]
   ldp    d2, d3,  [x0, #0x120]
@@ -605,12 +673,21 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_arm646jumptoEv)
   ldr    d30,     [x0, #0x200]
   ldr    d31,     [x0, #0x208]
 
+  // Finally, restore sp. This must be done after the last read from the
+  // context struct, because it is allocated on the stack, and an exception
+  // could clobber the de-allocated portion of the stack after sp has been
+  // restored.
+  ldr    x16,     [x0, #0x0F8]
   ldp    x0, x1,  [x0, #0x000]  // restore x0,x1
+  mov    sp,x16                 // restore sp
   ret    x30                    // jump to pc
 
 #elif defined(__arm__) && !defined(__APPLE__)
 
 #if !defined(__ARM_ARCH_ISA_ARM)
+#if (__ARM_ARCH_ISA_THUMB == 2)
+  .syntax unified
+#endif
   .thumb
 #endif
 
@@ -621,7 +698,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind15Registers_arm646jumptoEv)
 @  thread_state pointer is in r0
 @
   .p2align 2
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm20restoreCoreAndJumpToEv)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm20restoreCoreAndJumpToEv)
 #if !defined(__ARM_ARCH_ISA_ARM) && __ARM_ARCH_ISA_THUMB == 1
   @ r8-r11: ldm into r1-r4, then mov to r8-r11
   adds r0, #0x20
@@ -647,7 +724,13 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm20restoreCoreAndJu
   ldr sp, [lr, #52]
   ldr lr, [lr, #60]  @ restore pc into lr
 #endif
+#if defined(__ARM_FEATURE_BTI_DEFAULT) && !defined(__ARM_ARCH_ISA_ARM)
+  // 'bx' is not BTI setting when used with lr, therefore r12 is used instead
+  mov r12, lr
+  JMP(r12)
+#else
   JMP(lr)
+#endif
 
 @
 @ static void libunwind::Registers_arm::restoreVFPWithFLDMD(unw_fpreg_t* values)
@@ -659,7 +742,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm20restoreCoreAndJu
 #if defined(__ELF__)
   .fpu vfpv3-d16
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm19restoreVFPWithFLDMDEPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm19restoreVFPWithFLDMDEPv)
   @ VFP and iwMMX instructions are only available when compiling with the flags
   @ that enable them. We do not want to do that in the library (because we do not
   @ want the compiler to generate instructions that access those) but this is
@@ -680,7 +763,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm19restoreVFPWithFL
 #if defined(__ELF__)
   .fpu vfpv3-d16
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm19restoreVFPWithFLDMXEPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm19restoreVFPWithFLDMXEPv)
   vldmia r0, {d0-d15} @ fldmiax is deprecated in ARMv7+ and now behaves like vldmia
   JMP(lr)
 
@@ -694,7 +777,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm19restoreVFPWithFL
 #if defined(__ELF__)
   .fpu vfpv3
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm12restoreVFPv3EPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm12restoreVFPv3EPv)
   vldmia r0, {d16-d31}
   JMP(lr)
 
@@ -710,7 +793,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm12restoreVFPv3EPy)
 #if defined(__ELF__)
   .arch armv5te
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm12restoreiWMMXEPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm12restoreiWMMXEPv)
   ldcl p1, cr0, [r0], #8  @ wldrd wR0, [r0], #8
   ldcl p1, cr1, [r0], #8  @ wldrd wR1, [r0], #8
   ldcl p1, cr2, [r0], #8  @ wldrd wR2, [r0], #8
@@ -739,7 +822,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm12restoreiWMMXEPy)
 #if defined(__ELF__)
   .arch armv5te
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm19restoreiWMMXControlEPj)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm19restoreiWMMXControlEPj)
   ldc2 p1, cr8, [r0], #4  @ wldrw wCGR0, [r0], #4
   ldc2 p1, cr9, [r0], #4  @ wldrw wCGR1, [r0], #4
   ldc2 p1, cr10, [r0], #4  @ wldrw wCGR2, [r0], #4
@@ -750,7 +833,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm19restoreiWMMXCont
 
 #elif defined(__or1k__)
 
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind14Registers_or1k6jumptoEv)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind14Registers_or1k6jumptoEv)
 #
 # void libunwind::Registers_or1k::jumpto()
 #
@@ -758,7 +841,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind14Registers_or1k6jumptoEv)
 #  thread_state pointer is in r3
 #
 
-  # restore integral registerrs
+  # restore integral registers
   l.lwz     r0,  0(r3)
   l.lwz     r1,  4(r3)
   l.lwz     r2,  8(r3)
@@ -768,7 +851,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind14Registers_or1k6jumptoEv)
   l.lwz     r6, 24(r3)
   l.lwz     r7, 28(r3)
   l.lwz     r8, 32(r3)
-  l.lwz     r9, 36(r3)
+  # skip r9
   l.lwz    r10, 40(r3)
   l.lwz    r11, 44(r3)
   l.lwz    r12, 48(r3)
@@ -792,6 +875,9 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind14Registers_or1k6jumptoEv)
   l.lwz    r30,120(r3)
   l.lwz    r31,124(r3)
 
+  # load new pc into ra
+  l.lwz    r9, 128(r3)
+
   # at last, restore r3
   l.lwz    r3,  12(r3)
 
@@ -799,8 +885,49 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind14Registers_or1k6jumptoEv)
   l.jr     r9
    l.nop
 
-#elif defined(__mips__) && defined(_ABIO32) && _MIPS_SIM == _ABIO32 &&         \
-    defined(__mips_soft_float)
+#elif defined(__hexagon__)
+# On entry:
+#  thread_state pointer is in r2
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind17Registers_hexagon6jumptoEv)
+#
+# void libunwind::Registers_hexagon::jumpto()
+#
+  r8 = memw(r0+#32)
+  r9 = memw(r0+#36)
+  r10 = memw(r0+#40)
+  r11 = memw(r0+#44)
+
+  r12 = memw(r0+#48)
+  r13 = memw(r0+#52)
+  r14 = memw(r0+#56)
+  r15 = memw(r0+#60)
+
+  r16 = memw(r0+#64)
+  r17 = memw(r0+#68)
+  r18 = memw(r0+#72)
+  r19 = memw(r0+#76)
+
+  r20 = memw(r0+#80)
+  r21 = memw(r0+#84)
+  r22 = memw(r0+#88)
+  r23 = memw(r0+#92)
+
+  r24 = memw(r0+#96)
+  r25 = memw(r0+#100)
+  r26 = memw(r0+#104)
+  r27 = memw(r0+#108)
+
+  r28 = memw(r0+#112)
+  r29 = memw(r0+#116)
+  r30 = memw(r0+#120)
+  r31 = memw(r0+#132)
+
+  r1 = memw(r0+#128)
+  c4 = r1   // Predicate register
+  r1 = memw(r0+#4)
+  r0 = memw(r0)
+  jumpr r31
+#elif defined(__mips__) && defined(_ABIO32) && _MIPS_SIM == _ABIO32
 
 //
 // void libunwind::Registers_mips_o32::jumpto()
@@ -808,16 +935,71 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind14Registers_or1k6jumptoEv)
 // On entry:
 //  thread state pointer is in a0 ($4)
 //
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind18Registers_mips_o326jumptoEv)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind18Registers_mips_o326jumptoEv)
   .set push
   .set noat
   .set noreorder
   .set nomacro
+#ifdef __mips_hard_float
+#if __mips_fpr != 64
+  ldc1  $f0, (4 * 36 + 8 * 0)($4)
+  ldc1  $f2, (4 * 36 + 8 * 2)($4)
+  ldc1  $f4, (4 * 36 + 8 * 4)($4)
+  ldc1  $f6, (4 * 36 + 8 * 6)($4)
+  ldc1  $f8, (4 * 36 + 8 * 8)($4)
+  ldc1  $f10, (4 * 36 + 8 * 10)($4)
+  ldc1  $f12, (4 * 36 + 8 * 12)($4)
+  ldc1  $f14, (4 * 36 + 8 * 14)($4)
+  ldc1  $f16, (4 * 36 + 8 * 16)($4)
+  ldc1  $f18, (4 * 36 + 8 * 18)($4)
+  ldc1  $f20, (4 * 36 + 8 * 20)($4)
+  ldc1  $f22, (4 * 36 + 8 * 22)($4)
+  ldc1  $f24, (4 * 36 + 8 * 24)($4)
+  ldc1  $f26, (4 * 36 + 8 * 26)($4)
+  ldc1  $f28, (4 * 36 + 8 * 28)($4)
+  ldc1  $f30, (4 * 36 + 8 * 30)($4)
+#else
+  ldc1  $f0, (4 * 36 + 8 * 0)($4)
+  ldc1  $f1, (4 * 36 + 8 * 1)($4)
+  ldc1  $f2, (4 * 36 + 8 * 2)($4)
+  ldc1  $f3, (4 * 36 + 8 * 3)($4)
+  ldc1  $f4, (4 * 36 + 8 * 4)($4)
+  ldc1  $f5, (4 * 36 + 8 * 5)($4)
+  ldc1  $f6, (4 * 36 + 8 * 6)($4)
+  ldc1  $f7, (4 * 36 + 8 * 7)($4)
+  ldc1  $f8, (4 * 36 + 8 * 8)($4)
+  ldc1  $f9, (4 * 36 + 8 * 9)($4)
+  ldc1  $f10, (4 * 36 + 8 * 10)($4)
+  ldc1  $f11, (4 * 36 + 8 * 11)($4)
+  ldc1  $f12, (4 * 36 + 8 * 12)($4)
+  ldc1  $f13, (4 * 36 + 8 * 13)($4)
+  ldc1  $f14, (4 * 36 + 8 * 14)($4)
+  ldc1  $f15, (4 * 36 + 8 * 15)($4)
+  ldc1  $f16, (4 * 36 + 8 * 16)($4)
+  ldc1  $f17, (4 * 36 + 8 * 17)($4)
+  ldc1  $f18, (4 * 36 + 8 * 18)($4)
+  ldc1  $f19, (4 * 36 + 8 * 19)($4)
+  ldc1  $f20, (4 * 36 + 8 * 20)($4)
+  ldc1  $f21, (4 * 36 + 8 * 21)($4)
+  ldc1  $f22, (4 * 36 + 8 * 22)($4)
+  ldc1  $f23, (4 * 36 + 8 * 23)($4)
+  ldc1  $f24, (4 * 36 + 8 * 24)($4)
+  ldc1  $f25, (4 * 36 + 8 * 25)($4)
+  ldc1  $f26, (4 * 36 + 8 * 26)($4)
+  ldc1  $f27, (4 * 36 + 8 * 27)($4)
+  ldc1  $f28, (4 * 36 + 8 * 28)($4)
+  ldc1  $f29, (4 * 36 + 8 * 29)($4)
+  ldc1  $f30, (4 * 36 + 8 * 30)($4)
+  ldc1  $f31, (4 * 36 + 8 * 31)($4)
+#endif
+#endif
+#if __mips_isa_rev < 6
   // restore hi and lo
   lw    $8, (4 * 33)($4)
   mthi  $8
   lw    $8, (4 * 34)($4)
   mtlo  $8
+#endif
   // r0 is zero
   lw    $1, (4 * 1)($4)
   lw    $2, (4 * 2)($4)
@@ -856,7 +1038,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind18Registers_mips_o326jumptoEv)
   lw    $4, (4 * 4)($4)
   .set pop
 
-#elif defined(__mips64) && defined(__mips_soft_float)
+#elif defined(__mips64)
 
 //
 // void libunwind::Registers_mips_newabi::jumpto()
@@ -864,53 +1046,189 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind18Registers_mips_o326jumptoEv)
 // On entry:
 //  thread state pointer is in a0 ($4)
 //
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind21Registers_mips_newabi6jumptoEv)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind21Registers_mips_newabi6jumptoEv)
   .set push
   .set noat
   .set noreorder
   .set nomacro
+#ifdef __mips_hard_float
+  .irp i,FROM_0_TO_31
+    ldc1 $f\i, (280+8*\i)($4)
+  .endr
+#endif
+#if __mips_isa_rev < 6
   // restore hi and lo
   ld    $8, (8 * 33)($4)
   mthi  $8
   ld    $8, (8 * 34)($4)
   mtlo  $8
+#endif
   // r0 is zero
   ld    $1, (8 * 1)($4)
   ld    $2, (8 * 2)($4)
   ld    $3, (8 * 3)($4)
   // skip a0 for now
-  ld    $5, (8 * 5)($4)
-  ld    $6, (8 * 6)($4)
-  ld    $7, (8 * 7)($4)
-  ld    $8, (8 * 8)($4)
-  ld    $9, (8 * 9)($4)
-  ld    $10, (8 * 10)($4)
-  ld    $11, (8 * 11)($4)
-  ld    $12, (8 * 12)($4)
-  ld    $13, (8 * 13)($4)
-  ld    $14, (8 * 14)($4)
-  ld    $15, (8 * 15)($4)
-  ld    $16, (8 * 16)($4)
-  ld    $17, (8 * 17)($4)
-  ld    $18, (8 * 18)($4)
-  ld    $19, (8 * 19)($4)
-  ld    $20, (8 * 20)($4)
-  ld    $21, (8 * 21)($4)
-  ld    $22, (8 * 22)($4)
-  ld    $23, (8 * 23)($4)
-  ld    $24, (8 * 24)($4)
-  ld    $25, (8 * 25)($4)
-  ld    $26, (8 * 26)($4)
-  ld    $27, (8 * 27)($4)
-  ld    $28, (8 * 28)($4)
-  ld    $29, (8 * 29)($4)
-  ld    $30, (8 * 30)($4)
+  .irp i,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30
+    ld $\i, (8 * \i)($4)
+  .endr
   // load new pc into ra
   ld    $31, (8 * 32)($4)
   // jump to ra, load a0 in the delay slot
   jr    $31
   ld    $4, (8 * 4)($4)
   .set pop
+
+#elif defined(__sparc__) && defined(__arch64__)
+
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind17Registers_sparc646jumptoEv)
+//
+// void libunwind::Registers_sparc64::jumpto()
+//
+// On entry:
+//  thread_state pointer is in %o0
+//
+  .register %g2, #scratch
+  .register %g3, #scratch
+  .register %g6, #scratch
+  .register %g7, #scratch
+  flushw
+  ldx  [%o0 + 0x08], %g1
+  ldx  [%o0 + 0x10], %g2
+  ldx  [%o0 + 0x18], %g3
+  ldx  [%o0 + 0x20], %g4
+  ldx  [%o0 + 0x28], %g5
+  ldx  [%o0 + 0x30], %g6
+  ldx  [%o0 + 0x38], %g7
+  ldx  [%o0 + 0x48], %o1
+  ldx  [%o0 + 0x50], %o2
+  ldx  [%o0 + 0x58], %o3
+  ldx  [%o0 + 0x60], %o4
+  ldx  [%o0 + 0x68], %o5
+  ldx  [%o0 + 0x70], %o6
+  ldx  [%o0 + 0x78], %o7
+  ldx  [%o0 + 0x80], %l0
+  ldx  [%o0 + 0x88], %l1
+  ldx  [%o0 + 0x90], %l2
+  ldx  [%o0 + 0x98], %l3
+  ldx  [%o0 + 0xa0], %l4
+  ldx  [%o0 + 0xa8], %l5
+  ldx  [%o0 + 0xb0], %l6
+  ldx  [%o0 + 0xb8], %l7
+  ldx  [%o0 + 0xc0], %i0
+  ldx  [%o0 + 0xc8], %i1
+  ldx  [%o0 + 0xd0], %i2
+  ldx  [%o0 + 0xd8], %i3
+  ldx  [%o0 + 0xe0], %i4
+  ldx  [%o0 + 0xe8], %i5
+  ldx  [%o0 + 0xf0], %i6
+  ldx  [%o0 + 0xf8], %i7
+  jmp  %o7
+   ldx [%o0 + 0x40], %o0
+
+#elif defined(__sparc__)
+
+//
+// void libunwind::Registers_sparc_o32::jumpto()
+//
+// On entry:
+//  thread_state pointer is in o0
+//
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind15Registers_sparc6jumptoEv)
+  ta 3
+  ldd [%o0 + 64],  %l0
+  ldd [%o0 + 72],  %l2
+  ldd [%o0 + 80],  %l4
+  ldd [%o0 + 88],  %l6
+  ldd [%o0 + 96],  %i0
+  ldd [%o0 + 104], %i2
+  ldd [%o0 + 112], %i4
+  ldd [%o0 + 120], %i6
+  ld  [%o0 + 60],  %o7
+  jmp %o7
+   nop
+
+#elif defined(__riscv)
+
+//
+// void libunwind::Registers_riscv::jumpto()
+//
+// On entry:
+//  thread_state pointer is in a0
+//
+  .p2align 2
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind15Registers_riscv6jumptoEv)
+# if defined(__riscv_flen)
+  .irp i,FROM_0_TO_31
+    FLOAD f\i, (RISCV_FOFFSET + RISCV_FSIZE * \i)(a0)
+  .endr
+# endif
+
+  // x0 is zero
+  ILOAD    x1, (RISCV_ISIZE * 0)(a0) // restore pc into ra
+  .irp i,2,3,4,5,6,7,8,9
+    ILOAD x\i, (RISCV_ISIZE * \i)(a0)
+  .endr
+  // skip a0 for now
+  .irp i,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    ILOAD x\i, (RISCV_ISIZE * \i)(a0)
+  .endr
+  ILOAD    x10, (RISCV_ISIZE * 10)(a0)   // restore a0
+
+  ret                       // jump to ra
+
+#elif defined(__s390x__)
+
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind15Registers_s390x6jumptoEv)
+//
+// void libunwind::Registers_s390x::jumpto()
+//
+// On entry:
+//  thread_state pointer is in r2
+//
+
+  // Skip PSWM, but load PSWA into r1
+  lg %r1, 8(%r2)
+
+  // Restore FPRs
+  .irp i,FROM_0_TO_15
+    ld %f\i, (144+8*\i)(%r2)
+  .endr
+
+  // Restore GPRs - skipping %r0 and %r1
+  lmg  %r2, %r15, 32(%r2)
+
+  // Return to PSWA (was loaded into %r1 above)
+  br %r1
+
+#elif defined(__loongarch__) && __loongarch_grlen == 64
+
+//
+// void libunwind::Registers_loongarch::jumpto()
+//
+// On entry:
+//  thread_state pointer is in $a0($r4)
+//
+  .p2align 2
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind19Registers_loongarch6jumptoEv)
+# if __loongarch_frlen == 64
+  .irp i,FROM_0_TO_31
+    fld.d $f\i, $a0, (8 * 33 + 8 * \i)
+  .endr
+# endif
+
+  // $r0 is zero
+  .irp i,1,2,3
+    ld.d $r\i, $a0, (8 * \i)
+  .endr
+  // skip $a0 for now
+  .irp i,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    ld.d $r\i, $a0, (8 * \i)
+  .endr
+
+  ld.d    $ra,  $a0, (8 * 32)  // load new pc into $ra
+  ld.d    $a0,  $a0, (8 * 4)   // restore $a0 last
+
+  jr      $ra
 
 #endif
 

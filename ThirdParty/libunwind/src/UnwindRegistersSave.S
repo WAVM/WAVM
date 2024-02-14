@@ -1,22 +1,31 @@
-//===------------------------ UnwindRegistersSave.S -----------------------===//
+//===----------------------------------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
 #include "assembly.h"
 
+#define FROM_0_TO_15 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+#define FROM_16_TO_31 16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+
+#define FROM_0_TO_31 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+#define FROM_32_TO_63 32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63
+
+#if defined(_AIX)
+    .toc
+#else
     .text
+#endif
 
 #if !defined(__USING_SJLJ_EXCEPTIONS__)
 
 #if defined(__i386__)
 
 #
-# extern int unw_getcontext(unw_context_t* thread_state)
+# extern int __unw_getcontext(unw_context_t* thread_state)
 #
 # On entry:
 #   +                       +
@@ -27,7 +36,9 @@
 #   +-----------------------+   <-- SP
 #   +                       +
 #
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+
+  _LIBUNWIND_CET_ENDBR
   push  %eax
   movl  8(%esp), %eax
   movl  %ebx,  4(%eax)
@@ -57,12 +68,12 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
 #elif defined(__x86_64__)
 
 #
-# extern int unw_getcontext(unw_context_t* thread_state)
+# extern int __unw_getcontext(unw_context_t* thread_state)
 #
 # On entry:
 #  thread_state pointer is in rdi
 #
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
 #if defined(_WIN64)
 #define PTR %rcx
 #define TMP %rdx
@@ -71,6 +82,7 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
 #define TMP %rsi
 #endif
 
+  _LIBUNWIND_CET_ENDBR
   movq  %rax,   (PTR)
   movq  %rbx,  8(PTR)
   movq  %rcx, 16(PTR)
@@ -116,16 +128,15 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
   xorl  %eax, %eax    # return UNW_ESUCCESS
   ret
 
-#elif defined(__mips__) && defined(_ABIO32) && _MIPS_SIM == _ABIO32 &&         \
-    defined(__mips_soft_float)
+#elif defined(__mips__) && defined(_ABIO32) && _MIPS_SIM == _ABIO32
 
 #
-# extern int unw_getcontext(unw_context_t* thread_state)
+# extern int __unw_getcontext(unw_context_t* thread_state)
 #
 # On entry:
 #  thread_state pointer is in a0 ($4)
 #
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
   .set push
   .set noat
   .set noreorder
@@ -163,67 +174,101 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
   sw    $31, (4 * 31)($4)
   # Store return address to pc
   sw    $31, (4 * 32)($4)
+#if __mips_isa_rev < 6
   # hi and lo
   mfhi  $8
   sw    $8,  (4 * 33)($4)
   mflo  $8
   sw    $8,  (4 * 34)($4)
+#endif
+#ifdef __mips_hard_float
+#if __mips_fpr != 64
+  sdc1  $f0, (4 * 36 + 8 * 0)($4)
+  sdc1  $f2, (4 * 36 + 8 * 2)($4)
+  sdc1  $f4, (4 * 36 + 8 * 4)($4)
+  sdc1  $f6, (4 * 36 + 8 * 6)($4)
+  sdc1  $f8, (4 * 36 + 8 * 8)($4)
+  sdc1  $f10, (4 * 36 + 8 * 10)($4)
+  sdc1  $f12, (4 * 36 + 8 * 12)($4)
+  sdc1  $f14, (4 * 36 + 8 * 14)($4)
+  sdc1  $f16, (4 * 36 + 8 * 16)($4)
+  sdc1  $f18, (4 * 36 + 8 * 18)($4)
+  sdc1  $f20, (4 * 36 + 8 * 20)($4)
+  sdc1  $f22, (4 * 36 + 8 * 22)($4)
+  sdc1  $f24, (4 * 36 + 8 * 24)($4)
+  sdc1  $f26, (4 * 36 + 8 * 26)($4)
+  sdc1  $f28, (4 * 36 + 8 * 28)($4)
+  sdc1  $f30, (4 * 36 + 8 * 30)($4)
+#else
+  sdc1  $f0, (4 * 36 + 8 * 0)($4)
+  sdc1  $f1, (4 * 36 + 8 * 1)($4)
+  sdc1  $f2, (4 * 36 + 8 * 2)($4)
+  sdc1  $f3, (4 * 36 + 8 * 3)($4)
+  sdc1  $f4, (4 * 36 + 8 * 4)($4)
+  sdc1  $f5, (4 * 36 + 8 * 5)($4)
+  sdc1  $f6, (4 * 36 + 8 * 6)($4)
+  sdc1  $f7, (4 * 36 + 8 * 7)($4)
+  sdc1  $f8, (4 * 36 + 8 * 8)($4)
+  sdc1  $f9, (4 * 36 + 8 * 9)($4)
+  sdc1  $f10, (4 * 36 + 8 * 10)($4)
+  sdc1  $f11, (4 * 36 + 8 * 11)($4)
+  sdc1  $f12, (4 * 36 + 8 * 12)($4)
+  sdc1  $f13, (4 * 36 + 8 * 13)($4)
+  sdc1  $f14, (4 * 36 + 8 * 14)($4)
+  sdc1  $f15, (4 * 36 + 8 * 15)($4)
+  sdc1  $f16, (4 * 36 + 8 * 16)($4)
+  sdc1  $f17, (4 * 36 + 8 * 17)($4)
+  sdc1  $f18, (4 * 36 + 8 * 18)($4)
+  sdc1  $f19, (4 * 36 + 8 * 19)($4)
+  sdc1  $f20, (4 * 36 + 8 * 20)($4)
+  sdc1  $f21, (4 * 36 + 8 * 21)($4)
+  sdc1  $f22, (4 * 36 + 8 * 22)($4)
+  sdc1  $f23, (4 * 36 + 8 * 23)($4)
+  sdc1  $f24, (4 * 36 + 8 * 24)($4)
+  sdc1  $f25, (4 * 36 + 8 * 25)($4)
+  sdc1  $f26, (4 * 36 + 8 * 26)($4)
+  sdc1  $f27, (4 * 36 + 8 * 27)($4)
+  sdc1  $f28, (4 * 36 + 8 * 28)($4)
+  sdc1  $f29, (4 * 36 + 8 * 29)($4)
+  sdc1  $f30, (4 * 36 + 8 * 30)($4)
+  sdc1  $f31, (4 * 36 + 8 * 31)($4)
+#endif
+#endif
   jr	$31
   # return UNW_ESUCCESS
   or    $2, $0, $0
   .set pop
 
-#elif defined(__mips64) && defined(__mips_soft_float)
+#elif defined(__mips64)
 
 #
-# extern int unw_getcontext(unw_context_t* thread_state)
+# extern int __unw_getcontext(unw_context_t* thread_state)
 #
 # On entry:
 #  thread_state pointer is in a0 ($4)
 #
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
   .set push
   .set noat
   .set noreorder
   .set nomacro
-  sd    $1, (8 * 1)($4)
-  sd    $2, (8 * 2)($4)
-  sd    $3, (8 * 3)($4)
-  sd    $4, (8 * 4)($4)
-  sd    $5, (8 * 5)($4)
-  sd    $6, (8 * 6)($4)
-  sd    $7, (8 * 7)($4)
-  sd    $8, (8 * 8)($4)
-  sd    $9, (8 * 9)($4)
-  sd    $10, (8 * 10)($4)
-  sd    $11, (8 * 11)($4)
-  sd    $12, (8 * 12)($4)
-  sd    $13, (8 * 13)($4)
-  sd    $14, (8 * 14)($4)
-  sd    $15, (8 * 15)($4)
-  sd    $16, (8 * 16)($4)
-  sd    $17, (8 * 17)($4)
-  sd    $18, (8 * 18)($4)
-  sd    $19, (8 * 19)($4)
-  sd    $20, (8 * 20)($4)
-  sd    $21, (8 * 21)($4)
-  sd    $22, (8 * 22)($4)
-  sd    $23, (8 * 23)($4)
-  sd    $24, (8 * 24)($4)
-  sd    $25, (8 * 25)($4)
-  sd    $26, (8 * 26)($4)
-  sd    $27, (8 * 27)($4)
-  sd    $28, (8 * 28)($4)
-  sd    $29, (8 * 29)($4)
-  sd    $30, (8 * 30)($4)
-  sd    $31, (8 * 31)($4)
+  .irp i,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    sd $\i, (8 * \i)($4)
+  .endr
   # Store return address to pc
   sd    $31, (8 * 32)($4)
+#if __mips_isa_rev < 6
   # hi and lo
   mfhi  $8
   sd    $8,  (8 * 33)($4)
   mflo  $8
   sd    $8,  (8 * 34)($4)
+#endif
+#ifdef __mips_hard_float
+  .irp i,FROM_0_TO_31
+    sdc1 $f\i, (280+8*\i)($4)
+  .endr
+#endif
   jr	$31
   # return UNW_ESUCCESS
   or    $2, $0, $0
@@ -232,34 +277,49 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
 # elif defined(__mips__)
 
 #
-# extern int unw_getcontext(unw_context_t* thread_state)
+# extern int __unw_getcontext(unw_context_t* thread_state)
 #
 # Just trap for the time being.
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
   teq $0, $0
 
 #elif defined(__powerpc64__)
 
 //
-// extern int unw_getcontext(unw_context_t* thread_state)
+// extern int __unw_getcontext(unw_context_t* thread_state)
 //
 // On entry:
 //  thread_state pointer is in r3
 //
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
-
+#if defined(_AIX)
+DEFINE_LIBUNWIND_FUNCTION_AND_WEAK_ALIAS(__unw_getcontext, unw_getcontext)
+#else
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+#endif
 // store register (GPR)
 #define PPC64_STR(n) \
-  std   %r##n, (8 * (n + 2))(%r3)
+  std   n, (8 * (n + 2))(3)
 
   // save GPRs
   PPC64_STR(0)
-  mflr  %r0
-  std   %r0, PPC64_OFFS_SRR0(%r3) // store lr as ssr0
+  mflr  0
+  std   0, PPC64_OFFS_SRR0(3) // store lr as ssr0
   PPC64_STR(1)
+  PPC64_STR(4)        // Save r4 first since it will be used for fixing r2.
+#if defined(_AIX)
+  // The TOC register (r2) was changed by the glue code if unw_getcontext
+  // is called from a different module. Save the original TOC register
+  // in the context if this is the case.
+  mflr   4
+  lwz    4, 0(4)      // Get the first instruction at the return address.
+  xoris  0, 4, 0xe841 // Is it reloading the TOC register "ld 2,40(1)"?
+  cmplwi 0, 0x28
+  bne    0, LnoR2Fix  // No need to fix up r2 if it is not.
+  ld     2, 40(1)     // Use the saved TOC register in the stack.
+LnoR2Fix:
+#endif
   PPC64_STR(2)
   PPC64_STR(3)
-  PPC64_STR(4)
   PPC64_STR(5)
   PPC64_STR(6)
   PPC64_STR(7)
@@ -288,28 +348,44 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
   PPC64_STR(30)
   PPC64_STR(31)
 
-  mfcr  %r0
-  std   %r0,  PPC64_OFFS_CR(%r3)
-  mfxer %r0
-  std   %r0,  PPC64_OFFS_XER(%r3)
-  mflr  %r0
-  std   %r0,  PPC64_OFFS_LR(%r3)
-  mfctr %r0
-  std   %r0,  PPC64_OFFS_CTR(%r3)
-  mfvrsave    %r0
-  std   %r0,  PPC64_OFFS_VRSAVE(%r3)
+  mfcr  0
+  std   0,  PPC64_OFFS_CR(3)
+  mfxer 0
+  std   0,  PPC64_OFFS_XER(3)
+#if defined(_AIX)
+  // LR value saved from the register is not used, initialize it to 0.
+  li    0,  0
+#else
+  mflr  0
+#endif
+  std   0,  PPC64_OFFS_LR(3)
+  mfctr 0
+  std   0,  PPC64_OFFS_CTR(3)
+  mfvrsave    0
+  std   0,  PPC64_OFFS_VRSAVE(3)
 
-#ifdef PPC64_HAS_VMX
+#if defined(__VSX__)
   // save VS registers
   // (note that this also saves floating point registers and V registers,
   // because part of VS is mapped to these registers)
 
-  addi  %r4, %r3, PPC64_OFFS_FP
+  addi  4, 3, PPC64_OFFS_FP
 
 // store VS register
+#ifdef __LITTLE_ENDIAN__
+// For little-endian targets, we need a swap since stxvd2x will store the
+// register in the incorrect doubleword order.
+// FIXME: when supporting targets older than Power9 on LE is no longer required
+//        this can be changed to simply `stxv n, 16 * n(4)`.
 #define PPC64_STVS(n)      \
-  stxvd2x %vs##n, 0, %r4  ;\
-  addi    %r4, %r4, 16
+  xxswapd n, n            ;\
+  stxvd2x n, 0, 4         ;\
+  addi    4, 4, 16
+#else
+#define PPC64_STVS(n)      \
+  stxvd2x n, 0, 4         ;\
+  addi    4, 4, 16
+#endif
 
   PPC64_STVS(0)
   PPC64_STVS(1)
@@ -380,7 +456,7 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
 
 // store FP register
 #define PPC64_STF(n) \
-  stfd  %f##n, (PPC64_OFFS_FP + n * 16)(%r3)
+  stfd  n, (PPC64_OFFS_FP + n * 16)(3)
 
   // save float registers
   PPC64_STF(0)
@@ -416,19 +492,20 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
   PPC64_STF(30)
   PPC64_STF(31)
 
+#if defined(__ALTIVEC__)
   // save vector registers
 
   // Use 16-bytes below the stack pointer as an
   // aligned buffer to save each vector register.
   // Note that the stack pointer is always 16-byte aligned.
-  subi  %r4, %r1, 16
+  subi  4, 1, 16
 
-#define PPC64_STV_UNALIGNED(n)                 \
-  stvx  %v##n, 0, %r4                         ;\
-  ld    %r5, 0(%r4)                           ;\
-  std   %r5, (PPC64_OFFS_V + n * 16)(%r3)     ;\
-  ld    %r5, 8(%r4)                           ;\
-  std   %r5, (PPC64_OFFS_V + n * 16 + 8)(%r3)
+#define PPC64_STV_UNALIGNED(n)             \
+  stvx  n, 0, 4                           ;\
+  ld    5, 0(4)                           ;\
+  std   5, (PPC64_OFFS_V + n * 16)(3)     ;\
+  ld    5, 8(4)                           ;\
+  std   5, (PPC64_OFFS_V + n * 16 + 8)(3)
 
   PPC64_STV_UNALIGNED(0)
   PPC64_STV_UNALIGNED(1)
@@ -464,164 +541,191 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
   PPC64_STV_UNALIGNED(31)
 
 #endif
+#endif
 
-  li    %r3,  0   // return UNW_ESUCCESS
+  li    3,  0   // return UNW_ESUCCESS
   blr
 
 
-#elif defined(__ppc__)
-
-;
-; extern int unw_getcontext(unw_context_t* thread_state)
-;
-; On entry:
-;  thread_state pointer is in r3
-;
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
-  stw    r0,  8(r3)
-  mflr  r0
-  stw    r0,  0(r3)  ; store lr as ssr0
-  stw    r1, 12(r3)
-  stw    r2, 16(r3)
-  stw    r3, 20(r3)
-  stw    r4, 24(r3)
-  stw    r5, 28(r3)
-  stw    r6, 32(r3)
-  stw    r7, 36(r3)
-  stw    r8, 40(r3)
-  stw    r9, 44(r3)
-  stw     r10, 48(r3)
-  stw     r11, 52(r3)
-  stw     r12, 56(r3)
-  stw     r13, 60(r3)
-  stw     r14, 64(r3)
-  stw     r15, 68(r3)
-  stw     r16, 72(r3)
-  stw     r17, 76(r3)
-  stw     r18, 80(r3)
-  stw     r19, 84(r3)
-  stw     r20, 88(r3)
-  stw     r21, 92(r3)
-  stw     r22, 96(r3)
-  stw     r23,100(r3)
-  stw     r24,104(r3)
-  stw     r25,108(r3)
-  stw     r26,112(r3)
-  stw     r27,116(r3)
-  stw     r28,120(r3)
-  stw     r29,124(r3)
-  stw     r30,128(r3)
-  stw     r31,132(r3)
-
-  ; save VRSave register
-  mfspr  r0,256
-  stw    r0,156(r3)
-  ; save CR registers
-  mfcr  r0
-  stw    r0,136(r3)
-  ; save CTR register
-  mfctr  r0
-  stw    r0,148(r3)
-
-  ; save float registers
-  stfd    f0, 160(r3)
-  stfd    f1, 168(r3)
-  stfd    f2, 176(r3)
-  stfd    f3, 184(r3)
-  stfd    f4, 192(r3)
-  stfd    f5, 200(r3)
-  stfd    f6, 208(r3)
-  stfd    f7, 216(r3)
-  stfd    f8, 224(r3)
-  stfd    f9, 232(r3)
-  stfd    f10,240(r3)
-  stfd    f11,248(r3)
-  stfd    f12,256(r3)
-  stfd    f13,264(r3)
-  stfd    f14,272(r3)
-  stfd    f15,280(r3)
-  stfd    f16,288(r3)
-  stfd    f17,296(r3)
-  stfd    f18,304(r3)
-  stfd    f19,312(r3)
-  stfd    f20,320(r3)
-  stfd    f21,328(r3)
-  stfd    f22,336(r3)
-  stfd    f23,344(r3)
-  stfd    f24,352(r3)
-  stfd    f25,360(r3)
-  stfd    f26,368(r3)
-  stfd    f27,376(r3)
-  stfd    f28,384(r3)
-  stfd    f29,392(r3)
-  stfd    f30,400(r3)
-  stfd    f31,408(r3)
-
-
-  ; save vector registers
-
-  subi  r4,r1,16
-  rlwinm  r4,r4,0,0,27  ; mask low 4-bits
-  ; r4 is now a 16-byte aligned pointer into the red zone
-
-#define SAVE_VECTOR_UNALIGNED(_vec, _offset) \
-  stvx  _vec,0,r4           @\
-  lwz    r5, 0(r4)          @\
-  stw    r5, _offset(r3)    @\
-  lwz    r5, 4(r4)          @\
-  stw    r5, _offset+4(r3)  @\
-  lwz    r5, 8(r4)          @\
-  stw    r5, _offset+8(r3)  @\
-  lwz    r5, 12(r4)         @\
-  stw    r5, _offset+12(r3)
-
-  SAVE_VECTOR_UNALIGNED( v0, 424+0x000)
-  SAVE_VECTOR_UNALIGNED( v1, 424+0x010)
-  SAVE_VECTOR_UNALIGNED( v2, 424+0x020)
-  SAVE_VECTOR_UNALIGNED( v3, 424+0x030)
-  SAVE_VECTOR_UNALIGNED( v4, 424+0x040)
-  SAVE_VECTOR_UNALIGNED( v5, 424+0x050)
-  SAVE_VECTOR_UNALIGNED( v6, 424+0x060)
-  SAVE_VECTOR_UNALIGNED( v7, 424+0x070)
-  SAVE_VECTOR_UNALIGNED( v8, 424+0x080)
-  SAVE_VECTOR_UNALIGNED( v9, 424+0x090)
-  SAVE_VECTOR_UNALIGNED(v10, 424+0x0A0)
-  SAVE_VECTOR_UNALIGNED(v11, 424+0x0B0)
-  SAVE_VECTOR_UNALIGNED(v12, 424+0x0C0)
-  SAVE_VECTOR_UNALIGNED(v13, 424+0x0D0)
-  SAVE_VECTOR_UNALIGNED(v14, 424+0x0E0)
-  SAVE_VECTOR_UNALIGNED(v15, 424+0x0F0)
-  SAVE_VECTOR_UNALIGNED(v16, 424+0x100)
-  SAVE_VECTOR_UNALIGNED(v17, 424+0x110)
-  SAVE_VECTOR_UNALIGNED(v18, 424+0x120)
-  SAVE_VECTOR_UNALIGNED(v19, 424+0x130)
-  SAVE_VECTOR_UNALIGNED(v20, 424+0x140)
-  SAVE_VECTOR_UNALIGNED(v21, 424+0x150)
-  SAVE_VECTOR_UNALIGNED(v22, 424+0x160)
-  SAVE_VECTOR_UNALIGNED(v23, 424+0x170)
-  SAVE_VECTOR_UNALIGNED(v24, 424+0x180)
-  SAVE_VECTOR_UNALIGNED(v25, 424+0x190)
-  SAVE_VECTOR_UNALIGNED(v26, 424+0x1A0)
-  SAVE_VECTOR_UNALIGNED(v27, 424+0x1B0)
-  SAVE_VECTOR_UNALIGNED(v28, 424+0x1C0)
-  SAVE_VECTOR_UNALIGNED(v29, 424+0x1D0)
-  SAVE_VECTOR_UNALIGNED(v30, 424+0x1E0)
-  SAVE_VECTOR_UNALIGNED(v31, 424+0x1F0)
-
-  li  r3, 0    ; return UNW_ESUCCESS
-  blr
-
-
-#elif defined(__arm64__) || defined(__aarch64__)
+#elif defined(__powerpc__)
 
 //
 // extern int unw_getcontext(unw_context_t* thread_state)
 //
 // On entry:
+//  thread_state pointer is in r3
+//
+#if defined(_AIX)
+DEFINE_LIBUNWIND_FUNCTION_AND_WEAK_ALIAS(__unw_getcontext, unw_getcontext)
+#else
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+#endif
+  stw     0,   8(3)
+  mflr    0
+  stw     0,   0(3) // store lr as ssr0
+  stw     1,  12(3)
+  stw     4,  24(3) // Save r4 first since it will be used for fixing r2.
+#if defined(_AIX)
+  // The TOC register (r2) was changed by the glue code if unw_getcontext
+  // is called from a different module. Save the original TOC register
+  // in the context if this is the case.
+  mflr    4
+  lwz     4,  0(4)      // Get the instruction at the return address.
+  xoris   0,  4, 0x8041 // Is it reloading the TOC register "lwz 2,20(1)"?
+  cmplwi  0,  0x14
+  bne     0,  LnoR2Fix  // No need to fix up r2 if it is not.
+  lwz     2,  20(1)     // Use the saved TOC register in the stack.
+LnoR2Fix:
+#endif
+  stw     2,  16(3)
+  stw     3,  20(3)
+  stw     5,  28(3)
+  stw     6,  32(3)
+  stw     7,  36(3)
+  stw     8,  40(3)
+  stw     9,  44(3)
+  stw     10, 48(3)
+  stw     11, 52(3)
+  stw     12, 56(3)
+  stw     13, 60(3)
+  stw     14, 64(3)
+  stw     15, 68(3)
+  stw     16, 72(3)
+  stw     17, 76(3)
+  stw     18, 80(3)
+  stw     19, 84(3)
+  stw     20, 88(3)
+  stw     21, 92(3)
+  stw     22, 96(3)
+  stw     23,100(3)
+  stw     24,104(3)
+  stw     25,108(3)
+  stw     26,112(3)
+  stw     27,116(3)
+  stw     28,120(3)
+  stw     29,124(3)
+  stw     30,128(3)
+  stw     31,132(3)
+
+#if defined(__ALTIVEC__)
+  // save VRSave register
+  mfspr   0, 256
+  stw     0, 156(3)
+#endif
+  // save CR registers
+  mfcr    0
+  stw     0, 136(3)
+#if defined(_AIX)
+  // LR value from the register is not used, initialize it to 0.
+  li      0, 0
+  stw     0, 144(3)
+#endif
+  // save CTR register
+  mfctr   0
+  stw     0, 148(3)
+
+#if !defined(__NO_FPRS__)
+  // save float registers
+  stfd    0, 160(3)
+  stfd    1, 168(3)
+  stfd    2, 176(3)
+  stfd    3, 184(3)
+  stfd    4, 192(3)
+  stfd    5, 200(3)
+  stfd    6, 208(3)
+  stfd    7, 216(3)
+  stfd    8, 224(3)
+  stfd    9, 232(3)
+  stfd    10,240(3)
+  stfd    11,248(3)
+  stfd    12,256(3)
+  stfd    13,264(3)
+  stfd    14,272(3)
+  stfd    15,280(3)
+  stfd    16,288(3)
+  stfd    17,296(3)
+  stfd    18,304(3)
+  stfd    19,312(3)
+  stfd    20,320(3)
+  stfd    21,328(3)
+  stfd    22,336(3)
+  stfd    23,344(3)
+  stfd    24,352(3)
+  stfd    25,360(3)
+  stfd    26,368(3)
+  stfd    27,376(3)
+  stfd    28,384(3)
+  stfd    29,392(3)
+  stfd    30,400(3)
+  stfd    31,408(3)
+#endif
+
+#if defined(__ALTIVEC__)
+  // save vector registers
+
+  subi    4, 1, 16
+  rlwinm  4, 4, 0, 0, 27  // mask low 4-bits
+  // r4 is now a 16-byte aligned pointer into the red zone
+
+#define SAVE_VECTOR_UNALIGNED(_vec, _offset) \
+  stvx    _vec, 0, 4               SEPARATOR \
+  lwz     5, 0(4)                  SEPARATOR \
+  stw     5, _offset(3)            SEPARATOR \
+  lwz     5, 4(4)                  SEPARATOR \
+  stw     5, _offset+4(3)          SEPARATOR \
+  lwz     5, 8(4)                  SEPARATOR \
+  stw     5, _offset+8(3)          SEPARATOR \
+  lwz     5, 12(4)                 SEPARATOR \
+  stw     5, _offset+12(3)
+
+  SAVE_VECTOR_UNALIGNED( 0, 424+0x000)
+  SAVE_VECTOR_UNALIGNED( 1, 424+0x010)
+  SAVE_VECTOR_UNALIGNED( 2, 424+0x020)
+  SAVE_VECTOR_UNALIGNED( 3, 424+0x030)
+  SAVE_VECTOR_UNALIGNED( 4, 424+0x040)
+  SAVE_VECTOR_UNALIGNED( 5, 424+0x050)
+  SAVE_VECTOR_UNALIGNED( 6, 424+0x060)
+  SAVE_VECTOR_UNALIGNED( 7, 424+0x070)
+  SAVE_VECTOR_UNALIGNED( 8, 424+0x080)
+  SAVE_VECTOR_UNALIGNED( 9, 424+0x090)
+  SAVE_VECTOR_UNALIGNED(10, 424+0x0A0)
+  SAVE_VECTOR_UNALIGNED(11, 424+0x0B0)
+  SAVE_VECTOR_UNALIGNED(12, 424+0x0C0)
+  SAVE_VECTOR_UNALIGNED(13, 424+0x0D0)
+  SAVE_VECTOR_UNALIGNED(14, 424+0x0E0)
+  SAVE_VECTOR_UNALIGNED(15, 424+0x0F0)
+  SAVE_VECTOR_UNALIGNED(16, 424+0x100)
+  SAVE_VECTOR_UNALIGNED(17, 424+0x110)
+  SAVE_VECTOR_UNALIGNED(18, 424+0x120)
+  SAVE_VECTOR_UNALIGNED(19, 424+0x130)
+  SAVE_VECTOR_UNALIGNED(20, 424+0x140)
+  SAVE_VECTOR_UNALIGNED(21, 424+0x150)
+  SAVE_VECTOR_UNALIGNED(22, 424+0x160)
+  SAVE_VECTOR_UNALIGNED(23, 424+0x170)
+  SAVE_VECTOR_UNALIGNED(24, 424+0x180)
+  SAVE_VECTOR_UNALIGNED(25, 424+0x190)
+  SAVE_VECTOR_UNALIGNED(26, 424+0x1A0)
+  SAVE_VECTOR_UNALIGNED(27, 424+0x1B0)
+  SAVE_VECTOR_UNALIGNED(28, 424+0x1C0)
+  SAVE_VECTOR_UNALIGNED(29, 424+0x1D0)
+  SAVE_VECTOR_UNALIGNED(30, 424+0x1E0)
+  SAVE_VECTOR_UNALIGNED(31, 424+0x1F0)
+#endif
+
+  li      3, 0  // return UNW_ESUCCESS
+  blr
+
+
+#elif defined(__aarch64__)
+
+//
+// extern int __unw_getcontext(unw_context_t* thread_state)
+//
+// On entry:
 //  thread_state pointer is in x0
 //
   .p2align 2
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
   stp    x0, x1,  [x0, #0x000]
   stp    x2, x3,  [x0, #0x010]
   stp    x4, x5,  [x0, #0x020]
@@ -665,23 +769,26 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
 #elif defined(__arm__) && !defined(__APPLE__)
 
 #if !defined(__ARM_ARCH_ISA_ARM)
+#if (__ARM_ARCH_ISA_THUMB == 2)
+  .syntax unified
+#endif
   .thumb
 #endif
 
 @
-@ extern int unw_getcontext(unw_context_t* thread_state)
+@ extern int __unw_getcontext(unw_context_t* thread_state)
 @
 @ On entry:
 @  thread_state pointer is in r0
-@ 
+@
 @ Per EHABI #4.7 this only saves the core integer registers.
 @ EHABI #7.4.5 notes that in general all VRS registers should be restored
 @ however this is very hard to do for VFP registers because it is unknown
 @ to the library how many registers are implemented by the architecture.
-@ Instead, VFP registers are demand saved by logic external to unw_getcontext.
+@ Instead, VFP registers are demand saved by logic external to __unw_getcontext.
 @
   .p2align 2
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
 #if !defined(__ARM_ARCH_ISA_ARM) && __ARM_ARCH_ISA_THUMB == 1
   stm r0!, {r0-r7}
   mov r1, r8
@@ -722,7 +829,7 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
 #if defined(__ELF__)
   .fpu vfpv3-d16
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm16saveVFPWithFSTMDEPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm16saveVFPWithFSTMDEPv)
   vstmia r0, {d0-d15}
   JMP(lr)
 
@@ -736,7 +843,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm16saveVFPWithFSTMD
 #if defined(__ELF__)
   .fpu vfpv3-d16
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm16saveVFPWithFSTMXEPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm16saveVFPWithFSTMXEPv)
   vstmia r0, {d0-d15} @ fstmiax is deprecated in ARMv7+ and now behaves like vstmia
   JMP(lr)
 
@@ -750,7 +857,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm16saveVFPWithFSTMX
 #if defined(__ELF__)
   .fpu vfpv3
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm9saveVFPv3EPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm9saveVFPv3EPv)
   @ VFP and iwMMX instructions are only available when compiling with the flags
   @ that enable them. We do not want to do that in the library (because we do not
   @ want the compiler to generate instructions that access those) but this is
@@ -773,7 +880,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm9saveVFPv3EPy)
 #if defined(__ELF__)
   .arch armv5te
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm9saveiWMMXEPy)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm9saveiWMMXEPv)
   stcl p1, cr0, [r0], #8  @ wstrd wR0, [r0], #8
   stcl p1, cr1, [r0], #8  @ wstrd wR1, [r0], #8
   stcl p1, cr2, [r0], #8  @ wstrd wR2, [r0], #8
@@ -802,7 +909,7 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm9saveiWMMXEPy)
 #if defined(__ELF__)
   .arch armv5te
 #endif
-DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm16saveiWMMXControlEPj)
+DEFINE_LIBUNWIND_FUNCTION(_ZN9libunwind13Registers_arm16saveiWMMXControlEPj)
   stc2 p1, cr8, [r0], #4  @ wstrw wCGR0, [r0], #4
   stc2 p1, cr9, [r0], #4  @ wstrw wCGR1, [r0], #4
   stc2 p1, cr10, [r0], #4  @ wstrw wCGR2, [r0], #4
@@ -814,12 +921,12 @@ DEFINE_LIBUNWIND_PRIVATE_FUNCTION(_ZN9libunwind13Registers_arm16saveiWMMXControl
 #elif defined(__or1k__)
 
 #
-# extern int unw_getcontext(unw_context_t* thread_state)
+# extern int __unw_getcontext(unw_context_t* thread_state)
 #
 # On entry:
 #  thread_state pointer is in r3
 #
-DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
   l.sw       0(r3), r0
   l.sw       4(r3), r1
   l.sw       8(r3), r2
@@ -852,9 +959,224 @@ DEFINE_LIBUNWIND_FUNCTION(unw_getcontext)
   l.sw     116(r3), r29
   l.sw     120(r3), r30
   l.sw     124(r3), r31
+  # store ra to pc
+  l.sw     128(r3), r9
+  # zero epcr
+  l.sw     132(r3), r0
+
+#elif defined(__hexagon__)
+#
+# extern int unw_getcontext(unw_context_t* thread_state)
+#
+# On entry:
+#  thread_state pointer is in r0
+#
+#define OFFSET(offset) (offset/4)
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+  memw(r0+#32) = r8
+  memw(r0+#36) = r9
+  memw(r0+#40) = r10
+  memw(r0+#44) = r11
+
+  memw(r0+#48) = r12
+  memw(r0+#52) = r13
+  memw(r0+#56) = r14
+  memw(r0+#60) = r15
+
+  memw(r0+#64) = r16
+  memw(r0+#68) = r17
+  memw(r0+#72) = r18
+  memw(r0+#76) = r19
+
+  memw(r0+#80) = r20
+  memw(r0+#84) = r21
+  memw(r0+#88) = r22
+  memw(r0+#92) = r23
+
+  memw(r0+#96) = r24
+  memw(r0+#100) = r25
+  memw(r0+#104) = r26
+  memw(r0+#108) = r27
+
+  memw(r0+#112) = r28
+  memw(r0+#116) = r29
+  memw(r0+#120) = r30
+  memw(r0+#124) = r31
+  r1 = c4   // Predicate register
+  memw(r0+#128) = r1
+  r1 = memw(r30)           // *FP == Saved FP
+  r1 = r31
+  memw(r0+#132) = r1
+
+  jumpr r31
+
+#elif defined(__sparc__) && defined(__arch64__)
+
+#
+# extern int __unw_getcontext(unw_context_t* thread_state)
+#
+# On entry:
+#  thread_state pointer is in %o0
+#
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+  .register %g2, #scratch
+  .register %g3, #scratch
+  .register %g6, #scratch
+  .register %g7, #scratch
+  stx  %g1, [%o0 + 0x08]
+  stx  %g2, [%o0 + 0x10]
+  stx  %g3, [%o0 + 0x18]
+  stx  %g4, [%o0 + 0x20]
+  stx  %g5, [%o0 + 0x28]
+  stx  %g6, [%o0 + 0x30]
+  stx  %g7, [%o0 + 0x38]
+  stx  %o0, [%o0 + 0x40]
+  stx  %o1, [%o0 + 0x48]
+  stx  %o2, [%o0 + 0x50]
+  stx  %o3, [%o0 + 0x58]
+  stx  %o4, [%o0 + 0x60]
+  stx  %o5, [%o0 + 0x68]
+  stx  %o6, [%o0 + 0x70]
+  stx  %o7, [%o0 + 0x78]
+  stx  %l0, [%o0 + 0x80]
+  stx  %l1, [%o0 + 0x88]
+  stx  %l2, [%o0 + 0x90]
+  stx  %l3, [%o0 + 0x98]
+  stx  %l4, [%o0 + 0xa0]
+  stx  %l5, [%o0 + 0xa8]
+  stx  %l6, [%o0 + 0xb0]
+  stx  %l7, [%o0 + 0xb8]
+  stx  %i0, [%o0 + 0xc0]
+  stx  %i1, [%o0 + 0xc8]
+  stx  %i2, [%o0 + 0xd0]
+  stx  %i3, [%o0 + 0xd8]
+  stx  %i4, [%o0 + 0xe0]
+  stx  %i5, [%o0 + 0xe8]
+  stx  %i6, [%o0 + 0xf0]
+  stx  %i7, [%o0 + 0xf8]
+
+  # save StackGhost cookie
+  mov  %i7, %g4
+  save %sp, -176, %sp
+  # register window flush necessary even without StackGhost
+  flushw
+  restore
+  ldx  [%sp + 2047 + 0x78], %g5
+  xor  %g4, %g5, %g4
+  stx  %g4, [%o0 + 0x100]
+  retl
+  # return UNW_ESUCCESS
+   clr %o0
+
+#elif defined(__sparc__)
+
+#
+# extern int __unw_getcontext(unw_context_t* thread_state)
+#
+# On entry:
+#  thread_state pointer is in o0
+#
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+  ta 3
+  add %o7, 8, %o7
+  std %g0, [%o0 +   0]
+  std %g2, [%o0 +   8]
+  std %g4, [%o0 +  16]
+  std %g6, [%o0 +  24]
+  std %o0, [%o0 +  32]
+  std %o2, [%o0 +  40]
+  std %o4, [%o0 +  48]
+  std %o6, [%o0 +  56]
+  std %l0, [%o0 +  64]
+  std %l2, [%o0 +  72]
+  std %l4, [%o0 +  80]
+  std %l6, [%o0 +  88]
+  std %i0, [%o0 +  96]
+  std %i2, [%o0 + 104]
+  std %i4, [%o0 + 112]
+  std %i6, [%o0 + 120]
+  jmp %o7
+   clr %o0                   // return UNW_ESUCCESS
+
+#elif defined(__riscv)
+
+#
+# extern int __unw_getcontext(unw_context_t* thread_state)
+#
+# On entry:
+#  thread_state pointer is in a0
+#
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+  ISTORE    x1, (RISCV_ISIZE * 0)(a0) // store ra as pc
+  .irp i,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    ISTORE x\i, (RISCV_ISIZE * \i)(a0)
+  .endr
+
+# if defined(__riscv_flen)
+  .irp i,FROM_0_TO_31
+    FSTORE f\i, (RISCV_FOFFSET + RISCV_FSIZE * \i)(a0)
+  .endr
+# endif
+
+  li     a0, 0  // return UNW_ESUCCESS
+  ret           // jump to ra
+
+#elif defined(__s390x__)
+
+//
+// extern int __unw_getcontext(unw_context_t* thread_state)
+//
+// On entry:
+//  thread_state pointer is in r2
+//
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+
+  // Save GPRs
+  stmg %r0, %r15, 16(%r2)
+
+  // Save PSWM
+  epsw %r0, %r1
+  stm %r0, %r1, 0(%r2)
+
+  // Store return address as PSWA
+  stg %r14, 8(%r2)
+
+  // Save FPRs
+  .irp i,FROM_0_TO_15
+    std %f\i, (144+8*\i)(%r2)
+  .endr
+
+  // Return UNW_ESUCCESS
+  lghi %r2, 0
+  br %r14
+
+#elif defined(__loongarch__) && __loongarch_grlen == 64
+
+#
+# extern int __unw_getcontext(unw_context_t* thread_state)
+#
+# On entry:
+#  thread_state pointer is in $a0($r4)
+#
+DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
+  .irp i,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+    st.d $r\i, $a0, (8*\i)
+  .endr
+  st.d    $r1,  $a0, (8 * 32) // store $ra to pc
+
+# if __loongarch_frlen == 64
+  .irp i,FROM_0_TO_31
+    fst.d $f\i, $a0, (8 * 33 + 8 * \i)
+  .endr
+# endif
+
+  move     $a0, $zero  // UNW_ESUCCESS
+  jr       $ra
+
 #endif
+
+  WEAK_ALIAS(__unw_getcontext, unw_getcontext)
 
 #endif /* !defined(__USING_SJLJ_EXCEPTIONS__) */
 
 NO_EXEC_STACK_DIRECTIVE
-
