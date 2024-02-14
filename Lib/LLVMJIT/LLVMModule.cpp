@@ -148,11 +148,11 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 
 	virtual bool needsToReserveAllocationSpace() override { return true; }
 	virtual void reserveAllocationSpace(uintptr_t numCodeBytes,
-										U32 codeAlignment,
+										::llvm::Align codeAlignment,
 										uintptr_t numReadOnlyBytes,
-										U32 readOnlyAlignment,
+										::llvm::Align readOnlyAlignment,
 										uintptr_t numReadWriteBytes,
-										U32 readWriteAlignment) override
+										::llvm::Align readWriteAlignment) override
 	{
 		if(USE_WINDOWS_SEH)
 		{

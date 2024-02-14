@@ -12,6 +12,12 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {
+	struct localPointersRef
+	{
+		::llvm::Value* val{};
+		::llvm::Type* tp{};
+	};
+
 	struct EmitFunctionContext : EmitContext
 	{
 		typedef void Result;
@@ -22,7 +28,7 @@ namespace WAVM { namespace LLVMJIT {
 		IR::FunctionType functionType;
 		llvm::Function* function;
 
-		std::vector<llvm::Value*> localPointers;
+		std::vector<localPointersRef> localPointers;
 
 		llvm::DISubprogram* diFunction;
 

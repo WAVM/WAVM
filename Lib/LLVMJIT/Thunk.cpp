@@ -133,21 +133,23 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	{
 		const ValueType paramType = functionType.params()[argIndex];
 		llvm::Value* argOffset = emitLiteral(llvmContext, argIndex * sizeof(UntaggedValue));
+		auto typeptr = asLLVMType(llvmContext, paramType);
 		llvm::Value* arg = emitContext.loadFromUntypedPointer(
-			emitContext.irBuilder.CreateInBoundsGEP(LLVM_GET_TYPE(argsArray), argsArray, argOffset),
-			asLLVMType(llvmContext, paramType),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+				emitContext.irBuilder, llvmContext.i8Type, argsArray, {argOffset}),
+			typeptr,
 			alignof(UntaggedValue));
 		arguments.push_back(arg);
 	}
 
 	// Call the function.
-	llvm::Value* functionCode = emitContext.irBuilder.CreateInBoundsGEP(
-        LLVM_GET_TYPE(calleeFunction),
+	llvm::Value* functionCode = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+		emitContext.irBuilder,
+		llvmContext.i8Type,
 		calleeFunction,
-        emitLiteralIptr(offsetof(Runtime::Function, code), iptrType));
+		{emitLiteralIptr(offsetof(Runtime::Function, code), iptrType)});
 	ValueVector results = emitContext.emitCallOrInvoke(
-		emitContext.irBuilder.CreatePointerCast(
-			functionCode, asLLVMType(llvmContext, functionType)->getPointerTo()),
+		functionCode,
 		arguments,
 		functionType);
 
@@ -159,15 +161,14 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		llvm::Value* result = results[resultIndex];
 		emitContext.storeToUntypedPointer(
 			result,
-			emitContext.irBuilder.CreateInBoundsGEP(LLVM_GET_TYPE(resultsArray), resultsArray, resultOffset),
+			::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+				emitContext.irBuilder, llvmContext.i8Type, resultsArray, {resultOffset}),
 			alignof(UntaggedValue));
 	}
 
 	// Return the new context pointer.
-	emitContext.irBuilder.CreateRet(
-		emitContext.irBuilder.CreateLoad(
-            LLVM_GET_PTR_ELEMENT_TYPE(emitContext.contextPointerVariable),
-            emitContext.contextPointerVariable));
+	emitContext.irBuilder.CreateRet(::WAVM::LLVMJIT::wavmCreateLoad(
+		emitContext.irBuilder, iptrType->getPointerTo(), emitContext.contextPointerVariable));
 
 	// Compile the LLVM IR to object code.
 	std::vector<U8> objectBytes

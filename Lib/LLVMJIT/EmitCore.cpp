@@ -372,22 +372,25 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 	// Load base and endIndex from the TableRuntimeData in CompartmentRuntimeData::tables
 	// corresponding to imm.tableIndex.
-	auto tableRuntimeDataPointer = irBuilder.CreateInBoundsGEP(
-		getCompartmentAddress()->getType()->getScalarType()->getPointerElementType(),
-		getCompartmentAddress(),
-        moduleContext.tableOffsets[imm.tableIndex]);
+	auto tableRuntimeDataPointer
+		= ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(irBuilder,
+			 llvmContext.i8Type,
+			 getCompartmentAddress(),
+			 {moduleContext.tableOffsets[imm.tableIndex]});
 	auto tableBasePointer = loadFromUntypedPointer(
-		irBuilder.CreateInBoundsGEP(
-			tableRuntimeDataPointer->getType()->getScalarType()->getPointerElementType(),
+		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+			irBuilder,
+			llvmContext.i8Type,
 			tableRuntimeDataPointer,
-			emitLiteralIptr(offsetof(TableRuntimeData, base), moduleContext.iptrType)),
+			{emitLiteralIptr(offsetof(TableRuntimeData, base), moduleContext.iptrType)}),
 		moduleContext.iptrType->getPointerTo(),
 		moduleContext.iptrAlignment);
 	auto tableMaxIndex = loadFromUntypedPointer(
-		irBuilder.CreateInBoundsGEP(
-			tableRuntimeDataPointer->getType()->getScalarType()->getPointerElementType(),
+		::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+			irBuilder,
+			llvmContext.i8Type,
 			tableRuntimeDataPointer,
-			emitLiteralIptr(offsetof(TableRuntimeData, endIndex), moduleContext.iptrType)),
+			{emitLiteralIptr(offsetof(TableRuntimeData, endIndex), moduleContext.iptrType)}),
 		moduleContext.iptrType,
 		moduleContext.iptrAlignment);
 
@@ -397,23 +400,20 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		irBuilder.CreateICmpULT(elementIndex, tableMaxIndex), elementIndex, tableMaxIndex);
 
 	// Load the funcref referenced by the table.
-	auto elementPointer = irBuilder.CreateInBoundsGEP(
-            tableBasePointer->getType()->getScalarType()->getPointerElementType(),
-            tableBasePointer,
-            clampedElementIndex);
-	llvm::LoadInst* biasedValueLoad = irBuilder.CreateLoad(
-        elementPointer->getType()->getPointerElementType(),
-        elementPointer);
+	auto elementPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+		irBuilder, moduleContext.iptrType, tableBasePointer, {clampedElementIndex});
+	llvm::LoadInst* biasedValueLoad
+		= ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder, llvmContext.i8PtrType, elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(LLVM_ALIGNMENT(sizeof(Uptr)));
-	auto runtimeFunction = irBuilder.CreateIntToPtr(
-		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
-		llvmContext.i8PtrType);
 
 // 24/04/2019 - Some code in CPython is a bit sloppy in its casting of function pointers, so
 // causes type mismatches at runtime. As a temporary hack I'm removing the type check on
 // call_indirect in the generated code.
 
+// 	auto runtimeFunction = irBuilder.CreateIntToPtr(
+// 		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
+// 		llvmContext.i8PtrType);
 //   	auto elementTypeId = loadFromUntypedPointer(
 //   		irBuilder.CreateInBoundsGEP(
 //   			runtimeFunction,
@@ -436,14 +436,15 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 //   		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex]),
 //   		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.externrefType),
 //   		 calleeTypeId});
+	auto runtimeFunction = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+		irBuilder, llvmContext.i8Type, biasedValueLoad, {moduleContext.tableReferenceBias});
 
 	// Call the function loaded from the table.
-	auto functionPointer = irBuilder.CreatePointerCast(
-		irBuilder.CreateInBoundsGEP(
-			runtimeFunction->getType()->getScalarType()->getPointerElementType(),
-			runtimeFunction,
-			emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType)),
-		asLLVMType(llvmContext, calleeType)->getPointerTo());
+	auto functionPointer = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+		irBuilder,
+		llvmContext.i8Type,
+		runtimeFunction,
+		{emitLiteralIptr(offsetof(Runtime::Function, code), moduleContext.iptrType)});
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
 										   calleeType,

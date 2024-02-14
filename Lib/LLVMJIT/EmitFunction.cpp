@@ -345,8 +345,9 @@ void EmitFunctionContext::emit()
 			= localIndex < functionType.params().size()
 				  ? functionType.params()[localIndex]
 				  : functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
-		auto localPointer = irBuilder.CreateAlloca(asLLVMType(llvmContext, localType), nullptr, "");
-		localPointers.push_back(localPointer);
+		auto llvmtype = asLLVMType(llvmContext, localType);
+		auto localPointer = irBuilder.CreateAlloca(llvmtype, nullptr, "");
+		localPointers.push_back(::WAVM::LLVMJIT::localPointersRef{localPointer, llvmtype});
 
 		if(localIndex < functionType.params().size())
 		{

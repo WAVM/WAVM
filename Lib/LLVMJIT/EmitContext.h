@@ -39,11 +39,6 @@ POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #define LLVM_INTRINSIC_VECTOR_REDUCE_ADD llvm::Intrinsic::experimental_vector_reduce_add
 #endif
 
-#if LLVM_VERSION_MAJOR >= 13
-#define LLVM_GET_TYPE(ptr) ptr->getType()->getScalarType()->getPointerElementType()
-#define LLVM_GET_PTR_ELEMENT_TYPE(ptr) ptr->getType()->getPointerElementType()
-#endif
-
 namespace WAVM { namespace LLVMJIT {
 	// Code and state that is used for generating IR for both thunks and WASM functions.
 	struct EmitContext
@@ -78,17 +73,14 @@ namespace WAVM { namespace LLVMJIT {
 											   llvm::Type* valueType,
 											   U32 alignment = 1)
 		{
-			auto load = irBuilder.CreateLoad(
-                valueType,
-				irBuilder.CreatePointerCast(pointer, valueType->getPointerTo()));
+			auto load = ::WAVM::LLVMJIT::wavmCreateLoad(irBuilder, valueType, pointer);
 			load->setAlignment(LLVM_ALIGNMENT(alignment));
 			return load;
 		}
 
 		void storeToUntypedPointer(llvm::Value* value, llvm::Value* pointer, U32 alignment = 1)
 		{
-			auto store = irBuilder.CreateStore(
-				value, irBuilder.CreatePointerCast(pointer, value->getType()->getPointerTo()));
+			auto store = irBuilder.CreateStore(value, pointer);
 			store->setAlignment(LLVM_ALIGNMENT(alignment));
 		}
 
@@ -98,8 +90,9 @@ namespace WAVM { namespace LLVMJIT {
 			// 31 bits.
 			return irBuilder.CreateIntToPtr(
 				irBuilder.CreateAnd(
-					irBuilder.CreatePtrToInt(irBuilder.CreateLoad(
-                        LLVM_GET_PTR_ELEMENT_TYPE(contextPointerVariable), contextPointerVariable),
+					irBuilder.CreatePtrToInt(
+						::WAVM::LLVMJIT::wavmCreateLoad(
+						irBuilder, llvmContext.i8PtrType, contextPointerVariable),
 						llvmContext.i64Type),
 					emitLiteral(llvmContext, ~((U64(1) << 31) - 1))),
 				llvmContext.i8PtrType);
@@ -118,9 +111,12 @@ namespace WAVM { namespace LLVMJIT {
 				llvm::Constant* memoryOffset = memoryOffsets[memoryIndex];
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(compartmentAddress->getType()->getScalarType()->getPointerElementType(),
-                                                    compartmentAddress,
-                                                    memoryOffset),
+						::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+							irBuilder,
+							llvmContext.i8Type,
+							compartmentAddress,
+							{memoryOffset}
+						),
 						llvmContext.i8PtrType,
 						sizeof(U8*)),
 					memoryInfo.basePointerVariable);
@@ -129,11 +125,13 @@ namespace WAVM { namespace LLVMJIT {
 					memoryOffset,
 					emitLiteralIptr(offsetof(Runtime::MemoryRuntimeData, endAddress),
 									memoryOffset->getType()));
-				irBuilder.CreateStore(
-					loadFromUntypedPointer(irBuilder.CreateInBoundsGEP(
-                                                compartmentAddress->getType()->getScalarType()->getPointerElementType(),
-											   compartmentAddress, memoryNumReservedBytesOffset),
-										   memoryOffset->getType()),
+				irBuilder.CreateStore(loadFromUntypedPointer(
+					::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+						irBuilder,
+						llvmContext.i8Type,
+						compartmentAddress,
+						{memoryNumReservedBytesOffset}),
+					memoryOffset->getType()),
 					memoryInfo.endAddressVariable);
 			}
 		}
@@ -203,11 +201,12 @@ namespace WAVM { namespace LLVMJIT {
 				{
 					storeToUntypedPointer(
 						args[argIndex],
-						irBuilder.CreateInBoundsGEP(
-                            argsArray->getType()->getScalarType()->getPointerElementType(),
+						::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+							irBuilder,
+							llvmContext.i8Type,
 							argsArray,
-                            emitLiteral(llvmContext,
-                                Uptr(argIndex * sizeof(IR::UntaggedValue)))));
+							{emitLiteral(llvmContext,
+								Uptr(argIndex * sizeof(IR::UntaggedValue)))}));
 				}
 
 				resultsArray = irBuilder.CreateAlloca(
@@ -226,9 +225,8 @@ namespace WAVM { namespace LLVMJIT {
 				auto callArgsAlloca
 					= (llvm::Value**)alloca(sizeof(llvm::Value*) * (args.size() + 1));
 				callArgs = llvm::ArrayRef<llvm::Value*>(callArgsAlloca, args.size() + 1);
-				callArgsAlloca[0] = irBuilder.CreateLoad(
-                    LLVM_GET_PTR_ELEMENT_TYPE(contextPointerVariable),
-                    contextPointerVariable);
+				callArgsAlloca[0] = ::WAVM::LLVMJIT::wavmCreateLoad(
+					irBuilder, llvmContext.i8PtrType, contextPointerVariable);
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
 				{ callArgsAlloca[1 + argIndex] = args[argIndex]; }
 			}
@@ -289,12 +287,16 @@ namespace WAVM { namespace LLVMJIT {
 						resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 						WAVM_ASSERT(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 
-						results.push_back(loadFromUntypedPointer(
-							irBuilder.CreateInBoundsGEP(newContextPointer->getType()->getScalarType()->getPointerElementType(),
-                                                        newContextPointer,
-														emitLiteral(llvmContext, resultOffset)),
-							asLLVMType(llvmContext, resultType),
-							resultNumBytes));
+						auto typeptr = asLLVMType(llvmContext, resultType);
+						results.push_back(
+							loadFromUntypedPointer(
+								::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+									irBuilder,
+									llvmContext.i8Type,
+									newContextPointer,
+									{emitLiteral(llvmContext, resultOffset)}),
+								typeptr,
+								resultNumBytes));
 
 						resultOffset += resultNumBytes;
 					}
@@ -356,12 +358,14 @@ namespace WAVM { namespace LLVMJIT {
 				irBuilder.SetInsertPoint(returnBlock);
 				for(Uptr resultIndex = 0; resultIndex < calleeType.results().size(); ++resultIndex)
 				{
+					auto typeptr = asLLVMType(llvmContext, calleeType.results()[resultIndex]);
 					results.push_back(loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(
-                            resultsArray->getType()->getScalarType()->getPointerElementType(),
+						::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+							irBuilder,
+							llvmContext.i8Type,
 							resultsArray,
-							emitLiteral(llvmContext, resultIndex * sizeof(IR::UntaggedValue))),
-						asLLVMType(llvmContext, calleeType.results()[resultIndex])));
+							{emitLiteral(llvmContext, resultIndex * sizeof(IR::UntaggedValue))}),
+						typeptr));
 				}
 
 				break;
@@ -383,10 +387,9 @@ namespace WAVM { namespace LLVMJIT {
 			llvm::Value* returnStruct = getZeroedLLVMReturnStruct(llvmContext, resultTypes);
 			returnStruct = irBuilder.CreateInsertValue(
 				returnStruct,
-                irBuilder.CreateLoad(
-                    LLVM_GET_PTR_ELEMENT_TYPE(contextPointerVariable),
-                    contextPointerVariable),
-                {U32(0)});
+				::WAVM::LLVMJIT::wavmCreateLoad(
+					irBuilder, llvmContext.i8PtrType, contextPointerVariable),
+				{U32(0)});
 
 			WAVM_ASSERT(resultTypes.size() == results.size());
 			if(areResultsReturnedDirectly(resultTypes))
@@ -411,18 +414,16 @@ namespace WAVM { namespace LLVMJIT {
 					resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 					WAVM_ASSERT(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 
-                    auto ptr = irBuilder.CreateLoad(
-                        LLVM_GET_PTR_ELEMENT_TYPE(contextPointerVariable),
-                        contextPointerVariable);
-					irBuilder.CreateStore(results[resultIndex],
-										  irBuilder.CreatePointerCast(
-											  irBuilder.CreateInBoundsGEP(
-                                                  ptr->getType()->getScalarType()->getPointerElementType(),
-                                                  ptr,
-												  emitLiteral(llvmContext, resultOffset)),
-											  asLLVMType(llvmContext, resultType)->getPointerTo()));
+					auto ret = ::WAVM::LLVMJIT::wavmCreateInBoundsGEP(
+						irBuilder,
+						llvmContext.i8Type,
+						::WAVM::LLVMJIT::wavmCreateLoad(
+							irBuilder, llvmContext.i8PtrType, contextPointerVariable),
+						{emitLiteral(llvmContext, resultOffset)});
 
+					irBuilder.CreateStore(results[resultIndex], ret);
 					resultOffset += resultNumBytes;
+
 				}
 			}
 
