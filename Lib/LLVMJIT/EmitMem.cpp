@@ -160,7 +160,6 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		// runtime to reserve the full range of addresses, so this function must clamp addresses to
 		// the guard region.
 
-        auto endAddressPtr = functionContext.memoryInfos[memoryIndex].endAddressVariable;
 		llvm::Value* endAddress = ::WAVM::LLVMJIT::wavmCreateLoad(
 			irBuilder,
 			functionContext.moduleContext.iptrType,
