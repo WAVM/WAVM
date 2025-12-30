@@ -138,7 +138,9 @@ int main(int argc, char** argv)
 
 	// Link WASI with the memory exported by the WASM module.
 	if(Memory* memory = asMemoryNullable(getInstanceExport(instance, "memory")))
-	{ setProcessMemory(*process, memory); }
+	{
+		setProcessMemory(*process, memory);
+	}
 	else
 	{
 		fprintf(stderr, "Failed to find memory export in '%s'.\n", argv[1]);

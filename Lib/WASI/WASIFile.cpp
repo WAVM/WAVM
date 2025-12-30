@@ -89,14 +89,18 @@ static LockedFDE getLockedFDE(Process* process,
 
 	// Check that the fdMap contains a FDE for the given FD.
 	if(fd < process->fdMap.getMinIndex() || fd > process->fdMap.getMaxIndex())
-	{ return LockedFDE(__WASI_EBADF); }
+	{
+		return LockedFDE(__WASI_EBADF);
+	}
 	std::shared_ptr<FDE>* fde = process->fdMap.get(fd);
 	if(!fde) { return LockedFDE(__WASI_EBADF); }
 
 	// Check that the FDE has the required rights.
 	if(((*fde)->rights & requiredRights) != requiredRights
 	   || ((*fde)->inheritingRights & requiredInheritingRights) != requiredInheritingRights)
-	{ return LockedFDE(__WASI_ENOTCAPABLE); }
+	{
+		return LockedFDE(__WASI_ENOTCAPABLE);
+	}
 
 	TRACE_SYSCALL_FLOW("Locked FDE: %s", (*fde)->originalPath.c_str());
 
@@ -134,7 +138,9 @@ static bool readUserString(Memory* memory,
 		[&] {
 			char* stringBytes = memoryArrayPtr<char>(memory, stringAddress, numStringBytes);
 			for(Uptr index = 0; index < numStringBytes; ++index)
-			{ outString += stringBytes[index]; }
+			{
+				outString += stringBytes[index];
+			}
 		},
 		[&succeeded](Exception* exception) {
 			WAVM_ERROR_UNLESS(getExceptionType(exception)
@@ -163,7 +169,9 @@ static bool getCanonicalPath(const std::string& basePath,
 	while(componentStart < relativePath.size())
 	{
 		while(componentStart < relativePath.size() && relativePath[componentStart] == '/')
-		{ ++componentStart; }
+		{
+			++componentStart;
+		}
 
 		Uptr nextPathSeparator = relativePath.find_first_of('/', componentStart);
 
@@ -182,10 +190,7 @@ static bool getCanonicalPath(const std::string& basePath,
 					relativePathComponents.pop_back();
 				}
 			}
-			else if(component != ".")
-			{
-				relativePathComponents.push_back(component);
-			}
+			else if(component != ".") { relativePathComponents.push_back(component); }
 
 			componentStart = nextPathSeparator + 1;
 		}
@@ -217,12 +222,16 @@ static __wasi_errno_t validatePath(Process* process,
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
-	{ return __WASI_EFAULT; }
+	{
+		return __WASI_EFAULT;
+	}
 
 	TRACE_SYSCALL_FLOW("Read path from process memory: %s", relativePath.c_str());
 
 	if(!getCanonicalPath(lockedDirFDE.fde->originalPath, relativePath, outCanonicalPath))
-	{ return __WASI_ENOTCAPABLE; }
+	{
+		return __WASI_ENOTCAPABLE;
+	}
 
 	TRACE_SYSCALL_FLOW("Canonical path: %s", outCanonicalPath.c_str());
 
@@ -288,7 +297,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(lockedFDE.error != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(lockedFDE.error); }
 
 	if(lockedFDE.fde->originalPath.size() > UINT32_MAX)
-	{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW);
+	}
 
 	__wasi_prestat_t& prestat = memoryRef<__wasi_prestat_t>(process->memory, prestatAddress);
 	prestat.pr_type = lockedFDE.fde->preopenedType;
@@ -317,7 +328,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(!lockedFDE.fde->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
 	if(bufferLength != lockedFDE.fde->originalPath.size())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
+	}
 
 	char* buffer = memoryArrayPtr<char>(process->memory, bufferAddress, bufferLength);
 	memcpy(buffer, lockedFDE.fde->originalPath.c_str(), bufferLength);
@@ -338,7 +351,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	// Exclusively lock the fds mutex, and look up the FDE corresponding to the FD.
 	Platform::RWMutex::ExclusiveLock fdsLock(process->fdMapMutex);
 	if(fd < process->fdMap.getMinIndex() || fd > process->fdMap.getMaxIndex())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EBADF);
+	}
 	std::shared_ptr<FDE>* fdePointer = process->fdMap.get(fd);
 	if(!fdePointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	std::shared_ptr<FDE> fde = *fdePointer;
@@ -636,14 +651,18 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	// Look up the FDE for the source FD.
 	if(fromFD < process->fdMap.getMinIndex() || fromFD > process->fdMap.getMaxIndex())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EBADF);
+	}
 	std::shared_ptr<FDE>* fromFDEPointer = process->fdMap.get(fromFD);
 	if(!fromFDEPointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	std::shared_ptr<FDE> fromFDE = *fromFDEPointer;
 
 	// Look up the FDE for the destination FD.
 	if(toFD < process->fdMap.getMinIndex() || toFD > process->fdMap.getMaxIndex())
-	{ return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	{
+		return TRACE_SYSCALL_RETURN(__WASI_EBADF);
+	}
 	std::shared_ptr<FDE>* toFDEPointer = process->fdMap.get(toFD);
 	if(!toFDEPointer) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	std::shared_ptr<FDE> toFDE = *toFDEPointer;
@@ -950,10 +969,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	const bool write = requestedRights
 					   & (__WASI_RIGHT_FD_DATASYNC | __WASI_RIGHT_FD_WRITE
 						  | __WASI_RIGHT_FD_ALLOCATE | __WASI_RIGHT_FD_FILESTAT_SET_SIZE);
-	const FileAccessMode accessMode
-		= read && write ? FileAccessMode::readWrite
-						: read ? FileAccessMode::readOnly
-							   : write ? FileAccessMode::writeOnly : FileAccessMode::none;
+	const FileAccessMode accessMode = read && write ? FileAccessMode::readWrite
+									  : read        ? FileAccessMode::readOnly
+									  : write       ? FileAccessMode::writeOnly
+													: FileAccessMode::none;
 
 	FileCreateMode createMode = FileCreateMode::openExisting;
 	switch(openFlags & (__WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC))
@@ -978,7 +997,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	VFDFlags vfsVFDFlags = translateWASIVFDFlags(fdFlags, requiredDirInheritingRights);
 	if(write && !(fdFlags & __WASI_FDFLAG_APPEND) && !(openFlags & __WASI_O_TRUNC))
-	{ requiredDirInheritingRights |= __WASI_RIGHT_FD_SEEK; }
+	{
+		requiredDirInheritingRights |= __WASI_RIGHT_FD_SEEK;
+	}
 
 	std::string canonicalPath;
 	const __wasi_errno_t pathError = validatePath(process,
@@ -1061,7 +1082,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	else if(lockedFDE.fde->dirEntStream->tell() != firstCookie)
 	{
 		if(!lockedFDE.fde->dirEntStream->seek(firstCookie))
-		{ return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+		{
+			return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
+		}
 	}
 
 	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);

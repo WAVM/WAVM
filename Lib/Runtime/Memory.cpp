@@ -234,7 +234,9 @@ GrowResult Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOld
 	{
 		// Check the memory page quota.
 		if(memory->resourceQuota && !memory->resourceQuota->memoryPages.allocate(numPagesToGrow))
-		{ return GrowResult::outOfQuota; }
+		{
+			return GrowResult::outOfQuota;
+		}
 
 		Platform::RWMutex::ExclusiveLock resizingLock(memory->resizingMutex);
 		oldNumPages = memory->numPages.load(std::memory_order_acquire);
@@ -419,7 +421,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	Platform::RWMutex::ExclusiveLock dataSegmentsLock(instance->dataSegmentsMutex);
 
 	if(instance->dataSegments[dataSegmentIndex])
-	{ instance->dataSegments[dataSegmentIndex].reset(); }
+	{
+		instance->dataSegments[dataSegmentIndex].reset();
+	}
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,

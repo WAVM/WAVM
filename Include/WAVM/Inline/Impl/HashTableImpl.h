@@ -318,7 +318,9 @@ void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(Uptr& outTotalMemoryBytes
 		{
 			const Uptr bucketIndex = (idealBucketIndex + probeCount) & hashToBucketIndexMask;
 			if(!buckets[bucketIndex].hashAndOccupancy || probeCount > calcProbeCount(bucketIndex))
-			{ break; }
+			{
+				break;
+			}
 			++probeCount;
 		};
 
@@ -406,7 +408,9 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(con
 		{
 			buckets[bucketIndex].hashAndOccupancy = copy.buckets[bucketIndex].hashAndOccupancy;
 			if(buckets[bucketIndex].hashAndOccupancy)
-			{ buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.get()); }
+			{
+				buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.get());
+			}
 		}
 	}
 }

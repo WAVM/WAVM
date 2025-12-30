@@ -69,7 +69,9 @@ const std::string& Runtime::getDebugName(const Runtime::Function* function)
 void Runtime::setUserData(Runtime::Object* object, void* userData, void (*finalizer)(void*))
 {
 	if(object->kind == ObjectKind::function)
-	{ setUserData(asFunction(object), userData, finalizer); }
+	{
+		setUserData(asFunction(object), userData, finalizer);
+	}
 	else
 	{
 		auto gcObject = (GCObject*)object;

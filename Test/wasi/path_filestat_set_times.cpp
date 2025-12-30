@@ -13,10 +13,7 @@ static void printUsage(char* exe)
 bool parseTimeSpec(const char* string, struct timespec& outTimeSpec)
 {
 	if(!strcmp(string, "now")) { outTimeSpec.tv_nsec = UTIME_NOW; }
-	else if(!strcmp(string, "nochange"))
-	{
-		outTimeSpec.tv_nsec = UTIME_OMIT;
-	}
+	else if(!strcmp(string, "nochange")) { outTimeSpec.tv_nsec = UTIME_OMIT; }
 	else
 	{
 		char* end;

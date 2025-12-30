@@ -26,7 +26,9 @@ static void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
 		std::string frameDescription;
 		Platform::InstructionSource source;
 		if(!Platform::getInstructionSourceByAddress(callStack.frames[frameIndex].ip, source))
-		{ frameDescription = "<unknown function>"; }
+		{
+			frameDescription = "<unknown function>";
+		}
 		else
 		{
 			frameDescription = asString(source);

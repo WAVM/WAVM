@@ -365,7 +365,9 @@ static void maybeCollectGarbage(TestScriptState& state)
 	// collectCompartmentGarbage assumes that no WebAssembly code is running in the compartment, so
 	// only run it for the root test script state, and if it has no active child threads.
 	if(state.kind == TestScriptStateKind::root && !state.threads.size())
-	{ collectCompartmentGarbage(state.compartment); }
+	{
+		collectCompartmentGarbage(state.compartment);
+	}
 }
 
 static bool processAction(TestScriptState& state, Action* action, std::vector<Value>* outResults)
@@ -390,12 +392,16 @@ static bool processAction(TestScriptState& state, Action* action, std::vector<Va
 				= std::string(state.scriptFilename) + ":" + action->locus.describe();
 
 			if(state.config.traceLLVMIR)
-			{ traceLLVMIR(moduleDebugName.c_str(), *moduleAction->module); }
+			{
+				traceLLVMIR(moduleDebugName.c_str(), *moduleAction->module);
+			}
 
 			ModuleRef compiledModule = compileModule(*moduleAction->module);
 
 			if(state.config.traceAssembly)
-			{ traceAssembly(moduleDebugName.c_str(), compiledModule); }
+			{
+				traceAssembly(moduleDebugName.c_str(), compiledModule);
+			}
 
 			state.hasInstantiatedModule = true;
 			state.lastInstance = instantiateModule(state.compartment,
@@ -835,7 +841,9 @@ static void processAssertReturn(TestScriptState& state, const AssertReturnComman
 	std::string errorMessage;
 	if(processAction(state, assertCommand->action.get(), &actionResults)
 	   && !areResultsInExpectedSet(actionResults, assertCommand->expectedResultSets, errorMessage))
-	{ testErrorf(state, assertCommand->locus, "%s", errorMessage.c_str()); }
+	{
+		testErrorf(state, assertCommand->locus, "%s", errorMessage.c_str());
+	}
 }
 
 static void processAssertReturnNaN(TestScriptState& state,
@@ -860,19 +868,15 @@ static void processAssertReturnNaN(TestScriptState& state,
 			if(assertCommand->type == Command::assert_return_canonical_nan)
 			{
 				requireCanonicalNaN = true;
-				isError = actionResult.type == ValueType::f32
-							  ? !isCanonicalNaN(actionResult.f32)
-							  : actionResult.type == ValueType::f64
-									? !isCanonicalNaN(actionResult.f64)
-									: true;
+				isError = actionResult.type == ValueType::f32   ? !isCanonicalNaN(actionResult.f32)
+						  : actionResult.type == ValueType::f64 ? !isCanonicalNaN(actionResult.f64)
+																: true;
 			}
 			else if(assertCommand->type == Command::assert_return_arithmetic_nan)
 			{
-				isError = actionResult.type == ValueType::f32
-							  ? !isArithmeticNaN(actionResult.f32)
-							  : actionResult.type == ValueType::f64
-									? !isArithmeticNaN(actionResult.f64)
-									: true;
+				isError = actionResult.type == ValueType::f32   ? !isArithmeticNaN(actionResult.f32)
+						  : actionResult.type == ValueType::f64 ? !isArithmeticNaN(actionResult.f64)
+																: true;
 			}
 			else if(assertCommand->type == Command::assert_return_canonical_nan_f32x4)
 			{
@@ -1042,7 +1046,9 @@ static void processAssertInvalid(TestScriptState& state,
 		break;
 	case InvalidOrMalformed::malformed:
 		if(state.config.strictAssertInvalid)
-		{ testErrorf(state, assertCommand->locus, "module was malformed"); }
+		{
+			testErrorf(state, assertCommand->locus, "module was malformed");
+		}
 		break;
 
 	case InvalidOrMalformed::invalid:
@@ -1061,7 +1067,9 @@ static void processAssertMalformed(TestScriptState& state,
 
 	case InvalidOrMalformed::invalid:
 		if(state.config.strictAssertMalformed)
-		{ testErrorf(state, assertCommand->locus, "module was invalid"); }
+		{
+			testErrorf(state, assertCommand->locus, "module was invalid");
+		}
 		break;
 
 	case InvalidOrMalformed::malformed:
@@ -1690,27 +1698,15 @@ int execRunTestScript(int argc, char** argv)
 		{
 			config.strictAssertMalformed = true;
 		}
-		else if(!strcmp(argv[argIndex], "--test-cloning"))
-		{
-			config.testCloning = true;
-		}
+		else if(!strcmp(argv[argIndex], "--test-cloning")) { config.testCloning = true; }
 		else if(!strcmp(argv[argIndex], "--trace"))
 		{
 			Log::setCategoryEnabled(Log::traceValidation, true);
 			Log::setCategoryEnabled(Log::traceCompilation, true);
 		}
-		else if(!strcmp(argv[argIndex], "--trace-tests"))
-		{
-			config.traceTests = true;
-		}
-		else if(!strcmp(argv[argIndex], "--trace-llvmir"))
-		{
-			config.traceLLVMIR = true;
-		}
-		else if(!strcmp(argv[argIndex], "--trace-assembly"))
-		{
-			config.traceAssembly = true;
-		}
+		else if(!strcmp(argv[argIndex], "--trace-tests")) { config.traceTests = true; }
+		else if(!strcmp(argv[argIndex], "--trace-llvmir")) { config.traceLLVMIR = true; }
+		else if(!strcmp(argv[argIndex], "--trace-assembly")) { config.traceAssembly = true; }
 		else if(!strcmp(argv[argIndex], "--enable") || !strcmp(argv[argIndex], "--disable"))
 		{
 			const bool enableFeature = !strcmp(argv[argIndex], "--enable");

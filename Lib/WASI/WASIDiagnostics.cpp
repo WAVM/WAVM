@@ -109,7 +109,9 @@ static void traceSyscallv(const char* syscallName, const char* argFormat, va_lis
 		va_end(argList);
 
 		if(syscallTraceLevelSnapshot != SyscallTraceLevel::syscallsWithCallstacks)
-		{ Log::printf(Log::output, "\n"); }
+		{
+			Log::printf(Log::output, "\n");
+		}
 		else
 		{
 			Log::printf(Log::output, " - Call stack:\n");
@@ -119,7 +121,9 @@ static void traceSyscallv(const char* syscallName, const char* argFormat, va_lis
 			std::vector<std::string> callStackFrameDescriptions
 				= Runtime::describeCallStack(callStack);
 			for(const std::string& frameDescription : callStackFrameDescriptions)
-			{ Log::printf(Log::output, "SYSCALL:     %s\n", frameDescription.c_str()); }
+			{
+				Log::printf(Log::output, "SYSCALL:     %s\n", frameDescription.c_str());
+			}
 		}
 	}
 }

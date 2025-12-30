@@ -19,7 +19,9 @@ Platform::RWMutex::RWMutex()
 Platform::RWMutex::~RWMutex()
 {
 	if(!TryAcquireSRWLockExclusive((SRWLOCK*)&lockData))
-	{ Errors::fatal("Destroying RWMutex that is locked"); }
+	{
+		Errors::fatal("Destroying RWMutex that is locked");
+	}
 }
 
 void Platform::RWMutex::lock(LockShareability shareability)

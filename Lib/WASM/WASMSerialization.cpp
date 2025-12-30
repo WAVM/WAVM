@@ -26,7 +26,9 @@ static void throwIfNotValidUTF8(const std::string& string)
 {
 	const U8* endChar = (const U8*)string.data() + string.size();
 	if(Unicode::validateUTF8String((const U8*)string.data(), endChar) != endChar)
-	{ throw FatalSerializationException("invalid UTF-8 encoding"); }
+	{
+		throw FatalSerializationException("invalid UTF-8 encoding");
+	}
 }
 
 WAVM_FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
@@ -143,10 +145,7 @@ namespace WAVM { namespace IR {
 	{
 		serializeIndex(stream, sizeConstraints.min, sizeType);
 		if(hasMax) { serializeIndex(stream, sizeConstraints.max, sizeType); }
-		else if(Stream::isInput)
-		{
-			sizeConstraints.max = UINT64_MAX;
-		}
+		else if(Stream::isInput) { sizeConstraints.max = UINT64_MAX; }
 	}
 
 	template<typename Stream> void serialize(Stream& stream, ReferenceType& referenceType)
@@ -325,11 +324,15 @@ namespace WAVM { namespace IR {
 			case ElemSegment::Encoding::expr:
 				flags |= 4;
 				if(elemSegment.contents->elemType != ReferenceType::funcref)
-				{ hasNonFunctionElements = true; }
+				{
+					hasNonFunctionElements = true;
+				}
 				break;
 			case ElemSegment::Encoding::index:
 				if(elemSegment.contents->externKind != ExternKind::function)
-				{ hasNonFunctionElements = true; }
+				{
+					hasNonFunctionElements = true;
+				}
 				break;
 			default: WAVM_UNREACHABLE();
 			};
@@ -550,7 +553,9 @@ void serialize(Stream& stream, SelectImm& imm, const FunctionDef&, const ModuleS
 	U32 numResults = 1;
 	serializeVarUInt32(stream, numResults);
 	if(Stream::isInput && numResults != 1)
-	{ throw ValidationException("typed select must have exactly one result"); }
+	{
+		throw ValidationException("typed select must have exactly one result");
+	}
 	serialize(stream, imm.type);
 }
 
@@ -762,7 +767,9 @@ void serialize(Stream& stream,
 			   const ModuleSerializationState&)
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
-	{ serializeNativeValue(stream, imm.laneIndices[laneIndex]); }
+	{
+		serializeNativeValue(stream, imm.laneIndices[laneIndex]);
+	}
 }
 
 template<typename Stream>
@@ -779,7 +786,9 @@ void serialize(Stream& stream,
 	if(Stream::isInput)
 	{
 		if(memoryOrder != 0)
-		{ throw FatalSerializationException("Invalid memory order in atomic.fence instruction"); }
+		{
+			throw FatalSerializationException("Invalid memory order in atomic.fence instruction");
+		}
 		imm.order = MemoryOrder::sequentiallyConsistent;
 	}
 }
@@ -886,7 +895,9 @@ void serializeSection(InputStream& stream, SectionID id, SerializeSection serial
 	MemoryInputStream sectionStream(stream.advance(numSectionBytes), numSectionBytes);
 	serializeSectionBody(sectionStream);
 	if(sectionStream.capacity())
-	{ throw FatalSerializationException("section contained more data than expected"); }
+	{
+		throw FatalSerializationException("section contained more data than expected");
+	}
 }
 
 static void serialize(OutputStream& stream, CustomSection& customSection)
@@ -1000,7 +1011,9 @@ static void serializeFunctionBody(OutputStream& sectionStream,
 	// Serialize the local sets.
 	serializeVarUInt32(bodyStream, numLocalSets);
 	for(Uptr setIndex = 0; setIndex < numLocalSets; ++setIndex)
-	{ serialize(bodyStream, localSets[setIndex]); }
+	{
+		serialize(bodyStream, localSets[setIndex]);
+	}
 
 	// Serialize the function code.
 	OperatorDecoderStream irDecoderStream(functionDef.code);
@@ -1029,9 +1042,13 @@ static void serializeFunctionBody(InputStream& sectionStream,
 		LocalSet localSet;
 		serialize(bodyStream, localSet);
 		if(functionDef.nonParameterLocalTypes.size() + localSet.num >= module.featureSpec.maxLocals)
-		{ throw FatalSerializationException("too many locals"); }
+		{
+			throw FatalSerializationException("too many locals");
+		}
 		for(Uptr index = 0; index < localSet.num; ++index)
-		{ functionDef.nonParameterLocalTypes.push_back(localSet.type); }
+		{
+			functionDef.nonParameterLocalTypes.push_back(localSet.type);
+		}
 	}
 
 	// Deserialize the function code, validate it, and re-encode it in the IR format.
@@ -1192,7 +1209,9 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					U32 functionTypeIndex = 0;
 					serializeVarUInt32(sectionStream, functionTypeIndex);
 					if(functionTypeIndex >= module.types.size())
-					{ throw FatalSerializationException("invalid import function type index"); }
+					{
+						throw FatalSerializationException("invalid import function type index");
+					}
 					kindIndex = module.functions.imports.size();
 					module.functions.imports.push_back(
 						{{functionTypeIndex}, std::move(moduleName), std::move(exportName)});
@@ -1314,7 +1333,9 @@ template<typename Stream> void serializeFunctionSection(Stream& moduleStream, Mo
 				U32 functionTypeIndex = 0;
 				serializeVarUInt32(sectionStream, functionTypeIndex);
 				if(functionTypeIndex >= module.types.size())
-				{ throw FatalSerializationException("invalid function type index"); }
+				{
+					throw FatalSerializationException("invalid function type index");
+				}
 				module.functions.defs.push_back({{functionTypeIndex}, {}, {}, {}});
 			}
 			module.functions.defs.shrink_to_fit();
@@ -1322,7 +1343,9 @@ template<typename Stream> void serializeFunctionSection(Stream& moduleStream, Mo
 		else
 		{
 			for(FunctionDef& function : module.functions.defs)
-			{ serializeVarUInt32(sectionStream, function.type.index); }
+			{
+				serializeVarUInt32(sectionStream, function.type.index);
+			}
 		}
 	});
 }
@@ -1390,7 +1413,9 @@ static void serializeCodeSection(InputStream& moduleStream,
 					"function and code sections have mismatched function counts");
 			}
 			for(FunctionDef& functionDef : module.functions.defs)
-			{ serializeFunctionBody(sectionStream, module, functionDef, moduleState); }
+			{
+				serializeFunctionBody(sectionStream, module, functionDef, moduleState);
+			}
 		});
 }
 
@@ -1403,7 +1428,9 @@ void serializeCodeSection(OutputStream& moduleStream,
 			Uptr numFunctionBodies = module.functions.defs.size();
 			serializeVarUInt32(sectionStream, numFunctionBodies);
 			for(FunctionDef& functionDef : module.functions.defs)
-			{ serializeFunctionBody(sectionStream, module, functionDef, moduleState); }
+			{
+				serializeFunctionBody(sectionStream, module, functionDef, moduleState);
+			}
 		});
 }
 
@@ -1417,7 +1444,9 @@ template<typename Stream> void serializeDataCountSection(Stream& moduleStream, M
 			// To make fuzzing more effective, fail gracefully instead of through OOM if the
 			// DataCount section specifies a large number of data segments.
 			if(numDataSegments > module.featureSpec.maxDataSegments)
-			{ throw FatalSerializationException("too many data segments"); }
+			{
+				throw FatalSerializationException("too many data segments");
+			}
 
 			module.dataSegments.resize(numDataSegments);
 		}
@@ -1436,7 +1465,9 @@ void serializeDataSection(InputStream& moduleStream, Module& module, bool hadDat
 				// through OOM if the DataCount section specifies a large number of
 				// data segments.
 				if(numDataSegments > module.featureSpec.maxDataSegments)
-				{ throw FatalSerializationException("too many data segments"); }
+				{
+					throw FatalSerializationException("too many data segments");
+				}
 				module.dataSegments.resize(numDataSegments);
 			}
 			else if(numDataSegments != module.dataSegments.size())
@@ -1445,7 +1476,9 @@ void serializeDataSection(InputStream& moduleStream, Module& module, bool hadDat
 					"DataCount and Data sections have mismatched segment counts");
 			}
 			for(Uptr segmentIndex = 0; segmentIndex < module.dataSegments.size(); ++segmentIndex)
-			{ serialize(sectionStream, module.dataSegments[segmentIndex]); }
+			{
+				serialize(sectionStream, module.dataSegments[segmentIndex]);
+			}
 		});
 }
 
@@ -1551,7 +1584,9 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			};
 
 			if(orderedSectionID > lastKnownOrderedSectionID)
-			{ lastKnownOrderedSectionID = orderedSectionID; }
+			{
+				lastKnownOrderedSectionID = orderedSectionID;
+			}
 			else
 			{
 				throw FatalSerializationException("incorrect order for known section");

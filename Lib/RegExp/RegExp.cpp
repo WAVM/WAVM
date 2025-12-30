@@ -80,16 +80,15 @@ template<bool inSet> static char parseChar(const char*& nextChar)
 	{
 		++nextChar;
 		if(!isMetachar<inSet>(*nextChar))
-		{ Errors::fatalf("'%c' is not a metachar in this context", *nextChar); }
+		{
+			Errors::fatalf("'%c' is not a metachar in this context", *nextChar);
+		}
 	}
 	else if(isMetachar<inSet>(*nextChar))
 	{
 		Errors::fatalf("'%c' is a metachar in this context", *nextChar);
 	}
-	else if(*nextChar == 0)
-	{
-		Errors::fatalf("unexpected end of string");
-	}
+	else if(*nextChar == 0) { Errors::fatalf("unexpected end of string"); }
 	return *nextChar++;
 }
 
@@ -134,7 +133,9 @@ template<bool inSet> static NFA::CharSet parseCharClass(const char*& nextChar)
 			break;
 		default:
 			if(!isMetachar<inSet>(nextChar[1]))
-			{ Errors::fatalf("'%c' is not a metachar in this context", nextChar[1]); }
+			{
+				Errors::fatalf("'%c' is not a metachar in this context", nextChar[1]);
+			}
 			result.add(nextChar[1]);
 			break;
 		};

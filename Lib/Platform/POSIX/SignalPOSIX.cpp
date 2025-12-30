@@ -59,7 +59,9 @@ static void maskSignals(int how)
 	{
 	case SIGFPE:
 		if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF)
-		{ Errors::fatalfWithCallStack("unknown SIGFPE code"); }
+		{
+			Errors::fatalfWithCallStack("unknown SIGFPE code");
+		}
 		signal.type = Signal::Type::intDivideByZeroOrOverflow;
 		break;
 	case SIGSEGV:

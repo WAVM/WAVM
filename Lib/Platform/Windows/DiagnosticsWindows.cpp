@@ -76,7 +76,9 @@ static std::string trimModuleName(std::string moduleName)
 	if(lastBackslashOffset != UINTPTR_MAX && moduleName.size() >= lastBackslashOffset
 	   && moduleName.substr(0, lastBackslashOffset)
 			  == thisModuleName.substr(0, lastBackslashOffset))
-	{ return moduleName.substr(lastBackslashOffset + 1); }
+	{
+		return moduleName.substr(lastBackslashOffset + 1);
+	}
 	else
 	{
 		return moduleName;

@@ -18,7 +18,9 @@ namespace WAVM {
 	{
 		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT8_MIN)
 		   || (highI64 == 0 && lowI64 > INT8_MAX))
-		{ WAVM_DEBUG_TRAP(); }
+		{
+			WAVM_DEBUG_TRAP();
+		}
 
 		return I8(lowI64);
 	}
@@ -33,7 +35,9 @@ namespace WAVM {
 	{
 		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT16_MIN)
 		   || (highI64 == 0 && lowI64 > INT16_MAX))
-		{ WAVM_DEBUG_TRAP(); }
+		{
+			WAVM_DEBUG_TRAP();
+		}
 
 		return I16(lowI64);
 	}
@@ -48,7 +52,9 @@ namespace WAVM {
 	{
 		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT32_MIN)
 		   || (highI64 == 0 && lowI64 > INT32_MAX))
-		{ WAVM_DEBUG_TRAP(); }
+		{
+			WAVM_DEBUG_TRAP();
+		}
 
 		return I32(lowI64);
 	}
@@ -63,7 +69,9 @@ namespace WAVM {
 	{
 		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 >= 0)
 		   || (highI64 == 0 && lowI64 < 0))
-		{ WAVM_DEBUG_TRAP(); }
+		{
+			WAVM_DEBUG_TRAP();
+		}
 		return lowI64;
 	}
 

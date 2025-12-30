@@ -101,7 +101,9 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 		deregisterEHFrames();
 
 		if(!KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED)
-		{ Platform::freeVirtualPages(imageBaseAddress, numAllocatedImagePages); }
+		{
+			Platform::freeVirtualPages(imageBaseAddress, numAllocatedImagePages);
+		}
 		else
 		{
 			// Decommit the image pages, but leave them reserved to catch any references to them
@@ -165,7 +167,9 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
 			if(!imageBaseAddress
 			   || !Platform::commitVirtualPages(imageBaseAddress, numAllocatedImagePages))
-			{ Errors::fatal("memory allocation for JIT code failed"); }
+			{
+				Errors::fatal("memory allocation for JIT code failed");
+			}
 			Platform::registerVirtualAllocation(numAllocatedImagePages
 												<< Platform::getBytesPerPageLog2());
 			codeSection.baseAddress = imageBaseAddress;
@@ -289,7 +293,9 @@ private:
 
 		// Check that enough space was reserved in the section.
 		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
-		{ Errors::fatal("didn't reserve enough space in section"); }
+		{
+			Errors::fatal("didn't reserve enough space in section");
+		}
 
 		// Drop the '.' or '__' prefix on section names.
 		if(sectionName.size() && sectionName[0] == '.') { sectionName = sectionName.drop_front(1); }
@@ -373,7 +379,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 		{
 			LookupFlagsResult result;
 			for(auto symbol : symbols)
-			{ result.emplace(symbol, findSymbolImpl(symbol).getFlags()); }
+			{
+				result.emplace(symbol, findSymbolImpl(symbol).getFlags());
+			}
 			return result;
 		}
 #else
@@ -467,7 +475,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 	std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo> loadedObject = loader.loadObject(*object);
 	loader.finalizeWithMemoryManagerLocking();
 	if(loader.hasError())
-	{ Errors::fatalf("RuntimeDyld failed: %s", loader.getErrorString().data()); }
+	{
+		Errors::fatalf("RuntimeDyld failed: %s", loader.getErrorString().data());
+	}
 
 	if(USE_WINDOWS_SEH && pdataCopy)
 	{
@@ -561,7 +571,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 		WAVM_ASSERT(*address <= UINTPTR_MAX);
 		Uptr loadedAddress = Uptr(*address);
 		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
-		{ loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get()); }
+		{
+			loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
+		}
 
 		std::map<U32, U32> offsetToOpIndexMap;
 #if !LAZY_PARSE_DWARF_LINE_INFO
@@ -578,7 +590,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 			= dwarfContext->getLineInfoForAddressRange(loadedAddress, symbolSizePair.second);
 #endif
 		for(auto lineInfo : lineInfoTable)
-		{ offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
+		{
+			offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line);
+		}
 #endif
 
 		// Add the function to the module's name and address to function maps.
@@ -763,7 +777,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	std::type_info* runtimeExceptionPointerTypeInfo = nullptr;
 	try
 	{
-		throw(Runtime::Exception*) nullptr;
+		throw (Runtime::Exception*)nullptr;
 	}
 	catch(Runtime::Exception*)
 	{
@@ -797,7 +811,9 @@ bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& out
 	const Uptr codeAddress = reinterpret_cast<Uptr>(outSource.function->code);
 	if(address < codeAddress
 	   || address >= codeAddress + outSource.function->mutableData->numCodeBytes)
-	{ return false; }
+	{
+		return false;
+	}
 
 #if LAZY_PARSE_DWARF_LINE_INFO
 	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);

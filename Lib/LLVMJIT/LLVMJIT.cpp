@@ -200,14 +200,18 @@ TargetValidationResult LLVMJIT::validateTargetMachine(
 	{
 		// If the SIMD feature is enabled, then require the SSE4.1 CPU feature.
 		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+sse4.1"))
-		{ return TargetValidationResult::x86CPUDoesNotSupportSSE41; }
+		{
+			return TargetValidationResult::x86CPUDoesNotSupportSSE41;
+		}
 
 		return TargetValidationResult::valid;
 	}
 	else if(targetArch == llvm::Triple::aarch64)
 	{
 		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+neon"))
-		{ return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+		{
+			return TargetValidationResult::wavmDoesNotSupportSIMDOnArch;
+		}
 
 		return TargetValidationResult::valid;
 	}

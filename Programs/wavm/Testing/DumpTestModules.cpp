@@ -105,7 +105,9 @@ static void dumpCommandModules(const char* filename,
 
 		if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::text
 		   && (dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both))
-		{ dumpWAST(assertInvalidOrMalformedCommand->quotedModuleString, outputDir); }
+		{
+			dumpWAST(assertInvalidOrMalformedCommand->quotedModuleString, outputDir);
+		}
 		else if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::binary
 				&& (dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both))
 		{
@@ -119,7 +121,9 @@ static void dumpCommandModules(const char* filename,
 	case Command::thread: {
 		auto threadCommand = (ThreadCommand*)command;
 		for(auto& innerCommand : threadCommand->commands)
-		{ dumpCommandModules(filename, innerCommand.get(), outputDir, dumpFormat); }
+		{
+			dumpCommandModules(filename, innerCommand.get(), outputDir, dumpFormat);
+		}
 		break;
 	}
 
@@ -168,10 +172,7 @@ int execDumpTestModules(int argc, char** argv)
 		{
 			dumpFormat = dumpFormat == DumpFormat::wast ? DumpFormat::both : DumpFormat::wasm;
 		}
-		else if(!filename)
-		{
-			filename = argv[argumentIndex];
-		}
+		else if(!filename) { filename = argv[argumentIndex]; }
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
@@ -214,7 +215,9 @@ int execDumpTestModules(int argc, char** argv)
 	if(!testErrors.size())
 	{
 		for(auto& command : testCommands)
-		{ dumpCommandModules(filename, command.get(), outputDir, dumpFormat); }
+		{
+			dumpCommandModules(filename, command.get(), outputDir, dumpFormat);
+		}
 		return EXIT_SUCCESS;
 	}
 	else

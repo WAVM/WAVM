@@ -90,7 +90,9 @@ static SizeConstraints parseSizeConstraints(CursorState* cursor, U64 maxMax)
 {
 	SizeConstraints result;
 	if(!tryParseSizeConstraints(cursor, maxMax, result))
-	{ parseErrorf(cursor->parseState, cursor->nextToken, "expected size constraints"); }
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected size constraints");
+	}
 	return result;
 }
 
@@ -512,7 +514,9 @@ static void parseData(CursorState* cursor)
 		}
 
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
-		{ baseAddress = parseInitializerExpression(cursor); }
+		{
+			baseAddress = parseInitializerExpression(cursor);
+		}
 		else
 		{
 			parseParenthesized(cursor, [&]() {
@@ -818,7 +822,9 @@ static void parseElem(CursorState* cursor)
 		}
 
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_offset)
-		{ baseIndex = parseInitializerExpression(cursor); }
+		{
+			baseIndex = parseInitializerExpression(cursor);
+		}
 		else
 		{
 			parseParenthesized(cursor, [&]() {
@@ -832,10 +838,7 @@ static void parseElem(CursorState* cursor)
 	ReferenceType elemRefType = ReferenceType::none;
 	ElemSegment::Encoding encoding;
 	if(tryParseExternKind(cursor, elemExternKind)) { encoding = ElemSegment::Encoding::index; }
-	else if(tryParseReferenceType(cursor, elemRefType))
-	{
-		encoding = ElemSegment::Encoding::expr;
-	}
+	else if(tryParseReferenceType(cursor, elemRefType)) { encoding = ElemSegment::Encoding::expr; }
 	else
 	{
 		encoding = ElemSegment::Encoding::index;
@@ -985,7 +988,9 @@ static void parseTable(CursorState* cursor)
 					ExternKind elemExternKind = ExternKind::invalid;
 					ReferenceType elemRefType = ReferenceType::none;
 					if(cursor->nextToken->type != t_leftParenthesis)
-					{ elemExternKind = ExternKind::function; }
+					{
+						elemExternKind = ExternKind::function;
+					}
 					else
 					{
 						encoding = ElemSegment::Encoding::expr;
@@ -1134,7 +1139,9 @@ static void parseStart(CursorState* cursor)
 
 	Reference functionRef;
 	if(!tryParseNameOrIndexRef(cursor, functionRef))
-	{ parseErrorf(cursor->parseState, cursor->nextToken, "expected function name or index"); }
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected function name or index");
+	}
 
 	cursor->moduleState->postDeclarationCallbacks.push_back([functionRef](
 																ModuleState* moduleState) {
@@ -1349,20 +1356,26 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 
 		// Parse the module's declarations.
 		while(cursor->nextToken->type != t_rightParenthesis && cursor->nextToken->type != t_eof)
-		{ parseDeclaration(cursor); };
+		{
+			parseDeclaration(cursor);
+		};
 
 		// Process the callbacks requested after all type declarations have been parsed.
 		if(!cursor->parseState->unresolvedErrors.size())
 		{
 			for(const auto& callback : cursor->moduleState->postTypeCallbacks)
-			{ callback(&moduleState); }
+			{
+				callback(&moduleState);
+			}
 		}
 
 		// Process the callbacks requested after all declarations have been parsed.
 		if(!cursor->parseState->unresolvedErrors.size())
 		{
 			for(const auto& callback : cursor->moduleState->postDeclarationCallbacks)
-			{ callback(&moduleState); }
+			{
+				callback(&moduleState);
+			}
 		}
 
 		// After all declarations have been parsed, but before function bodies are parsed, validate
@@ -1386,7 +1399,9 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		if(!cursor->parseState->unresolvedErrors.size())
 		{
 			for(const auto& callback : cursor->moduleState->functionBodyCallbacks)
-			{ callback(&moduleState); }
+			{
+				callback(&moduleState);
+			}
 		}
 
 		// After function bodies have been parsed, validate the parts of the module that correspond

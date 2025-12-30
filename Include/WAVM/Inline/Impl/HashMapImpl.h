@@ -237,10 +237,7 @@ template<typename Key, typename Value> HashMapIterator<Key, Value>::operator boo
 
 template<typename Key, typename Value> void HashMapIterator<Key, Value>::operator++()
 {
-	do
-	{
-		++bucket;
-	} while(bucket < endBucket && !bucket->hashAndOccupancy);
+	do { ++bucket; } while(bucket < endBucket && !bucket->hashAndOccupancy);
 }
 
 template<typename Key, typename Value>

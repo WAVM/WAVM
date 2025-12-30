@@ -20,7 +20,9 @@ static bool loadBinaryModuleFromFile(const char* filename,
 	if(!loadFile(filename, wasmBytes)) { return false; }
 	WASM::LoadError loadError;
 	if(WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), outModule, &loadError))
-	{ return true; }
+	{
+		return true;
+	}
 	else
 	{
 		Log::printf(Log::error, "%s\n", loadError.message.c_str());
@@ -69,14 +71,8 @@ int execDisassembleCommand(int argc, char** argv)
 				return false;
 			}
 		}
-		else if(!inputFilename)
-		{
-			inputFilename = argv[argIndex];
-		}
-		else if(!outputFilename)
-		{
-			outputFilename = argv[argIndex];
-		}
+		else if(!inputFilename) { inputFilename = argv[argIndex]; }
+		else if(!outputFilename) { outputFilename = argv[argIndex]; }
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);

@@ -104,7 +104,9 @@ static void deserializeNameSubsection(const Module& module,
 			serialize(substream, functionName);
 
 			if(functionIndex < outNames.functions.size())
-			{ outNames.functions[functionIndex].name = std::move(functionName); }
+			{
+				outNames.functions[functionIndex].name = std::move(functionName);
+			}
 		}
 		break;
 	}
@@ -312,7 +314,9 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 		customSection != module.customSections.end();)
 	{
 		if(customSection->name == "name")
-		{ customSection = module.customSections.erase(customSection); }
+		{
+			customSection = module.customSections.erase(customSection);
+		}
 		else
 		{
 			++customSection;

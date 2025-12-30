@@ -72,7 +72,9 @@ static Result getFileType(HANDLE handle, FileType& outType)
 {
 	const DWORD windowsFileType = GetFileType(handle);
 	if(windowsFileType == FILE_TYPE_UNKNOWN && GetLastError() != ERROR_SUCCESS)
-	{ return asVFSResult(GetLastError()); }
+	{
+		return asVFSResult(GetLastError());
+	}
 
 	switch(windowsFileType)
 	{
@@ -82,7 +84,9 @@ static Result getFileType(HANDLE handle, FileType& outType)
 		FILE_BASIC_INFO fileBasicInfo;
 		if(!GetFileInformationByHandleEx(
 			   handle, FileBasicInfo, &fileBasicInfo, sizeof(fileBasicInfo)))
-		{ return asVFSResult(GetLastError()); }
+		{
+			return asVFSResult(GetLastError());
+		}
 
 		outType = fileBasicInfo.FileAttributes & FILE_ATTRIBUTE_DIRECTORY ? FileType::directory
 																		  : FileType::file;
@@ -99,7 +103,9 @@ static Result getFileInfoByHandle(HANDLE handle, FileInfo& outInfo)
 {
 	BY_HANDLE_FILE_INFORMATION windowsFileInfo;
 	if(!GetFileInformationByHandle(handle, &windowsFileInfo))
-	{ return asVFSResult(GetLastError()); }
+	{
+		return asVFSResult(GetLastError());
+	}
 
 	outInfo.deviceNumber = windowsFileInfo.dwVolumeSerialNumber;
 	outInfo.fileNumber
@@ -147,7 +153,9 @@ static void getVFSPath(const wchar_t* inChars,
 	while(nextChar != endChar)
 	{
 		if(!Unicode::decodeUTF16CodePoint(nextChar, endChar, codePoint))
-		{ Errors::fatalf("Found an invalid UTF-16 code point (%u) in %s", *nextChar, context); }
+		{
+			Errors::fatalf("Found an invalid UTF-16 code point (%u) in %s", *nextChar, context);
+		}
 		if(codePoint == U32('\\')) { codePoint = U32('/'); }
 		Unicode::encodeUTF8CodePoint(codePoint, outString);
 	};
@@ -161,7 +169,9 @@ static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirE
 		   startFromBeginning ? FileIdBothDirectoryRestartInfo : FileIdBothDirectoryInfo,
 		   buffer,
 		   sizeof(buffer)))
-	{ return false; }
+	{
+		return false;
+	}
 
 	auto fileInfo = (FILE_ID_BOTH_DIR_INFO*)buffer;
 	while(true)
@@ -201,7 +211,9 @@ struct WindowsDirEntStream : DirEntStream
 	virtual void close() override
 	{
 		if(!CloseHandle(handle))
-		{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
+		{
+			Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError());
+		}
 		delete this;
 	}
 
@@ -338,7 +350,9 @@ struct WindowsFD : VFD
 		{
 			const IOReadBuffer& buffer = buffers[bufferIndex];
 			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
+			{
+				return Result::tooManyBufferBytes;
+			}
 			numBufferBytes += buffer.numBytes;
 		}
 		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
@@ -346,7 +360,9 @@ struct WindowsFD : VFD
 
 		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
 		if(numBuffers == 1)
-		{ return readImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesRead); }
+		{
+			return readImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesRead);
+		}
 		else
 		{
 			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
@@ -368,7 +384,9 @@ struct WindowsFD : VFD
 					const Uptr numBytesToCopy
 						= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
 					if(numBytesToCopy)
-					{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
+					{
+						memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy);
+					}
 					numBytesCopied += numBytesToCopy;
 				}
 
@@ -408,7 +426,9 @@ struct WindowsFD : VFD
 		{
 			const IOWriteBuffer& buffer = buffers[bufferIndex];
 			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
+			{
+				return Result::tooManyBufferBytes;
+			}
 			numBufferBytes += buffer.numBytes;
 		}
 		if(numBufferBytes > Uptr(UINT32_MAX)) { return Result::tooManyBufferBytes; }
@@ -416,7 +436,9 @@ struct WindowsFD : VFD
 
 		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
 		if(numBuffers == 1)
-		{ return writeImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesWritten); }
+		{
+			return writeImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesWritten);
+		}
 		else
 		{
 			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
@@ -428,7 +450,9 @@ struct WindowsFD : VFD
 			{
 				const IOWriteBuffer& buffer = buffers[bufferIndex];
 				if(buffer.numBytes)
-				{ memcpy(combinedBuffer + numBytesCopied, buffer.data, buffer.numBytes); }
+				{
+					memcpy(combinedBuffer + numBytesCopied, buffer.data, buffer.numBytes);
+				}
 				numBytesCopied += buffer.numBytes;
 			}
 
@@ -487,7 +511,9 @@ struct WindowsFD : VFD
 			if(reopenedHandle != INVALID_HANDLE_VALUE)
 			{
 				if(!CloseHandle(handle))
-				{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
+				{
+					Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError());
+				}
 				handle = reopenedHandle;
 			}
 			else
@@ -564,7 +590,9 @@ struct WindowsFD : VFD
 
 			// Close the duplicated handle.
 			if(!CloseHandle(duplicatedHandle))
-			{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
+			{
+				Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError());
+			}
 
 			return result;
 		}
@@ -786,7 +814,9 @@ Result WindowsFS::getFileInfo(const std::string& path, FileInfo& outInfo)
 	const Result result = getFileInfoByHandle(handle, outInfo);
 
 	if(!CloseHandle(handle))
-	{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
+	{
+		Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError());
+	}
 
 	return result;
 }
@@ -825,7 +855,9 @@ Result WindowsFS::setFileTimes(const std::string& path,
 								   : asVFSResult(GetLastError());
 
 	if(!CloseHandle(handle))
-	{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
+	{
+		Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError());
+	}
 
 	return result;
 }
@@ -901,7 +933,9 @@ Result WindowsFS::openDir(const std::string& path, DirEntStream*& outStream)
 
 		// Close the file handle we just opened if there was an error reading dirents from it.
 		if(!CloseHandle(handle))
-		{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
+		{
+			Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError());
+		}
 
 		return result;
 	}
