@@ -124,7 +124,9 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 		{
 			// If the thread hasn't yet created a wake event, do so.
 			if(!threadWakeEvent)
-			{ threadWakeEvent = std::unique_ptr<Platform::Event>(new Platform::Event()); }
+			{
+				threadWakeEvent = std::unique_ptr<Platform::Event>(new Platform::Event());
+			}
 
 			// Add the wake event to the wait list, and unlock the wait list.
 			waitList->wakeEvents.push_back(threadWakeEvent.get());
@@ -176,11 +178,15 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 		// Determine how many threads to wake.
 		// numToWake==UINT32_MAX means wake all waiting threads.
 		if(actualNumToWake == UINT32_MAX || actualNumToWake > waitList->wakeEvents.size())
-		{ actualNumToWake = waitList->wakeEvents.size(); }
+		{
+			actualNumToWake = waitList->wakeEvents.size();
+		}
 
 		// Signal the events corresponding to the oldest waiting threads.
 		for(Uptr wakeIndex = 0; wakeIndex < actualNumToWake; ++wakeIndex)
-		{ waitList->wakeEvents[wakeIndex]->signal(); }
+		{
+			waitList->wakeEvents[wakeIndex]->signal();
+		}
 
 		// Remove the events from the wait list.
 		waitList->wakeEvents.erase(waitList->wakeEvents.begin(),
@@ -189,7 +195,9 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 	closeWaitList(address, waitList);
 
 	if(actualNumToWake > UINT32_MAX)
-	{ throwException(ExceptionTypes::integerDivideByZeroOrOverflow); }
+	{
+		throwException(ExceptionTypes::integerDivideByZeroOrOverflow);
+	}
 	return U32(actualNumToWake);
 }
 
@@ -215,7 +223,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	// Validate that the address is within the memory's bounds.
 	const U64 memoryNumBytes = U64(memory->numPages) * IR::numBytesPerPage;
 	if(U64(address) + 4 > memoryNumBytes)
-	{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes}); }
+	{
+		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes});
+	}
 
 	// The alignment check is done by the caller.
 	WAVM_ASSERT(!(address & 3));

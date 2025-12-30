@@ -121,7 +121,9 @@ static std::vector<IR::Value> parseConstExpressionTuple(CursorState* cursor)
 {
 	std::vector<IR::Value> values;
 	while(cursor->nextToken->type == t_leftParenthesis)
-	{ values.push_back(parseConstExpression(cursor)); };
+	{
+		values.push_back(parseConstExpression(cursor));
+	};
 	return values;
 }
 
@@ -158,37 +160,49 @@ static ResultSet parseV128ResultSet(CursorState* cursor)
 		++cursor->nextToken;
 		result.type = ResultSet::Type::i8x16_const;
 		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
-		{ result.i8x16[laneIndex] = parseI8(cursor); }
+		{
+			result.i8x16[laneIndex] = parseI8(cursor);
+		}
 		break;
 	case t_i16x8:
 		++cursor->nextToken;
 		result.type = ResultSet::Type::i16x8_const;
 		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
-		{ result.i16x8[laneIndex] = parseI16(cursor); }
+		{
+			result.i16x8[laneIndex] = parseI16(cursor);
+		}
 		break;
 	case t_i32x4:
 		++cursor->nextToken;
 		result.type = ResultSet::Type::i32x4_const;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-		{ result.i32x4[laneIndex] = parseI32(cursor); }
+		{
+			result.i32x4[laneIndex] = parseI32(cursor);
+		}
 		break;
 	case t_i64x2:
 		++cursor->nextToken;
 		result.type = ResultSet::Type::i64x2_const;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-		{ result.i64x2[laneIndex] = parseI64(cursor); }
+		{
+			result.i64x2[laneIndex] = parseI64(cursor);
+		}
 		break;
 	case t_f32x4:
 		++cursor->nextToken;
 		result.type = ResultSet::Type::f32x4_const;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-		{ result.f32x4[laneIndex] = parseFloatResultSet<F32>(cursor); }
+		{
+			result.f32x4[laneIndex] = parseFloatResultSet<F32>(cursor);
+		}
 		break;
 	case t_f64x2:
 		++cursor->nextToken;
 		result.type = ResultSet::Type::f64x2_const;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-		{ result.f64x2[laneIndex] = parseFloatResultSet<F64>(cursor); }
+		{
+			result.f64x2[laneIndex] = parseFloatResultSet<F64>(cursor);
+		}
 		break;
 	default:
 		parseErrorf(cursor->parseState,
@@ -275,7 +289,9 @@ static std::vector<ResultSet> parseResultSetTuple(CursorState* cursor)
 {
 	std::vector<ResultSet> results;
 	while(cursor->nextToken->type == t_leftParenthesis)
-	{ results.push_back(parseResultSet(cursor)); };
+	{
+		results.push_back(parseResultSet(cursor));
+	};
 	return results;
 }
 
@@ -300,7 +316,9 @@ static void parseTestScriptModule(CursorState* cursor,
 		++cursor->nextToken;
 
 		if(!tryParseString(cursor, outQuotedModuleString))
-		{ parseErrorf(cursor->parseState, cursor->nextToken, "expected string"); }
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected string");
+		}
 		else
 		{
 			while(tryParseString(cursor, outQuotedModuleString)) {};
@@ -529,7 +547,9 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				}
 				ExpectedTrapType expectedType;
 				if(!strcmp(expectedErrorMessage.c_str(), "out of bounds memory access"))
-				{ expectedType = ExpectedTrapType::outOfBoundsMemoryAccess; }
+				{
+					expectedType = ExpectedTrapType::outOfBoundsMemoryAccess;
+				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(),
 										 "out of bounds data segment access"))
 				{
@@ -703,7 +723,9 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				for(const UnresolvedError& error : malformedModuleParseState.unresolvedErrors)
 				{
 					if(stringStartsWith(error.message.c_str(), "validation error"))
-					{ invalidOrMalformed = InvalidOrMalformed::invalid; }
+					{
+						invalidOrMalformed = InvalidOrMalformed::invalid;
+					}
 					else
 					{
 						invalidOrMalformed = InvalidOrMalformed::malformed;
@@ -781,7 +803,9 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 
 				std::vector<std::unique_ptr<Command>> commands;
 				while(cursor->nextToken->type == t_leftParenthesis)
-				{ commands.emplace_back(parseCommand(cursor, featureSpec)); };
+				{
+					commands.emplace_back(parseCommand(cursor, featureSpec));
+				};
 
 				result = std::unique_ptr<Command>(
 					new ThreadCommand(std::move(locus),
@@ -852,7 +876,9 @@ void WAST::parseTestCommands(const char* string,
 		{
 			// (command)*<eof>
 			while(cursor.nextToken->type == t_leftParenthesis)
-			{ outTestCommands.emplace_back(parseCommand(&cursor, featureSpec)); };
+			{
+				outTestCommands.emplace_back(parseCommand(&cursor, featureSpec));
+			};
 		}
 
 		require(&cursor, t_eof);

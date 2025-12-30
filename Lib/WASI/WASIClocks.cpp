@@ -73,7 +73,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 	Time clockTime = Platform::getClockTime(platformClock);
 
 	if(platformClock == Platform::Clock::processCPUTime)
-	{ clockTime.ns -= process->processClockOrigin.ns; }
+	{
+		clockTime.ns -= process->processClockOrigin.ns;
+	}
 
 	__wasi_timestamp_t wasiClockTime = __wasi_timestamp_t(clockTime.ns);
 	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = wasiClockTime;

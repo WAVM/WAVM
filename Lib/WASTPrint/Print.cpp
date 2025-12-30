@@ -35,14 +35,8 @@ static std::string escapeString(const char* string, Uptr numChars)
 	{
 		auto c = string[charIndex];
 		if(c == '\\') { result += "\\\\"; }
-		else if(c == '\"')
-		{
-			result += "\\\"";
-		}
-		else if(c == '\n')
-		{
-			result += "\\n";
-		}
+		else if(c == '\"') { result += "\\\""; }
+		else if(c == '\n') { result += "\\n"; }
 		else if(c < 0x20 || c > 0x7e)
 		{
 			result += '\\';
@@ -68,14 +62,8 @@ static std::string escapeName(const std::string& name)
 	for(char c : name)
 	{
 		if(c == '(') { escapedName += "_lparen_"; }
-		else if(c == ')')
-		{
-			escapedName += "_rparen_";
-		}
-		else if(c == ' ')
-		{
-			escapedName += '_';
-		}
+		else if(c == ')') { escapedName += "_rparen_"; }
+		else if(c == ' ') { escapedName += '_'; }
 		else if(!isNameChar(c))
 		{
 			escapedName += '_';
@@ -1063,10 +1051,7 @@ void ModulePrintContext::printModule()
 			string += ' ';
 			printInitializerExpression(elemSegment.baseOffset);
 		}
-		else if(elemSegment.type == ElemSegment::Type::declared)
-		{
-			string += " declare";
-		}
+		else if(elemSegment.type == ElemSegment::Type::declared) { string += " declare"; }
 
 		if(elemSegment.contents->encoding == ElemSegment::Encoding::index)
 		{
@@ -1379,7 +1364,9 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 
 					linkingSectionString += "\n;; ";
 					if(functionIndex < names.functions.size())
-					{ linkingSectionString += names.functions[functionIndex].name; }
+					{
+						linkingSectionString += names.functions[functionIndex].name;
+					}
 					else
 					{
 						linkingSectionString
@@ -1529,7 +1516,9 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 						serializeVarUInt32(substream, index);
 
 						if(index < module.customSections.size())
-						{ symbolName = module.customSections[index].name; }
+						{
+							symbolName = module.customSections[index].name;
+						}
 						else
 						{
 							symbolName = "*invalid index*";
@@ -1552,7 +1541,9 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 					{
 					case SymbolKind::function:
 						if(index < names.functions.size())
-						{ linkingSectionString += " " + names.functions[index].name; }
+						{
+							linkingSectionString += " " + names.functions[index].name;
+						}
 						else
 						{
 							linkingSectionString
@@ -1561,7 +1552,9 @@ void ModulePrintContext::printLinkingSection(const IR::CustomSection& linkingSec
 						break;
 					case SymbolKind::global:
 						if(index < names.globals.size())
-						{ linkingSectionString += " " + names.globals[index]; }
+						{
+							linkingSectionString += " " + names.globals[index];
+						}
 						else
 						{
 							linkingSectionString

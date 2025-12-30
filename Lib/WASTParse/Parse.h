@@ -304,7 +304,9 @@ namespace WAVM { namespace WAST {
 	{
 		const Token* openingParenthesisToken = cursor->nextToken;
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != tagType)
-		{ return false; }
+		{
+			return false;
+		}
 		try
 		{
 			cursor->nextToken += 2;

@@ -29,31 +29,13 @@ enum class Command
 static Command parseCommand(const char* string)
 {
 	if(!strcmp(string, "assemble")) { return Command::assemble; }
-	else if(!strcmp(string, "disassemble"))
-	{
-		return Command::disassemble;
-	}
-	else if(!strcmp(string, "help"))
-	{
-		return Command::help;
-	}
-	else if(!strcmp(string, "test"))
-	{
-		return Command::test;
-	}
-	else if(!strcmp(string, "version"))
-	{
-		return Command::version;
-	}
+	else if(!strcmp(string, "disassemble")) { return Command::disassemble; }
+	else if(!strcmp(string, "help")) { return Command::help; }
+	else if(!strcmp(string, "test")) { return Command::test; }
+	else if(!strcmp(string, "version")) { return Command::version; }
 #if WAVM_ENABLE_RUNTIME
-	else if(!strcmp(string, "compile"))
-	{
-		return Command::compile;
-	}
-	else if(!strcmp(string, "run"))
-	{
-		return Command::run;
-	}
+	else if(!strcmp(string, "compile")) { return Command::compile; }
+	else if(!strcmp(string, "run")) { return Command::run; }
 #endif
 	else
 	{

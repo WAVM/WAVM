@@ -149,7 +149,9 @@ namespace {
 				WAVM_ASSERT(functionState->branchTargetNameToIndexMap.contains(name));
 				WAVM_ASSERT(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
 				if(previousBranchTargetIndex == UINTPTR_MAX)
-				{ WAVM_ERROR_UNLESS(functionState->branchTargetNameToIndexMap.remove(name)); }
+				{
+					WAVM_ERROR_UNLESS(functionState->branchTargetNameToIndexMap.remove(name));
+				}
 				else
 				{
 					functionState->branchTargetNameToIndexMap.set(name, previousBranchTargetIndex);
@@ -220,7 +222,9 @@ static void parseImm(CursorState* cursor, MemoryImm& outImm)
 										 cursor->moduleState->module.memories.size(),
 										 "memory",
 										 outImm.memoryIndex))
-	{ outImm.memoryIndex = 0; }
+	{
+		outImm.memoryIndex = 0;
+	}
 }
 static void parseImm(CursorState* cursor, MemoryCopyImm& outImm)
 {
@@ -229,14 +233,18 @@ static void parseImm(CursorState* cursor, MemoryCopyImm& outImm)
 										 cursor->moduleState->module.memories.size(),
 										 "memory",
 										 outImm.destMemoryIndex))
-	{ outImm.destMemoryIndex = 0; }
+	{
+		outImm.destMemoryIndex = 0;
+	}
 
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
 										 cursor->moduleState->memoryNameToIndexMap,
 										 cursor->moduleState->module.memories.size(),
 										 "memory",
 										 outImm.sourceMemoryIndex))
-	{ outImm.sourceMemoryIndex = outImm.destMemoryIndex; }
+	{
+		outImm.sourceMemoryIndex = outImm.destMemoryIndex;
+	}
 }
 static void parseImm(CursorState* cursor, TableImm& outImm)
 {
@@ -245,7 +253,9 @@ static void parseImm(CursorState* cursor, TableImm& outImm)
 										 cursor->moduleState->module.tables.size(),
 										 "table",
 										 outImm.tableIndex))
-	{ outImm.tableIndex = 0; }
+	{
+		outImm.tableIndex = 0;
+	}
 }
 static void parseImm(CursorState* cursor, TableCopyImm& outImm)
 {
@@ -254,14 +264,18 @@ static void parseImm(CursorState* cursor, TableCopyImm& outImm)
 										 cursor->moduleState->module.tables.size(),
 										 "table",
 										 outImm.destTableIndex))
-	{ outImm.destTableIndex = 0; }
+	{
+		outImm.destTableIndex = 0;
+	}
 
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
 										 cursor->moduleState->tableNameToIndexMap,
 										 cursor->moduleState->module.tables.size(),
 										 "table",
 										 outImm.sourceTableIndex))
-	{ outImm.sourceTableIndex = outImm.destTableIndex; }
+	{
+		outImm.sourceTableIndex = outImm.destTableIndex;
+	}
 }
 
 static void parseImm(CursorState* cursor, SelectImm& outImm)
@@ -329,7 +343,9 @@ static void parseImm(CursorState* cursor, BranchTableImm& outImm)
 	std::vector<Uptr> targetDepths;
 	Uptr targetDepth = 0;
 	while(tryParseAndResolveBranchTargetRef(cursor, targetDepth))
-	{ targetDepths.push_back(targetDepth); };
+	{
+		targetDepths.push_back(targetDepth);
+	};
 
 	if(!targetDepths.size())
 	{
@@ -417,7 +433,9 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 										 cursor->moduleState->module.memories.size(),
 										 "memory",
 										 outImm.memoryIndex))
-	{ outImm.memoryIndex = 0; }
+	{
+		outImm.memoryIndex = 0;
+	}
 
 	outImm.offset = 0;
 	if(cursor->nextToken->type == t_offset)
@@ -438,7 +456,9 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 		alignment = parseU32(cursor);
 
 		if(!alignment || alignment & (alignment - 1))
-		{ parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2"); }
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2");
+		}
 		else if(alignment > naturalAlignment)
 		{
 			parseErrorf(cursor->parseState,
@@ -497,7 +517,9 @@ static void parseImm(CursorState* cursor,
 		alignment = parseU32(cursor);
 
 		if(!alignment || alignment & (alignment - 1))
-		{ parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2"); }
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2");
+		}
 		else if(alignment > naturalAlignment)
 		{
 			parseErrorf(cursor->parseState,
@@ -677,7 +699,9 @@ static void parseControlImm(CursorState* cursor,
 	// For backward compatibility, handle a naked result type.
 	ValueType singleResultType;
 	if(tryParseValueType(cursor, singleResultType))
-	{ functionType = FunctionType(TypeTuple(singleResultType)); }
+	{
+		functionType = FunctionType(TypeTuple(singleResultType));
+	}
 	else
 	{
 		// Parse the callee type, as a reference or explicit declaration.
@@ -814,7 +838,9 @@ static WAVM_FORCENOINLINE void parseIfExpr(CursorState* cursor, Uptr depth)
 
 	// Parse an optional condition expression.
 	if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_then)
-	{ parseExpr(cursor, depth); }
+	{
+		parseExpr(cursor, depth);
+	}
 
 	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
 	cursor->functionState->validatingCodeStream.if_(imm);
@@ -941,9 +967,7 @@ static void parseExpr(CursorState* cursor, Uptr depth)
 				break;
 			}
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
-	case t_##name:                                                                                 \
-		parseOp_##name(cursor, true, depth);                                                       \
-		break;
+	case t_##name: parseOp_##name(cursor, true, depth); break;
 				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 			case t_legacyInstructionName:
@@ -1100,7 +1124,8 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 					};
 				}
 			}))
-			{};
+			{
+			};
 
 			moduleState->disassemblyNames.functions[functionIndex].locals
 				= std::move(*localDisassemblyNames);

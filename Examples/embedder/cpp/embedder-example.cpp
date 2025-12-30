@@ -50,7 +50,9 @@ int main(int argc, char** argv)
 	IR::Module irModule;
 	std::vector<WAST::Error> wastErrors;
 	if(!WAST::parseModule(helloWAST, sizeof(helloWAST), irModule, wastErrors))
-	{ return EXIT_FAILURE; }
+	{
+		return EXIT_FAILURE;
+	}
 
 	ModuleRef module = compileModule(irModule);
 

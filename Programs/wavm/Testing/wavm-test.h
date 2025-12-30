@@ -14,6 +14,5 @@ int execRunTestScript(int argc, char** argv);
 #ifdef __cplusplus
 extern "C"
 #endif
-	int
-	execCAPITest(int argc, char** argv);
+	int execCAPITest(int argc, char** argv);
 #endif

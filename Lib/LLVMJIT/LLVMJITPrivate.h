@@ -163,7 +163,9 @@ namespace WAVM { namespace LLVMJIT {
 	{
 		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
 		for(Uptr typeIndex = 0; typeIndex < typeTuple.size(); ++typeIndex)
-		{ llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]); }
+		{
+			llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]);
+		}
 		return llvm::StructType::get(llvmContext,
 									 llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
 	}
@@ -220,7 +222,9 @@ namespace WAVM { namespace LLVMJIT {
 			numParameters = numImplicitParameters + functionType.params().size();
 			llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 			if(callingConvention != IR::CallingConvention::c)
-			{ llvmArgTypes[0] = llvmContext.i8PtrType; }
+			{
+				llvmArgTypes[0] = llvmContext.i8PtrType;
+			}
 
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 			{
@@ -351,7 +355,7 @@ namespace WAVM { namespace LLVMJIT {
 	// Reproduces how LLVM symbols are mangled to make object symbols for the current platform.
 	inline std::string mangleSymbol(std::string&& symbol)
 	{
-#if((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
+#if ((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
 		return std::string("_") + std::move(symbol);
 #else
 		return std::move(symbol);
@@ -361,7 +365,7 @@ namespace WAVM { namespace LLVMJIT {
 	// The inverse of mangleSymbol
 	inline std::string demangleSymbol(std::string&& symbol)
 	{
-#if((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
+#if ((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
 		WAVM_ASSERT(symbol[0] == '_');
 		return std::move(symbol).substr(1);
 #else

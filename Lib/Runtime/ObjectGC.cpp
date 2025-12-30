@@ -128,7 +128,9 @@ struct GCState
 			Platform::RWMutex::ShareableLock resizingLock(table->resizingMutex);
 			const Uptr numElements = getTableNumElements(table);
 			for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
-			{ visitReference(getTableElement(table, elementIndex)); }
+			{
+				visitReference(getTableElement(table, elementIndex));
+			}
 			break;
 		}
 		case ObjectKind::global: {
@@ -208,7 +210,9 @@ static bool collectGarbageImpl(Compartment* compartment)
 	for(Memory* memory : compartment->memories) { state.initGCObject(memory); }
 	for(Table* table : compartment->tables) { state.initGCObject(table); }
 	for(ExceptionType* exceptionType : compartment->exceptionTypes)
-	{ state.initGCObject(exceptionType); }
+	{
+		state.initGCObject(exceptionType);
+	}
 	for(Global* global : compartment->globals) { state.initGCObject(global); }
 	for(Context* context : compartment->contexts) { state.initGCObject(context); }
 

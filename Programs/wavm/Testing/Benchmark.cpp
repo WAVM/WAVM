@@ -140,7 +140,9 @@ void runInvokeBench()
 
 			Timing::Timer timer;
 			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-			{ (*(NopFunctionPointer)&threadArgs->function->code[0])(contextRuntimeData); }
+			{
+				(*(NopFunctionPointer)&threadArgs->function->code[0])(contextRuntimeData);
+			}
 			timer.stop();
 
 			threadArgs->elapsedNanoseconds = timer.getNanoseconds() / F64(numInvokesPerThread);

@@ -34,7 +34,9 @@ namespace WAVM {
 		{
 			Element combinedElements = 0;
 			for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
-			{ combinedElements |= elements[elementIndex]; }
+			{
+				combinedElements |= elements[elementIndex];
+			}
 			return combinedElements == 0;
 		}
 		inline Index getSmallestMember() const
@@ -103,7 +105,9 @@ namespace WAVM {
 		{
 			DenseStaticIntSet result;
 			for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
-			{ result.elements[elementIndex] = ~set.elements[elementIndex]; }
+			{
+				result.elements[elementIndex] = ~set.elements[elementIndex];
+			}
 			return result;
 		}
 		friend DenseStaticIntSet operator|(const DenseStaticIntSet& left,

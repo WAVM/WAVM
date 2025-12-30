@@ -221,7 +221,8 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 			};
 		}
 	}))
-	{};
+	{
+	};
 
 	// Parse the result types: (result <value type>*)*
 	while(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
@@ -294,7 +295,9 @@ IndexedFunctionType WAST::resolveFunctionType(ModuleState* moduleState,
 											  const UnresolvedFunctionType& unresolvedType)
 {
 	if(!unresolvedType.reference)
-	{ return getUniqueFunctionTypeIndex(moduleState, unresolvedType.explicitType); }
+	{
+		return getUniqueFunctionTypeIndex(moduleState, unresolvedType.explicitType);
+	}
 	else
 	{
 		// Resolve the referenced type.
@@ -347,7 +350,9 @@ static void parseStringChars(const char*& nextChar, ParseState* parseState, std:
 bool WAST::tryParseName(CursorState* cursor, Name& outName)
 {
 	if(cursor->nextToken->type != t_quotedName && cursor->nextToken->type != t_name)
-	{ return false; }
+	{
+		return false;
+	}
 
 	const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;
 	const char* nextChar = firstChar;
@@ -357,7 +362,9 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 	if(cursor->nextToken->type == t_quotedName)
 	{
 		if(!cursor->moduleState->module.featureSpec.quotedNamesInTextFormat)
-		{ parseErrorf(cursor->parseState, cursor->nextToken, "quoted names are disabled"); }
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "quoted names are disabled");
+		}
 
 		WAVM_ASSERT(*nextChar == '\"');
 		++nextChar;
@@ -562,14 +569,8 @@ Uptr WAST::resolveExternRef(ModuleState* moduleState, ExternKind externKind, con
 bool WAST::tryParseHexit(const char*& nextChar, U8& outValue)
 {
 	if(*nextChar >= '0' && *nextChar <= '9') { outValue = *nextChar - '0'; }
-	else if(*nextChar >= 'a' && *nextChar <= 'f')
-	{
-		outValue = *nextChar - 'a' + 10;
-	}
-	else if(*nextChar >= 'A' && *nextChar <= 'F')
-	{
-		outValue = *nextChar - 'A' + 10;
-	}
+	else if(*nextChar >= 'a' && *nextChar <= 'f') { outValue = *nextChar - 'a' + 10; }
+	else if(*nextChar >= 'A' && *nextChar <= 'F') { outValue = *nextChar - 'A' + 10; }
 	else
 	{
 		outValue = 0;
@@ -589,7 +590,9 @@ static void parseCharEscapeCode(const char*& nextChar,
 		// Parse an 8-bit literal from two hexits.
 		U8 secondNibble;
 		if(!tryParseHexit(nextChar, secondNibble))
-		{ parseErrorf(parseState, nextChar, "expected hexit"); }
+		{
+			parseErrorf(parseState, nextChar, "expected hexit");
+		}
 		outString += char(firstNibble * 16 + secondNibble);
 	}
 	else

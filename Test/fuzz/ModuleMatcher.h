@@ -34,7 +34,9 @@ namespace WAVM {
 				   && (segment.memoryIndex != wastSegment.memoryIndex
 					   || segment.baseOffset != wastSegment.baseOffset
 					   || *segment.data != *wastSegment.data))
-				{ failVerification(); }
+				{
+					failVerification();
+				}
 			}
 
 			if(aModule.elemSegments.size() != bModule.elemSegments.size()) { failVerification(); }
@@ -44,23 +46,31 @@ namespace WAVM {
 				const ElemSegment& bSegment = bModule.elemSegments[segmentIndex];
 				if(aSegment.type != bSegment.type
 				   || aSegment.contents->encoding != bSegment.contents->encoding)
-				{ failVerification(); }
+				{
+					failVerification();
+				}
 				if(aSegment.type == ElemSegment::Type::active
 				   && (aSegment.tableIndex != bSegment.tableIndex
 					   || aSegment.baseOffset != bSegment.baseOffset))
-				{ failVerification(); }
+				{
+					failVerification();
+				}
 				switch(aSegment.contents->encoding)
 				{
 				case ElemSegment::Encoding::expr:
 					if(aSegment.contents->elemType != bSegment.contents->elemType
 					   || aSegment.contents->elemExprs != bSegment.contents->elemExprs)
-					{ failVerification(); }
+					{
+						failVerification();
+					}
 					break;
 
 				case ElemSegment::Encoding::index:
 					if(aSegment.contents->externKind != bSegment.contents->externKind
 					   || aSegment.contents->elemIndices != bSegment.contents->elemIndices)
-					{ failVerification(); }
+					{
+						failVerification();
+					}
 					break;
 
 				default: WAVM_UNREACHABLE();
@@ -68,7 +78,9 @@ namespace WAVM {
 			}
 
 			if(aModule.customSections.size() != bModule.customSections.size())
-			{ failVerification(); }
+			{
+				failVerification();
+			}
 			for(Uptr customSectionIndex = 0; customSectionIndex < aModule.customSections.size();
 				++customSectionIndex)
 			{
@@ -76,7 +88,9 @@ namespace WAVM {
 				const CustomSection& bSection = bModule.customSections[customSectionIndex];
 				if(aSection.afterSection != bSection.afterSection || aSection.name != bSection.name
 				   || aSection.data != bSection.data)
-				{ failVerification(); }
+				{
+					failVerification();
+				}
 			}
 		}
 
@@ -121,7 +135,9 @@ namespace WAVM {
 		void verifyMatches(MemoryCopyImm a, MemoryCopyImm b)
 		{
 			if(a.sourceMemoryIndex != b.sourceMemoryIndex || a.destMemoryIndex != b.destMemoryIndex)
-			{ failVerification(); }
+			{
+				failVerification();
+			}
 		}
 		void verifyMatches(TableImm a, TableImm b)
 		{
@@ -130,13 +146,17 @@ namespace WAVM {
 		void verifyMatches(TableCopyImm a, TableCopyImm b)
 		{
 			if(a.sourceTableIndex != b.sourceTableIndex || a.destTableIndex != b.destTableIndex)
-			{ failVerification(); }
+			{
+				failVerification();
+			}
 		}
 
 		void verifyMatches(ControlStructureImm a, ControlStructureImm b)
 		{
 			if(resolveBlockType(aModule, a.type) != resolveBlockType(bModule, b.type))
-			{ failVerification(); }
+			{
+				failVerification();
+			}
 		}
 
 		void verifyMatches(SelectImm a, SelectImm b)
@@ -154,7 +174,9 @@ namespace WAVM {
 			if(a.defaultTargetDepth != b.defaultTargetDepth
 			   || aFunction->branchTables[a.branchTableIndex]
 					  != bFunction->branchTables[b.branchTableIndex])
-			{ failVerification(); }
+			{
+				failVerification();
+			}
 		}
 
 		template<typename Value> void verifyMatches(LiteralImm<Value> a, LiteralImm<Value> b)
@@ -187,7 +209,9 @@ namespace WAVM {
 		{
 			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset
 			   || a.memoryIndex != b.memoryIndex)
-			{ failVerification(); }
+			{
+				failVerification();
+			}
 		}
 
 		template<Uptr numLanes>

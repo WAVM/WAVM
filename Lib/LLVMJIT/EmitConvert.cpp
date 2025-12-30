@@ -37,7 +37,9 @@ static llvm::Type* getWithNewIntBitWidth(llvm::Type* type, U32 newBitWidth)
 	WAVM_ASSERT(type->isIntOrIntVectorTy());
 	llvm::Type* newType = llvm::Type::getIntNTy(type->getContext(), newBitWidth);
 	if(type->isVectorTy())
-	{ newType = FixedVectorType::get(newType, type->getVectorNumElements()); }
+	{
+		newType = FixedVectorType::get(newType, type->getVectorNumElements());
+	}
 	return newType;
 #endif
 }
@@ -455,7 +457,9 @@ EMIT_SIMD_SPLAT(f64x2, scalar, 2)
 		const llvm::Triple::ArchType targetArch                                                    \
 			= moduleContext.targetMachine->getTargetTriple().getArch();                            \
 		if(targetArch == llvm::Triple::x86_64 || targetArch == llvm::Triple::x86)                  \
-		{ push(callLLVMIntrinsic({}, x86IntrinsicId, {left, right})); }                            \
+		{                                                                                          \
+			push(callLLVMIntrinsic({}, x86IntrinsicId, {left, right}));                            \
+		}                                                                                          \
 		else if(targetArch == llvm::Triple::aarch64)                                               \
 		{                                                                                          \
 			llvm::Value* halfInput[2]{left, right};                                                \

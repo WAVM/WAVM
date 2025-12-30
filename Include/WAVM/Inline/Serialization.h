@@ -248,7 +248,9 @@ namespace WAVM { namespace Serialization {
 		else
 		{
 			for(Uptr index = 0; index < vector.size(); ++index)
-			{ serializeElement(stream, vector[index]); }
+			{
+				serializeElement(stream, vector[index]);
+			}
 		}
 	}
 

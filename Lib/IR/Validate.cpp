@@ -176,7 +176,9 @@ static ValueType validateGlobalIndex(const Module& module,
 	VALIDATE_INDEX(globalIndex, module.globals.size());
 	const GlobalType& globalType = module.globals.getType(globalIndex);
 	if(mustBeMutable && !globalType.isMutable)
-	{ throw ValidationException("attempting to mutate immutable global"); }
+	{
+		throw ValidationException("attempting to mutate immutable global");
+	}
 	else if(mustBeImport && globalIndex >= module.globals.imports.size())
 	{
 		throw ValidationException(
@@ -224,7 +226,9 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 		VALIDATE_INDEX(type.index, module.types.size());
 		FunctionType functionType = module.types[type.index];
 		if(functionType.params().size() > 0)
-		{ VALIDATE_FEATURE("block with params", multipleResultsAndBlockParams); }
+		{
+			VALIDATE_FEATURE("block with params", multipleResultsAndBlockParams);
+		}
 		else if(functionType.results().size() > 1)
 		{
 			VALIDATE_FEATURE("block with multiple results", multipleResultsAndBlockParams);
@@ -244,7 +248,9 @@ static FunctionType validateFunctionType(const Module& module, const IndexedFunc
 	VALIDATE_INDEX(type.index, module.types.size());
 	const FunctionType functionType = module.types[type.index];
 	if(functionType.results().size() > IR::maxReturnValues)
-	{ throw ValidationException("function has more return values than WAVM can support"); }
+	{
+		throw ValidationException("function has more return values than WAVM can support");
+	}
 	return functionType;
 }
 
@@ -318,11 +324,17 @@ struct FunctionValidationContext
 		{
 			traceOperator("func");
 			for(auto param : functionType.params())
-			{ traceOperator(std::string("param ") + asString(param)); }
+			{
+				traceOperator(std::string("param ") + asString(param));
+			}
 			for(auto result : functionType.results())
-			{ traceOperator(std::string("result ") + asString(result)); }
+			{
+				traceOperator(std::string("result ") + asString(result));
+			}
 			for(auto local : functionDef.nonParameterLocalTypes)
-			{ traceOperator(std::string("local ") + asString(local)); }
+			{
+				traceOperator(std::string("local ") + asString(local));
+			}
 		}
 
 		// Push the function context onto the control stack.
@@ -408,7 +420,9 @@ struct FunctionValidationContext
 		WAVM_ASSERT(controlStack.size());
 
 		if(controlStack.back().type != ControlContext::Type::ifThen)
-		{ throw ValidationException("else only allowed in if context"); }
+		{
+			throw ValidationException("else only allowed in if context");
+		}
 
 		popAndValidateTypeTuple("if result", controlStack.back().results);
 		validateStackEmptyAtEndOfControlStructure();
@@ -423,12 +437,16 @@ struct FunctionValidationContext
 		WAVM_ASSERT(controlStack.size());
 
 		if(controlStack.back().type == ControlContext::Type::try_)
-		{ throw ValidationException("end may not occur in try context"); }
+		{
+			throw ValidationException("end may not occur in try context");
+		}
 
 		TypeTuple results = controlStack.back().results;
 		if(controlStack.back().type == ControlContext::Type::ifThen
 		   && results != controlStack.back().elseParams)
-		{ throw ValidationException("else-less if must have identity signature"); }
+		{
+			throw ValidationException("else-less if must have identity signature");
+		}
 
 		popAndValidateTypeTuple("end result", controlStack.back().results);
 		validateStackEmptyAtEndOfControlStructure();
@@ -539,10 +557,7 @@ struct FunctionValidationContext
 							(falseType != ValueType::none && !isNumericType(falseType))
 								|| (trueType != ValueType::none && !isNumericType(trueType)))
 			if(falseType == ValueType::none) { pushOperand(trueType); }
-			else if(trueType == ValueType::none)
-			{
-				pushOperand(falseType);
-			}
+			else if(trueType == ValueType::none) { pushOperand(falseType); }
 			else
 			{
 				VALIDATE_UNLESS("non-typed select operands must have the same numeric type: ",
@@ -915,7 +930,9 @@ private:
 
 		ValueType actualType;
 		if(stack.size() > controlStack.back().outerStackSize + operandDepth)
-		{ actualType = stack[stack.size() - operandDepth - 1]; }
+		{
+			actualType = stack[stack.size() - operandDepth - 1];
+		}
 		else if(!controlStack.back().isReachable)
 		{
 			// If the current instruction is unreachable, then pop a bottom type that is a subtype
@@ -1024,7 +1041,9 @@ void IR::validateTypes(ModuleValidationState& state)
 		}
 
 		if(functionType.callingConvention() != CallingConvention::wasm)
-		{ VALIDATE_FEATURE("non-WASM function type", nonWASMFunctionTypes); }
+		{
+			VALIDATE_FEATURE("non-WASM function type", nonWASMFunctionTypes);
+		}
 	}
 }
 
@@ -1049,10 +1068,14 @@ void IR::validateImports(ModuleValidationState& state)
 	{
 		validate(module, globalImport.type);
 		if(globalImport.type.isMutable)
-		{ VALIDATE_FEATURE("mutable imported global", importExportMutableGlobals); }
+		{
+			VALIDATE_FEATURE("mutable imported global", importExportMutableGlobals);
+		}
 	}
 	for(auto& exceptionTypeImport : module.exceptionTypes.imports)
-	{ validate(module, exceptionTypeImport.type.params); }
+	{
+		validate(module, exceptionTypeImport.type.params);
+	}
 
 	if(module.tables.size() > 1) { VALIDATE_FEATURE("multiple tables", referenceTypes); }
 	if(module.memories.size() > 1) { VALIDATE_FEATURE("multiple memories", multipleMemories); }
@@ -1069,7 +1092,9 @@ void IR::validateFunctionDeclarations(ModuleValidationState& state)
 		const FunctionType functionType = validateFunctionType(module, functionDef.type);
 
 		if(functionType.callingConvention() != CallingConvention::wasm)
-		{ throw ValidationException("Function definitions must have WASM calling convention"); }
+		{
+			throw ValidationException("Function definitions must have WASM calling convention");
+		}
 	}
 }
 
@@ -1096,7 +1121,9 @@ void IR::validateExceptionTypeDefs(ModuleValidationState& state)
 {
 	const Module& module = state.module;
 	for(auto& exceptionTypeDef : module.exceptionTypes.defs)
-	{ validate(module, exceptionTypeDef.type.params); }
+	{
+		validate(module, exceptionTypeDef.type.params);
+	}
 }
 
 void IR::validateTableDefs(ModuleValidationState& state)
@@ -1332,14 +1359,18 @@ IR::CodeValidationStream::~CodeValidationStream()
 void IR::CodeValidationStream::finish()
 {
 	if(impl->functionContext.getControlStackSize())
-	{ throw ValidationException("end of code reached before end of function"); }
+	{
+		throw ValidationException("end of code reached before end of function");
+	}
 }
 
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
 	void IR::CodeValidationStream::name(Imm imm)                                                   \
 	{                                                                                              \
 		if(impl->functionContext.enableTracing)                                                    \
-		{ impl->functionContext.traceOperator(impl->operatorPrinter.name(imm)); }                  \
+		{                                                                                          \
+			impl->functionContext.traceOperator(impl->operatorPrinter.name(imm));                  \
+		}                                                                                          \
 		impl->functionContext.validateNonEmptyControlStack(nameString);                            \
 		impl->functionContext.name(imm);                                                           \
 	}

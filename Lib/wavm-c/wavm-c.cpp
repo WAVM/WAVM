@@ -740,7 +740,9 @@ wasm_module_t* wasm_module_new(wasm_engine_t* engine, const char* wasmBytes, uin
 	ModuleRef module;
 	if(loadBinaryModule(
 		   (const U8*)wasmBytes, numWASMBytes, module, engine->config.featureSpec, &loadError))
-	{ return new wasm_module_t{module}; }
+	{
+		return new wasm_module_t{module};
+	}
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
@@ -757,7 +759,9 @@ wasm_module_t* wasm_module_new_text(wasm_engine_t* engine, const char* text, siz
 	if(!WAST::parseModule(text, num_text_chars, irModule, parseErrors))
 	{
 		if(Log::isCategoryEnabled(Log::debug))
-		{ WAST::reportParseErrors("wasm_module_new_text", text, parseErrors, Log::debug); }
+		{
+			WAST::reportParseErrors("wasm_module_new_text", text, parseErrors, Log::debug);
+		}
 		return nullptr;
 	}
 
@@ -782,7 +786,9 @@ bool wasm_module_validate(const char* binary, size_t numBinaryBytes)
 	IR::Module irModule;
 	WASM::LoadError loadError;
 	if(WASM::loadBinaryModule((const U8*)binary, numBinaryBytes, irModule, &loadError))
-	{ return true; }
+	{
+		return true;
+	}
 	else
 	{
 		Log::printf(Log::debug, "%s\n", loadError.message.c_str());
@@ -930,7 +936,9 @@ wasm_trap_t* wasm_func_call(wasm_store_t* store,
 			auto wavmArgs
 				= (UntaggedValue*)alloca(functionType.params().size() * sizeof(UntaggedValue));
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
-			{ memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t)); }
+			{
+				memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t));
+			}
 
 			auto wavmResults
 				= (UntaggedValue*)alloca(functionType.results().size() * sizeof(UntaggedValue));
@@ -1124,7 +1132,9 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 
 	ImportBindings importBindings;
 	for(Uptr importIndex = 0; importIndex < irModule.imports.size(); ++importIndex)
-	{ importBindings.push_back(const_cast<Object*>(imports[importIndex])); }
+	{
+		importBindings.push_back(const_cast<Object*>(imports[importIndex]));
+	}
 
 	Instance* instance = nullptr;
 	catchRuntimeExceptions(

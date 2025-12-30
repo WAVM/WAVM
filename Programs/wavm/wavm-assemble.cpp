@@ -25,7 +25,9 @@ static bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
 
 	std::vector<WAST::Error> parseErrors;
 	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), outModule, parseErrors))
-	{ return true; }
+	{
+		return true;
+	}
 	else
 	{
 		Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
@@ -57,7 +59,9 @@ int execAssembleCommand(int argc, char** argv)
 	for(Iptr argIndex = 0; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "-n") || !strcmp(argv[argIndex], "--omit-names"))
-		{ omitNames = true; }
+		{
+			omitNames = true;
+		}
 		else if(!strcmp(argv[argIndex], "--enable"))
 		{
 			++argIndex;
@@ -78,14 +82,8 @@ int execAssembleCommand(int argc, char** argv)
 				return false;
 			}
 		}
-		else if(!inputFilename)
-		{
-			inputFilename = argv[argIndex];
-		}
-		else if(!outputFilename)
-		{
-			outputFilename = argv[argIndex];
-		}
+		else if(!inputFilename) { inputFilename = argv[argIndex]; }
+		else if(!outputFilename) { outputFilename = argv[argIndex]; }
 		else
 		{
 			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argIndex]);

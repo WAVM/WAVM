@@ -55,7 +55,9 @@ PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::Type
 
 	PHIVector result;
 	for(Uptr elementIndex = 0; elementIndex < type.size(); ++elementIndex)
-	{ result.push_back(irBuilder.CreatePHI(asLLVMType(llvmContext, type[elementIndex]), 2)); }
+	{
+		result.push_back(irBuilder.CreatePHI(asLLVMType(llvmContext, type[elementIndex]), 2));
+	}
 
 	if(originalBlock) { irBuilder.SetInsertPoint(originalBlock); }
 
@@ -299,7 +301,9 @@ void EmitFunctionContext::emit()
 	// Create debug info for the function.
 	llvm::SmallVector<llvm::Metadata*, 10> diFunctionParameterTypes;
 	for(auto parameterType : functionType.params())
-	{ diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]); }
+	{
+		diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]);
+	}
 	auto diParamArray = moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes);
 	auto diFunctionType = moduleContext.diBuilder.createSubroutineType(diParamArray);
 	diFunction = moduleContext.diBuilder.createFunction(

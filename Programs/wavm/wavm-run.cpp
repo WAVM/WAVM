@@ -80,7 +80,9 @@ static bool loadTextOrBinaryModule(const char* filename,
 		WASM::LoadError loadError;
 		if(Runtime::loadBinaryModule(
 			   fileBytes.data(), fileBytes.size(), outModule, featureSpec, &loadError))
-		{ return true; }
+		{
+			return true;
+		}
 		else
 		{
 			Log::printf(Log::error,
@@ -213,7 +215,9 @@ static std::string getFilenameAndExtension(const char* path)
 	for(Uptr charIndex = 0; path[charIndex]; ++charIndex)
 	{
 		if(path[charIndex] == '/' || path[charIndex] == '\\' || path[charIndex] == ':')
-		{ filenameBegin = path + charIndex + 1; }
+		{
+			filenameBegin = path + charIndex + 1;
+		}
 	}
 	return std::string(filenameBegin);
 }
@@ -280,14 +284,8 @@ struct State
 
 				const char* abiString = *nextArg + strlen("--abi=");
 				if(!strcmp(abiString, "bare")) { abi = ABI::bare; }
-				else if(!strcmp(abiString, "emscripten"))
-				{
-					abi = ABI::emscripten;
-				}
-				else if(!strcmp(abiString, "wasi"))
-				{
-					abi = ABI::wasi;
-				}
+				else if(!strcmp(abiString, "emscripten")) { abi = ABI::emscripten; }
+				else if(!strcmp(abiString, "wasi")) { abi = ABI::wasi; }
 				else
 				{
 					Log::printf(Log::error,
@@ -319,14 +317,8 @@ struct State
 					return false;
 				}
 			}
-			else if(!strcmp(*nextArg, "--precompiled"))
-			{
-				precompiled = true;
-			}
-			else if(!strcmp(*nextArg, "--nocache"))
-			{
-				allowCaching = false;
-			}
+			else if(!strcmp(*nextArg, "--precompiled")) { precompiled = true; }
+			else if(!strcmp(*nextArg, "--nocache")) { allowCaching = false; }
 			else if(!strcmp(*nextArg, "--mount-root"))
 			{
 				if(rootMountPath)
@@ -357,7 +349,9 @@ struct State
 				const char* levelString = *nextArg + strlen("--mount-root=");
 
 				if(!strcmp(levelString, "syscalls"))
-				{ wasiTraceLavel = WASI::SyscallTraceLevel::syscalls; }
+				{
+					wasiTraceLavel = WASI::SyscallTraceLevel::syscalls;
+				}
 				else if(!strcmp(levelString, "syscalls-with-callstacks"))
 				{
 					wasiTraceLavel = WASI::SyscallTraceLevel::syscallsWithCallstacks;
@@ -562,7 +556,9 @@ struct State
 			std::string absoluteRootMountPath;
 			if(rootMountPath[0] == '/' || rootMountPath[0] == '\\' || rootMountPath[0] == '~'
 			   || rootMountPath[1] == ':')
-			{ absoluteRootMountPath = rootMountPath; }
+			{
+				absoluteRootMountPath = rootMountPath;
+			}
 			else
 			{
 				absoluteRootMountPath
@@ -639,7 +635,9 @@ struct State
 		{
 			// Initialize the Emscripten instance.
 			if(!Emscripten::initializeProcess(*emscriptenProcess, context, irModule, instance))
-			{ return EXIT_FAILURE; }
+			{
+				return EXIT_FAILURE;
+			}
 		}
 
 		// Look up the function export to call, validate its type, and set up the invoke arguments.
@@ -726,7 +724,9 @@ struct State
 			context, function, invokeSig, untaggedInvokeArgs.data(), untaggedInvokeResults.data());
 
 		if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
-		{ return untaggedInvokeResults[0].i32; }
+		{
+			return untaggedInvokeResults[0].i32;
+		}
 		else
 		{
 			// Convert the untagged result values to tagged values.
@@ -762,7 +762,9 @@ struct State
 		if(precompiled)
 		{
 			if(!loadPrecompiledModule(std::move(fileBytes), featureSpec, module))
-			{ return EXIT_FAILURE; }
+			{
+				return EXIT_FAILURE;
+			}
 		}
 		else if(!loadTextOrBinaryModule(filename, std::move(fileBytes), featureSpec, module))
 		{
@@ -823,10 +825,7 @@ struct State
 		auto executeThunk = [&] { return execute(irModule, instance); };
 		int result;
 		if(emscriptenProcess) { result = Emscripten::catchExit(std::move(executeThunk)); }
-		else if(wasiProcess)
-		{
-			result = WASI::catchExit(std::move(executeThunk));
-		}
+		else if(wasiProcess) { result = WASI::catchExit(std::move(executeThunk)); }
 		else
 		{
 			result = executeThunk();

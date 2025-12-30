@@ -107,7 +107,9 @@ namespace WAVM { namespace LLVMJIT {
 		void pushMultiple(llvm::Value** values, Uptr numValues)
 		{
 			for(Uptr valueIndex = 0; valueIndex < numValues; ++valueIndex)
-			{ push(values[valueIndex]); }
+			{
+				push(values[valueIndex]);
+			}
 		}
 
 		// Creates a PHI node for the argument of branches to a basic block.

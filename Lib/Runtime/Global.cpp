@@ -30,7 +30,9 @@ Global* Runtime::createGlobal(Compartment* compartment,
 		// Zero-initialize the global's mutable value for all current and future contexts.
 		compartment->initialContextMutableGlobals[mutableGlobalIndex] = IR::UntaggedValue();
 		for(Context* context : compartment->contexts)
-		{ context->runtimeData->mutableGlobals[mutableGlobalIndex] = IR::UntaggedValue(); }
+		{
+			context->runtimeData->mutableGlobals[mutableGlobalIndex] = IR::UntaggedValue();
+		}
 	}
 
 	// Create the global and add it to the compartment's list of globals.
@@ -64,7 +66,9 @@ void Runtime::initializeGlobal(Global* global, Value value)
 		// Initialize the global's mutable value for all current and future contexts.
 		compartment->initialContextMutableGlobals[global->mutableGlobalIndex] = value;
 		for(Context* context : compartment->contexts)
-		{ context->runtimeData->mutableGlobals[global->mutableGlobalIndex] = value; }
+		{
+			context->runtimeData->mutableGlobals[global->mutableGlobalIndex] = value;
+		}
 	}
 }
 

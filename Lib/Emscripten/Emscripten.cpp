@@ -754,7 +754,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 					   numBytes,
 					   &numBytesRead)
 				  != VFS::Result::success)
-		{ return -1; }
+		{
+			return -1;
+		}
 		totalNumBytesRead += numBytesRead;
 		if(numBytesRead < numBytes) { break; }
 	}
@@ -1326,7 +1328,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 	for(const std::string& arg : process->args) { numArgBufferBytes += arg.size() + 1; }
 
 	if(process->args.size() > emabi::addressMax || numArgBufferBytes > emabi::addressMax)
-	{ return __WASI_EOVERFLOW; }
+	{
+		return __WASI_EOVERFLOW;
+	}
 	memoryRef<emabi::Address>(process->memory, argcAddress) = emabi::Address(process->args.size());
 	memoryRef<emabi::Address>(process->memory, argBufSizeAddress)
 		= emabi::Address(numArgBufferBytes);
@@ -1351,7 +1355,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 
 		if(numArgBytes > emabi::addressMax
 		   || nextArgBufAddress > emabi::addressMax - numArgBytes - 1)
-		{ return __WASI_EOVERFLOW; }
+		{
+			return __WASI_EOVERFLOW;
+		}
 
 		if(numArgBytes > 0)
 		{
@@ -1381,7 +1387,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 	for(const std::string& env : process->envs) { numEnvBufferBytes += env.size() + 1; }
 
 	if(process->envs.size() > emabi::addressMax || numEnvBufferBytes > emabi::addressMax)
-	{ return __WASI_EOVERFLOW; }
+	{
+		return __WASI_EOVERFLOW;
+	}
 	memoryRef<emabi::Address>(process->memory, envCountAddress)
 		= emabi::Address(process->envs.size());
 	memoryRef<emabi::Address>(process->memory, envBufSizeAddress)
@@ -1407,7 +1415,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(emscripten_wasi_snapshot_preview1,
 
 		if(numEnvBytes > emabi::addressMax
 		   || nextEnvBufAddress > emabi::addressMax - numEnvBytes - 1)
-		{ return __WASI_EOVERFLOW; }
+		{
+			return __WASI_EOVERFLOW;
+		}
 
 		if(numEnvBytes > 0)
 		{
@@ -1465,7 +1475,9 @@ static bool loadEmscriptenMetadata(const IR::Module& module, EmscriptenModuleMet
 				serializeVarUInt32(sectionStream, outMetadata.tempDoubleAddress);
 
 				if(outMetadata.metadataVersionMinor >= 3)
-				{ serializeVarUInt32(sectionStream, outMetadata.standaloneWASM); }
+				{
+					serializeVarUInt32(sectionStream, outMetadata.standaloneWASM);
+				}
 				else
 				{
 					outMetadata.standaloneWASM = 0;
@@ -1600,18 +1612,9 @@ bool Emscripten::Process::resolve(const std::string& moduleName,
 {
 	Runtime::Instance* intrinsicInstance = nullptr;
 	if(moduleName == "env") { intrinsicInstance = env; }
-	else if(moduleName == "asm2wasm")
-	{
-		intrinsicInstance = asm2wasm;
-	}
-	else if(moduleName == "global")
-	{
-		intrinsicInstance = global;
-	}
-	else if(moduleName == "wasi_snapshot_preview1")
-	{
-		intrinsicInstance = wasi_snapshot_preview1;
-	}
+	else if(moduleName == "asm2wasm") { intrinsicInstance = asm2wasm; }
+	else if(moduleName == "global") { intrinsicInstance = global; }
+	else if(moduleName == "wasi_snapshot_preview1") { intrinsicInstance = wasi_snapshot_preview1; }
 
 	if(intrinsicInstance)
 	{

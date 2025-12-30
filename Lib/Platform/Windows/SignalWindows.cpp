@@ -21,7 +21,9 @@ void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr nu
 	// Register our manually fixed up copy of the function table.
 	if(!RtlAddFunctionTable(
 		   (RUNTIME_FUNCTION*)ehFrames, numFunctions, reinterpret_cast<ULONG_PTR>(imageBase)))
-	{ Errors::fatal("RtlAddFunctionTable failed"); }
+	{
+		Errors::fatal("RtlAddFunctionTable failed");
+	}
 #else
 	Errors::fatal("registerEHFrames isn't implemented on 32-bit Windows");
 #endif
