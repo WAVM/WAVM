@@ -1,11 +1,12 @@
 #include "WAVM/IR/Types.h"
 #include <stdlib.h>
 #include <string.h>
-#include <new>
-#include <utility>
+#include <initializer_list>
+#include <vector>
+#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Alloca.h"
 #include "WAVM/Platform/Mutex.h"
 
 using namespace WAVM;

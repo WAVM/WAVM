@@ -5,11 +5,15 @@
 //
 
 #include <atomic>
-#include <map>
+#include <cstddef>
+#include <string>
+#include <utility>
+#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Inline/InlineArray.h"
 
 namespace WAVM { namespace LLVMJIT {
 	struct Module;
@@ -54,12 +58,12 @@ namespace WAVM { namespace Runtime {
 	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
 				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
-	static constexpr Uptr contextNumBytes = 16384;
-	static constexpr Uptr maxThunkArgAndReturnBytes = 256;
-	static constexpr Uptr maxMutableGlobals
+	inline constexpr Uptr contextNumBytes = 16384;
+	inline constexpr Uptr maxThunkArgAndReturnBytes = 256;
+	inline constexpr Uptr maxMutableGlobals
 		= (contextNumBytes - maxThunkArgAndReturnBytes - sizeof(Context*))
 		  / sizeof(IR::UntaggedValue);
-	static constexpr Uptr contextRuntimeDataAlignment = 16384;
+	inline constexpr Uptr contextRuntimeDataAlignment = 16384;
 
 	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
 				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
@@ -82,7 +86,7 @@ namespace WAVM { namespace Runtime {
 		Uptr endAddress;
 	};
 
-	constexpr Uptr memoryNumGuardBytes = 65536;
+	inline constexpr Uptr memoryNumGuardBytes = 65536;
 
 	static_assert(sizeof(MemoryRuntimeData) == sizeof(Uptr) * 3,
 				  "MemoryRuntimeData isn't the expected size");
@@ -96,13 +100,13 @@ namespace WAVM { namespace Runtime {
 	static_assert(sizeof(TableRuntimeData) == sizeof(Uptr) * 2,
 				  "TableRuntimeData isn't the expected size");
 
-	static constexpr Uptr maxMemories = 255;
-	static constexpr Uptr compartmentReservedBytes = Uptr(2) * 1024 * 1024 * 1024;
-	static constexpr Uptr compartmentNonContextBytes = Uptr(2) * 1024 * 1024;
-	static constexpr Uptr maxTables = (compartmentNonContextBytes - sizeof(Compartment*)
+	inline constexpr Uptr maxMemories = 255;
+	inline constexpr Uptr compartmentReservedBytes = Uptr(2) * 1024 * 1024 * 1024;
+	inline constexpr Uptr compartmentNonContextBytes = Uptr(2) * 1024 * 1024;
+	inline constexpr Uptr maxTables = (compartmentNonContextBytes - sizeof(Compartment*)
 									   - maxMemories * sizeof(MemoryRuntimeData))
 									  / sizeof(TableRuntimeData);
-	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
+	inline constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
 
 	struct CompartmentRuntimeData
 	{
@@ -113,7 +117,7 @@ namespace WAVM { namespace Runtime {
 										// declaring arrays that large.
 	};
 
-	static constexpr Uptr maxContexts
+	inline constexpr Uptr maxContexts
 		= (compartmentReservedBytes - offsetof(CompartmentRuntimeData, contexts))
 		  / sizeof(ContextRuntimeData);
 
@@ -124,12 +128,26 @@ namespace WAVM { namespace Runtime {
 					  == compartmentReservedBytes,
 				  "CompartmentRuntimeData isn't the expected size");
 
-	struct Exception
+	struct CallStack
+	{
+		static constexpr Uptr maxFrames = 32;
+
+		struct Frame
+		{
+			Uptr ip;
+		};
+
+		InlineArray<Frame, maxFrames> frames;
+
+		~CallStack() = default;
+	};
+
+	struct WAVM_API Exception
 	{
 		Uptr typeId;
 		ExceptionType* type;
 		U8 isUserException;
-		Platform::CallStack callStack;
+		CallStack callStack;
 		void* userData;
 		void (*finalizeUserData)(void*);
 		IR::UntaggedValue arguments[1];
@@ -137,7 +155,7 @@ namespace WAVM { namespace Runtime {
 		Exception(Uptr inTypeId,
 				  ExceptionType* inType,
 				  bool inIsUserException,
-				  Platform::CallStack&& inCallStack)
+				  CallStack&& inCallStack)
 		: typeId(inTypeId)
 		, type(inType)
 		, isUserException(inIsUserException ? 1 : 0)
@@ -174,7 +192,6 @@ namespace WAVM { namespace Runtime {
 		Runtime::Function* function = nullptr;
 		Uptr numCodeBytes = 0;
 		std::atomic<Uptr> numRootReferences{0};
-		std::map<U32, U32> offsetToOpIndexMap;
 		std::string debugName;
 		std::atomic<InvokeThunkPointer> invokeThunk{nullptr};
 		void* userData{nullptr};

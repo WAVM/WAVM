@@ -4,15 +4,19 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 #include "RuntimePrivate.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
-#include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/RWMutex.h"
+#include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -391,7 +395,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 		if(sourceOffset != 0 || numBytes != 0)
 		{
 			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
-						   {instance, dataSegmentIndex, sourceOffset});
+						   {instance, dataSegmentIndex, sourceOffset},
+						   1);
 		}
 	}
 	else
@@ -442,5 +447,5 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	const U64 outOfBoundsAddress = U64(address) > memoryNumBytes ? U64(address) : memoryNumBytes;
 
-	throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, outOfBoundsAddress});
+	throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, outOfBoundsAddress}, 1);
 }

@@ -1,13 +1,13 @@
+#include <cstdlib>
 #include <string>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/RandomModule.h"
-#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/RandomStream.h"
+#include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
 #include "WAVM/WASM/WASM.h"

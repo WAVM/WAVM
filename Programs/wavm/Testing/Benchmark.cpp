@@ -1,281 +1,257 @@
-#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "../wavm.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
-#include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
-#include "WAVM/IR/Validate.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Platform/Thread.h"
-#include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Platform/File.h"
+#include "WAVM/Platform/Memory.h"
+#include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/RuntimeABI/RuntimeABI.h"
+#include "WAVM/WASI/WASI.h"
+#include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-template<typename Result> struct ContextAndResult
+static std::string getFilenameAndExtension(const char* path)
 {
-	ContextRuntimeData* contextRuntimeData;
-	Result result;
-};
-
-typedef ContextAndResult<I32> (*NopFunctionPointer)(ContextRuntimeData*);
-
-struct ThreadArgs
-{
-	Context* context = nullptr;
-	Function* function = nullptr;
-	F64 elapsedNanoseconds = 0;
-	Platform::Thread* thread = nullptr;
-};
-
-void runBenchmark(Compartment* compartment,
-				  Function* function,
-				  Uptr numThreads,
-				  const char* description,
-				  I64 (*threadFunc)(void*))
-{
-	// Create a thread for each hardware thread.
-	std::vector<ThreadArgs*> threads;
-	for(Uptr threadIndex = 0; threadIndex < numThreads; ++threadIndex)
+	const char* filenameBegin = path;
+	for(Uptr charIndex = 0; path[charIndex]; ++charIndex)
 	{
-		ThreadArgs* threadArgs = new ThreadArgs;
-		threadArgs->context = createContext(compartment);
-		threadArgs->function = function;
-		threadArgs->thread = Platform::createThread(512 * 1024, threadFunc, threadArgs);
-		threads.push_back(threadArgs);
+		if(path[charIndex] == '/' || path[charIndex] == '\\' || path[charIndex] == ':')
+		{
+			filenameBegin = path + charIndex + 1;
+		}
 	}
-
-	// Wait for the threads to exit, and sum the results from each thread.
-	F64 totalElapsedNanoseconds = 0;
-	for(ThreadArgs* threadArgs : threads)
-	{
-		Platform::joinThread(threadArgs->thread);
-		totalElapsedNanoseconds += threadArgs->elapsedNanoseconds;
-		delete threadArgs;
-	}
-
-	// Print the results.
-	const F64 averageNanoseconds = totalElapsedNanoseconds / F64(numThreads);
-
-	Log::printf(Log::output,
-				"ns/%s in %" WAVM_PRIuPTR " threads: %.2f\n",
-				description,
-				numThreads,
-				averageNanoseconds);
-}
-
-void runBenchmarkSingleAndMultiThreaded(Compartment* compartment,
-										Function* function,
-										const char* description,
-										I64 (*threadFunc)(void*))
-{
-	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads() / 2;
-	runBenchmark(compartment, function, 1, description, threadFunc);
-	runBenchmark(compartment, function, numHardwareThreads, description, threadFunc);
+	return std::string(filenameBegin);
 }
 
 void showBenchmarkHelp(WAVM::Log::Category outputCategory)
 {
-	Log::printf(outputCategory, "Usage: wavm test bench\n");
-}
-
-static constexpr Uptr numInvokesPerThread = 100000000;
-
-void runInvokeBench()
-{
-	// Generate a nop function.
-	Serialization::ArrayOutputStream codeStream;
-	OperatorEncoderStream encoder(codeStream);
-	encoder.i32_const({0});
-	encoder.end();
-
-	// Generate a module containing the nop function.
-	IR::Module irModule;
-	DisassemblyNames irModuleNames;
-	irModule.types.push_back(FunctionType({ValueType::i32}, {ValueType::i32}));
-	irModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
-	irModule.exports.push_back({"nopFunction", IR::ExternKind::function, 0});
-	irModuleNames.functions.push_back({"nopFunction", {}, {}});
-	IR::setDisassemblyNames(irModule, irModuleNames);
-	std::shared_ptr<IR::ModuleValidationState> moduleValidationState
-		= IR::createModuleValidationState(irModule);
-	IR::validatePreCodeSections(*moduleValidationState);
-	IR::validatePostCodeSections(*moduleValidationState);
-
-	// Instantiate the module.
-	GCPointer<Compartment> compartment = Runtime::createCompartment();
-	auto module = compileModule(irModule);
-	auto instance = instantiateModule(compartment, module, {}, "nopModule");
-	auto function = asFunction(getInstanceExport(instance, "nopFunction"));
-
-	// Call the nop function once to ensure the time to create the invoke thunk isn't benchmarked.
-	{
-		IR::Value args[1]{I32(0)};
-		IR::Value results[1];
-		invokeFunction(createContext(compartment),
-					   function,
-					   FunctionType({ValueType::i32}, {ValueType::i32}),
-					   args,
-					   results);
-	}
-
-	// Benchmark calling the function directly.
-	runBenchmarkSingleAndMultiThreaded(
-		compartment, function, "direct call", [](void* argument) -> I64 {
-			ThreadArgs* threadArgs = (ThreadArgs*)argument;
-			ContextRuntimeData* contextRuntimeData = getContextRuntimeData(threadArgs->context);
-
-			Timing::Timer timer;
-			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-			{
-				(*(NopFunctionPointer)&threadArgs->function->code[0])(contextRuntimeData);
-			}
-			timer.stop();
-
-			threadArgs->elapsedNanoseconds = timer.getNanoseconds() / F64(numInvokesPerThread);
-
-			return 0;
-		});
-
-	// Benchmark invokeFunction.
-	runBenchmarkSingleAndMultiThreaded(
-		compartment, function, "invokeFunction", [](void* argument) -> I64 {
-			ThreadArgs* threadArgs = (ThreadArgs*)argument;
-
-			FunctionType invokeSig({ValueType::i32}, {ValueType::i32});
-
-			Timing::Timer timer;
-			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-			{
-				UntaggedValue args[1]{I32(0)};
-				UntaggedValue results[1];
-				invokeFunction(threadArgs->context, threadArgs->function, invokeSig, args, results);
-			}
-			timer.stop();
-
-			threadArgs->elapsedNanoseconds = timer.getNanoseconds() / F64(numInvokesPerThread);
-
-			return 0;
-		});
-
-	// Free the compartment.
-	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
-}
-
-WAVM_DEFINE_INTRINSIC_MODULE(benchmarkIntrinsics);
-
-WAVM_DEFINE_INTRINSIC_FUNCTION(benchmarkIntrinsics, "identity", I32, intrinsicIdentity, I32 x)
-{
-	return x;
-}
-
-static constexpr Uptr numIntrinsicCallsPerThread = 1000000000;
-
-static constexpr const char* intrinsicBenchModuleWAST
-	= "(module\n"
-	  "  (import \"benchmarkIntrinsics\" \"identity\" (func $identity (param i32) (result i32)))\n"
-	  "  (func (export \"benchmarkIntrinsicFunc\") (param $numIterations i32) (result i32)\n"
-	  "    (local $i i32)\n"
-	  "    (local $acc i32)\n"
-	  "    loop $loop\n"
-	  "      (local.set $acc (i32.add (local.get $acc)\n"
-	  "                               (call $identity (i32.const 1))))\n"
-	  "      (local.set $i (i32.add (local.get $i) (i32.const 1)))\n"
-	  "      (br_if $loop (i32.ne (local.get $i) (local.get $numIterations)))\n"
-	  "    end\n"
-	  "    (local.get $acc)\n"
-	  "  )\n"
-	  ")";
-
-void runIntrinsicBench()
-{
-	// Parse the intrinsic benchmark module.
-	std::vector<WAST::Error> parseErrors;
-	IR::Module irModule;
-	if(!WAST::parseModule(
-		   intrinsicBenchModuleWAST, strlen(intrinsicBenchModuleWAST) + 1, irModule, parseErrors))
-	{
-		WAST::reportParseErrors(
-			"intrinsic benchmark module", intrinsicBenchModuleWAST, parseErrors);
-		Errors::fatal("Failed to parse intrinsic benchmark module WAST");
-	}
-
-	// Instantiate the intrinsic module
-	GCPointer<Compartment> compartment = Runtime::createCompartment();
-	auto intrinsicInstance = Intrinsics::instantiateModule(
-		compartment, {WAVM_INTRINSIC_MODULE_REF(benchmarkIntrinsics)}, "benchmarkIntrinsics");
-	auto intrinsicIdentityFunction = getInstanceExport(intrinsicInstance, "identity");
-
-	// Instantiate the WASM module.
-	auto module = compileModule(irModule);
-	auto instance = instantiateModule(
-		compartment, module, {intrinsicIdentityFunction}, "benchmarkIntrinsicModule");
-	auto function = asFunction(getInstanceExport(instance, "benchmarkIntrinsicFunc"));
-
-	// Call the benchmark function once to ensure the time to create the invoke thunk isn't
-	// benchmarked.
-	{
-		IR::Value args[1]{I32(1)};
-		IR::Value results[1];
-		invokeFunction(createContext(compartment),
-					   function,
-					   FunctionType({ValueType::i32}, {ValueType::i32}),
-					   args,
-					   results);
-	}
-
-	// Run the benchmark.
-	runBenchmarkSingleAndMultiThreaded(
-		compartment, function, "intrinsic call", [](void* argument) -> I64 {
-			ThreadArgs* threadArgs = (ThreadArgs*)argument;
-
-			FunctionType invokeSig({ValueType::i32}, {ValueType::i32});
-
-			Timing::Timer timer;
-			UntaggedValue args[1]{I32(numIntrinsicCallsPerThread)};
-			UntaggedValue results[1];
-			invokeFunction(threadArgs->context, threadArgs->function, invokeSig, args, results);
-			timer.stop();
-
-			threadArgs->elapsedNanoseconds
-				= timer.getNanoseconds() / F64(numIntrinsicCallsPerThread);
-
-			return 0;
-		});
-
-	// Free the compartment.
-	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
+	Log::printf(outputCategory,
+				"Usage: wavm test benchmark [options] <file.wasm|wast> [program args...]\n"
+				"\n"
+				"Options:\n"
+				"  --json               Output results as JSON (for machine parsing)\n"
+				"  --enable <feature>   Enable the specified WebAssembly feature\n"
+				"\n"
+				"Benchmarks load, compile, instantiate, and execute phases\n"
+				"of a WASI module. Arguments after the filename are passed to the\n"
+				"WASI program.\n");
 }
 
 int execBenchmark(int argc, char** argv)
 {
-	if(argc != 0)
+	bool jsonOutput = false;
+	const char* filename = nullptr;
+	std::vector<std::string> programArgs;
+	IR::FeatureSpec featureSpec;
+
+	for(int i = 0; i < argc; ++i)
 	{
-		showBenchmarkHelp(Log::Category::error);
+		if(filename)
+		{
+			// Everything after the filename is a program argument.
+			programArgs.push_back(argv[i]);
+		}
+		else if(!strcmp(argv[i], "--json")) { jsonOutput = true; }
+		else if(!strcmp(argv[i], "--enable"))
+		{
+			++i;
+			if(i >= argc)
+			{
+				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+				return EXIT_FAILURE;
+			}
+			if(!parseAndSetFeature(argv[i], featureSpec, true))
+			{
+				Log::printf(Log::error,
+							"Unknown feature '%s'. Supported features:\n%s\n",
+							argv[i],
+							getFeatureListHelpText().c_str());
+				return EXIT_FAILURE;
+			}
+		}
+		else if(argv[i][0] != '-') { filename = argv[i]; }
+		else
+		{
+			Log::printf(Log::error, "Unknown option: %s\n", argv[i]);
+			showBenchmarkHelp(Log::error);
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(!filename)
+	{
+		showBenchmarkHelp(Log::error);
 		return EXIT_FAILURE;
 	}
 
-	const auto targetSpec = LLVMJIT::getHostTargetSpec();
-	Log::printf(Log::output,
-				"Host triple: %s\nHost CPU: %s\n",
-				targetSpec.triple.c_str(),
-				targetSpec.cpu.c_str());
+	// Phase 1: Load the file
+	Timing::Timer loadTimer;
+	std::vector<U8> fileBytes;
+	if(!loadFile(filename, fileBytes)) { return EXIT_FAILURE; }
 
-	runInvokeBench();
-	runIntrinsicBench();
+	IR::Module irModule(featureSpec);
+	if(fileBytes.size() >= sizeof(WASM::magicNumber)
+	   && !memcmp(fileBytes.data(), WASM::magicNumber, sizeof(WASM::magicNumber)))
+	{
+		WASM::LoadError loadError;
+		if(!WASM::loadBinaryModule(fileBytes.data(), fileBytes.size(), irModule, &loadError))
+		{
+			Log::printf(Log::error, "%s\n", loadError.message.c_str());
+			return EXIT_FAILURE;
+		}
+	}
+	else
+	{
+		fileBytes.push_back(0);
+		std::vector<WAST::Error> parseErrors;
+		if(!WAST::parseModule(
+			   (const char*)fileBytes.data(), fileBytes.size(), irModule, parseErrors))
+		{
+			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
+			WAST::reportParseErrors(filename, (const char*)fileBytes.data(), parseErrors);
+			return EXIT_FAILURE;
+		}
+	}
+	loadTimer.stop();
+	const F64 loadMs = loadTimer.getMilliseconds();
+
+	// Phase 2: Compile the module
+	Timing::Timer compileTimer;
+	auto module = Runtime::compileModule(irModule);
+	compileTimer.stop();
+	const F64 compileMs = compileTimer.getMilliseconds();
+
+	// Phase 3: Instantiate the module with WASI
+	GCPointer<Compartment> compartment = Runtime::createCompartment();
+
+	std::vector<std::string> wasiArgs;
+	wasiArgs.push_back(getFilenameAndExtension(filename));
+	for(const auto& arg : programArgs) { wasiArgs.push_back(arg); }
+	auto wasiProcess = WASI::createProcess(compartment,
+										   std::move(wasiArgs),
+										   {},
+										   nullptr,
+										   Platform::getStdFD(Platform::StdDevice::in),
+										   Platform::getStdFD(Platform::StdDevice::out),
+										   Platform::getStdFD(Platform::StdDevice::err));
+
+	Timing::Timer instantiateTimer;
+
+	LinkResult linkResult = linkModule(irModule, WASI::getProcessResolver(*wasiProcess));
+	if(!linkResult.success)
+	{
+		Log::printf(Log::error, "Failed to link module:\n");
+		for(auto& missingImport : linkResult.missingImports)
+		{
+			Log::printf(Log::error,
+						"Missing import: module=\"%s\" export=\"%s\" type=\"%s\"\n",
+						missingImport.moduleName.c_str(),
+						missingImport.exportName.c_str(),
+						asString(missingImport.type).c_str());
+		}
+		return EXIT_FAILURE;
+	}
+
+	Instance* instance
+		= instantiateModule(compartment, module, std::move(linkResult.resolvedImports), filename);
+	if(!instance) { return EXIT_FAILURE; }
+
+	Memory* memory = asMemoryNullable(getInstanceExport(instance, "memory"));
+	if(!memory)
+	{
+		Log::printf(Log::error, "WASM module doesn't export WASI memory.\n");
+		return EXIT_FAILURE;
+	}
+	WASI::setProcessMemory(*wasiProcess, memory);
+
+	instantiateTimer.stop();
+	const F64 instantiateMs = instantiateTimer.getMilliseconds();
+
+	// Phase 4: Execute
+	Context* context = Runtime::createContext(compartment);
+	Function* startFunction = getStartFunction(instance);
+	if(startFunction) { invokeFunction(context, startFunction); }
+
+	Function* entryFunction = getTypedInstanceExport(instance, "_start", FunctionType());
+	if(!entryFunction)
+	{
+		Log::printf(Log::error, "WASM module doesn't export WASI _start function.\n");
+		return EXIT_FAILURE;
+	}
+
+	F64 executeMs = 0;
+	{
+		Timing::Timer executeTimer;
+		Runtime::catchRuntimeExceptions(
+			[&]() {
+				auto executeThunk = [&]() -> int {
+					invokeFunction(context, entryFunction);
+					return 0;
+				};
+				WASI::catchExit(std::move(executeThunk));
+			},
+			[](Runtime::Exception* exception) {
+				Errors::fatalf("Runtime exception: %s", describeException(exception).c_str());
+			});
+		executeTimer.stop();
+		executeMs = executeTimer.getMilliseconds();
+	}
+
+	Uptr peakMemoryBytes = Platform::getPeakMemoryUsageBytes();
+
+	if(jsonOutput)
+	{
+		Log::printf(Log::output,
+					"{\n"
+					"  \"file\": \"%s\",\n"
+					"  \"phases\": {\n"
+					"    \"load_ms\": %.2f,\n"
+					"    \"compile_ms\": %.2f,\n"
+					"    \"instantiate_ms\": %.2f,\n"
+					"    \"execute_ms\": %.2f\n"
+					"  },\n"
+					"  \"peak_memory_bytes\": %" WAVM_PRIuPTR
+					"\n"
+					"}\n",
+					getFilenameAndExtension(filename).c_str(),
+					loadMs,
+					compileMs,
+					instantiateMs,
+					executeMs,
+					peakMemoryBytes);
+	}
+	else
+	{
+		Log::printf(Log::output, "File: %s\n", filename);
+		Log::printf(Log::output, "  load:        %.2fms\n", loadMs);
+		Log::printf(Log::output, "  compile:     %.2fms\n", compileMs);
+		Log::printf(Log::output, "  instantiate: %.2fms\n", instantiateMs);
+		Log::printf(Log::output, "  execute:     %.2fms\n", executeMs);
+		Log::printf(Log::output, "  peak memory: %" WAVM_PRIuPTR " bytes\n", peakMemoryBytes);
+	}
+
+	// Cleanup
+	wasiProcess.reset();
+	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 
 	return 0;
 }

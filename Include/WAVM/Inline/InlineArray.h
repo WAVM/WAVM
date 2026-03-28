@@ -1,7 +1,9 @@
 #pragma once
 
+#include <type_traits>
 #include "Impl/OptionalStorage.h"
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM {
 	template<typename Element, Uptr maxElements> struct InlineArray
@@ -56,6 +58,30 @@ namespace WAVM {
 			WAVM_ASSERT(index < numElements);
 			return elements[index].get();
 		}
+
+		// Iterator that unwraps OptionalStorage elements.
+		template<typename StoragePtr, typename Elem> struct IteratorBase
+		{
+			StoragePtr storage;
+
+			Elem& operator*() const { return storage->get(); }
+			Elem* operator->() const { return &storage->get(); }
+			IteratorBase& operator++()
+			{
+				++storage;
+				return *this;
+			}
+			bool operator!=(const IteratorBase& other) const { return storage != other.storage; }
+			bool operator==(const IteratorBase& other) const { return storage == other.storage; }
+		};
+
+		using Iterator = IteratorBase<WAVM::OptionalStorage<Element>*, Element>;
+		using ConstIterator = IteratorBase<const WAVM::OptionalStorage<Element>*, const Element>;
+
+		Iterator begin() { return Iterator{elements}; }
+		Iterator end() { return Iterator{elements + numElements}; }
+		ConstIterator begin() const { return ConstIterator{elements}; }
+		ConstIterator end() const { return ConstIterator{elements + numElements}; }
 
 	private:
 		Uptr numElements;

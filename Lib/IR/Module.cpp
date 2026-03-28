@@ -1,5 +1,7 @@
 #include "WAVM/IR/Module.h"
-#include "WAVM/IR/IR.h"
+#include <utility>
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

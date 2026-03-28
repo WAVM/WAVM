@@ -1,10 +1,14 @@
+// Use both #pragma once and include guards: we test that headers compile as standalone translation
+// units, and the circular include with the Impl header means #pragma once alone doesn't work.
 #pragma once
+#ifndef WAVM_INLINE_HASHMAP_H
+#define WAVM_INLINE_HASHMAP_H
 
 #include <initializer_list>
-#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashTable.h"
+#include "WAVM/Platform/Defines.h"
 
 namespace WAVM {
 	template<typename Key, typename Value> struct HashMapPair
@@ -85,8 +89,8 @@ namespace WAVM {
 
 		// Returns a pointer to the value bound to the key, or null if the map doesn't contain the
 		// key.
-		const Value* get(const Key& key) const;
-		Value* get(const Key& key);
+		template<typename LookupKey = Key> const Value* get(const LookupKey& key) const;
+		template<typename LookupKey = Key> Value* get(const LookupKey& key);
 
 		// Returns a pointer to the key-value pair for a key, or null if the map doesn't contain the
 		// key.
@@ -110,7 +114,8 @@ namespace WAVM {
 		struct HashTablePolicy
 		{
 			WAVM_FORCEINLINE static const Key& getKey(const Pair& pair) { return pair.key; }
-			WAVM_FORCEINLINE static bool areKeysEqual(const Key& left, const Key& right)
+			template<typename LookupKey>
+			WAVM_FORCEINLINE static bool areKeysEqual(const Key& left, const LookupKey& right)
 			{
 				return KeyHashPolicy::areKeysEqual(left, right);
 			}
@@ -119,6 +124,8 @@ namespace WAVM {
 		HashTable<Key, Pair, HashTablePolicy> table;
 	};
 
-// The implementation is defined in a separate file.
-#include "Impl/HashMapImpl.h"
 }
+
+#include "Impl/HashMapImpl.h" // IWYU pragma: export
+
+#endif // WAVM_INLINE_HASHMAP_H

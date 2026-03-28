@@ -1,10 +1,15 @@
 #pragma once
 
+#include <cstring>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/WASTParse/WASTParse.h"
 
@@ -28,7 +33,6 @@ namespace WAVM { namespace WAST {
 			assert_invalid,
 			assert_malformed,
 			assert_unlinkable,
-			benchmark,
 			thread,
 			wait,
 		};
@@ -73,6 +77,7 @@ namespace WAVM { namespace WAST {
 		uninitializedTableElement,
 		outOfMemory,
 		misalignedAtomicMemoryAccess,
+		waitOnUnsharedMemory,
 		invalidArgument
 	};
 
@@ -395,21 +400,6 @@ namespace WAVM { namespace WAST {
 								std::unique_ptr<ModuleAction> inModuleAction)
 		: Command(Command::assert_unlinkable, std::move(inLocus))
 		, moduleAction(std::move(inModuleAction))
-		{
-		}
-	};
-
-	struct BenchmarkCommand : Command
-	{
-		std::string name;
-		std::unique_ptr<InvokeAction> invokeAction;
-
-		BenchmarkCommand(TextFileLocus&& inLocus,
-						 std::string&& inName,
-						 std::unique_ptr<InvokeAction>&& inInvokeAction)
-		: Command(Command::benchmark, std::move(inLocus))
-		, name(std::move(inName))
-		, invokeAction(std::move(inInvokeAction))
 		{
 		}
 	};

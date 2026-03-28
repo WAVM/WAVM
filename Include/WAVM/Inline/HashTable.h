@@ -1,6 +1,9 @@
+// Use both #pragma once and include guards: we test that headers compile as standalone translation
+// units, and the circular include with the Impl header means #pragma once alone doesn't work.
 #pragma once
+#ifndef WAVM_INLINE_HASHTABLE_H
+#define WAVM_INLINE_HASHTABLE_H
 
-#include "Assert.h"
 #include "BasicTypes.h"
 #include "Impl/OptionalStorage.h"
 #include "WAVM/Platform/Intrinsic.h"
@@ -18,7 +21,7 @@ namespace WAVM {
 		static Uptr getMaxDesiredBuckets(Uptr numDesiredElements)
 		{
 			const Uptr maxDesiredBuckets
-				= Uptr(1) << WAVM::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 7));
+				= Uptr(1) << ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 7));
 			return maxDesiredBuckets < minBuckets ? minBuckets : maxDesiredBuckets;
 		}
 
@@ -28,7 +31,7 @@ namespace WAVM {
 			else
 			{
 				const Uptr minDesiredBuckets
-					= Uptr(1) << WAVM::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
+					= Uptr(1) << ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
 				return minDesiredBuckets < minBuckets ? minBuckets : minDesiredBuckets;
 			}
 		}
@@ -118,8 +121,10 @@ namespace WAVM {
 
 		bool remove(Uptr hash, const Key& key);
 
-		const Bucket* getBucketForRead(Uptr hash, const Key& key) const;
-		Bucket* getBucketForModify(Uptr hash, const Key& key);
+		template<typename LookupKey = Key>
+		const Bucket* getBucketForRead(Uptr hash, const LookupKey& key) const;
+		template<typename LookupKey = Key>
+		Bucket* getBucketForModify(Uptr hash, const LookupKey& key);
 		Bucket& getBucketForAdd(Uptr hash, const Key& key);
 
 		Uptr size() const { return numElements; }
@@ -150,6 +155,8 @@ namespace WAVM {
 		void moveFrom(HashTable&& movee) noexcept;
 	};
 
-// The implementation is defined in a separate file.
-#include "Impl/HashTableImpl.h"
 }
+
+#include "Impl/HashTableImpl.h" // IWYU pragma: export
+
+#endif // WAVM_INLINE_HASHTABLE_H

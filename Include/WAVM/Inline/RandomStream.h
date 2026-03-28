@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 

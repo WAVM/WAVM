@@ -1,23 +1,24 @@
 #include <stdint.h>
+#include "EmitContext.h"
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
-#include "EmitWorkarounds.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Intrinsics.h>
-
-#if LLVM_VERSION_MAJOR >= 10
 #include <llvm/IR/IntrinsicsAArch64.h>
 #include <llvm/IR/IntrinsicsX86.h>
-#endif
+#include <llvm/TargetParser/Triple.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
@@ -31,17 +32,7 @@ using namespace WAVM::LLVMJIT;
 
 static llvm::Type* getWithNewIntBitWidth(llvm::Type* type, U32 newBitWidth)
 {
-#if LLVM_VERSION_MAJOR >= 10
 	return type->getWithNewBitWidth(newBitWidth);
-#else
-	WAVM_ASSERT(type->isIntOrIntVectorTy());
-	llvm::Type* newType = llvm::Type::getIntNTy(type->getContext(), newBitWidth);
-	if(type->isVectorTy())
-	{
-		newType = FixedVectorType::get(newType, type->getVectorNumElements());
-	}
-	return newType;
-#endif
 }
 
 llvm::Value* EmitFunctionContext::extendHalfOfIntVector(
@@ -156,36 +147,7 @@ EMIT_UNARY_OP(i64_reinterpret_f64, irBuilder.CreateBitCast(operand, llvmContext.
 
 llvm::Value* EmitFunctionContext::emitF64Promote(llvm::Value* operand, llvm::Type* destType)
 {
-	llvm::Value* f64Operand = irBuilder.CreateFPExt(operand, destType);
-
-#if LLVM_VERSION_MAJOR >= 10
-	// Emit an nop experimental.constrained.fmul intrinsic on the result of the promote to make sure
-	// the promote can't be optimized away.
-	llvm::Value* one = emitLiteral(llvmContext, F64(1.0));
-	if(destType->isVectorTy())
-	{
-		one = irBuilder.CreateVectorSplat(
-			U32(static_cast<FixedVectorType*>(destType)->getNumElements()), one);
-	}
-
-	return callLLVMIntrinsic(
-		{destType},
-		llvm::Intrinsic::experimental_constrained_fmul,
-		{f64Operand, one, moduleContext.fpRoundingModeMetadata, moduleContext.fpExceptionMetadata});
-#else
-	// Work around a pre-LLVM 10 bug with the constrained FP arithmetic intrinsics:
-	// https://bugs.llvm.org/show_bug.cgi?id=43510
-
-	llvm::Value* intOne = moduleContext.unoptimizableOne;
-	llvm::Value* one = irBuilder.CreateSIToFP(intOne, llvmContext.f64Type);
-	if(destType->isVectorTy())
-	{
-		one = irBuilder.CreateVectorSplat(
-			U32(static_cast<FixedVectorType*>(destType)->getNumElements()), one);
-	}
-
-	return irBuilder.CreateFMul(f64Operand, one);
-#endif
+	return irBuilder.CreateFPExt(operand, destType);
 }
 
 template<typename Float>
@@ -200,7 +162,7 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
 	auto overflowBlock = llvm::BasicBlock::Create(llvmContext, "FPToInt_overflow", function);
 	auto noOverflowBlock = llvm::BasicBlock::Create(llvmContext, "FPToInt_noOverflow", function);
 
-	auto isNaN = createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, operand, operand);
+	auto isNaN = irBuilder.CreateFCmp(llvm::CmpInst::FCMP_UNO, operand, operand);
 	irBuilder.CreateCondBr(isNaN, nanBlock, notNaNBlock, moduleContext.likelyFalseBranchWeights);
 
 	irBuilder.SetInsertPoint(nanBlock);
@@ -279,10 +241,9 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToIntSat(llvm::Type* destType,
 		irBuilder.CreateFCmpOLE(operand, emitLiteral(llvmContext, minFloatBounds)),
 		emitLiteral(llvmContext, minIntBounds),
 		result);
-	result = irBuilder.CreateSelect(
-		createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, operand, operand),
-		emitLiteral(llvmContext, Int(0)),
-		result);
+	result = irBuilder.CreateSelect(irBuilder.CreateFCmp(llvm::CmpInst::FCMP_UNO, operand, operand),
+									emitLiteral(llvmContext, Int(0)),
+									result);
 
 	return result;
 }
@@ -379,7 +340,7 @@ llvm::Value* EmitFunctionContext::emitTruncVectorFloatToIntSat(llvm::Type* destT
 		irBuilder.CreateVectorSplat(numElements, emitLiteral(llvmContext, minIntBounds)),
 		result);
 	result = emitVectorSelect(
-		createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, operand, operand),
+		irBuilder.CreateFCmp(llvm::CmpInst::FCMP_UNO, operand, operand),
 		irBuilder.CreateVectorSplat(numElements, emitLiteral(llvmContext, nanResult)),
 		result);
 	return result;

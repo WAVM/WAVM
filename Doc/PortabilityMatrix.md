@@ -2,13 +2,12 @@
 
 | Key         |                                                   |
 |-------------|---------------------------------------------------|
-|:+1:         |Supported                                          |
+|:100:        |Supported, tested in CI                            |
+|:+1:         |Supported, manually tested                         |
 |:question:   |Possibly works, but not tested                     |
-|:shit:       |Only non-runtime components supported              |
 
 |         |Windows         |Linux           |MacOS     |
 |---------|----------------|----------------|----------|
-| x86-64  |:+1:            |:+1:            |:+1:      |
-| AArch64 |:+1::question:  |:+1:            |N/A       |
-| x86-32  |:shit:          |:shit::question:|N/A       |
-| ARM32   |:shit::question:|:shit::question:|N/A       |
+| x86-64  |:100:           |:100:           |:100:     |
+| AArch64 |:100:           |:100:           |:100:     |
+

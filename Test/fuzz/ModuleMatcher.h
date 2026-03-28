@@ -4,6 +4,7 @@
 #include "WAVM/IR/Operators.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
 
 namespace WAVM {
 	using namespace WAVM::IR;

@@ -1,19 +1,20 @@
+#include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 #include "RuntimePrivate.h"
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
-#include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/RWMutex.h"
+#include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
 
 using namespace WAVM;

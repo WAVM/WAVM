@@ -1,6 +1,6 @@
 #include <stdint.h>
+#include <cstddef>
 #include <initializer_list>
-#include <memory>
 #include <string>
 #include <vector>
 #include "EmitFunctionContext.h"
@@ -12,25 +12,20 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Logging/Logging.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/Twine.h>
-#include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DIBuilder.h>
 #include <llvm/IR/DebugInfoMetadata.h>
 #include <llvm/IR/Function.h>
-#include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Intrinsics.h>
-#include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/raw_ostream.h>
@@ -144,11 +139,11 @@ void EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(ValueType type,
 			irBuilder.CreateAnd(
 				irBuilder.CreateICmpEQ(left,
 									   type == ValueType::i32
-										   ? emitLiteral(llvmContext, (U32)INT32_MIN)
-										   : emitLiteral(llvmContext, (U64)INT64_MIN)),
+										   ? emitLiteral(llvmContext, (I32)INT32_MIN)
+										   : emitLiteral(llvmContext, (I64)INT64_MIN)),
 				irBuilder.CreateICmpEQ(right,
-									   type == ValueType::i32 ? emitLiteral(llvmContext, (U32)-1)
-															  : emitLiteral(llvmContext, (U64)-1))),
+									   type == ValueType::i32 ? emitLiteral(llvmContext, (I32)-1)
+															  : emitLiteral(llvmContext, (I64)-1))),
 			irBuilder.CreateICmpEQ(right, llvmContext.typedZeroConstants[(Uptr)type])),
 		"divideByZeroOrIntegerOverflowTrap",
 		FunctionType({}, {}, IR::CallingConvention::intrinsic),
@@ -313,15 +308,9 @@ void EmitFunctionContext::emit()
 		moduleContext.diModuleScope,
 		0,
 		diFunctionType,
-#if LLVM_VERSION_MAJOR >= 8
 		0,
 		llvm::DINode::FlagZero,
 		llvm::DISubprogram::SPFlagDefinition | llvm::DISubprogram::SPFlagOptimized);
-#else
-		false,
-		true,
-		0);
-#endif
 	function->setSubprogram(diFunction);
 
 	// Create an initial basic block for the function.
@@ -345,12 +334,13 @@ void EmitFunctionContext::emit()
 		localIndex < functionType.params().size() + functionDef.nonParameterLocalTypes.size();
 		++localIndex)
 	{
-		auto localType
+		ValueType localType
 			= localIndex < functionType.params().size()
 				  ? functionType.params()[localIndex]
 				  : functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
-		auto localPointer = irBuilder.CreateAlloca(asLLVMType(llvmContext, localType), nullptr, "");
-		localPointers.push_back(localPointer);
+		llvm::Type* llvmLocalType = asLLVMType(llvmContext, localType);
+		llvm::Value* localPointer = irBuilder.CreateAlloca(llvmLocalType, nullptr, "");
+		locals.push_back(Local{llvmLocalType, localPointer});
 
 		if(localIndex < functionType.params().size())
 		{

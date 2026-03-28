@@ -1,12 +1,11 @@
 #include "WAVM/IR/Module.h"
 #include <memory>
 #include <utility>
+#include <vector>
 #include "RuntimePrivate.h"
-#include "WAVM/IR/IR.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
-#include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/WASM/WASM.h"

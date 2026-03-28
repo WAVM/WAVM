@@ -1,11 +1,17 @@
+#if WAVM_PLATFORM_POSIX
+
 #include <pthread.h>
+#include <setjmp.h>
 #include <signal.h>
-#include <unistd.h>
-#include <atomic>
+#include <sys/signal.h>
+#include <utility>
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Signal.h"
+#include "WAVM/Platform/Unwind.h"
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -48,7 +54,7 @@ static void maskSignals(int how)
 	pthread_sigmask(how, &set, nullptr);
 }
 
-[[noreturn]] static void signalHandler(int signalNumber, siginfo_t* signalInfo, void*)
+[[noreturn]] static void signalHandler(int signalNumber, siginfo_t* signalInfo, void* contextPtr)
 {
 	maskSignals(SIG_BLOCK);
 
@@ -80,25 +86,20 @@ static void maskSignals(int how)
 	default: Errors::fatalfWithCallStack("unknown signal number: %i", signalNumber); break;
 	};
 
-	// Capture the execution context, omitting this function and the function that called it, so the
-	// top of the callstack is the function that triggered the signal.
-	CallStack callStack = captureCallStack(2);
-
-	// Undo the -1 offset that captureCallStack applied to the trapping IP on the assumption that
-	// the signal trampoline frame is returning from an ordinary call.
-	if(callStack.frames.size()) { callStack.frames[0].ip += 1; }
-
-	// Call the signal handlers, from innermost to outermost, until one returns true.
-	for(SignalContext* signalContext = innermostSignalContext; signalContext;
-		signalContext = signalContext->outerContext)
+	// Call the signal filters, from innermost to outermost, until one returns true.
 	{
-		if(signalContext->filter(signalContext->filterArgument, signal, std::move(callStack)))
+		UnwindState state = makeUnwindStateFromSignalContext(contextPtr);
+		for(SignalContext* signalContext = innermostSignalContext; signalContext;
+			signalContext = signalContext->outerContext)
 		{
-			// siglongjmp won't unwind the stack, so manually call the CallStack destructor.
-			callStack.~CallStack();
+			if(signalContext->filter(signalContext->filterArgument, signal, std::move(state)))
+			{
+				// siglongjmp won't unwind the stack, so manually call the UnwindState destructor.
+				state.~UnwindState();
 
-			// Jump back to the execution context that was saved in catchSignals.
-			siglongjmp(signalContext->catchJump, 1);
+				// Jump back to the execution context that was saved in catchSignals.
+				siglongjmp(signalContext->catchJump, 1);
+			}
 		}
 	}
 
@@ -126,7 +127,7 @@ bool Platform::initGlobalSignalsOnce()
 }
 
 bool Platform::catchSignals(void (*thunk)(void*),
-							bool (*filter)(void*, Signal, CallStack&&),
+							bool (*filter)(void*, Signal, UnwindState&&),
 							void* argument)
 {
 	initThreadAndGlobalSignals();
@@ -135,9 +136,6 @@ bool Platform::catchSignals(void (*thunk)(void*),
 	signalContext.filter = filter;
 	signalContext.filterArgument = argument;
 
-#ifdef __WAVIX__
-	Errors::unimplemented("Wavix catchSignals");
-#else
 	// Use sigsetjmp to capture the execution state into the signal context. If a signal is raised,
 	// the signal handler will jump back to here. Tell sigsetjmp not to save the signal mask, since
 	// that's quite expensive (a syscall). Instead, just unblock the signals that our handler blocks
@@ -161,54 +159,8 @@ bool Platform::catchSignals(void (*thunk)(void*),
 		// Unblock the signals that are blocked by the signal handler.
 		maskSignals(SIG_UNBLOCK);
 	}
-#endif
 
 	return isReturningFromSignalHandler;
 }
 
-// The LLVM project libunwind implementation that WAVM uses matches the Apple ABI, which expects
-// __register_frame and __deregister_frame to be called for each FDE in the .eh_frame section.
-#if WAVM_ENABLE_UNWIND || defined(__APPLE__)
-static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))
-{
-	const U8* next = ehFrames;
-	const U8* end = ehFrames + numBytes;
-	do
-	{
-		const U8* cfi = next;
-		Uptr numCFIBytes = *((const U32*)next);
-		next += 4;
-		if(numBytes == 0xffffffff)
-		{
-			const U64 numCFIBytes64 = *((const U64*)next);
-			WAVM_ERROR_UNLESS(numCFIBytes64 <= UINTPTR_MAX);
-			numCFIBytes = Uptr(numCFIBytes64);
-			next += 8;
-		}
-		const U32 cieOffset = *((const U32*)next);
-		if(cieOffset != 0) { visitFDE(cfi); }
-
-		next += numCFIBytes;
-	} while(next < end);
-}
-
-void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
-{
-	visitFDEs(ehFrames, numBytes, __register_frame);
-}
-
-void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
-{
-	visitFDEs(ehFrames, numBytes, __deregister_frame);
-}
-#else
-void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
-{
-	__register_frame(ehFrames);
-}
-
-void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
-{
-	__deregister_frame(ehFrames);
-}
-#endif
+#endif // WAVM_PLATFORM_POSIX

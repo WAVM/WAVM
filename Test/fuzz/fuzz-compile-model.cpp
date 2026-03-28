@@ -22,15 +22,30 @@ namespace WAVM { namespace IR {
 using namespace WAVM;
 using namespace WAVM::IR;
 
+static LLVMJIT::TargetSpec makeTargetSpec(LLVMJIT::TargetArch arch,
+										  LLVMJIT::TargetOS os,
+										  const char* cpu)
+{
+	LLVMJIT::TargetSpec spec;
+	spec.arch = arch;
+	spec.os = os;
+	spec.cpu = cpu;
+	return spec;
+}
+
 static void compileModule(const IR::Module& module, RandomStream& random)
 {
-	static const LLVMJIT::TargetSpec possibleTargetSpecs[]
-		= {LLVMJIT::TargetSpec{"x86_64-pc-windows-msvc", "skylake-avx512"},
-		   LLVMJIT::TargetSpec{"x86_64-apple-darwin18.6.0", "skylake-avx512"},
-		   LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake-avx512"},
-		   LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake"},
-		   LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "penryn"},
-		   LLVMJIT::TargetSpec{"aarch64-unknown-linux-gnu", "cortex-a72"}};
+	using Arch = LLVMJIT::TargetArch;
+	using OS = LLVMJIT::TargetOS;
+
+	const LLVMJIT::TargetSpec possibleTargetSpecs[] = {
+		makeTargetSpec(Arch::x86_64, OS::windows, "skylake-avx512"),
+		makeTargetSpec(Arch::x86_64, OS::macos, "skylake-avx512"),
+		makeTargetSpec(Arch::x86_64, OS::linux_, "skylake-avx512"),
+		makeTargetSpec(Arch::x86_64, OS::linux_, "skylake"),
+		makeTargetSpec(Arch::x86_64, OS::linux_, "penryn"),
+		makeTargetSpec(Arch::aarch64, OS::linux_, "cortex-a72"),
+	};
 	static const Uptr numPossibleTargets
 		= sizeof(possibleTargetSpecs) / sizeof(LLVMJIT::TargetSpec);
 

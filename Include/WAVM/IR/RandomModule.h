@@ -1,7 +1,5 @@
 #pragma once
 
-#include "WAVM/Inline/BasicTypes.h"
-
 namespace WAVM {
 	struct RandomStream;
 }

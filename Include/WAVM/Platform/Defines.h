@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdlib.h>
 #include "WAVM/Inline/Config.h"
 
 #define WAVM_SUPPRESS_UNUSED(variable) (void)(variable);
@@ -23,7 +22,7 @@
 #endif
 
 // GCC/Clang-only attributes.
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__clang__)
 #define WAVM_NO_ASAN __attribute__((no_sanitize_address))
 #define WAVM_RETURNS_TWICE __attribute__((returns_twice))
 #define WAVM_VALIDATE_AS_PRINTF(formatStringIndex, firstFormatArgIndex)                            \
@@ -56,6 +55,7 @@
 #else
 // Use abort() instead of trap instructions when fuzzing, since
 // libfuzzer doesn't handle the breakpoint trap.
+#include <cstdlib>
 #define WAVM_DEBUG_TRAP() abort()
 #endif
 
@@ -82,6 +82,30 @@
 	__pragma(warning(push)) __pragma(warning(disable : 4996)) code __pragma(warning(pop))
 #else
 #define WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(code) code
+#endif
+
+// Macro to suppress warnings about self-assignment and self-move (for testing those operations).
+// -Wself-assign and -Wself-move are Clang-only warnings.
+#if defined(__clang__)
+#define WAVM_SCOPED_DISABLE_SELF_ASSIGN_WARNINGS(code)                                             \
+	_Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wself-assign\"")             \
+		_Pragma("GCC diagnostic ignored \"-Wself-move\"") code _Pragma("GCC diagnostic pop")
+#elif defined(__GNUC__) && __GNUC__ >= 13
+#define WAVM_SCOPED_DISABLE_SELF_ASSIGN_WARNINGS(code)                                             \
+	_Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wself-move\"")               \
+		code _Pragma("GCC diagnostic pop")
+#else
+#define WAVM_SCOPED_DISABLE_SELF_ASSIGN_WARNINGS(code) code
+#endif
+
+// Suppress GCC's -Wdangling-reference false positives on functions that return a reference that
+// does not alias any temporary argument. The warning was added in GCC 13; the [[gnu::no_dangling]]
+// attribute was added in GCC 14, but per the C++ standard GCC 13 should silently ignore unknown
+// [[vendor::attr]] attributes.
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13
+#define WAVM_NO_DANGLING [[gnu::no_dangling]]
+#else
+#define WAVM_NO_DANGLING
 #endif
 
 // Suppress warnings when falling through to another case level in a switch statement.

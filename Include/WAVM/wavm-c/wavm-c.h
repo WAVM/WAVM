@@ -4,7 +4,7 @@
 #define __WASM_H
 
 #include <assert.h>
-#include <stdbool.h>
+#include <stdbool.h> // IWYU pragma: keep
 #include <stddef.h>
 #include <stdint.h>
 
@@ -14,6 +14,12 @@
 #else
 #define WASM_C_API
 #endif
+#endif
+
+#ifdef __has_attribute
+#define WASM_IGNORE_UNUSED __attribute__((unused))
+#else
+#define WASM_IGNORE_UNUSED
 #endif
 
 // Opaque types
@@ -176,7 +182,7 @@ typedef struct wasm_limits_t
 	uint32_t max;
 } wasm_limits_t;
 
-static const uint32_t wasm_limits_max_default = 0xffffffff;
+WASM_IGNORE_UNUSED static const uint32_t wasm_limits_max_default = 0xffffffff;
 
 // Generic
 
@@ -205,14 +211,20 @@ WASM_C_API own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t);
 
 WASM_C_API wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t*);
 
-static inline bool wasm_valkind_is_num(wasm_valkind_t k) { return k < WASM_ANYREF; }
-static inline bool wasm_valkind_is_ref(wasm_valkind_t k) { return k >= WASM_ANYREF; }
+WASM_IGNORE_UNUSED static inline bool wasm_valkind_is_num(wasm_valkind_t k)
+{
+	return k < WASM_ANYREF;
+}
+WASM_IGNORE_UNUSED static inline bool wasm_valkind_is_ref(wasm_valkind_t k)
+{
+	return k >= WASM_ANYREF;
+}
 
-static inline bool wasm_valtype_is_num(const wasm_valtype_t* t)
+WASM_IGNORE_UNUSED static inline bool wasm_valtype_is_num(const wasm_valtype_t* t)
 {
 	return wasm_valkind_is_num(wasm_valtype_kind(t));
 }
-static inline bool wasm_valtype_is_ref(const wasm_valtype_t* t)
+WASM_IGNORE_UNUSED static inline bool wasm_valtype_is_ref(const wasm_valtype_t* t)
 {
 	return wasm_valkind_is_ref(wasm_valtype_kind(t));
 }
@@ -478,7 +490,7 @@ WASM_C_API own wasm_global_t* wasm_global_new(wasm_compartment_t*,
 WASM_C_API own wasm_globaltype_t* wasm_global_type(const wasm_global_t*);
 
 WASM_C_API void wasm_global_get(wasm_store_t*, const wasm_global_t*, own wasm_val_t* out);
-WASM_C_API void wasm_global_set(wasm_global_t*, const wasm_val_t*);
+WASM_C_API void wasm_global_set(wasm_store_t*, wasm_global_t*, const wasm_val_t*);
 
 // Table Instances
 
@@ -486,7 +498,7 @@ WASM_DECLARE_SHAREABLE_REF(table)
 
 typedef uint32_t wasm_table_size_t;
 
-static const wasm_table_size_t WASM_TABLE_SIZE_MAX = UINT32_MAX;
+WASM_IGNORE_UNUSED static const wasm_table_size_t WASM_TABLE_SIZE_MAX = UINT32_MAX;
 
 WASM_C_API own wasm_table_t* wasm_table_new(wasm_compartment_t*,
 											const wasm_tabletype_t*,
@@ -510,9 +522,9 @@ WASM_DECLARE_SHAREABLE_REF(memory)
 
 typedef uint32_t wasm_memory_pages_t;
 
-static const wasm_memory_pages_t WASM_MEMORY_PAGES_MAX = UINT32_MAX;
+WASM_IGNORE_UNUSED static const wasm_memory_pages_t WASM_MEMORY_PAGES_MAX = UINT32_MAX;
 
-static const size_t MEMORY_PAGE_SIZE = 0x10000;
+WASM_IGNORE_UNUSED static const size_t MEMORY_PAGE_SIZE = 0x10000;
 
 WASM_C_API own wasm_memory_t* wasm_memory_new(wasm_compartment_t*,
 											  const wasm_memorytype_t*,
@@ -573,113 +585,128 @@ WASM_C_API wasm_extern_t* wasm_instance_export(const wasm_instance_t*, size_t in
 
 // Value Type construction short-hands
 
-static inline own wasm_valtype_t* wasm_valtype_new_i32() { return wasm_valtype_new(WASM_I32); }
-static inline own wasm_valtype_t* wasm_valtype_new_i64() { return wasm_valtype_new(WASM_I64); }
-static inline own wasm_valtype_t* wasm_valtype_new_f32() { return wasm_valtype_new(WASM_F32); }
-static inline own wasm_valtype_t* wasm_valtype_new_f64() { return wasm_valtype_new(WASM_F64); }
-static inline own wasm_valtype_t* wasm_valtype_new_v128() { return wasm_valtype_new(WASM_V128); }
+WASM_IGNORE_UNUSED static inline own wasm_valtype_t* wasm_valtype_new_i32()
+{
+	return wasm_valtype_new(WASM_I32);
+}
+WASM_IGNORE_UNUSED static inline own wasm_valtype_t* wasm_valtype_new_i64()
+{
+	return wasm_valtype_new(WASM_I64);
+}
+WASM_IGNORE_UNUSED static inline own wasm_valtype_t* wasm_valtype_new_f32()
+{
+	return wasm_valtype_new(WASM_F32);
+}
+WASM_IGNORE_UNUSED static inline own wasm_valtype_t* wasm_valtype_new_f64()
+{
+	return wasm_valtype_new(WASM_F64);
+}
+WASM_IGNORE_UNUSED static inline own wasm_valtype_t* wasm_valtype_new_v128()
+{
+	return wasm_valtype_new(WASM_V128);
+}
 
-static inline own wasm_valtype_t* wasm_valtype_new_externref()
+WASM_IGNORE_UNUSED static inline own wasm_valtype_t* wasm_valtype_new_externref()
 {
 	return wasm_valtype_new(WASM_ANYREF);
 }
-static inline own wasm_valtype_t* wasm_valtype_new_funcref()
+WASM_IGNORE_UNUSED static inline own wasm_valtype_t* wasm_valtype_new_funcref()
 {
 	return wasm_valtype_new(WASM_FUNCREF);
 }
 
 // Function Types construction short-hands
 
-static inline own wasm_functype_t* wasm_functype_new_0_0()
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_0_0()
 {
 	return wasm_functype_new((wasm_valtype_t**)0, 0, (wasm_valtype_t**)0, 0);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_1_0(own wasm_valtype_t* p)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_1_0(own wasm_valtype_t* p)
 {
 	wasm_valtype_t* ps[1] = {p};
 	return wasm_functype_new(ps, 1, (wasm_valtype_t**)0, 0);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_2_0(own wasm_valtype_t* p1,
-														 own wasm_valtype_t* p2)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_2_0(own wasm_valtype_t* p1,
+																			own wasm_valtype_t* p2)
 {
 	wasm_valtype_t* ps[2] = {p1, p2};
 	return wasm_functype_new(ps, 2, (wasm_valtype_t**)0, 0);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_3_0(own wasm_valtype_t* p1,
-														 own wasm_valtype_t* p2,
-														 own wasm_valtype_t* p3)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_3_0(own wasm_valtype_t* p1,
+																			own wasm_valtype_t* p2,
+																			own wasm_valtype_t* p3)
 {
 	wasm_valtype_t* ps[3] = {p1, p2, p3};
 	return wasm_functype_new(ps, 3, (wasm_valtype_t**)0, 0);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_0_1(own wasm_valtype_t* r)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_0_1(own wasm_valtype_t* r)
 {
 	wasm_valtype_t* rs[1] = {r};
 	return wasm_functype_new((wasm_valtype_t**)0, 0, rs, 1);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_1_1(own wasm_valtype_t* p,
-														 own wasm_valtype_t* r)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_1_1(own wasm_valtype_t* p,
+																			own wasm_valtype_t* r)
 {
 	wasm_valtype_t* ps[1] = {p};
 	wasm_valtype_t* rs[1] = {r};
 	return wasm_functype_new(ps, 1, rs, 1);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_2_1(own wasm_valtype_t* p1,
-														 own wasm_valtype_t* p2,
-														 own wasm_valtype_t* r)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_2_1(own wasm_valtype_t* p1,
+																			own wasm_valtype_t* p2,
+																			own wasm_valtype_t* r)
 {
 	wasm_valtype_t* ps[2] = {p1, p2};
 	wasm_valtype_t* rs[1] = {r};
 	return wasm_functype_new(ps, 2, rs, 1);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_3_1(own wasm_valtype_t* p1,
-														 own wasm_valtype_t* p2,
-														 own wasm_valtype_t* p3,
-														 own wasm_valtype_t* r)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_3_1(own wasm_valtype_t* p1,
+																			own wasm_valtype_t* p2,
+																			own wasm_valtype_t* p3,
+																			own wasm_valtype_t* r)
 {
 	wasm_valtype_t* ps[3] = {p1, p2, p3};
 	wasm_valtype_t* rs[1] = {r};
 	return wasm_functype_new(ps, 3, rs, 1);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_0_2(own wasm_valtype_t* r1,
-														 own wasm_valtype_t* r2)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_0_2(own wasm_valtype_t* r1,
+																			own wasm_valtype_t* r2)
 {
 	wasm_valtype_t* rs[2] = {r1, r2};
 	return wasm_functype_new((wasm_valtype_t**)0, 0, rs, 2);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_1_2(own wasm_valtype_t* p,
-														 own wasm_valtype_t* r1,
-														 own wasm_valtype_t* r2)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_1_2(own wasm_valtype_t* p,
+																			own wasm_valtype_t* r1,
+																			own wasm_valtype_t* r2)
 {
 	wasm_valtype_t* ps[1] = {p};
 	wasm_valtype_t* rs[2] = {r1, r2};
 	return wasm_functype_new(ps, 1, rs, 2);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_2_2(own wasm_valtype_t* p1,
-														 own wasm_valtype_t* p2,
-														 own wasm_valtype_t* r1,
-														 own wasm_valtype_t* r2)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_2_2(own wasm_valtype_t* p1,
+																			own wasm_valtype_t* p2,
+																			own wasm_valtype_t* r1,
+																			own wasm_valtype_t* r2)
 {
 	wasm_valtype_t* ps[2] = {p1, p2};
 	wasm_valtype_t* rs[2] = {r1, r2};
 	return wasm_functype_new(ps, 2, rs, 2);
 }
 
-static inline own wasm_functype_t* wasm_functype_new_3_2(own wasm_valtype_t* p1,
-														 own wasm_valtype_t* p2,
-														 own wasm_valtype_t* p3,
-														 own wasm_valtype_t* r1,
-														 own wasm_valtype_t* r2)
+WASM_IGNORE_UNUSED static inline own wasm_functype_t* wasm_functype_new_3_2(own wasm_valtype_t* p1,
+																			own wasm_valtype_t* p2,
+																			own wasm_valtype_t* p3,
+																			own wasm_valtype_t* r1,
+																			own wasm_valtype_t* r2)
 {
 	wasm_valtype_t* ps[3] = {p1, p2, p3};
 	wasm_valtype_t* rs[2] = {r1, r2};

@@ -15,6 +15,10 @@ namespace WAVM { namespace Log {
 		output,
 		traceValidation,
 		traceCompilation,
+		traceUnwind,
+		traceObjectCache,
+		traceLinking,
+		traceDwarf,
 		num
 	};
 	WAVM_API void setCategoryEnabled(Category category, bool enable);

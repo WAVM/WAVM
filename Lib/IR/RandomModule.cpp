@@ -1,4 +1,10 @@
 #include "WAVM/IR/RandomModule.h"
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
@@ -11,6 +17,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/RandomStream.h"
+#include "WAVM/Inline/Serialization.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

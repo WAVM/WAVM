@@ -1,5 +1,6 @@
 #pragma once
 
+#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"

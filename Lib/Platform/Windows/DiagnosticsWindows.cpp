@@ -1,16 +1,18 @@
+#if WAVM_PLATFORM_WINDOWS
+
+#include <inttypes.h>
 #include <stdio.h>
-#include "WAVM/Inline/Assert.h"
+#include <atomic>
+#include <cstring>
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
+#include "WAVM/Platform/Alloca.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#include <libloaderapi.h>
 
 #include <DbgHelp.h>
-#include <string>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -62,41 +64,44 @@ static HMODULE getModuleFromBaseAddress(Uptr baseAddress)
 	return reinterpret_cast<HMODULE>(baseAddress);
 }
 
-static std::string getModuleName(HMODULE module)
+static void getModuleName(HMODULE module, char* outName, Uptr outNameSize)
 {
-	char moduleFilename[MAX_PATH + 1];
-	U32 moduleFilenameResult = GetModuleFileNameA(module, moduleFilename, MAX_PATH + 1);
-	return std::string(moduleFilename, moduleFilenameResult);
+	U32 len = GetModuleFileNameA(module, outName, U32(outNameSize));
+	if(len >= outNameSize) { len = U32(outNameSize - 1); }
+	outName[len] = '\0';
 }
 
-static std::string trimModuleName(std::string moduleName)
+static void trimModuleName(char* moduleName, Uptr moduleNameSize)
 {
-	const std::string thisModuleName = getModuleName(getCurrentModule());
-	Uptr lastBackslashOffset = thisModuleName.find_last_of('\\');
-	if(lastBackslashOffset != UINTPTR_MAX && moduleName.size() >= lastBackslashOffset
-	   && moduleName.substr(0, lastBackslashOffset)
-			  == thisModuleName.substr(0, lastBackslashOffset))
+	// Get this module's path to find the common directory prefix.
+	char thisModuleName[MAX_PATH + 1];
+	getModuleName(getCurrentModule(), thisModuleName, sizeof(thisModuleName));
+
+	// Find the last backslash in this module's path.
+	const char* lastBackslash = strrchr(thisModuleName, '\\');
+	if(!lastBackslash) { return; }
+
+	Uptr prefixLen = Uptr(lastBackslash - thisModuleName);
+	if(strlen(moduleName) > prefixLen && strncmp(moduleName, thisModuleName, prefixLen) == 0)
 	{
-		return moduleName.substr(lastBackslashOffset + 1);
-	}
-	else
-	{
-		return moduleName;
+		// Remove the common directory prefix.
+		Uptr remaining = strlen(moduleName + prefixLen + 1);
+		memmove(moduleName, moduleName + prefixLen + 1, remaining + 1);
 	}
 }
 
 bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
 {
-	// Initialize DbgHelp.
+	// Look up static symbol information using DbgHelp.
 	DbgHelp* dbgHelp = DbgHelp::get();
 
-	// Allocate up a SYMBOL_INFO struct to receive information about the symbol for this
+	// Allocate a SYMBOL_INFO struct to receive information about the symbol for this
 	// instruction pointer.
 	const Uptr maxSymbolNameChars = 256;
 	const Uptr symbolAllocationSize
 		= sizeof(SYMBOL_INFO) + sizeof(TCHAR) * (maxSymbolNameChars - 1);
 	SYMBOL_INFO* symbolInfo = (SYMBOL_INFO*)alloca(symbolAllocationSize);
-	ZeroMemory(symbolInfo, symbolAllocationSize);
+	memset(symbolInfo, 0, symbolAllocationSize);
 	symbolInfo->SizeOfStruct = sizeof(SYMBOL_INFO);
 	symbolInfo->MaxNameLen = maxSymbolNameChars;
 
@@ -105,69 +110,14 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 	if(!dbgHelp->symFromAddr(GetCurrentProcess(), ip, &displacement, symbolInfo)) { return false; }
 	else
 	{
-		outSource.module
-			= trimModuleName(getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase))));
-		outSource.function = std::string(symbolInfo->Name, symbolInfo->NameLen);
+		getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase)),
+					  outSource.module.mutableData(),
+					  outSource.module.capacity());
+		trimModuleName(outSource.module.mutableData(), outSource.module.capacity());
+		outSource.function.assign(symbolInfo->Name, symbolInfo->NameLen);
 		outSource.instructionOffset = Uptr(displacement);
 		return true;
 	}
-}
-
-CallStack Platform::unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFramesFromTop)
-{
-	// Make a mutable copy of the context.
-	CONTEXT context;
-	memcpy(&context, &immutableContext, sizeof(CONTEXT));
-
-	// Unwind the stack until there isn't a valid instruction pointer, which signals we've
-	// reached the base.
-	CallStack callStack;
-#if WAVM_ENABLE_UNWIND
-	for(Uptr frameIndex = 0; !callStack.frames.isFull() && context.Rip; ++frameIndex)
-	{
-		if(frameIndex >= numOmittedFramesFromTop)
-		{
-			callStack.frames.push_back(
-				CallStack::Frame{frameIndex == 0 ? context.Rip : (context.Rip - 1)});
-		}
-
-		// Look up the SEH unwind information for this function.
-		U64 imageBase;
-		auto runtimeFunction = RtlLookupFunctionEntry(context.Rip, &imageBase, nullptr);
-		if(!runtimeFunction)
-		{
-			// Leaf functions that don't touch Rsp may not have unwind information.
-			context.Rip = *(U64*)context.Rsp;
-			context.Rsp += 8;
-		}
-		else
-		{
-			// Use the SEH information to unwind to the next stack frame.
-			void* handlerData;
-			U64 establisherFrame;
-			RtlVirtualUnwind(UNW_FLAG_NHANDLER,
-							 imageBase,
-							 context.Rip,
-							 runtimeFunction,
-							 &context,
-							 &handlerData,
-							 &establisherFrame,
-							 nullptr);
-		}
-	}
-#endif
-
-	return callStack;
-}
-
-CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
-{
-	// Capture the current processor state.
-	CONTEXT context;
-	RtlCaptureContext(&context);
-
-	// Unwind the stack.
-	return unwindStack(context, numOmittedFramesFromTop + 1);
 }
 
 static std::atomic<Uptr> numCommittedPageBytes{0};
@@ -182,3 +132,5 @@ void Platform::printMemoryProfile()
 void Platform::registerVirtualAllocation(Uptr numBytes) { numCommittedPageBytes += numBytes; }
 
 void Platform::deregisterVirtualAllocation(Uptr numBytes) { numCommittedPageBytes -= numBytes; }
+
+#endif // WAVM_PLATFORM_WINDOWS

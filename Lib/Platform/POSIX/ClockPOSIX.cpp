@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <sys/resource.h>
-#include <sys/time.h>
+#if WAVM_PLATFORM_POSIX
+
 #include <time.h>
 #include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
@@ -36,6 +35,7 @@ static I128 getClockResAsI128(clockid_t clockId)
 
 #if defined(__APPLE__)
 
+#include <mach/kern_return.h>
 #include <mach/mach_time.h>
 
 static mach_timebase_info_data_t getTimebaseInfoData()
@@ -119,3 +119,5 @@ Time Platform::getClockResolution(Clock clock)
 	default: WAVM_UNREACHABLE();
 	}
 }
+
+#endif // WAVM_PLATFORM_POSIX

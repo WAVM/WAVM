@@ -1,6 +1,6 @@
 #pragma once
 
-#include "WAVM/Inline/Assert.h"
+#include <cstdint>
 #include "WAVM/Inline/BasicTypes.h"
 
 // Features that have been standardized by the W3C WebAssembly Working Group.

@@ -1,10 +1,14 @@
+// Use both #pragma once and include guards: we test that headers compile as standalone translation
+// units, and the circular include with the Impl header means #pragma once alone doesn't work.
 #pragma once
+#ifndef WAVM_INLINE_HASHSET_H
+#define WAVM_INLINE_HASHSET_H
 
 #include <initializer_list>
-#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashTable.h"
+#include "WAVM/Platform/Defines.h"
 
 namespace WAVM {
 	template<typename Element> struct HashSetIterator
@@ -93,6 +97,8 @@ namespace WAVM {
 		HashTable<Element, Element, HashTablePolicy> table;
 	};
 
-// The implementation is defined in a separate file.
-#include "Impl/HashSetImpl.h"
 }
+
+#include "Impl/HashSetImpl.h" // IWYU pragma: export
+
+#endif // WAVM_INLINE_HASHSET_H

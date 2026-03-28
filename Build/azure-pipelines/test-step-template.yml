@@ -1,8 +1,0 @@
-parameters:
-  ctestArgs: ''
-
-steps:
-  # Run the WAVM test suite
-  - script: ctest -j4 -V ${{parameters.ctestArgs}}
-    displayName: Run WAVM tests
-    workingDirectory: $(Build.ArtifactStagingDirectory)

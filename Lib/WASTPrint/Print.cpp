@@ -1,17 +1,13 @@
 #include <stdint.h>
 #include <algorithm>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IsNameChar.h"

@@ -1,9 +1,12 @@
 #pragma once
 
-#include <atomic>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Defines.h"
+#include "WAVM/Inline/Config.h"
+
+#ifdef _WIN32
+#include <atomic>
+#endif
 
 namespace WAVM { namespace Platform {
 	// Platform-independent mutexes.
@@ -45,21 +48,12 @@ namespace WAVM { namespace Platform {
 			Mutex* mutex;
 		};
 
+		friend struct ConditionVariable;
+
 	private:
-		struct LockData
+		struct alignas(WAVM_PLATFORM_MUTEX_ALIGN) LockData
 		{
-#if defined(WIN32)
-			Uptr data;
-#elif defined(__linux__) && defined(__x86_64__)
-			U64 data[5];
-#elif defined(__linux__) && defined(__aarch64__)
-			U64 data[6];
-#elif defined(__APPLE__)
-			U64 data[8];
-#else
-			// For unidentified platforms, just use 64 bytes for the mutex.
-			U64 data[8];
-#endif
+			U8 data[WAVM_PLATFORM_MUTEX_SIZE];
 		} lockData;
 
 #if WAVM_ENABLE_ASSERTS

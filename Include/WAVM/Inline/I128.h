@@ -1,10 +1,25 @@
+// Use both #pragma once and include guards: we test that headers compile as standalone translation
+// units, and the circular include with the Impl header means #pragma once alone doesn't work.
 #pragma once
+#ifndef WAVM_INLINE_I128_H
+#define WAVM_INLINE_I128_H
+
+#include <cstdint>
+#include <type_traits>
 
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Defines.h"
 
 namespace WAVM {
+
+	// The result for WAVM::toChars(bufferBegin, bufferEnd, ...)
+	struct ToCharsResult
+	{
+		// points to the character after the last character written to the buffer.
+		char* writeEnd;
+		// true if the toChars call wanted to write more characters than the buffer could hold.
+		bool overflow;
+	};
 
 	// An emulated 128-bit integer type
 	// They have the range (-2^127..+2^127), with a single NaN value.
@@ -41,9 +56,9 @@ namespace WAVM {
 
 		// Overflow handling
 		friend bool isNaN(I128 i) { return i.highI64 == INT64_MIN && i.lowU64 == 0; }
-		friend I128 trapOnNaN(I128 i)
+		friend I128 assertOnNaN(I128 i)
 		{
-			if(isNaN(i)) { WAVM_DEBUG_TRAP(); }
+			WAVM_ASSERT(!isNaN(i));
 			return i;
 		}
 		friend I128 flushNaNToMax(I128 i) { return isNaN(i) ? max() : i; }
@@ -91,7 +106,12 @@ namespace WAVM {
 
 		// Assignment operators
 
-		I128& operator=(const I128& copyee);
+		I128& operator=(const I128& copyee)
+		{
+			lowU64 = copyee.lowU64;
+			highU64 = copyee.highU64;
+			return *this;
+		}
 
 		I128& operator+=(I128 b) { return *this = *this + b; }
 		I128& operator-=(I128 b) { return *this = *this - b; }
@@ -103,6 +123,8 @@ namespace WAVM {
 		I128& operator|=(I128 b) { return *this = *this | b; }
 		I128& operator/=(I128 b) { return *this = *this / b; }
 		I128& operator%=(I128 b) { return *this = *this % b; }
+
+		friend ToCharsResult toChars(char* outBegin, char* outEnd, I128 value);
 
 	private:
 		union
@@ -124,6 +146,10 @@ namespace WAVM {
 		constexpr I128(U64 inLow, I64 inHigh) : lowU64(inLow), highI64(inHigh) {}
 		constexpr I128(U64 inLow, U64 inHigh) : lowU64(inLow), highU64(inHigh) {}
 	};
+	template<typename Int, typename = std::enable_if_t<std::is_integral_v<Int>>>
+	Int clampedCast(I128 value);
 }
 
-#include "Impl/I128Impl.h"
+#include "Impl/I128Impl.h" // IWYU pragma: export
+
+#endif // WAVM_INLINE_I128_H

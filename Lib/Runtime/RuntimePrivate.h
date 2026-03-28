@@ -1,16 +1,20 @@
 #pragma once
 
 #include <atomic>
-#include <functional>
+#include <cstdint>
+#include <initializer_list>
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 #include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/DenseStaticIntSet.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
-#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -272,6 +276,8 @@ namespace WAVM { namespace Runtime {
 		: GCObject(ObjectKind::foreign, inCompartment, std::move(inDebugName))
 		{
 		}
+
+		~Foreign();
 	};
 
 	struct ResourceQuota

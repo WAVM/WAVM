@@ -1,10 +1,14 @@
-#include <memory.h>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Inline/Time.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"

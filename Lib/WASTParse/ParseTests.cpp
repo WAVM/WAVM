@@ -1,4 +1,5 @@
 #include <string.h>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -6,13 +7,13 @@
 #include "Lexer.h"
 #include "Parse.h"
 #include "WAVM/IR/FeatureSpec.h"
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Validate.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Inline/HashMap.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
@@ -584,6 +585,10 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				{
 					expectedType = ExpectedTrapType::misalignedAtomicMemoryAccess;
 				}
+				else if(!strcmp(expectedErrorMessage.c_str(), "atomic wait on unshared memory"))
+				{
+					expectedType = ExpectedTrapType::waitOnUnsharedMemory;
+				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "unreachable"))
 				{
 					expectedType = ExpectedTrapType::reachedUnreachable;
@@ -739,32 +744,6 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 														invalidOrMalformed,
 														quotedModuleType,
 														std::move(quotedModuleString)));
-				break;
-			}
-			case t_benchmark: {
-				++cursor->nextToken;
-
-				std::string name;
-				if(!tryParseString(cursor, name))
-				{
-					parseErrorf(
-						cursor->parseState, cursor->nextToken, "expected benchmark name string");
-					throw RecoverParseException();
-				}
-
-				if(cursor->nextToken[0].type != t_leftParenthesis
-				   || cursor->nextToken[1].type != t_invoke)
-				{
-					parseErrorf(cursor->parseState, cursor->nextToken, "expected invoke");
-					throw RecoverParseException();
-				}
-
-				std::unique_ptr<InvokeAction> invokeAction(
-					(InvokeAction*)parseAction(cursor, featureSpec).release());
-
-				result = std::unique_ptr<Command>(new BenchmarkCommand(
-					std::move(locus), std::move(name), std::move(invokeAction)));
-
 				break;
 			}
 			case t_thread: {

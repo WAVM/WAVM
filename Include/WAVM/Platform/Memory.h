@@ -1,7 +1,6 @@
 #pragma once
 
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Defines.h"
 
 namespace WAVM { namespace Platform {
 	// Describes allowed memory accesses.
@@ -58,6 +57,10 @@ namespace WAVM { namespace Platform {
 	WAVM_API void freeAlignedVirtualPages(U8* unalignedBaseAddress,
 										  Uptr numPages,
 										  Uptr alignmentLog2);
+
+	// Flushes the CPU instruction cache for the given address range.
+	// Must be called after writing code to executable memory (required on ARM, no-op on x86).
+	WAVM_API void flushInstructionCache(U8* baseAddress, Uptr numBytes);
 
 	// Gets memory usage information for this process.
 	WAVM_API Uptr getPeakMemoryUsageBytes();

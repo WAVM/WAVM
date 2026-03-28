@@ -1,16 +1,15 @@
 #pragma once
 
 #include <stdint.h>
-#include <cstddef>
+#include <initializer_list>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 
 namespace WAVM { namespace IR {
 	enum class Opcode : U16;

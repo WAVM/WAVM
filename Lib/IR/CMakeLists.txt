@@ -19,9 +19,9 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/IR/Value.h
 	${WAVM_INCLUDE_DIR}/IR/RandomModule.h
 	${WAVM_INCLUDE_DIR}/IR/Types.h
-	${WAVM_INCLUDE_DIR}/IR/Types.natvis
 	${WAVM_INCLUDE_DIR}/IR/Validate.h)
 
 WAVM_ADD_LIB_COMPONENT(IR
-	SOURCES ${Sources} ${PublicHeaders}
-	PRIVATE_LIB_COMPONENTS Logging Platform)
+	SOURCES ${Sources}
+	HEADERS ${PublicHeaders}
+	NONCOMPILED_SOURCES ${WAVM_INCLUDE_DIR}/IR/Types.natvis)

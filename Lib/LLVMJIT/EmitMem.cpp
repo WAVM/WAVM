@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "EmitContext.h"
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
@@ -7,22 +8,22 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/FPEnv.h>
 #include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/InlineAsm.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/IntrinsicsAArch64.h> // IWYU pragma: keep
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/AtomicOrdering.h>
-
-#if LLVM_VERSION_MAJOR >= 10
-#include <llvm/IR/IntrinsicsAArch64.h>
-#endif
+#include <llvm/TargetParser/Triple.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
@@ -42,6 +43,7 @@ static llvm::Value* getMemoryNumPages(EmitFunctionContext& functionContext, Uptr
 	// Load the number of memory pages from the compartment runtime data.
 	llvm::LoadInst* memoryNumPagesLoad = functionContext.loadFromUntypedPointer(
 		functionContext.irBuilder.CreateInBoundsGEP(
+			functionContext.llvmContext.i8Type,
 			functionContext.getCompartmentAddress(),
 			{llvm::ConstantExpr::getAdd(
 				memoryOffset,
@@ -159,7 +161,8 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 		// the guard region.
 
 		llvm::Value* endAddress
-			= irBuilder.CreateLoad(functionContext.memoryInfos[memoryIndex].endAddressVariable);
+			= irBuilder.CreateLoad(functionContext.moduleContext.iptrType,
+								   functionContext.memoryInfos[memoryIndex].endAddressVariable);
 		address = irBuilder.CreateSelect(
 			irBuilder.CreateICmpULT(address, endAddress), address, endAddress);
 	}
@@ -180,15 +183,13 @@ static llvm::Value* getOffsetAndBoundedAddress(EmitFunctionContext& functionCont
 }
 
 llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAddress,
-														 llvm::Type* memoryType,
 														 Uptr memoryIndex)
 {
 	llvm::Value* memoryBasePointer
-		= irBuilder.CreateLoad(memoryInfos[memoryIndex].basePointerVariable);
-	llvm::Value* bytePointer = irBuilder.CreateInBoundsGEP(memoryBasePointer, boundedAddress);
-
-	// Cast the pointer to the appropriate type.
-	return irBuilder.CreatePointerCast(bytePointer, memoryType->getPointerTo());
+		= irBuilder.CreateLoad(llvmContext.ptrType, memoryInfos[memoryIndex].basePointerVariable);
+	llvm::Value* bytePointer
+		= irBuilder.CreateInBoundsGEP(llvmContext.i8Type, memoryBasePointer, boundedAddress);
+	return bytePointer;
 }
 
 //
@@ -205,8 +206,7 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 		FunctionType(TypeTuple(moduleContext.iptrValueType),
 					 TypeTuple({moduleContext.iptrValueType, moduleContext.iptrValueType}),
 					 IR::CallingConvention::intrinsic),
-		{zext(deltaNumPages, moduleContext.iptrType),
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])});
+		{zext(deltaNumPages, moduleContext.iptrType), moduleContext.memoryIds[imm.memoryIndex]});
 	WAVM_ASSERT(resultTuple.size() == 1);
 	const MemoryType& memoryType = moduleContext.irModule.memories.getType(imm.memoryIndex);
 	push(coerceIptrToIndex(memoryType.indexType, resultTuple[0]));
@@ -239,7 +239,7 @@ void EmitFunctionContext::memory_init(DataSegmentAndMemImm imm)
 						  zext(sourceOffset, moduleContext.iptrType),
 						  zext(numBytes, moduleContext.iptrType),
 						  moduleContext.instanceId,
-						  getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex]),
+						  moduleContext.memoryIds[imm.memoryIndex],
 						  emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
@@ -265,19 +265,14 @@ void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 		*this, imm.destMemoryIndex, destAddress, numBytes, 0, BoundsCheckOp::trapOnOutOfBounds);
 
 	llvm::Value* sourcePointer
-		= coerceAddressToPointer(sourceBoundedAddress, llvmContext.i8Type, imm.sourceMemoryIndex);
-	llvm::Value* destPointer
-		= coerceAddressToPointer(destBoundedAddress, llvmContext.i8Type, imm.destMemoryIndex);
+		= coerceAddressToPointer(sourceBoundedAddress, imm.sourceMemoryIndex);
+	llvm::Value* destPointer = coerceAddressToPointer(destBoundedAddress, imm.destMemoryIndex);
 
 	llvm::Value* numBytesUptr = irBuilder.CreateZExt(numBytes, moduleContext.iptrType);
 
 	// Use the LLVM memmove instruction to do the copy.
-#if LLVM_VERSION_MAJOR < 7
-	irBuilder.CreateMemMove(destPointer, sourcePointer, numBytesUptr, 1, true);
-#else
 	irBuilder.CreateMemMove(
 		destPointer, LLVM_ALIGNMENT(1), sourcePointer, LLVM_ALIGNMENT(1), numBytesUptr, true);
-#endif
 }
 
 void EmitFunctionContext::memory_fill(MemoryImm imm)
@@ -288,8 +283,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 
 	llvm::Value* destBoundedAddress = getOffsetAndBoundedAddress(
 		*this, imm.memoryIndex, destAddress, numBytes, 0, BoundsCheckOp::trapOnOutOfBounds);
-	llvm::Value* destPointer
-		= coerceAddressToPointer(destBoundedAddress, llvmContext.i8Type, imm.memoryIndex);
+	llvm::Value* destPointer = coerceAddressToPointer(destBoundedAddress, imm.memoryIndex);
 
 	llvm::Value* numBytesUptr = irBuilder.CreateZExt(numBytes, moduleContext.iptrType);
 
@@ -316,8 +310,8 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 			llvm::ConstantInt::get(address->getType(), U64(1 << numBytesLog2)),                    \
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
-		auto load = irBuilder.CreateLoad(pointer);                                                 \
+		auto pointer = coerceAddressToPointer(boundedAddress, imm.memoryIndex);                    \
+		auto load = irBuilder.CreateLoad(llvmMemoryType, pointer);                                 \
 		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
 		 * trap if it's wrong. */                                                                  \
 		load->setAlignment(LLVM_ALIGNMENT(1));                                                     \
@@ -336,7 +330,7 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 			llvm::ConstantInt::get(address->getType(), U64(1 << numBytesLog2)),                    \
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
+		auto pointer = coerceAddressToPointer(boundedAddress, imm.memoryIndex);                    \
 		auto memoryValue = conversionOp(value, llvmMemoryType);                                    \
 		auto store = irBuilder.CreateStore(memoryValue, pointer);                                  \
 		store->setVolatile(true);                                                                  \
@@ -414,9 +408,10 @@ static void emitLoadLane(EmitFunctionContext& functionContext,
 		llvm::ConstantInt::get(address->getType(), U64(1) << numBytesLog2),
 		loadOrStoreImm.offset,
 		BoundsCheckOp::clampToGuardRegion);
-	llvm::Value* pointer = functionContext.coerceAddressToPointer(
-		boundedAddress, llvmVectorType->getScalarType(), loadOrStoreImm.memoryIndex);
-	llvm::LoadInst* load = functionContext.irBuilder.CreateLoad(pointer);
+	llvm::Type* llvmScalarType = llvmVectorType->getScalarType();
+	llvm::Value* pointer
+		= functionContext.coerceAddressToPointer(boundedAddress, loadOrStoreImm.memoryIndex);
+	llvm::LoadInst* load = functionContext.irBuilder.CreateLoad(llvmScalarType, pointer);
 	// Don't trust the alignment hint provided by the WebAssembly code, since the load can't trap if
 	// it's wrong.
 	load->setAlignment(LLVM_ALIGNMENT(1));
@@ -445,8 +440,8 @@ static void emitStoreLane(EmitFunctionContext& functionContext,
 		llvm::ConstantInt::get(address->getType(), U64(1) << numBytesLog2),
 		loadOrStoreImm.offset,
 		BoundsCheckOp::clampToGuardRegion);
-	llvm::Value* pointer = functionContext.coerceAddressToPointer(
-		boundedAddress, lane->getType(), loadOrStoreImm.memoryIndex);
+	llvm::Value* pointer
+		= functionContext.coerceAddressToPointer(boundedAddress, loadOrStoreImm.memoryIndex);
 	llvm::StoreInst* store = functionContext.irBuilder.CreateStore(lane, pointer);
 	// Don't trust the alignment hint provided by the WebAssembly code, since the load can't trap if
 	// it's wrong.
@@ -494,12 +489,11 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 									 llvm::ConstantInt::get(address->getType(), numBytes),
 									 imm.offset,
 									 BoundsCheckOp::clampToGuardRegion);
-	auto pointer
-		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex);
+	auto pointer = functionContext.coerceAddressToPointer(boundedAddress, imm.memoryIndex);
 	if(functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
 	{
 		auto results = functionContext.callLLVMIntrinsic(
-			{llvmValueType, llvmValueType->getPointerTo()}, aarch64IntrinsicID, {pointer});
+			{llvmValueType, functionContext.llvmContext.ptrType}, aarch64IntrinsicID, {pointer});
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
 			functionContext.push(
@@ -511,9 +505,12 @@ static void emitLoadInterleaved(EmitFunctionContext& functionContext,
 		llvm::Value* loads[maxVectors];
 		for(U32 vectorIndex = 0; vectorIndex < numVectors; ++vectorIndex)
 		{
-			auto load
-				= functionContext.irBuilder.CreateLoad(functionContext.irBuilder.CreateInBoundsGEP(
-					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
+			auto load = functionContext.irBuilder.CreateLoad(
+				llvmValueType,
+				functionContext.irBuilder.CreateInBoundsGEP(
+					llvmValueType,
+					pointer,
+					{emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			/* Don't trust the alignment hint provided by the WebAssembly code, since the load
 			 * can't trap if it's wrong. */
 			load->setAlignment(LLVM_ALIGNMENT(1));
@@ -563,8 +560,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 									 llvm::ConstantInt::get(address->getType(), numBytes),
 									 imm.offset,
 									 BoundsCheckOp::clampToGuardRegion);
-	auto pointer
-		= functionContext.coerceAddressToPointer(boundedAddress, llvmValueType, imm.memoryIndex);
+	auto pointer = functionContext.coerceAddressToPointer(boundedAddress, imm.memoryIndex);
 	if(functionContext.moduleContext.targetArch == llvm::Triple::aarch64)
 	{
 		llvm::Value* args[maxVectors + 1];
@@ -573,7 +569,7 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 			args[vectorIndex] = values[vectorIndex];
 			args[numVectors] = pointer;
 		}
-		functionContext.callLLVMIntrinsic({llvmValueType, llvmValueType->getPointerTo()},
+		functionContext.callLLVMIntrinsic({llvmValueType, functionContext.llvmContext.ptrType},
 										  aarch64IntrinsicID,
 										  llvm::ArrayRef<llvm::Value*>(args, numVectors + 1));
 	}
@@ -596,7 +592,9 @@ static void emitStoreInterleaved(EmitFunctionContext& functionContext,
 			auto store = functionContext.irBuilder.CreateStore(
 				interleavedVector,
 				functionContext.irBuilder.CreateInBoundsGEP(
-					pointer, {emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
+					llvmValueType,
+					pointer,
+					{emitLiteral(functionContext.llvmContext, U32(vectorIndex))}));
 			store->setVolatile(true);
 			store->setAlignment(LLVM_ALIGNMENT(1));
 		}
@@ -686,9 +684,7 @@ void EmitFunctionContext::memory_atomic_notify(AtomicLoadOrStoreImm<2> imm)
 			TypeTuple{ValueType::i32},
 			TypeTuple{moduleContext.iptrValueType, ValueType::i32, moduleContext.iptrValueType},
 			IR::CallingConvention::intrinsic),
-		{boundedAddress,
-		 numWaiters,
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
+		{boundedAddress, numWaiters, moduleContext.memoryIds[imm.memoryIndex]})[0]);
 }
 void EmitFunctionContext::memory_atomic_wait32(AtomicLoadOrStoreImm<2> imm)
 {
@@ -711,10 +707,7 @@ void EmitFunctionContext::memory_atomic_wait32(AtomicLoadOrStoreImm<2> imm)
 							   ValueType::i64,
 							   moduleContext.iptrValueType},
 					 IR::CallingConvention::intrinsic),
-		{boundedAddress,
-		 expectedValue,
-		 timeout,
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
+		{boundedAddress, expectedValue, timeout, moduleContext.memoryIds[imm.memoryIndex]})[0]);
 }
 void EmitFunctionContext::memory_atomic_wait64(AtomicLoadOrStoreImm<3> imm)
 {
@@ -737,10 +730,7 @@ void EmitFunctionContext::memory_atomic_wait64(AtomicLoadOrStoreImm<3> imm)
 							   ValueType::i64,
 							   moduleContext.iptrValueType},
 					 IR::CallingConvention::intrinsic),
-		{boundedAddress,
-		 expectedValue,
-		 timeout,
-		 getMemoryIdFromOffset(moduleContext.memoryOffsets[imm.memoryIndex])})[0]);
+		{boundedAddress, expectedValue, timeout, moduleContext.memoryIds[imm.memoryIndex]})[0]);
 }
 
 void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
@@ -766,8 +756,8 @@ void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
 		trapIfMisalignedAtomic(boundedAddress, numBytesLog2);                                      \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
-		auto load = irBuilder.CreateLoad(pointer);                                                 \
+		auto pointer = coerceAddressToPointer(boundedAddress, imm.memoryIndex);                    \
+		auto load = irBuilder.CreateLoad(llvmMemoryType, pointer);                                 \
 		load->setAlignment(LLVM_ALIGNMENT(U64(1) << imm.alignmentLog2));                           \
 		load->setVolatile(true);                                                                   \
 		load->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                             \
@@ -786,7 +776,7 @@ void EmitFunctionContext::atomic_fence(AtomicFenceImm imm)
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
 		trapIfMisalignedAtomic(boundedAddress, numBytesLog2);                                      \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
+		auto pointer = coerceAddressToPointer(boundedAddress, imm.memoryIndex);                    \
 		auto memoryValue = valueToMem(value, llvmMemoryType);                                      \
 		auto store = irBuilder.CreateStore(memoryValue, pointer);                                  \
 		store->setVolatile(true);                                                                  \
@@ -826,11 +816,12 @@ EMIT_ATOMIC_STORE_OP(i64, atomic_store32, llvmContext.i32Type, 2, trunc)
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
 		trapIfMisalignedAtomic(boundedAddress, numBytesLog2);                                      \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
+		auto pointer = coerceAddressToPointer(boundedAddress, imm.memoryIndex);                    \
 		auto atomicCmpXchg                                                                         \
 			= irBuilder.CreateAtomicCmpXchg(pointer,                                               \
 											expectedValue,                                         \
 											replacementValue,                                      \
+											LLVM_ALIGNMENT(1 << numBytesLog2),                     \
 											llvm::AtomicOrdering::SequentiallyConsistent,          \
 											llvm::AtomicOrdering::SequentiallyConsistent);         \
 		atomicCmpXchg->setVolatile(true);                                                          \
@@ -861,10 +852,11 @@ EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw_cmpxchg, llvmContext.i64Type, 3, identity, i
 			imm.offset,                                                                            \
 			BoundsCheckOp::clampToGuardRegion);                                                    \
 		trapIfMisalignedAtomic(boundedAddress, numBytesLog2);                                      \
-		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType, imm.memoryIndex);    \
+		auto pointer = coerceAddressToPointer(boundedAddress, imm.memoryIndex);                    \
 		auto atomicRMW = irBuilder.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::rmwOpId,            \
 												   pointer,                                        \
 												   value,                                          \
+												   LLVM_ALIGNMENT(1 << numBytesLog2),              \
 												   llvm::AtomicOrdering::SequentiallyConsistent);  \
 		atomicRMW->setVolatile(true);                                                              \
 		push(memToValue(atomicRMW, asLLVMType(llvmContext, ValueType::valueTypeId)));              \

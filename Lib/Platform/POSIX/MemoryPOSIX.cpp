@@ -1,15 +1,16 @@
+#if WAVM_PLATFORM_POSIX
+
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <unistd.h>
-#include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Platform/Error.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
-#include "WAVM/Platform/Mutex.h"
 
 #ifdef __APPLE__
 #define MAP_ANONYMOUS MAP_ANON
@@ -58,12 +59,12 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 	{
 		if(errno != ENOMEM)
 		{
-			fprintf(stderr,
-					"mmap(0, %" WAVM_PRIuPTR
-					", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
-					numBytes,
-					strerror(errno));
-			dumpErrorCallStack(0);
+			Platform::reportErrorWithCallStack(
+				0,
+				"mmap(0, %" WAVM_PRIuPTR
+				", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s",
+				numBytes,
+				strerror(errno));
 		}
 		return nullptr;
 	}
@@ -87,12 +88,12 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 		{
 			if(errno != ENOMEM)
 			{
-				fprintf(stderr,
-						"mmap(0, %" WAVM_PRIuPTR
-						", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
-						numBytes + alignmentBytes,
-						strerror(errno));
-				dumpErrorCallStack(0);
+				Platform::reportErrorWithCallStack(
+					0,
+					"mmap(0, %" WAVM_PRIuPTR
+					", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s",
+					numBytes + alignmentBytes,
+					strerror(errno));
 			}
 			return nullptr;
 		}
@@ -132,13 +133,13 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 		baseVirtualAddress, numPages << getBytesPerPageLog2(), memoryAccessAsPOSIXFlag(access));
 	if(result != 0)
 	{
-		fprintf(stderr,
-				"mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR ", %u) failed: %s\n",
-				reinterpret_cast<Uptr>(baseVirtualAddress),
-				numPages << getBytesPerPageLog2(),
-				memoryAccessAsPOSIXFlag(access),
-				strerror(errno));
-		dumpErrorCallStack(0);
+		Platform::reportErrorWithCallStack(0,
+										   "mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR
+										   ", %u) failed: %s",
+										   reinterpret_cast<Uptr>(baseVirtualAddress),
+										   numPages << getBytesPerPageLog2(),
+										   memoryAccessAsPOSIXFlag(access),
+										   strerror(errno));
 	}
 	return result == 0;
 }
@@ -150,13 +151,13 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 		baseVirtualAddress, numPages << getBytesPerPageLog2(), memoryAccessAsPOSIXFlag(access));
 	if(result != 0)
 	{
-		fprintf(stderr,
-				"mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR ", %u) failed: %s\n",
-				reinterpret_cast<Uptr>(baseVirtualAddress),
-				numPages << getBytesPerPageLog2(),
-				memoryAccessAsPOSIXFlag(access),
-				strerror(errno));
-		dumpErrorCallStack(0);
+		Platform::reportErrorWithCallStack(0,
+										   "mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR
+										   ", %u) failed: %s",
+										   reinterpret_cast<Uptr>(baseVirtualAddress),
+										   numPages << getBytesPerPageLog2(),
+										   memoryAccessAsPOSIXFlag(access),
+										   strerror(errno));
 	}
 	return result == 0;
 }
@@ -200,6 +201,12 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 	}
 }
 
+void Platform::flushInstructionCache(U8* baseAddress, Uptr numBytes)
+{
+	__builtin___clear_cache(reinterpret_cast<char*>(baseAddress),
+							reinterpret_cast<char*>(baseAddress + numBytes));
+}
+
 Uptr Platform::getPeakMemoryUsageBytes()
 {
 	struct rusage ru;
@@ -211,3 +218,5 @@ Uptr Platform::getPeakMemoryUsageBytes()
 	return Uptr(ru.ru_maxrss) * 1024;
 #endif
 }
+
+#endif // WAVM_PLATFORM_POSIX

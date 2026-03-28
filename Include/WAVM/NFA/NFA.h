@@ -14,13 +14,13 @@ namespace WAVM { namespace NFA {
 	typedef I16 StateIndex;
 
 	// A flag that's set on terminal DFA state transitions that don't consume any input
-	static constexpr StateIndex edgeDoesntConsumeInputFlag = 0x4000;
+	inline constexpr StateIndex edgeDoesntConsumeInputFlag = 0x4000;
 
 	// An implicit terminal state that indicates the DFA didn't recognize the input
-	static constexpr StateIndex unmatchedCharacterTerminal = StateIndex(0x8000);
+	inline constexpr StateIndex unmatchedCharacterTerminal = StateIndex(0x8000);
 
 	// Should be the largest negative number that doesn't have edgeDoesntConsumeInputFlag set.
-	static constexpr StateIndex maximumTerminalStateIndex = StateIndex(0xbfff);
+	inline constexpr StateIndex maximumTerminalStateIndex = StateIndex(0xbfff);
 
 	// Creates an abstract object that holds the state of an under-construction BFA.
 	struct Builder;

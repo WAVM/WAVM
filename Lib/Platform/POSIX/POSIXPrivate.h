@@ -1,38 +1,21 @@
 #pragma once
 
+#if WAVM_PLATFORM_POSIX
+
 #include <setjmp.h>
-#include <functional>
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Config.h"
 #include "WAVM/Platform/Signal.h"
-
-#ifdef __WAVIX__
-// libunwind dynamic frame registration
-inline void __register_frame(const void* fde)
-{
-	WAVM::Errors::unimplemented("Wavix __register_frame");
-}
-
-inline void __deregister_frame(const void* fde)
-{
-	WAVM::Errors::unimplemented("Wavix __deregister_frame");
-}
-
-#else
-// libunwind dynamic frame registration
-extern "C" void __register_frame(const void* fde);
-extern "C" void __deregister_frame(const void* fde);
-#endif
+#include "WAVM/Platform/Unwind.h"
 
 namespace WAVM { namespace Platform {
-
-	struct CallStack;
 
 	struct SignalContext
 	{
 		SignalContext* outerContext;
 		jmp_buf catchJump;
-		bool (*filter)(void*, Signal, CallStack&&);
+		bool (*filter)(void*, Signal, UnwindState&&);
 		void* filterArgument;
 	};
 
@@ -70,6 +53,9 @@ namespace WAVM { namespace Platform {
 		WAVM_ASSERT(initedThread);
 	}
 
-	void dumpErrorCallStack(Uptr numOmittedFramesFromTop);
+	UnwindState makeUnwindStateFromSignalContext(void* contextPtr);
+
 	void getCurrentThreadStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr);
 }}
+
+#endif // WAVM_PLATFORM_POSIX

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <cstring>
 #include <vector>
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
@@ -6,6 +7,7 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Timing.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
@@ -21,6 +23,7 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
+#include <llvm/Target/TargetMachine.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
@@ -46,11 +49,7 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 	targetArch = targetMachine->getTargetTriple().getArch();
 	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
 
-#if LLVM_VERSION_MAJOR >= 7
 	const U32 numPointerBytes = targetMachine->getProgramPointerSize();
-#else
-	const U32 numPointerBytes = targetMachine->getPointerSize();
-#endif
 	iptrAlignment = numPointerBytes;
 	iptrType = getIptrType(llvmContext, numPointerBytes);
 	switch(iptrAlignment)
@@ -61,24 +60,19 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 	};
 
 	diModuleScope = diBuilder.createFile("unknown", "unknown");
-#if LLVM_VERSION_MAJOR >= 9
-	diCompileUnit
-		= diBuilder.createCompileUnit(0xffff,
-									  diModuleScope,
-									  "WAVM",
-									  true,
-									  "",
-									  0,
-									  llvm::StringRef(),
-									  llvm::DICompileUnit::DebugEmissionKind::LineTablesOnly,
-									  0,
-									  true,
-									  false,
-									  llvm::DICompileUnit::DebugNameTableKind::None,
-									  false);
-#else
-	diCompileUnit = diBuilder.createCompileUnit(0xffff, diModuleScope, "WAVM", true, "", 0);
-#endif
+	diCompileUnit = diBuilder.createCompileUnit(0xffff,
+												diModuleScope,
+												"WAVM",
+												true,
+												"",
+												0,
+												llvm::StringRef(),
+												llvm::DICompileUnit::DebugEmissionKind::FullDebug,
+												0,
+												true,
+												false,
+												llvm::DICompileUnit::DebugNameTableKind::None,
+												false);
 
 	diValueTypes[(Uptr)ValueType::any] = nullptr;
 	diValueTypes[(Uptr)ValueType::i32]
@@ -132,6 +126,12 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	// Set the module data layout for the target machine.
 	outLLVMModule.setDataLayout(targetMachine->createDataLayout());
 
+	// Force DWARF debug info emission. On Windows MSVC targets, LLVM defaults to CodeView,
+	// but we need DWARF sections for getInstructionSourceByAddress to resolve instruction
+	// indices and inline frames.
+	outLLVMModule.addModuleFlag(llvm::Module::Warning, "Dwarf Version", 5);
+	outLLVMModule.addModuleFlag(llvm::Module::Warning, "Debug Info Version", 3);
+
 	// Create an external reference to the appropriate exception personality function.
 	auto personalityFunction = llvm::Function::Create(
 		llvm::FunctionType::get(llvmContext.i32Type, {}, false),
@@ -161,12 +161,30 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		moduleContext.defaultTableOffset = moduleContext.tableOffsets[0];
 	}
 
+	// Create LLVM external globals corresponding to IDs of tables in CompartmentRuntimeData for the
+	// module's declared table objects.
+	for(Uptr tableIndex = 0; tableIndex < irModule.tables.size(); ++tableIndex)
+	{
+		moduleContext.tableIds.push_back(llvm::ConstantExpr::getPtrToInt(
+			createImportedConstant(outLLVMModule, getExternalName("tableId", tableIndex)),
+			moduleContext.iptrType));
+	}
+
 	// Create LLVM external globals corresponding to offsets to memory base pointers in
 	// CompartmentRuntimeData for the module's declared memory objects.
 	for(Uptr memoryIndex = 0; memoryIndex < irModule.memories.size(); ++memoryIndex)
 	{
 		moduleContext.memoryOffsets.push_back(llvm::ConstantExpr::getPtrToInt(
 			createImportedConstant(outLLVMModule, getExternalName("memoryOffset", memoryIndex)),
+			moduleContext.iptrType));
+	}
+
+	// Create LLVM external globals corresponding to IDs of memories in CompartmentRuntimeData for
+	// the module's declared memory objects.
+	for(Uptr memoryIndex = 0; memoryIndex < irModule.memories.size(); ++memoryIndex)
+	{
+		moduleContext.memoryIds.push_back(llvm::ConstantExpr::getPtrToInt(
+			createImportedConstant(outLLVMModule, getExternalName("memoryId", memoryIndex)),
 			moduleContext.iptrType));
 	}
 
@@ -182,32 +200,19 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	for(Uptr exceptionTypeIndex = 0; exceptionTypeIndex < irModule.exceptionTypes.size();
 		++exceptionTypeIndex)
 	{
-		llvm::Constant* biasedExceptionTypeIdAsPointer = createImportedConstant(
-			outLLVMModule, getExternalName("biasedExceptionTypeId", exceptionTypeIndex));
-		llvm::Constant* biasedExceptionTypeId = llvm::ConstantExpr::getPtrToInt(
-			biasedExceptionTypeIdAsPointer, moduleContext.iptrType);
-		llvm::Constant* exceptionTypeId = llvm::ConstantExpr::getSub(
-			biasedExceptionTypeId, emitLiteralIptr(1, moduleContext.iptrType));
-		moduleContext.exceptionTypeIds.push_back(exceptionTypeId);
+		moduleContext.exceptionTypeIds.push_back(llvm::ConstantExpr::getPtrToInt(
+			createImportedConstant(outLLVMModule,
+								   getExternalName("exceptionTypeId", exceptionTypeIndex)),
+			moduleContext.iptrType));
 	}
 
 	// Create a LLVM external global that will point to the Instance.
-	llvm::Constant* biasedInstanceIdAsPointer
-		= createImportedConstant(outLLVMModule, "biasedInstanceId");
-	llvm::Constant* biasedInstanceId
-		= llvm::ConstantExpr::getPtrToInt(biasedInstanceIdAsPointer, moduleContext.iptrType);
-	moduleContext.instanceId
-		= llvm::ConstantExpr::getSub(biasedInstanceId, emitLiteralIptr(1, moduleContext.iptrType));
+	moduleContext.instanceId = llvm::ConstantExpr::getPtrToInt(
+		createImportedConstant(outLLVMModule, "instanceId"), moduleContext.iptrType);
 
 	// Create a LLVM external global that will be a bias applied to all references in a table.
 	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
 		createImportedConstant(outLLVMModule, "tableReferenceBias"), moduleContext.iptrType);
-
-#if LLVM_VERSION_MAJOR < 10
-	// Create a LLVM external global that will be a constant Iptr 1 that is opaque to the optimizer.
-	moduleContext.unoptimizableOne = llvm::ConstantExpr::getPtrToInt(
-		createImportedConstant(outLLVMModule, "unoptimizableOne"), moduleContext.iptrType);
-#endif
 
 	// Create a LLVM external global that will point to the std::type_info for Runtime::Exception.
 	if(moduleContext.useWindowsSEH)
@@ -216,13 +221,13 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		// image-relative offset, so we have to create a copy of it in the image.
 		const char* typeMangledName = ".PEAUException@Runtime@WAVM@@";
 		llvm::Type* typeDescriptorTypeElements[3]
-			= {llvmContext.i8PtrType->getPointerTo(),
-			   llvmContext.i8PtrType,
+			= {llvmContext.ptrType,
+			   llvmContext.ptrType,
 			   llvm::ArrayType::get(llvmContext.i8Type, strlen(typeMangledName) + 1)};
 		llvm::StructType* typeDescriptorType = llvm::StructType::create(typeDescriptorTypeElements);
 		llvm::Constant* typeDescriptorElements[3]
-			= {llvm::ConstantPointerNull::get(llvmContext.i8PtrType->getPointerTo()),
-			   llvm::ConstantPointerNull::get(llvmContext.i8PtrType),
+			= {llvm::ConstantPointerNull::get(llvmContext.ptrType),
+			   llvm::ConstantPointerNull::get(llvmContext.ptrType),
 			   llvm::ConstantDataArray::getString(llvmContext, typeMangledName, true)};
 		llvm::Constant* typeDescriptor
 			= llvm::ConstantStruct::get(typeDescriptorType, typeDescriptorElements);
@@ -241,7 +246,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	{
 		moduleContext.runtimeExceptionTypeInfo = llvm::ConstantExpr::getPointerCast(
 			createImportedConstant(*moduleContext.llvmModule, "runtimeExceptionTypeInfo"),
-			llvmContext.i8PtrType);
+			llvmContext.ptrType);
 	}
 
 	// Create the LLVM functions.

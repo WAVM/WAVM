@@ -1,7 +1,9 @@
+#if WAVM_PLATFORM_POSIX
+
 #include <pthread.h>
+#include <atomic>
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
-#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/RWMutex.h"
 
 using namespace WAVM;
@@ -63,3 +65,5 @@ bool Platform::RWMutex::isExclusivelyLockedByCurrentThread()
 		   == pthread_self();
 }
 #endif
+
+#endif // WAVM_PLATFORM_POSIX

@@ -91,12 +91,36 @@ I32 main(int argc, char** argv)
 {
 	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
 
-	if(argc != 2)
+	const char* inputPath = nullptr;
+	Uptr maxThreads = UINTPTR_MAX;
+
+	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
-		Log::printf(Log::error, "Usage: %s <input file or directory>\n", argv[0]);
+		const char* suffix = nullptr;
+		if(stringStartsWith(argv[argIndex], "--max-threads=", suffix))
+		{
+			long value = atol(suffix);
+			if(value < 1)
+			{
+				Log::printf(Log::error, "--max-threads must be >= 1\n");
+				return EXIT_FAILURE;
+			}
+			maxThreads = Uptr(value);
+		}
+		else if(!inputPath) { inputPath = argv[argIndex]; }
+		else
+		{
+			Log::printf(
+				Log::error, "Usage: %s [--max-threads=N] <input file or directory>\n", argv[0]);
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(!inputPath)
+	{
+		Log::printf(Log::error, "Usage: %s [--max-threads=N] <input file or directory>\n", argv[0]);
 		return EXIT_FAILURE;
 	}
-	const char* inputPath = argv[1];
 
 	SharedState sharedState;
 	VFS::Result result = enumInputs(inputPath, sharedState.inputFilePaths);
@@ -106,10 +130,11 @@ I32 main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	// Create a thread for each hardware thread.
+	// Create a thread for each hardware thread, up to the max-threads limit.
 	std::vector<Platform::Thread*> threads;
 	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
-	const Uptr numThreads = std::min(numHardwareThreads, Uptr(sharedState.inputFilePaths.size()));
+	Uptr numThreads = std::min(numHardwareThreads, Uptr(sharedState.inputFilePaths.size()));
+	numThreads = std::min(numThreads, maxThreads);
 	for(Uptr threadIndex = 0; threadIndex < numThreads; ++threadIndex)
 	{
 		threads.push_back(Platform::createThread(8 * 1024 * 1024, threadMain, &sharedState));

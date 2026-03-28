@@ -1,6 +1,5 @@
 #pragma once
 
-#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/NFA/NFA.h"
 
 namespace WAVM { namespace RegExp {

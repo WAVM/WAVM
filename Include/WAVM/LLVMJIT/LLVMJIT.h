@@ -1,11 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Platform/CPU.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 // Forward declarations
@@ -25,11 +27,36 @@ namespace WAVM { namespace Runtime {
 
 namespace WAVM { namespace LLVMJIT {
 
+	enum class TargetArch
+	{
+		x86_64,
+		aarch64
+	};
+
+	enum class TargetOS
+	{
+		// "linux_" avoids conflict with the "linux" preprocessor macro.
+		linux_,
+		macos,
+		windows
+	};
+
 	struct TargetSpec
 	{
-		std::string triple;
+		TargetArch arch;
+		TargetOS os;
 		std::string cpu;
+
+		union
+		{
+			Platform::X86CPUFeatures<std::optional<bool>> x86FeatureOverrides;
+			Platform::AArch64CPUFeatures<std::optional<bool>> aarch64FeatureOverrides;
+		};
+
+		TargetSpec() : arch(TargetArch::x86_64), os(TargetOS::windows), x86FeatureOverrides{} {}
 	};
+
+	WAVM_API std::string asString(const TargetSpec& targetSpec);
 
 	enum class TargetValidationResult
 	{
@@ -69,6 +96,41 @@ namespace WAVM { namespace LLVMJIT {
 
 	WAVM_API std::string disassembleObject(const TargetSpec& targetSpec,
 										   const std::vector<U8>& objectBytes);
+
+	// Result of disassembling a single instruction.
+	struct DisassembledInstruction
+	{
+		Uptr numBytes;      // Number of bytes consumed (0 if disassembly failed)
+		char mnemonic[256]; // Human-readable instruction text
+	};
+
+	// Opaque disassembler object. Pre-create one to avoid per-call setup costs.
+	struct Disassembler;
+
+	// Create a disassembler for the given target. Thread-safe to call concurrently.
+	WAVM_API std::shared_ptr<Disassembler> createDisassembler(const TargetSpec& targetSpec);
+
+	// Disassemble a single instruction. If the disassembler mutex can't be acquired
+	// (e.g. called from a signal handler while another thread holds it), returns
+	// a result with numBytes == 0.
+	WAVM_API DisassembledInstruction
+	disassembleInstruction(const std::shared_ptr<Disassembler>& disasm,
+						   const U8* bytes,
+						   Uptr numBytes);
+
+	// Convenience overload that creates a temporary disassembler.
+	WAVM_API DisassembledInstruction disassembleInstruction(const TargetSpec& targetSpec,
+															const U8* bytes,
+															Uptr numBytes);
+
+	// Find the first instruction boundary at or after targetOffset within a code region.
+	// Handles architecture differences: on fixed-width ISAs (AArch64), aligns directly;
+	// on variable-width ISAs (x86-64), disassembles from the start.
+	// Returns the offset of the instruction boundary.
+	WAVM_API Uptr findInstructionBoundary(const std::shared_ptr<Disassembler>& disasm,
+										  const U8* code,
+										  Uptr codeSize,
+										  Uptr targetOffset);
 
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct Module;
@@ -133,9 +195,12 @@ namespace WAVM { namespace LLVMJIT {
 		Uptr instructionIndex;
 	};
 
-	// Finds the JIT function and instruction index at the given address. If no JIT function
-	// contains the given address, returns an InstructionSourceInfo with function==nullptr.
-	WAVM_API bool getInstructionSourceByAddress(Uptr address, InstructionSource& outSource);
+	// Finds the JIT function(s) and instruction index at the given address.
+	// Writes to a fixed-size array, returns number of entries (innermost first).
+	// Signal-safe: no heap allocations.
+	WAVM_API Uptr getInstructionSourceByAddress(Uptr address,
+												InstructionSource* outSources,
+												Uptr maxSources);
 
 	// Generates an invoke thunk for a specific function type.
 	WAVM_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);

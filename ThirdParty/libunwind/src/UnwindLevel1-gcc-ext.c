@@ -1,9 +1,8 @@
-//===--------------------- UnwindLevel1-gcc-ext.c -------------------------===//
+//===----------------------------------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //
 //  Implements gcc extensions to the C++ ABI Exception Handling Level 1.
@@ -23,53 +22,55 @@
 #include "Unwind-EHABI.h"
 #include "unwind.h"
 
+#if defined(_AIX)
+#include <sys/debug.h>
+#endif
+
 #if defined(_LIBUNWIND_BUILD_ZERO_COST_APIS)
+
+#if defined(_LIBUNWIND_SUPPORT_SEH_UNWIND)
+#define PRIVATE_1 private_[0]
+#elif defined(_LIBUNWIND_ARM_EHABI)
+#define PRIVATE_1 unwinder_cache.reserved1
+#else
+#define PRIVATE_1 private_1
+#endif
 
 ///  Called by __cxa_rethrow().
 _LIBUNWIND_EXPORT _Unwind_Reason_Code
 _Unwind_Resume_or_Rethrow(_Unwind_Exception *exception_object) {
-#if defined(_LIBUNWIND_ARM_EHABI)
-  _LIBUNWIND_TRACE_API("_Unwind_Resume_or_Rethrow(ex_obj=%p), private_1=%ld",
-                       (void *)exception_object,
-                       (long)exception_object->unwinder_cache.reserved1);
-#else
-  _LIBUNWIND_TRACE_API("_Unwind_Resume_or_Rethrow(ex_obj=%p), private_1=%ld",
-                       (void *)exception_object,
-                       (long)exception_object->private_1);
-#endif
+  _LIBUNWIND_TRACE_API(
+      "_Unwind_Resume_or_Rethrow(ex_obj=%p), private_1=%" PRIdPTR,
+      (void *)exception_object, (intptr_t)exception_object->PRIVATE_1);
 
-#if defined(_LIBUNWIND_ARM_EHABI)
-  // _Unwind_RaiseException on EHABI will always set the reserved1 field to 0,
-  // which is in the same position as private_1 below.
-  return _Unwind_RaiseException(exception_object);
-#else
   // If this is non-forced and a stopping place was found, then this is a
   // re-throw.
   // Call _Unwind_RaiseException() as if this was a new exception
-  if (exception_object->private_1 == 0) {
+  if (exception_object->PRIVATE_1 == 0) {
     return _Unwind_RaiseException(exception_object);
     // Will return if there is no catch clause, so that __cxa_rethrow can call
     // std::terminate().
   }
 
-  // Call through to _Unwind_Resume() which distiguishes between forced and
+  // Call through to _Unwind_Resume() which distinguishes between forced and
   // regular exceptions.
   _Unwind_Resume(exception_object);
   _LIBUNWIND_ABORT("_Unwind_Resume_or_Rethrow() called _Unwind_RaiseException()"
                    " which unexpectedly returned");
-#endif
 }
-
 
 /// Called by personality handler during phase 2 to get base address for data
 /// relative encodings.
 _LIBUNWIND_EXPORT uintptr_t
 _Unwind_GetDataRelBase(struct _Unwind_Context *context) {
-  (void)context;
   _LIBUNWIND_TRACE_API("_Unwind_GetDataRelBase(context=%p)", (void *)context);
+#if defined(_AIX)
+  return unw_get_data_rel_base((unw_cursor_t *)context);
+#else
+  (void)context;
   _LIBUNWIND_ABORT("_Unwind_GetDataRelBase() not implemented");
+#endif
 }
-
 
 /// Called by personality handler during phase 2 to get base address for text
 /// relative encodings.
@@ -85,18 +86,45 @@ _Unwind_GetTextRelBase(struct _Unwind_Context *context) {
 /// specified code address "pc".
 _LIBUNWIND_EXPORT void *_Unwind_FindEnclosingFunction(void *pc) {
   _LIBUNWIND_TRACE_API("_Unwind_FindEnclosingFunction(pc=%p)", pc);
+#if defined(_AIX)
+  if (pc == NULL)
+    return NULL;
+
+  // Get the start address of the enclosing function from the function's
+  // traceback table.
+  uint32_t *p = (uint32_t *)pc;
+
+  // Keep looking forward until a word of 0 is found. The traceback
+  // table starts at the following word.
+  while (*p)
+    ++p;
+  struct tbtable *TBTable = (struct tbtable *)(p + 1);
+
+  // Get the address of the traceback table extension.
+  p = (uint32_t *)&TBTable->tb_ext;
+
+  // Skip field parminfo if it exists.
+  if (TBTable->tb.fixedparms || TBTable->tb.floatparms)
+    ++p;
+
+  if (TBTable->tb.has_tboff)
+    // *p contains the offset from the function start to traceback table.
+    return (void *)((uintptr_t)TBTable - *p - sizeof(uint32_t));
+  return NULL;
+#else
   // This is slow, but works.
   // We create an unwind cursor then alter the IP to be pc
   unw_cursor_t cursor;
   unw_context_t uc;
   unw_proc_info_t info;
-  unw_getcontext(&uc);
-  unw_init_local(&cursor, &uc);
-  unw_set_reg(&cursor, UNW_REG_IP, (unw_word_t)(long) pc);
-  if (unw_get_proc_info(&cursor, &info) == UNW_ESUCCESS)
-    return (void *)(long) info.start_ip;
+  __unw_getcontext(&uc);
+  __unw_init_local(&cursor, &uc);
+  __unw_set_reg(&cursor, UNW_REG_IP, (unw_word_t)(intptr_t)pc);
+  if (__unw_get_proc_info(&cursor, &info) == UNW_ESUCCESS)
+    return (void *)(intptr_t) info.start_ip;
   else
     return NULL;
+#endif
 }
 
 /// Walk every frame and call trace function at each one.  If trace function
@@ -105,8 +133,8 @@ _LIBUNWIND_EXPORT _Unwind_Reason_Code
 _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
   unw_cursor_t cursor;
   unw_context_t uc;
-  unw_getcontext(&uc);
-  unw_init_local(&cursor, &uc);
+  __unw_getcontext(&uc);
+  __unw_init_local(&cursor, &uc);
 
   _LIBUNWIND_TRACE_API("_Unwind_Backtrace(callback=%p)",
                        (void *)(uintptr_t)callback);
@@ -115,7 +143,7 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
   // Create a mock exception object for force unwinding.
   _Unwind_Exception ex;
   memset(&ex, '\0', sizeof(ex));
-  ex.exception_class = 0x434C4E47554E5700; // CLNGUNW\0
+  memcpy(&ex.exception_class, "CLNGUNW", sizeof(ex.exception_class));
 #endif
 
   // walk each frame
@@ -125,7 +153,7 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
 #if !defined(_LIBUNWIND_ARM_EHABI)
     // ask libunwind to get next frame (skip over first frame which is
     // _Unwind_Backtrace())
-    if (unw_step(&cursor) <= 0) {
+    if (__unw_step(&cursor) <= 0) {
       _LIBUNWIND_TRACE_UNWINDING(" _backtrace: ended because cursor reached "
                                  "bottom of stack, returning %d",
                                  _URC_END_OF_STACK);
@@ -134,19 +162,19 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
 #else
     // Get the information for this frame.
     unw_proc_info_t frameInfo;
-    if (unw_get_proc_info(&cursor, &frameInfo) != UNW_ESUCCESS) {
+    if (__unw_get_proc_info(&cursor, &frameInfo) != UNW_ESUCCESS) {
       return _URC_END_OF_STACK;
     }
 
     // Update the pr_cache in the mock exception object.
-    const uint32_t* unwindInfo = (uint32_t *) frameInfo.unwind_info;
+    uint32_t *unwindInfo = (uint32_t *)frameInfo.unwind_info;
     ex.pr_cache.fnstart = frameInfo.start_ip;
     ex.pr_cache.ehtp = (_Unwind_EHT_Header *) unwindInfo;
     ex.pr_cache.additional= frameInfo.flags;
 
     struct _Unwind_Context *context = (struct _Unwind_Context *)&cursor;
     // Get and call the personality function to unwind the frame.
-    __personality_routine handler = (__personality_routine) frameInfo.handler;
+    _Unwind_Personality_Fn handler = (_Unwind_Personality_Fn)frameInfo.handler;
     if (handler == NULL) {
       return _URC_END_OF_STACK;
     }
@@ -161,8 +189,8 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
       char functionName[512];
       unw_proc_info_t frame;
       unw_word_t offset;
-      unw_get_proc_name(&cursor, functionName, 512, &offset);
-      unw_get_proc_info(&cursor, &frame);
+      __unw_get_proc_name(&cursor, functionName, 512, &offset);
+      __unw_get_proc_info(&cursor, &frame);
       _LIBUNWIND_TRACE_UNWINDING(
           " _backtrace: start_ip=0x%" PRIxPTR ", func=%s, lsda=0x%" PRIxPTR ", context=%p",
           frame.start_ip, functionName, frame.lsda,
@@ -188,16 +216,16 @@ _LIBUNWIND_EXPORT const void *_Unwind_Find_FDE(const void *pc,
   unw_cursor_t cursor;
   unw_context_t uc;
   unw_proc_info_t info;
-  unw_getcontext(&uc);
-  unw_init_local(&cursor, &uc);
-  unw_set_reg(&cursor, UNW_REG_IP, (unw_word_t)(long) pc);
-  unw_get_proc_info(&cursor, &info);
+  __unw_getcontext(&uc);
+  __unw_init_local(&cursor, &uc);
+  __unw_set_reg(&cursor, UNW_REG_IP, (unw_word_t)(intptr_t)pc);
+  __unw_get_proc_info(&cursor, &info);
   bases->tbase = (uintptr_t)info.extra;
   bases->dbase = 0; // dbase not used on Mac OS X
   bases->func = (uintptr_t)info.start_ip;
   _LIBUNWIND_TRACE_API("_Unwind_Find_FDE(pc=%p) => %p", pc,
-                  (void *)(long) info.unwind_info);
-  return (void *)(long) info.unwind_info;
+                  (void *)(intptr_t) info.unwind_info);
+  return (void *)(intptr_t) info.unwind_info;
 }
 
 /// Returns the CFA (call frame area, or stack pointer at start of function)
@@ -205,7 +233,7 @@ _LIBUNWIND_EXPORT const void *_Unwind_Find_FDE(const void *pc,
 _LIBUNWIND_EXPORT uintptr_t _Unwind_GetCFA(struct _Unwind_Context *context) {
   unw_cursor_t *cursor = (unw_cursor_t *)context;
   unw_word_t result;
-  unw_get_reg(cursor, UNW_REG_SP, &result);
+  __unw_get_reg(cursor, UNW_REG_SP, &result);
   _LIBUNWIND_TRACE_API("_Unwind_GetCFA(context=%p) => 0x%" PRIxPTR,
                        (void *)context, result);
   return (uintptr_t)result;
@@ -218,7 +246,14 @@ _LIBUNWIND_EXPORT uintptr_t _Unwind_GetCFA(struct _Unwind_Context *context) {
 _LIBUNWIND_EXPORT uintptr_t _Unwind_GetIPInfo(struct _Unwind_Context *context,
                                               int *ipBefore) {
   _LIBUNWIND_TRACE_API("_Unwind_GetIPInfo(context=%p)", (void *)context);
-  *ipBefore = 0;
+  int isSignalFrame = __unw_is_signal_frame((unw_cursor_t *)context);
+  // Negative means some kind of error (probably UNW_ENOINFO), but we have no
+  // good way to report that, and this maintains backward compatibility with the
+  // implementation that hard-coded zero in every case, even signal frames.
+  if (isSignalFrame <= 0)
+    *ipBefore = 0;
+  else
+    *ipBefore = 1;
   return _Unwind_GetIP(context);
 }
 
@@ -230,7 +265,7 @@ _LIBUNWIND_EXPORT uintptr_t _Unwind_GetIPInfo(struct _Unwind_Context *context,
 /// was broken until 10.6.
 _LIBUNWIND_EXPORT void __register_frame(const void *fde) {
   _LIBUNWIND_TRACE_API("__register_frame(%p)", fde);
-  _unw_add_dynamic_fde((unw_word_t)(uintptr_t) fde);
+  __unw_add_dynamic_fde((unw_word_t)(uintptr_t)fde);
 }
 
 
@@ -240,7 +275,7 @@ _LIBUNWIND_EXPORT void __register_frame(const void *fde) {
 /// was broken until 10.6.
 _LIBUNWIND_EXPORT void __deregister_frame(const void *fde) {
   _LIBUNWIND_TRACE_API("__deregister_frame(%p)", fde);
-  _unw_remove_dynamic_fde((unw_word_t)(uintptr_t) fde);
+  __unw_remove_dynamic_fde((unw_word_t)(uintptr_t)fde);
 }
 
 

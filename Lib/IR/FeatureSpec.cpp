@@ -1,6 +1,7 @@
 #include "WAVM/IR/FeatureSpec.h"
-#include <array>
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Platform/Defines.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

@@ -1,0 +1,5 @@
+This is a fork of libunwind from the LLVM project.
+
+Upstream: https://github.com/llvm/llvm-project
+Branch: release/21.x
+Commit: 2078da43e25a4623cab2d0d60decddf709aaea28

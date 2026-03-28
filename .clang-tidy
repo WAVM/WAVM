@@ -1,0 +1,6 @@
+Checks: >
+  -*,
+  misc-include-cleaner
+CheckOptions:
+  - key: misc-include-cleaner.IgnoreHeaders
+    value: "_.*;sys/_.*;.*pthread.*;bits/.*;asm/.*;asm-generic/.*"

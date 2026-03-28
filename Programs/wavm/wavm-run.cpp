@@ -1,28 +1,27 @@
-#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include "WAVM/Emscripten/Emscripten.h"
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Validate.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
-#include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Inline/Version.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/ObjectCache/ObjectCache.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Runtime/Linker.h"
@@ -36,37 +35,6 @@
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
-
-// A resolver that generates a stub if an inner resolver does not resolve a name.
-struct StubFallbackResolver : Resolver
-{
-	StubFallbackResolver(Resolver& inInnerResolver, Compartment* inCompartment)
-	: innerResolver(inInnerResolver), compartment(inCompartment)
-	{
-	}
-
-	virtual bool resolve(const std::string& moduleName,
-						 const std::string& exportName,
-						 IR::ExternType type,
-						 Object*& outObject) override
-	{
-		if(innerResolver.resolve(moduleName, exportName, type, outObject)) { return true; }
-		else
-		{
-			Log::printf(Log::debug,
-						"Generating stub for %s.%s : %s\n",
-						moduleName.c_str(),
-						exportName.c_str(),
-						asString(type).c_str());
-			return generateStub(
-				moduleName, exportName, type, outObject, compartment, StubFunctionBehavior::trap);
-		}
-	}
-
-private:
-	Resolver& innerResolver;
-	GCPointer<Compartment> compartment;
-};
 
 static bool loadTextOrBinaryModule(const char* filename,
 								   std::vector<U8>&& fileBytes,
@@ -168,7 +136,6 @@ static void reportLinkErrors(const LinkResult& linkResult)
 static const char* getABIListHelpText()
 {
 	return "  none        No ABI: bare virtual metal.\n"
-		   "  emscripten  Emscripten ABI, such as it is.\n"
 		   "  wasi        WebAssembly System Interface ABI.\n";
 }
 
@@ -203,12 +170,6 @@ void showRunHelp(Log::Category outputCategory)
 				getFeatureListHelpText().c_str());
 }
 
-template<Uptr numPrefixChars>
-static bool stringStartsWith(const char* string, const char (&prefix)[numPrefixChars])
-{
-	return !strncmp(string, prefix, numPrefixChars - 1);
-}
-
 static std::string getFilenameAndExtension(const char* path)
 {
 	const char* filenameBegin = path;
@@ -226,7 +187,6 @@ enum class ABI
 {
 	detect,
 	bare,
-	emscripten,
 	wasi
 };
 
@@ -246,13 +206,11 @@ struct State
 
 	// Objects that need to be cleaned up before exiting.
 	GCPointer<Compartment> compartment = createCompartment();
-	std::shared_ptr<Emscripten::Process> emscriptenProcess;
 	std::shared_ptr<WASI::Process> wasiProcess;
 	std::shared_ptr<VFS::FileSystem> sandboxFS;
 
 	~State()
 	{
-		emscriptenProcess.reset();
 		wasiProcess.reset();
 
 		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
@@ -263,7 +221,8 @@ struct State
 		char** nextArg = argv;
 		while(*nextArg)
 		{
-			if(stringStartsWith(*nextArg, "--function="))
+			const char* suffix = nullptr;
+			if(stringStartsWith(*nextArg, "--function=", suffix))
 			{
 				if(functionName)
 				{
@@ -272,9 +231,9 @@ struct State
 					return false;
 				}
 
-				functionName = *nextArg + strlen("--function=");
+				functionName = suffix;
 			}
-			else if(stringStartsWith(*nextArg, "--abi="))
+			else if(stringStartsWith(*nextArg, "--abi=", suffix))
 			{
 				if(abi != ABI::detect)
 				{
@@ -282,9 +241,8 @@ struct State
 					return false;
 				}
 
-				const char* abiString = *nextArg + strlen("--abi=");
+				const char* abiString = suffix;
 				if(!strcmp(abiString, "bare")) { abi = ABI::bare; }
-				else if(!strcmp(abiString, "emscripten")) { abi = ABI::emscripten; }
 				else if(!strcmp(abiString, "wasi")) { abi = ABI::wasi; }
 				else
 				{
@@ -337,7 +295,7 @@ struct State
 
 				rootMountPath = *nextArg;
 			}
-			else if(stringStartsWith(*nextArg, "--wasi-trace="))
+			else if(stringStartsWith(*nextArg, "--wasi-trace=", suffix))
 			{
 				if(wasiTraceLavel != WASI::SyscallTraceLevel::none)
 				{
@@ -346,7 +304,7 @@ struct State
 					return false;
 				}
 
-				const char* levelString = *nextArg + strlen("--mount-root=");
+				const char* levelString = suffix;
 
 				if(!strcmp(levelString, "syscalls"))
 				{
@@ -490,52 +448,21 @@ struct State
 
 	bool detectModuleABI(const IR::Module& irModule)
 	{
-		// First, check if the module has an Emscripten metadata section, which is an unambiguous
-		// signal that it uses the Emscripten ABI.
-		for(const IR::CustomSection& customSection : irModule.customSections)
+		// Check whether the module has any WASI-specific imports.
+		for(const auto& import : irModule.functions.imports)
 		{
-			if(customSection.name == "emscripten_metadata")
+			const char* suffix = nullptr;
+			if(stringStartsWith(import.moduleName.c_str(), "wasi_", suffix))
 			{
-				Log::printf(
-					Log::debug,
-					"Module has an \'emscripten_metadata\' section: using Emscripten ABI.\n");
-				abi = ABI::emscripten;
+				Log::printf(Log::debug, "Module has WASI imports: using WASI ABI.\n");
+				abi = ABI::wasi;
 				return true;
 			}
 		}
 
-		// Otherwise, check whether it has any WASI or Emscripten ABI specific imports.
-		bool hasWASIImports = false;
-		bool hasEmscriptenImports = false;
-		for(const auto& import : irModule.functions.imports)
-		{
-			if(stringStartsWith(import.moduleName.c_str(), "wasi_")) { hasWASIImports = true; }
-			else if(import.moduleName == "env" || import.moduleName == "asm2wasm"
-					|| import.moduleName == "global")
-			{
-				hasEmscriptenImports = true;
-			}
-		}
-
-		if(hasEmscriptenImports)
-		{
-			Log::printf(Log::debug, "Module has emscripten imports: using emscripten ABI.\n");
-			abi = ABI::emscripten;
-			return true;
-		}
-		else if(hasWASIImports)
-		{
-			Log::printf(Log::debug,
-						"Module has WASI imports and no emscripten imports: using WASI ABI.\n");
-			abi = ABI::wasi;
-			return true;
-		}
-		else
-		{
-			Log::printf(Log::debug, "Module has no recognized imports: using bare ABI.\n");
-			abi = ABI::bare;
-			return true;
-		}
+		Log::printf(Log::debug, "Module has no recognized imports: using bare ABI.\n");
+		abi = ABI::bare;
+		return true;
 	}
 
 	bool initABIEnvironment(const IR::Module& irModule)
@@ -567,21 +494,7 @@ struct State
 			sandboxFS = VFS::makeSandboxFS(&Platform::getHostFS(), absoluteRootMountPath);
 		}
 
-		if(abi == ABI::emscripten)
-		{
-			std::vector<std::string> args = runArgs;
-			args.insert(args.begin(), getFilenameAndExtension(filename));
-
-			// Instantiate the Emscripten environment.
-			emscriptenProcess
-				= Emscripten::createProcess(compartment,
-											std::move(args),
-											{},
-											Platform::getStdFD(Platform::StdDevice::in),
-											Platform::getStdFD(Platform::StdDevice::out),
-											Platform::getStdFD(Platform::StdDevice::err));
-		}
-		else if(abi == ABI::wasi)
+		if(abi == ABI::wasi)
 		{
 			std::vector<std::string> args = runArgs;
 			args.insert(args.begin(), getFilenameAndExtension(filename));
@@ -630,15 +543,6 @@ struct State
 		// Call the module start function, if it has one.
 		Function* startFunction = getStartFunction(instance);
 		if(startFunction) { invokeFunction(context, startFunction); }
-
-		if(emscriptenProcess)
-		{
-			// Initialize the Emscripten instance.
-			if(!Emscripten::initializeProcess(*emscriptenProcess, context, irModule, instance))
-			{
-				return EXIT_FAILURE;
-			}
-		}
 
 		// Look up the function export to call, validate its type, and set up the invoke arguments.
 		Function* function = nullptr;
@@ -689,9 +593,9 @@ struct State
 				invokeArgs.push_back(value);
 			}
 		}
-		else if(abi == ABI::wasi || abi == ABI::emscripten)
+		else if(abi == ABI::wasi)
 		{
-			// WASI/Emscripten just calls a _start function with the signature ()->().
+			// WASI calls a _start function with the signature ()->().
 			function = getTypedInstanceExport(instance, "_start", FunctionType());
 			if(!function)
 			{
@@ -777,13 +681,7 @@ struct State
 
 		// Link the module with the intrinsic modules.
 		LinkResult linkResult;
-		if(abi == ABI::emscripten)
-		{
-			StubFallbackResolver stubFallbackResolver(
-				Emscripten::getInstanceResolver(*emscriptenProcess), compartment);
-			linkResult = linkModule(irModule, stubFallbackResolver);
-		}
-		else if(abi == ABI::wasi)
+		if(abi == ABI::wasi)
 		{
 			linkResult = linkModule(irModule, WASI::getProcessResolver(*wasiProcess));
 		}
@@ -824,8 +722,7 @@ struct State
 		Timing::Timer executionTimer;
 		auto executeThunk = [&] { return execute(irModule, instance); };
 		int result;
-		if(emscriptenProcess) { result = Emscripten::catchExit(std::move(executeThunk)); }
-		else if(wasiProcess) { result = WASI::catchExit(std::move(executeThunk)); }
+		if(wasiProcess) { result = WASI::catchExit(std::move(executeThunk)); }
 		else
 		{
 			result = executeThunk();

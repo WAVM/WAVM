@@ -1,5 +1,6 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include <initializer_list>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -9,12 +10,13 @@
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Validate.h"
+#include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
-#include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
 
 namespace WAVM { namespace Intrinsics {

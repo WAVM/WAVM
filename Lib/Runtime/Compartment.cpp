@@ -1,11 +1,14 @@
 #include <stddef.h>
-#include <atomic>
+#include <cstdint>
+#include <cstring>
 #include <memory>
-#include <vector>
+#include <string>
+#include <utility>
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"

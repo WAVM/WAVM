@@ -10,8 +10,6 @@
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Platform/File.h"
-#include "WAVM/VFS/VFS.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"
@@ -138,7 +136,6 @@ static void dumpCommandModules(const char* filename,
 	case Command::assert_return_func:
 	case Command::assert_trap:
 	case Command::assert_throws:
-	case Command::benchmark:
 	case Command::wait:
 	default: break;
 	};

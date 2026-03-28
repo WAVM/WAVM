@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -14,11 +13,8 @@
 #include "WAVM/IR/Validate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Timing.h"
-#include "WAVM/Logging/Logging.h"
 #include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
@@ -1320,30 +1316,6 @@ static void parseDeclaration(CursorState* cursor)
 			throw RecoverParseException();
 		};
 	});
-}
-
-template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char* description)
-{
-	if(map.size())
-	{
-		Uptr totalMemoryBytes = 0;
-		Uptr maxProbeCount = 0;
-		F32 occupancy = 0.0f;
-		F32 averageProbeCount = 0.0f;
-		map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
-		Log::printf(
-			Log::metrics,
-			"%s used %.1fKiB for %" WAVM_PRIuPTR
-			" elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%" WAVM_PRIuPTR
-			"\n",
-			description,
-			totalMemoryBytes / 1024.0,
-			map.size(),
-			F64(occupancy) * 100.0,
-			F64(totalMemoryBytes) / map.size(),
-			F64(averageProbeCount),
-			maxProbeCount);
-	}
 }
 
 void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)

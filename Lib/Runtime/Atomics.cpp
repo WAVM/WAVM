@@ -1,17 +1,15 @@
 #include <stdint.h>
 #include <algorithm>
 #include <atomic>
-#include <cmath>
-#include <memory>
-#include <utility>
-#include <vector>
 #include "RuntimePrivate.h"
+#include "WAVM/IR/IR.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
-#include "WAVM/Platform/Event.h"
+#include "WAVM/Platform/ConditionVariable.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -24,19 +22,17 @@ namespace WAVM { namespace Runtime {
 	WAVM_DEFINE_INTRINSIC_MODULE(wavmIntrinsicsAtomics)
 }}
 
-// Holds a list of threads (in the form of events that will wake them) that
-// are waiting on a specific address.
+// Holds a list of threads waiting on a specific address.
 struct WaitList
 {
 	Platform::Mutex mutex;
-	std::vector<Platform::Event*> wakeEvents;
+	Platform::ConditionVariable condVar;
+	U32 numWaiters{0};
+	U32 pendingWakes{0};
 	std::atomic<Uptr> numReferences;
 
 	WaitList() : numReferences(1) {}
 };
-
-// An event that is reused within a thread when it waits on a WaitList.
-thread_local std::unique_ptr<Platform::Event> threadWakeEvent = nullptr;
 
 // A map from address to a list of threads waiting on that address.
 static Platform::Mutex addressToWaitListMapMutex;
@@ -71,7 +67,7 @@ static void closeWaitList(Uptr address, WaitList* waitList)
 		Platform::Mutex::Lock mapLock(addressToWaitListMapMutex);
 		if(!waitList->numReferences)
 		{
-			WAVM_ASSERT(!waitList->wakeEvents.size());
+			WAVM_ASSERT(!waitList->numWaiters);
 			delete waitList;
 			addressToWaitListMap.remove(address);
 		}
@@ -87,15 +83,6 @@ template<typename Value> static Value atomicLoad(const Value* valuePointer)
 	return valuePointerAtomic->load();
 }
 
-// Stores a value to memory with seq_cst memory order.
-// The caller must ensure that the pointer is naturally aligned.
-template<typename Value> static void atomicStore(Value* valuePointer, Value newValue)
-{
-	static_assert(sizeof(std::atomic<Value>) == sizeof(Value), "relying on non-standard behavior");
-	std::atomic<Value>* valuePointerAtomic = (std::atomic<Value>*)valuePointer;
-	valuePointerAtomic->store(newValue);
-}
-
 template<typename Value>
 static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 {
@@ -103,7 +90,6 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 	const Uptr address = reinterpret_cast<Uptr>(valuePointer);
 	WaitList* waitList = openWaitList(address);
 
-	// Lock the wait list, and check that *valuePointer is still what the caller expected it to be.
 	{
 		Platform::Mutex::Lock waitListLock(waitList->mutex);
 
@@ -120,48 +106,38 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 			closeWaitList(address, waitList);
 			return 1;
 		}
-		else
+
+		++waitList->numWaiters;
+
+		if(timeout < 0)
 		{
-			// If the thread hasn't yet created a wake event, do so.
-			if(!threadWakeEvent)
+			// Infinite wait: loop until a wake is pending, handling spurious wakeups.
+			while(waitList->pendingWakes == 0)
 			{
-				threadWakeEvent = std::unique_ptr<Platform::Event>(new Platform::Event());
+				waitList->condVar.wait(waitList->mutex, Time::infinity());
 			}
-
-			// Add the wake event to the wait list, and unlock the wait list.
-			waitList->wakeEvents.push_back(threadWakeEvent.get());
-			waitListLock.unlock();
-		}
-	}
-
-	// Wait for the thread's wake event to be signaled.
-	bool timedOut = false;
-	if(!threadWakeEvent->wait(timeout < 0 ? Time::infinity() : Time{I128(timeout)}))
-	{
-		// If the wait timed out, lock the wait list and check if the thread's wake event is still
-		// in the wait list.
-		Platform::Mutex::Lock waitListLock(waitList->mutex);
-		auto wakeEventIt = std::find(
-			waitList->wakeEvents.begin(), waitList->wakeEvents.end(), threadWakeEvent.get());
-		if(wakeEventIt != waitList->wakeEvents.end())
-		{
-			// If the event was still on the wait list, remove it, and return the "timed out"
-			// result.
-			waitList->wakeEvents.erase(wakeEventIt);
-			timedOut = true;
 		}
 		else
 		{
-			// In between the wait timing out and locking the wait list, some other thread tried to
-			// wake this thread. The event will now be signaled, so use an immediately expiring wait
-			// on it to reset it.
-			WAVM_ERROR_UNLESS(
-				threadWakeEvent->wait(Platform::getClockTime(Platform::Clock::monotonic)));
+			// Timed wait: compute a deadline, then loop until a wake is pending or timed out.
+			const I128 deadlineNS
+				= Platform::getClockTime(Platform::Clock::monotonic).ns + I128(timeout);
+			I128 remainingNS = I128(timeout);
+			while(waitList->pendingWakes == 0 && remainingNS > 0
+				  && waitList->condVar.wait(waitList->mutex, Time{remainingNS}))
+			{
+				remainingNS = deadlineNS - Platform::getClockTime(Platform::Clock::monotonic).ns;
+			}
 		}
-	}
 
-	closeWaitList(address, waitList);
-	return timedOut ? 2 : 0;
+		const bool wasWoken = waitList->pendingWakes > 0;
+		if(wasWoken) { --waitList->pendingWakes; }
+		--waitList->numWaiters;
+		waitListLock.unlock();
+
+		closeWaitList(address, waitList);
+		return wasWoken ? 0 : 2;
+	}
 }
 
 static U32 wakeAddress(void* pointer, U32 numToWake)
@@ -171,32 +147,33 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 	// Open the wait list for this address.
 	const Uptr address = reinterpret_cast<Uptr>(pointer);
 	WaitList* waitList = openWaitList(address);
-	Uptr actualNumToWake = numToWake;
+	Uptr actualNumToWake;
 	{
 		Platform::Mutex::Lock waitListLock(waitList->mutex);
 
 		// Determine how many threads to wake.
-		// numToWake==UINT32_MAX means wake all waiting threads.
-		if(actualNumToWake == UINT32_MAX || actualNumToWake > waitList->wakeEvents.size())
-		{
-			actualNumToWake = waitList->wakeEvents.size();
-		}
+		// Can only wake threads that aren't already pending a wake.
+		const U32 wakeable = waitList->numWaiters > waitList->pendingWakes
+								 ? waitList->numWaiters - waitList->pendingWakes
+								 : 0;
+		actualNumToWake = (numToWake == UINT32_MAX) ? wakeable : std::min(U32(numToWake), wakeable);
 
-		// Signal the events corresponding to the oldest waiting threads.
-		for(Uptr wakeIndex = 0; wakeIndex < actualNumToWake; ++wakeIndex)
-		{
-			waitList->wakeEvents[wakeIndex]->signal();
-		}
+		waitList->pendingWakes += U32(actualNumToWake);
 
-		// Remove the events from the wait list.
-		waitList->wakeEvents.erase(waitList->wakeEvents.begin(),
-								   waitList->wakeEvents.begin() + actualNumToWake);
+		if(actualNumToWake > 0)
+		{
+			if(actualNumToWake == waitList->numWaiters) { waitList->condVar.broadcast(); }
+			else
+			{
+				for(Uptr i = 0; i < actualNumToWake; ++i) { waitList->condVar.signal(); }
+			}
+		}
 	}
 	closeWaitList(address, waitList);
 
 	if(actualNumToWake > UINT32_MAX)
 	{
-		throwException(ExceptionTypes::integerDivideByZeroOrOverflow);
+		throwException(ExceptionTypes::integerDivideByZeroOrOverflow, {}, 2);
 	}
 	return U32(actualNumToWake);
 }
@@ -207,7 +184,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 							   misalignedAtomicTrap,
 							   U64 address)
 {
-	throwException(ExceptionTypes::misalignedAtomicMemoryAccess, {address});
+	throwException(ExceptionTypes::misalignedAtomicMemoryAccess, {address}, 1);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
@@ -224,7 +201,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	const U64 memoryNumBytes = U64(memory->numPages) * IR::numBytesPerPage;
 	if(U64(address) + 4 > memoryNumBytes)
 	{
-		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes});
+		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes}, 1);
 	}
 
 	// The alignment check is done by the caller.
@@ -245,7 +222,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
-	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
+	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}, 1); }
 
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 3));
@@ -267,7 +244,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Throw a waitOnUnsharedMemory exception if the memory is not shared.
-	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}); }
+	if(!memory->isShared) { throwException(ExceptionTypes::waitOnUnsharedMemory, {memory}, 1); }
 
 	// Assume that the caller has validated the alignment.
 	WAVM_ASSERT(!(address & 7));

@@ -1,4 +1,3 @@
-#include <inttypes.h>
 #include <stdint.h>
 #include <memory>
 #include <string>
@@ -12,9 +11,9 @@
 #include "WAVM/IR/Validate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Serialization.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Intrinsic.h"
 
 using namespace WAVM;

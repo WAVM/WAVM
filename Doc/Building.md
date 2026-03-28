@@ -1,60 +1,103 @@
 # Building WAVM from source
 
-To build WAVM, you'll need CMake and [LLVM 9.0+](https://github.com/WAVM/WAVM-LLVM/releases/tag/9.x).
-If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake
-configuration variable. Note that on Windows, you must compile LLVM from source, and manually point
-the LLVM_DIR configuration variable at `<LLVM build directory>\lib\cmake\llvm`.
+## Quick Start (Recommended)
+
+The easiest way to build and test WAVM is using the `dev.py` script, which automatically downloads a compatible LLVM toolchain and builds WAVM:
+
+```bash
+# List available configurations for your platform
+python3 Build/dev.py list-configs
+
+# Build and test a specific configuration
+python3 Build/dev.py test --config RelWithDebInfo-clang
+
+# Build and test all configurations (takes a long time)
+python3 Build/dev.py test
+
+# Build and create packages (.tar.gz, .deb, .rpm on Linux)
+python3 Build/dev.py package --config LTO-clang /path/to/output
+```
+
+The script stores downloaded LLVM toolchains and build artifacts in `.working/` by default. You can override this with `--work-dir` or the `WAVM_BUILD_TOOL_WORK_DIR` environment variable.
+
+### Other commands
+
+```bash
+# Check C/C++ source formatting (clang-format)
+python3 Build/dev.py format
+
+# Auto-fix C/C++ formatting
+python3 Build/dev.py format --fix
+
+# Run Python linters (ruff + ty)
+python3 Build/dev.py lint
+
+# Run clang-tidy
+python3 Build/dev.py tidy
+
+# Auto-fix clang-tidy issues
+python3 Build/dev.py tidy --fix
+```
+
+## Manual Build
+
+If you prefer to configure the build manually, you'll need CMake and LLVM.
 
 ### Prerequisites
 
-* **CMake 3.8 or higher** - On Linux, it is probably available via your
+* **CMake 3.16 or higher** - On Linux, it is probably available via your
 package manager. For example, you can install it on Ubuntu with `sudo apt install cmake`.
 Otherwise, you can download it from the [CMake website](https://cmake.org/download/).
 
-* **LLVM 6.0**
-  * On Ubuntu/Debian, builds are available from the LLVM [apt repo](https://apt.llvm.org/).
-  * On most other OSes, you can download an installer from the LLVM project
-    [download page](http://llvm.org/releases/download.html#6.0.0).
-  * If you want debug symbols, or a build is not available for your system, you may build LLVM from
-    source. Read [Getting Started with the LLVM System](http://llvm.org/docs/GettingStarted.html)
+* **Ninja** (recommended) - Available via package managers or from the [Ninja website](https://ninja-build.org/).
+
+* **LLVM 20.0+** - LLVM 20 is the minimum supported version, but we recommend using [WAVM-LLVM](https://github.com/WAVM/WAVM-LLVM) (LLVM 21.x with WAVM-specific patches). This is especially important on macOS, where upstream LLVM builds may have compatibility issues.
+  * **Recommended**: Download pre-built WAVM-LLVM from the [WAVM-LLVM releases](https://github.com/WAVM/WAVM-LLVM/releases).
+  * On Ubuntu/Debian, upstream LLVM builds are available from the LLVM [apt repo](https://apt.llvm.org/).
+  * On other systems, you can download upstream LLVM from the [LLVM download page](https://llvm.org/releases/download.html).
+  * To build LLVM from source, see [Getting Started with the LLVM System](http://llvm.org/docs/GettingStarted.html)
     and [Building LLVM with CMake](http://llvm.org/docs/CMake.html).
 
 #### Windows
 
-You can use Visual Studio 2019+ to compile WAVM. If you don't have Visual Studio, you can use the
-freely available Visual Studio C++ Build Tools for Visual Studio or Visual Studio Community, both
+You can use Visual Studio 2022+ to compile WAVM. If you don't have Visual Studio, you can use the
+freely available Visual Studio C++ Build Tools or Visual Studio Community, both
 available from the Visual Studio [download page](https://visualstudio.microsoft.com/downloads/).
+Visual Studio 2019 may also work, but has not been recently tested.
 
 #### Linux
 
 You'll need a C/C++ compiler. `gcc` and `clang` are known to compile WAVM correctly.
 
-#### MacOS
+#### macOS
 
 You'll need to install Xcode from the App Store.
 
-### Configure a WAVM build
+### Configure and build
 
-1) Create a new directory: `<build_dir>`
+```bash
+# Create a build directory
+mkdir build && cd build
 
-2) In a shell, navigate to that directory, and run:
-    ```
-    cmake <path to WAVM source> -G <generator> -DLLVM_DIR=<path to LLVM build>/lib/cmake/llvm
-    ```
-   What you pass as `<generator>` depends on your platform:
-   * For Windows, you'll use either `"Visual Studio 16 2019"` (aka Visual Studio 2019).
-   * For Linux and MacOS, you'll use `"Unix Makefiles"`.
-   
-   If `cmake` executes successfully, it will create either a Visual Studio solution file or
-   makefiles in `<build_dir>`, depending on the generator used.
+# Configure with CMake (using Ninja)
+cmake <path to WAVM source> -G Ninja -DLLVM_DIR=<path to LLVM>/lib/cmake/llvm
 
-### Building WAVM
+# Build
+ninja
 
-3) On MacOS and Linux, in the `<build_dir>` that you configured in the previous step, simply run
-   the `make` command.
+# Run tests
+./bin/wavm test script ../Test/wavm/simd.wast
+```
 
-   On Windows, open `<build_dir>/WAVM.sln` in Visual Studio and build the solution.
+If CMake can't find your LLVM directory, set the `LLVM_DIR` CMake variable to point to your LLVM installation's `lib/cmake/llvm` directory.
 
-4) If the build completed successfully, the WAVM executable will now be in `<build_dir>/bin`.
+### CMake options
+
+| Option | Description |
+|--------|-------------|
+| `-DWAVM_ENABLE_STATIC_LINKING=ON` | Static linking |
+| `-DWAVM_ENABLE_LTO=ON` or `THIN` | Link-time optimization |
+| `-DWAVM_ENABLE_RELEASE_ASSERTS=ON` | Assertions in release builds |
+| `-DWAVM_ENABLE_RUNTIME=OFF` | Disable runtime (parse/validate only) |
 
 ## Continue to: [Exploring the WAVM source](CodeOrganization.md)

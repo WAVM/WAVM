@@ -1,10 +1,7 @@
-#include <inttypes.h>
-#include <memory>
 #include <new>
 #include <string>
 #include <utility>
 #include <vector>
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"

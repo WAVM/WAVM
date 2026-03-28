@@ -1,8 +1,8 @@
 #pragma once
 
-#include <new>
+#include <new> // IWYU pragma: keep
 #include <type_traits>
-#include "WAVM/Inline/BasicTypes.h"
+#include <utility> // IWYU pragma: keep
 
 namespace WAVM {
 	// A type that holds an optional instance of another type. The lifetime of the contained

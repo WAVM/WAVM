@@ -1,8 +1,9 @@
 #include <stdint.h>
+#include <memory>
+#include <new>
 #include <string>
 #include <utility>
 #include <vector>
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
@@ -14,7 +15,7 @@
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Inline/Unicode.h"
-#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Alloca.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/WASM/WASM.h"
 

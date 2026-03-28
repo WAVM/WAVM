@@ -1,11 +1,16 @@
+#if WAVM_PLATFORM_WINDOWS
+
+#include <cstddef>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
+#include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#include <libloaderapi.h>
+#include <memoryapi.h>
+#include <sysinfoapi.h>
 
 #include <Psapi.h>
 
@@ -53,7 +58,11 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 	return (U8*)VirtualAlloc(nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS);
 }
 
-#define ENABLE_VIRTUALALLOC2 defined(MEM_EXTENDED_PARAMETER_TYPE_BITS)
+#ifdef MEM_EXTENDED_PARAMETER_TYPE_BITS
+#define ENABLE_VIRTUALALLOC2 1
+#else
+#define ENABLE_VIRTUALALLOC2 0
+#endif
 
 #if ENABLE_VIRTUALALLOC2
 typedef void*(
@@ -87,9 +96,9 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 	// If VirtualAlloc2 is available on the host Windows version, use it to allocate aligned memory.
 	if(const VirtualAlloc2PointerType virtualAlloc2 = getVirtualAlloc2())
 	{
-		MEM_ADDRESS_REQUIREMENTS addressRequirements = {0};
+		MEM_ADDRESS_REQUIREMENTS addressRequirements{};
 		addressRequirements.Alignment = Uptr(1) << alignmentLog2;
-		MEM_EXTENDED_PARAMETER alignmentParam = {0};
+		MEM_EXTENDED_PARAMETER alignmentParam{};
 		alignmentParam.Type = MemExtendedParameterAddressRequirements;
 		alignmentParam.Pointer = &addressRequirements;
 		outUnalignedBaseAddress = (U8*)(*virtualAlloc2)(
@@ -189,6 +198,11 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 	if(unalignedBaseAddress && !result) { Errors::fatal("VirtualFree(MEM_RELEASE) failed"); }
 }
 
+void Platform::flushInstructionCache(U8* baseAddress, Uptr numBytes)
+{
+	FlushInstructionCache(GetCurrentProcess(), baseAddress, numBytes);
+}
+
 Uptr Platform::getPeakMemoryUsageBytes()
 {
 	PROCESS_MEMORY_COUNTERS processMemoryCounters;
@@ -196,3 +210,5 @@ Uptr Platform::getPeakMemoryUsageBytes()
 		GetCurrentProcess(), &processMemoryCounters, sizeof(processMemoryCounters)));
 	return processMemoryCounters.PeakWorkingSetSize;
 }
+
+#endif // WAVM_PLATFORM_WINDOWS

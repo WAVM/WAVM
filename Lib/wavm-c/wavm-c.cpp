@@ -1,11 +1,21 @@
 #include <string.h>
+#include <cstdint>
+#include <cstdlib>
 #include <string>
+#include <utility>
+#include <vector>
+#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Alloca.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Unwind.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
@@ -289,7 +299,9 @@ wasm_compartment_t* wasm_compartment_new(wasm_engine_t*, const char* debug_name)
 }
 wasm_compartment_t* wasm_compartment_clone(const wasm_compartment_t* compartment)
 {
-	return cloneCompartment(compartment);
+	Compartment* clone = cloneCompartment(compartment);
+	if(clone) { addGCRoot(clone); }
+	return clone;
 }
 bool wasm_compartment_contains(const wasm_compartment_t* compartment, const wasm_ref_t* ref)
 {
@@ -668,11 +680,14 @@ const wasm_trap_t* wasm_ref_as_trap_const(const wasm_ref_t*)
 	Errors::unimplemented("wasm_ref_as_trap_const");
 }
 
-wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,
-						   const char* message,
-						   size_t num_message_bytes)
+WAVM_FORCENOINLINE wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,
+											  const char* message,
+											  size_t num_message_bytes)
 {
-	return createException(ExceptionTypes::calledAbort, nullptr, 0, Platform::captureCallStack(1));
+	// Skip wasm_trap_new.
+	Platform::UnwindState state = Platform::UnwindState::capture(1);
+	return createException(
+		ExceptionTypes::calledAbort, nullptr, 0, Runtime::unwindCallStack(state));
 }
 bool wasm_trap_message(const wasm_trap_t* trap, char* out_message, size_t* inout_num_message_bytes)
 {
@@ -690,21 +705,18 @@ bool wasm_trap_message(const wasm_trap_t* trap, char* out_message, size_t* inout
 		return true;
 	}
 }
+// TODO: these re-resolve the entire call stack on every call; consider caching the result.
 size_t wasm_trap_stack_num_frames(const wasm_trap_t* trap)
 {
-	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	return callStack.frames.size();
+	return resolveCallStackFrames(getExceptionCallStack(trap)).size();
 }
 void wasm_trap_stack_frame(const wasm_trap_t* trap, size_t index, wasm_frame_t* out_frame)
 {
-	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	const Platform::CallStack::Frame& frame = callStack.frames[index];
-	InstructionSource source;
-	if(getInstructionSourceByAddress(frame.ip, source)
-	   && source.type == InstructionSource::Type::wasm)
+	std::vector<InstructionSource> frames = resolveCallStackFrames(getExceptionCallStack(trap));
+	if(index < frames.size() && frames[index].type == InstructionSource::Type::wasm)
 	{
-		out_frame->function = source.wasm.function;
-		out_frame->instr_index = source.wasm.instructionIndex;
+		out_frame->function = frames[index].wasm.function;
+		out_frame->instr_index = frames[index].wasm.instructionIndex;
 	}
 	else
 	{
@@ -979,7 +991,10 @@ void wasm_global_get(wasm_store_t* store, const wasm_global_t* global, wasm_val_
 	*out = as_val(getGlobalValue(store, global));
 }
 
-void wasm_global_set(wasm_global_t*, const wasm_val_t*);
+void wasm_global_set(wasm_store_t* store, wasm_global_t* global, const wasm_val_t* val)
+{
+	setGlobalValue(store, global, asValue(getGlobalType(global).valueType, val));
+}
 
 // wasm_table_t
 IMPLEMENT_SHAREABLE_REF(table, Table)

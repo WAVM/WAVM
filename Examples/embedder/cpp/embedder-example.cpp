@@ -4,6 +4,7 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Errors.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/WASTParse/WASTParse.h"

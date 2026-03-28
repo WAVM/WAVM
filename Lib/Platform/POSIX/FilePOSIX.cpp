@@ -1,3 +1,5 @@
+#if WAVM_PLATFORM_POSIX
+
 #ifdef _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
 #endif
@@ -7,19 +9,35 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <string.h>
+#include <sys/errno.h>
+#include <sys/fcntl.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/unistd.h>
 #include <unistd.h>
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
+#include "WAVM/Platform/Alloca.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/VFS/VFS.h"
+
+#ifdef __APPLE__
+#include <sys/dirent.h>
+#endif
+
+#ifdef __linux__
+#include <sys/types.h>
+#endif
 
 #define FILE_OFFSET_IS_64BIT (sizeof(off_t) == 8)
 
@@ -591,16 +609,18 @@ struct POSIXStdFD : POSIXFD
 	}
 };
 
+// Initialized during dynamic init (before main), so signal-safe to access later.
+static POSIXStdFD stdinVFD(0);
+static POSIXStdFD stdoutVFD(1);
+static POSIXStdFD stderrVFD(2);
+
 VFD* Platform::getStdFD(StdDevice device)
 {
-	static POSIXStdFD* stdinVFD = new POSIXStdFD(0);
-	static POSIXStdFD* stdoutVFD = new POSIXStdFD(1);
-	static POSIXStdFD* stderrVFD = new POSIXStdFD(2);
 	switch(device)
 	{
-	case StdDevice::in: return stdinVFD; break;
-	case StdDevice::out: return stdoutVFD; break;
-	case StdDevice::err: return stderrVFD; break;
+	case StdDevice::in: return &stdinVFD;
+	case StdDevice::out: return &stdoutVFD;
+	case StdDevice::err: return &stderrVFD;
 	default: WAVM_UNREACHABLE();
 	};
 }
@@ -771,3 +791,5 @@ std::string Platform::getCurrentWorkingDirectory()
 	WAVM_ERROR_UNLESS(getcwd(buffer, maxPathBytes) == buffer);
 	return std::string(buffer);
 }
+
+#endif // WAVM_PLATFORM_POSIX

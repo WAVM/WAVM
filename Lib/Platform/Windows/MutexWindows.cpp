@@ -1,10 +1,10 @@
-#include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
-#include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Mutex.h"
+#if WAVM_PLATFORM_WINDOWS
 
-#define NOMINMAX
-#include <Windows.h>
+#include <atomic>
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WindowsPrivate.h"
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -46,3 +46,5 @@ bool Platform::Mutex::isLockedByCurrentThread()
 	return lockingThreadId.load(std::memory_order_relaxed) == GetCurrentThreadId();
 }
 #endif
+
+#endif // WAVM_PLATFORM_WINDOWS

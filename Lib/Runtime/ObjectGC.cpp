@@ -1,16 +1,16 @@
-#include <inttypes.h>
-#include <atomic>
-#include <utility>
+#include <cstdint>
+#include <string>
 #include <vector>
 #include "RuntimePrivate.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
@@ -169,10 +169,10 @@ struct GCState
 
 		case ObjectKind::memory:
 		case ObjectKind::exceptionType:
+		case ObjectKind::foreign:
 		case ObjectKind::context: break;
 
 		case ObjectKind::function:
-		case ObjectKind::foreign:
 		case ObjectKind::invalid:
 		default: WAVM_UNREACHABLE();
 		};
@@ -214,6 +214,7 @@ static bool collectGarbageImpl(Compartment* compartment)
 		state.initGCObject(exceptionType);
 	}
 	for(Global* global : compartment->globals) { state.initGCObject(global); }
+	for(Foreign* foreign : compartment->foreigns) { state.initGCObject(foreign); }
 	for(Context* context : compartment->contexts) { state.initGCObject(context); }
 
 	// Scan the objects added to the referenced set so far: gather their child references and
