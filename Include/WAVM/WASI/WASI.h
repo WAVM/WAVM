@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <memory>
+#include <string>
+#include <vector>
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Runtime.h"
 

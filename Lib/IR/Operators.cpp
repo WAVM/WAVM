@@ -1,5 +1,4 @@
 #include "WAVM/IR/Operators.h"
-#include "WAVM/IR/Types.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

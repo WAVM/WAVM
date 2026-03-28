@@ -1,14 +1,26 @@
 #pragma once
 
+#include <algorithm>
+#include <initializer_list>
+#include <string>
+#include <vector>
 #include "EmitContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
+#include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
-#include "WAVM/Logging/Logging.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/DebugInfoMetadata.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {
@@ -22,7 +34,12 @@ namespace WAVM { namespace LLVMJIT {
 		IR::FunctionType functionType;
 		llvm::Function* function;
 
-		std::vector<llvm::Value*> localPointers;
+		struct Local
+		{
+			llvm::Type* type;
+			llvm::Value* pointer;
+		};
+		std::vector<Local> locals;
 
 		llvm::DISubprogram* diFunction;
 
@@ -136,9 +153,7 @@ namespace WAVM { namespace LLVMJIT {
 		}
 
 		// Converts a bounded memory address to a LLVM pointer.
-		llvm::Value* coerceAddressToPointer(llvm::Value* boundedAddress,
-											llvm::Type* memoryType,
-											Uptr memoryIndex);
+		llvm::Value* coerceAddressToPointer(llvm::Value* boundedAddress, Uptr memoryIndex);
 
 		// Traps a divide-by-zero
 		void trapDivideByZero(llvm::Value* divisor);

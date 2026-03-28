@@ -1,12 +1,21 @@
 #include "wavm.h"
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
+#include "WAVM/Inline/StringBuilder.h"
 #include "WAVM/Inline/Version.h"
 #include "WAVM/Logging/Logging.h"
+
+#if WAVM_ENABLE_RUNTIME
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Error.h"
+#include "WAVM/Runtime/Runtime.h"
+#endif
 
 using namespace WAVM;
 
@@ -61,21 +70,11 @@ static const char* getCommandListHelpText()
 
 std::string getFeatureListHelpText()
 {
-	char buffer[2048];
-	char* bufferNext = buffer;
+	StringBuilder sb;
 
-	auto formatFeature
-		= [&buffer, &bufferNext](const char* name, const char* desc, bool isNonStandard) {
-			  const int result = snprintf(bufferNext,
-										  buffer + sizeof(buffer) - bufferNext,
-										  "  %-23s %s %s\n",
-										  name,
-										  isNonStandard ? "*" : " ",
-										  desc);
-			  WAVM_ERROR_UNLESS(result >= 0);
-			  bufferNext += result;
-			  WAVM_ERROR_UNLESS(bufferNext < buffer + sizeof(buffer));
-		  };
+	auto formatFeature = [&sb](const char* name, const char* desc, bool isNonStandard) {
+		sb.appendf("  %-23s %s %s\n", name, isNonStandard ? "*" : " ", desc);
+	};
 
 #define VISIT_STANDARD_FEATURE(_, name, desc) formatFeature(name, desc, false);
 #define VISIT_NONSTANDARD_FEATURE(_, name, desc) formatFeature(name, desc, true);
@@ -93,7 +92,7 @@ std::string getFeatureListHelpText()
 	formatFeature("", "", false);
 	formatFeature("", "Indicates a non-standard feature", true);
 
-	return std::string(buffer);
+	return sb.moveToString();
 }
 
 bool parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpec, bool enable)
@@ -213,13 +212,31 @@ int execVersionCommand(int argc, char** argv)
 	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_TSAN);
 	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_LIBFUZZER);
 	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_RELEASE_ASSERTS);
-	LOG_BUILD_CONFIG_BOOL(WAVM_ENABLE_UNWIND);
+
+#if WAVM_ENABLE_RUNTIME
+	LLVMJIT::Version llvmVersion = LLVMJIT::getVersion();
+	Log::printf(Log::output,
+				"LLVM version:                  %" WAVM_PRIuPTR ".%" WAVM_PRIuPTR ".%" WAVM_PRIuPTR
+				"\n",
+				llvmVersion.llvmMajor,
+				llvmVersion.llvmMinor,
+				llvmVersion.llvmPatch);
+
+	LLVMJIT::TargetSpec hostTargetSpec = LLVMJIT::getHostTargetSpec();
+	Log::printf(
+		Log::output, "Host target:                   %s\n", asString(hostTargetSpec).c_str());
+#endif
+
 	return false;
 }
 
 int main(int argc, char** argv)
 {
 	if(!initLogFromEnvironment()) { return EXIT_FAILURE; }
+
+#if WAVM_ENABLE_RUNTIME
+	Platform::setErrorHandler(Runtime::handleError);
+#endif
 
 	if(argc < 2)
 	{

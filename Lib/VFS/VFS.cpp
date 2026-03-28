@@ -1,5 +1,5 @@
 #include "WAVM/VFS/VFS.h"
-#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Assert.h"
 
 using namespace WAVM;
 using namespace WAVM::VFS;

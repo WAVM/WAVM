@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM { namespace IR {
 	struct Module;

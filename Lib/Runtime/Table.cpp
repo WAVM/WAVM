@@ -1,16 +1,21 @@
 #include <stdint.h>
-#include <string.h>
 #include <algorithm>
+#include <atomic>
+#include <memory>
+#include <utility>
 #include <vector>
 #include "RuntimePrivate.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
-#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/RWMutex.h"
+#include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -605,7 +610,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 		if(sourceIndex != 0 || numElems != 0)
 		{
 			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-						   {instance, elemSegmentIndex, sourceIndex});
+						   {instance, elemSegmentIndex, sourceIndex},
+						   1);
 		}
 	}
 	else
@@ -661,8 +667,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 			const Uptr outOfBoundsSourceOffset = sourceOffsetUptr > sourceTableNumElements
 													 ? sourceOffsetUptr
 													 : sourceTableNumElements;
-			throwException(ExceptionTypes::outOfBoundsTableAccess,
-						   {sourceTable, outOfBoundsSourceOffset});
+			throwException(
+				ExceptionTypes::outOfBoundsTableAccess, {sourceTable, outOfBoundsSourceOffset}, 1);
 		}
 
 		const Uptr destTableNumElements = getTableNumElements(destTable);
@@ -671,8 +677,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 		{
 			const Uptr outOfBoundsDestOffset
 				= destOffsetUptr > destTableNumElements ? destOffsetUptr : destTableNumElements;
-			throwException(ExceptionTypes::outOfBoundsTableAccess,
-						   {destTable, outOfBoundsDestOffset});
+			throwException(
+				ExceptionTypes::outOfBoundsTableAccess, {destTable, outOfBoundsDestOffset}, 1);
 		}
 
 		if(sourceOffset < destOffset)
@@ -725,8 +731,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 		{
 			const Uptr outOfBoundsDestOffset
 				= destOffsetUptr > destTableNumElements ? destOffsetUptr : destTableNumElements;
-			throwException(ExceptionTypes::outOfBoundsTableAccess,
-						   {destTable, outOfBoundsDestOffset});
+			throwException(
+				ExceptionTypes::outOfBoundsTableAccess, {destTable, outOfBoundsDestOffset}, 1);
 		}
 
 		for(Uptr index = 0; index < numElements; ++index)
@@ -748,15 +754,16 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	if(asObject(function) == getOutOfBoundsElement())
 	{
-		throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)});
+		throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}, 1);
 	}
 	else if(asObject(function) == getUninitializedElement())
 	{
-		throwException(ExceptionTypes::uninitializedTableElement, {table, U64(index)});
+		throwException(ExceptionTypes::uninitializedTableElement, {table, U64(index)}, 1);
 	}
 	else
 	{
 		throwException(ExceptionTypes::indirectCallSignatureMismatch,
-					   {function, U64(expectedTypeEncoding)});
+					   {function, U64(expectedTypeEncoding)},
+					   1);
 	}
 }

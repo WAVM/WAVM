@@ -1,16 +1,18 @@
+#if WAVM_PLATFORM_POSIX
+
 #include <limits.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
 #include <sys/mman.h>
-#include <sys/resource.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <algorithm>
+#include <sys/signal.h>
+#include <cerrno>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <thread>
+#include "WAVM/Platform/Alloca.h"
+#include "WAVM/Platform/Defines.h"
 
 #if WAVM_ENABLE_ASAN
 #include <sanitizer/asan_interface.h>
@@ -25,10 +27,8 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
-#include "WAVM/Platform/Signal.h"
 #include "WAVM/Platform/Thread.h"
 
 #ifdef __APPLE__
@@ -170,14 +170,12 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 
 WAVM_NO_ASAN static void touchStackPages(U8* minAddr, Uptr numBytesPerPage)
 {
-	U8 sum = 0;
 	while(true)
 	{
 		volatile U8* touchAddr = (volatile U8*)alloca(numBytesPerPage / 2);
-		sum += *touchAddr;
+		*touchAddr = 0;
 		if(touchAddr < minAddr + numBytesPerPage) { break; }
 	}
-	WAVM_SUPPRESS_UNUSED(sum);
 }
 
 bool Platform::initThreadAndGlobalSignalsOnce()
@@ -313,3 +311,5 @@ I64 Platform::joinThread(Thread* thread)
 Uptr Platform::getNumberOfHardwareThreads() { return std::thread::hardware_concurrency(); }
 
 void Platform::yieldToAnotherThread() { WAVM_ERROR_UNLESS(sched_yield() == 0); }
+
+#endif // WAVM_PLATFORM_POSIX

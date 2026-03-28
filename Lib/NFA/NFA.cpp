@@ -1,18 +1,18 @@
 #include "WAVM/NFA/NFA.h"
-#include <inttypes.h>
 #include <string.h>
 #include <algorithm>
-#include <memory>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/DenseStaticIntSet.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Alloca.h"
 
 using namespace WAVM;
 using namespace WAVM::NFA;

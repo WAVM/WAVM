@@ -1,19 +1,28 @@
+#if WAVM_PLATFORM_WINDOWS
+
 #include <algorithm>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <utility>
+#include <vector>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Inline/Unicode.h"
-#include "WAVM/Platform/Clock.h"
-#include "WAVM/Platform/Event.h"
+#include "WAVM/Platform/Alloca.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/VFS/VFS.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#include <fileapi.h>
+#include <processenv.h>
+#include <winbase.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -43,7 +52,8 @@ static Result asVFSResult(DWORD windowsError)
 	case ERROR_HANDLE_DISK_FULL: return Result::outOfFreeSpace;
 	case ERROR_INVALID_USER_BUFFER: return Result::inaccessibleBuffer;
 	case ERROR_INSUFFICIENT_BUFFER: return Result::notEnoughBufferBytes;
-	case ERROR_BROKEN_PIPE: return Result::brokenPipe;
+	case ERROR_BROKEN_PIPE:
+	case ERROR_NO_DATA: return Result::brokenPipe;
 	case ERROR_ALREADY_EXISTS: return Result::alreadyExists;
 	case ERROR_DIR_NOT_EMPTY: return Result::isNotEmpty;
 	case ERROR_INVALID_ADDRESS: return Result::inaccessibleBuffer;
@@ -953,3 +963,5 @@ std::string Platform::getCurrentWorkingDirectory()
 
 	return result;
 }
+
+#endif // WAVM_PLATFORM_WINDOWS

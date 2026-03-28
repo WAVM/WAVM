@@ -472,4 +472,41 @@
   (func (export "memory.atomic.wait32") (param $addr i32) (param $expected i32) (param $timeout i64) (result i32) (memory.atomic.wait32 (local.get $addr) (local.get $expected) (local.get $timeout)))
   (func (export "memory.atomic.wait64") (param $addr i32) (param $expected i64) (param $timeout i64) (result i32) (memory.atomic.wait64 (local.get $addr) (local.get $expected) (local.get $timeout)))
   (func (export "memory.atomic.notify") (param $addr i32) (param $numWaiters i32) (result i32) (memory.atomic.notify (local.get $addr) (local.get $numWaiters)))
+  (func (export "i32.atomic.store") (param $addr i32) (param $value i32) (i32.atomic.store (local.get $addr) (local.get $value)))
+  (func (export "i64.atomic.store") (param $addr i32) (param $value i64) (i64.atomic.store (local.get $addr) (local.get $value)))
 )
+
+;; wait32 value mismatch returns 1
+(assert_return (invoke "i32.atomic.store" (i32.const 0) (i32.const 0)))
+(assert_return (invoke "memory.atomic.wait32" (i32.const 0) (i32.const 99) (i64.const -1)) (i32.const 1))
+
+;; wait64 value mismatch returns 1
+(assert_return (invoke "i64.atomic.store" (i32.const 0) (i64.const 0)))
+(assert_return (invoke "memory.atomic.wait64" (i32.const 0) (i64.const 99) (i64.const -1)) (i32.const 1))
+
+;; wait32 value match with timeout=0 returns 2 (timed out)
+(assert_return (invoke "i32.atomic.store" (i32.const 0) (i32.const 0)))
+(assert_return (invoke "memory.atomic.wait32" (i32.const 0) (i32.const 0) (i64.const 0)) (i32.const 2))
+
+;; wait64 value match with timeout=0 returns 2 (timed out)
+(assert_return (invoke "i64.atomic.store" (i32.const 0) (i64.const 0)))
+(assert_return (invoke "memory.atomic.wait64" (i32.const 0) (i64.const 0) (i64.const 0)) (i32.const 2))
+
+;; notify with count=0 returns 0
+(assert_return (invoke "memory.atomic.notify" (i32.const 0) (i32.const 0)) (i32.const 0))
+
+;; notify with count=1 and no waiters returns 0
+(assert_return (invoke "memory.atomic.notify" (i32.const 0) (i32.const 1)) (i32.const 0))
+
+;; notify with out-of-bounds address traps
+(assert_trap (invoke "memory.atomic.notify" (i32.const 65536) (i32.const 1)) "out of bounds")
+
+;; wait on unshared memory traps
+(module
+  (memory 1 1)
+  (func (export "memory.atomic.wait32") (param $addr i32) (param $expected i32) (param $timeout i64) (result i32) (memory.atomic.wait32 (local.get $addr) (local.get $expected) (local.get $timeout)))
+  (func (export "memory.atomic.wait64") (param $addr i32) (param $expected i64) (param $timeout i64) (result i32) (memory.atomic.wait64 (local.get $addr) (local.get $expected) (local.get $timeout)))
+)
+
+(assert_trap (invoke "memory.atomic.wait32" (i32.const 0) (i32.const 0) (i64.const 0)) "atomic wait on unshared memory")
+(assert_trap (invoke "memory.atomic.wait64" (i32.const 0) (i64.const 0) (i64.const 0)) "atomic wait on unshared memory")

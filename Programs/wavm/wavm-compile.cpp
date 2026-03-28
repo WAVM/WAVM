@@ -1,14 +1,18 @@
+#include <cstdlib>
+#include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/CPU.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
 #include "wavm.h"
@@ -67,14 +71,45 @@ static const char* getOutputFormatHelpText()
 		   "                              embedded in the wavm.precompiled_object section.\n";
 }
 
+static std::string getCPUFeatureHelpText()
+{
+	std::string result;
+	const char* separator;
+
+	result += "  x86: ";
+	separator = "";
+#define VISIT_FEATURE(fieldName, cliName)                                                          \
+	result += separator;                                                                           \
+	result += cliName;                                                                             \
+	separator = ", ";
+	WAVM_ENUM_X86_CPU_FEATURES(VISIT_FEATURE)
+#undef VISIT_FEATURE
+	result += "\n";
+
+	result += "  aarch64: ";
+	separator = "";
+#define VISIT_FEATURE(fieldName, cliName)                                                          \
+	result += separator;                                                                           \
+	result += cliName;                                                                             \
+	separator = ", ";
+	WAVM_ENUM_AARCH64_CPU_FEATURES(VISIT_FEATURE)
+#undef VISIT_FEATURE
+	result += "\n";
+
+	return result;
+}
+
 void showCompileHelp(Log::Category outputCategory)
 {
 	LLVMJIT::TargetSpec hostTargetSpec = LLVMJIT::getHostTargetSpec();
 
 	Log::printf(outputCategory,
 				"Usage: wavm compile [options] <in.wast|wasm> <output file>\n"
-				"  --target-triple <triple>  Set the target triple (default: %s)\n"
+				"  --target-arch <arch>      Set the target architecture (x86_64, aarch64)\n"
+				"  --target-os <os>          Set the target OS (linux, macos, windows)\n"
 				"  --target-cpu <cpu>        Set the target CPU (default: %s)\n"
+				"  --target-cpu-feature <f>  Comma-separated CPU features with +/- prefix.\n"
+				"                            e.g. --target-cpu-feature +sse4.1,+avx,-avx512f\n"
 				"  --enable <feature>        Enable the specified feature. See the list of\n"
 				"                            supported features below.\n"
 				"  --format=<format>         Specifies the format of the output file. See the\n"
@@ -83,19 +118,16 @@ void showCompileHelp(Log::Category outputCategory)
 				"Output formats:\n"
 				"%s"
 				"\n"
-				"Features:\n"
+				"CPU features:\n"
+				"%s"
+				"\n"
+				"WebAssembly features:\n"
 				"%s"
 				"\n",
-				hostTargetSpec.triple.c_str(),
 				hostTargetSpec.cpu.c_str(),
 				getOutputFormatHelpText(),
+				getCPUFeatureHelpText().c_str(),
 				getFeatureListHelpText().c_str());
-}
-
-template<Uptr numPrefixChars>
-static bool stringStartsWith(const char* string, const char (&prefix)[numPrefixChars])
-{
-	return !strncmp(string, prefix, numPrefixChars - 1);
 }
 
 enum class OutputFormat
@@ -108,25 +140,84 @@ enum class OutputFormat
 	assembly,
 };
 
+static bool parseArch(const char* str, LLVMJIT::TargetArch& outArch)
+{
+	if(!strcmp(str, "x86_64"))
+	{
+		outArch = LLVMJIT::TargetArch::x86_64;
+		return true;
+	}
+	if(!strcmp(str, "aarch64"))
+	{
+		outArch = LLVMJIT::TargetArch::aarch64;
+		return true;
+	}
+	return false;
+}
+
+static bool parseOS(const char* str, LLVMJIT::TargetOS& outOS)
+{
+	if(!strcmp(str, "linux"))
+	{
+		outOS = LLVMJIT::TargetOS::linux_;
+		return true;
+	}
+	if(!strcmp(str, "macos"))
+	{
+		outOS = LLVMJIT::TargetOS::macos;
+		return true;
+	}
+	if(!strcmp(str, "windows"))
+	{
+		outOS = LLVMJIT::TargetOS::windows;
+		return true;
+	}
+	return false;
+}
+
 int execCompileCommand(int argc, char** argv)
 {
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
 	bool useHostTargetSpec = true;
 	LLVMJIT::TargetSpec targetSpec;
+	const char* cpuFeatureStr = nullptr;
 	IR::FeatureSpec featureSpec;
 	OutputFormat outputFormat = OutputFormat::unspecified;
 	for(int argIndex = 0; argIndex < argc; ++argIndex)
 	{
-		if(!strcmp(argv[argIndex], "--target-triple"))
+		const char* suffix = nullptr;
+		if(!strcmp(argv[argIndex], "--target-arch"))
 		{
 			if(argIndex + 1 == argc)
 			{
-				Log::printf(Log::error, "Expected target triple following '--target-triple'.\n");
+				Log::printf(Log::error, "Expected architecture following '--target-arch'.\n");
 				return EXIT_FAILURE;
 			}
 			++argIndex;
-			targetSpec.triple = argv[argIndex];
+			if(!parseArch(argv[argIndex], targetSpec.arch))
+			{
+				Log::printf(Log::error,
+							"Unknown architecture '%s'. Use x86_64 or aarch64.\n",
+							argv[argIndex]);
+				return EXIT_FAILURE;
+			}
+			useHostTargetSpec = false;
+		}
+		else if(!strcmp(argv[argIndex], "--target-os"))
+		{
+			if(argIndex + 1 == argc)
+			{
+				Log::printf(Log::error, "Expected OS following '--target-os'.\n");
+				return EXIT_FAILURE;
+			}
+			++argIndex;
+			if(!parseOS(argv[argIndex], targetSpec.os))
+			{
+				Log::printf(
+					Log::error, "Unknown OS '%s'. Use linux, macos, or windows.\n", argv[argIndex]);
+				return EXIT_FAILURE;
+			}
 			useHostTargetSpec = false;
 		}
 		else if(!strcmp(argv[argIndex], "--target-cpu"))
@@ -138,6 +229,18 @@ int execCompileCommand(int argc, char** argv)
 			}
 			++argIndex;
 			targetSpec.cpu = argv[argIndex];
+			useHostTargetSpec = false;
+		}
+		else if(!strcmp(argv[argIndex], "--target-cpu-feature"))
+		{
+			if(argIndex + 1 == argc)
+			{
+				Log::printf(Log::error,
+							"Expected feature spec following '--target-cpu-feature'.\n");
+				return EXIT_FAILURE;
+			}
+			++argIndex;
+			cpuFeatureStr = argv[argIndex];
 			useHostTargetSpec = false;
 		}
 		else if(!strcmp(argv[argIndex], "--enable"))
@@ -155,7 +258,7 @@ int execCompileCommand(int argc, char** argv)
 				return EXIT_FAILURE;
 			}
 		}
-		else if(stringStartsWith(argv[argIndex], "--format="))
+		else if(stringStartsWith(argv[argIndex], "--format=", suffix))
 		{
 			if(outputFormat != OutputFormat::unspecified)
 			{
@@ -163,7 +266,7 @@ int execCompileCommand(int argc, char** argv)
 				return EXIT_FAILURE;
 			}
 
-			const char* formatString = argv[argIndex] + strlen("--format=");
+			const char* formatString = suffix;
 			if(!strcmp(formatString, "precompiled-wasm"))
 			{
 				outputFormat = OutputFormat::precompiledModule;
@@ -207,16 +310,37 @@ int execCompileCommand(int argc, char** argv)
 
 	if(useHostTargetSpec) { targetSpec = LLVMJIT::getHostTargetSpec(); }
 
+	if(cpuFeatureStr)
+	{
+		auto setFeature = [&](const std::string& name, bool enable) {
+			bool found = false;
+			auto trySet = [&](const char* featureName, auto& value) {
+				if(!found && name == featureName)
+				{
+					value = enable;
+					found = true;
+				}
+			};
+			if(targetSpec.arch == LLVMJIT::TargetArch::x86_64)
+			{
+				targetSpec.x86FeatureOverrides.forEachFeature(trySet);
+			}
+			else if(targetSpec.arch == LLVMJIT::TargetArch::aarch64)
+			{
+				targetSpec.aarch64FeatureOverrides.forEachFeature(trySet);
+			}
+			return found;
+		};
+		if(!parseFeatureSpec(cpuFeatureStr, setFeature)) { return EXIT_FAILURE; }
+	}
+
 	// Validate the target.
 	switch(LLVMJIT::validateTarget(targetSpec, featureSpec))
 	{
 	case LLVMJIT::TargetValidationResult::valid: break;
 
 	case LLVMJIT::TargetValidationResult::invalidTargetSpec:
-		Log::printf(Log::error,
-					"Target triple (%s) or CPU (%s) is invalid.\n",
-					targetSpec.triple.c_str(),
-					targetSpec.cpu.c_str());
+		Log::printf(Log::error, "Target spec (cpu=%s) is invalid.\n", targetSpec.cpu.c_str());
 		return EXIT_FAILURE;
 	case LLVMJIT::TargetValidationResult::unsupportedArchitecture:
 		Log::printf(Log::error, "WAVM doesn't support the target architecture.\n");

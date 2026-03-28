@@ -1,6 +1,6 @@
 #include <stddef.h>
-#include <memory>
 #include <vector>
+#include "EmitContext.h"
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
@@ -10,12 +10,11 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Signal.h"
+#include "WAVM/Platform/Alloca.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/ADT/APInt.h>
-#include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
@@ -41,7 +40,7 @@ static llvm::Function* getCXABeginCatchFunction(EmitModuleContext& moduleContext
 	{
 		LLVMContext& llvmContext = moduleContext.llvmContext;
 		moduleContext.cxaBeginCatchFunction = llvm::Function::Create(
-			llvm::FunctionType::get(llvmContext.i8PtrType, {llvmContext.i8PtrType}, false),
+			llvm::FunctionType::get(llvmContext.ptrType, {llvmContext.ptrType}, false),
 			llvm::GlobalValue::LinkageTypes::ExternalLinkage,
 			"__cxa_begin_catch",
 			moduleContext.llvmModule);
@@ -132,7 +131,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		irBuilder.SetInsertPoint(&function->getEntryBlock(),
 								 function->getEntryBlock().getFirstInsertionPt());
 		llvm::Value* exceptionPointerAlloca
-			= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "exceptionPointer");
+			= irBuilder.CreateAlloca(llvmContext.ptrType, nullptr, "exceptionPointer");
 
 		// Create a BasicBlock with a CatchSwitch instruction to use as the unwind target.
 		auto catchSwitchBlock = llvm::BasicBlock::Create(llvmContext, "catchSwitch", function);
@@ -157,12 +156,12 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		irBuilder.SetInsertPoint(catchBlock);
 
 		// Load the exception pointer from the alloca that the catchpad wrote it to.
-		auto exceptionPointer
-			= loadFromUntypedPointer(exceptionPointerAlloca, llvmContext.i8PtrType);
+		auto exceptionPointer = loadFromUntypedPointer(exceptionPointerAlloca, llvmContext.ptrType);
 
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
+				llvmContext.i8Type,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
 			moduleContext.iptrType);
@@ -177,7 +176,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		auto landingPadBlock = llvm::BasicBlock::Create(llvmContext, "landingPad", function);
 		irBuilder.SetInsertPoint(landingPadBlock);
 		auto landingPadInst = irBuilder.CreateLandingPad(
-			llvm::StructType::get(llvmContext, {llvmContext.i8PtrType, llvmContext.i32Type}), 1);
+			llvm::StructType::get(llvmContext, {llvmContext.ptrType, llvmContext.i32Type}), 1);
 		landingPadInst->addClause(moduleContext.runtimeExceptionTypeInfo);
 
 		// Call __cxa_begin_catch to get the exception pointer.
@@ -191,6 +190,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		// Load the exception type ID.
 		auto exceptionTypeId = loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
+				llvmContext.i8Type,
 				exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, typeId), moduleContext.iptrType)}),
 			moduleContext.iptrType);
@@ -263,7 +263,8 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 			= offsetof(Exception, arguments)
 			  + (catchType.params.size() - argumentIndex - 1) * sizeof(Exception::arguments[0]);
 		auto argument = loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,
+			irBuilder.CreateInBoundsGEP(llvmContext.i8Type,
+										catchContext.exceptionPointer,
 										{emitLiteral(llvmContext, argOffset)}),
 			asLLVMType(llvmContext, parameters),
 			sizeof(Exception::arguments[0]));
@@ -298,6 +299,7 @@ void EmitFunctionContext::catch_all(NoImm)
 	auto isUserExceptionType = irBuilder.CreateICmpNE(
 		loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
+				llvmContext.i8Type,
 				catchContext.exceptionPointer,
 				{emitLiteralIptr(offsetof(Exception, isUserException), moduleContext.iptrType)}),
 			llvmContext.i8Type),
@@ -330,11 +332,10 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 		auto elementValue = pop();
 		storeToUntypedPointer(
 			elementValue,
-			irBuilder.CreatePointerCast(
-				irBuilder.CreateInBoundsGEP(
-					argBaseAddress,
-					{emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))}),
-				elementValue->getType()->getPointerTo()),
+			irBuilder.CreateInBoundsGEP(
+				llvmContext.i8Type,
+				argBaseAddress,
+				{emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))}),
 			sizeof(UntaggedValue));
 	}
 

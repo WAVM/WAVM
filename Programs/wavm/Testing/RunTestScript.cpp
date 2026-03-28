@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 #include "../wavm.h"
+#include "WAVM/IR/FeatureSpec.h"
+#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Validate.h"
@@ -15,14 +18,12 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/FloatComponents.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Platform/Memory.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
@@ -301,6 +302,8 @@ static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expect
 	case WAST::ExpectedTrapType::misalignedAtomicMemoryAccess:
 		return Runtime::ExceptionTypes::misalignedAtomicMemoryAccess;
 	case WAST::ExpectedTrapType::invalidArgument: return Runtime::ExceptionTypes::invalidArgument;
+	case WAST::ExpectedTrapType::waitOnUnsharedMemory:
+		return Runtime::ExceptionTypes::waitOnUnsharedMemory;
 
 	case WAST::ExpectedTrapType::outOfBounds:
 	default: WAVM_UNREACHABLE();
@@ -1105,165 +1108,6 @@ static void processAssertUnlinkable(TestScriptState& state,
 		});
 }
 
-static void processBenchmark(TestScriptState& state, const BenchmarkCommand* benchmarkCommand)
-{
-	InvokeAction* invokeAction = benchmarkCommand->invokeAction.get();
-
-	// Look up the module this invoke uses.
-	Instance* invokeInstance = getModuleContextByInternalName(
-		state, invokeAction->locus, "invoke", invokeAction->internalModuleName);
-
-	// A null instance at this point indicates a module that failed to link or instantiate, so don't
-	// produce further errors.
-	if(!invokeInstance) { return; }
-
-	// Find the named export in the instance.
-	auto invokeFunction
-		= asFunctionNullable(getInstanceExport(invokeInstance, invokeAction->exportName));
-	if(!invokeFunction)
-	{
-		testErrorf(state,
-				   invokeAction->locus,
-				   "couldn't find exported function with name: %s",
-				   invokeAction->exportName.c_str());
-		return;
-	}
-
-	// Infer the expected type of the function from the number and type of the invoke's arguments
-	// and the function's actual result types.
-	std::vector<ValueType> argTypes;
-	for(const Value& arg : invokeAction->arguments) { argTypes.push_back(arg.type); }
-	const FunctionType invokeFunctionSig(getFunctionType(invokeFunction).results(),
-										 TypeTuple(argTypes));
-
-	// Check the actual signature of the invoked function.
-	if(getFunctionType(invokeFunction) != invokeFunctionSig)
-	{
-		if(Log::isCategoryEnabled(Log::debug))
-		{
-			Log::printf(
-				Log::debug,
-				"Invoke signature mismatch:\n  Invoke signature: %s\n  Invoked function type: %s\n",
-				asString(invokeFunctionSig).c_str(),
-				asString(getFunctionType(invokeFunction)).c_str());
-		}
-		throwException(ExceptionTypes::invokeSignatureMismatch);
-	}
-
-	// Generate a WASM module that imports the function being invoked.
-	const FunctionType benchmarkFunctionSig({}, {ValueType::i32});
-	IR::Module benchmarkModule(IR::FeatureLevel::wavm);
-	benchmarkModule.types.push_back(invokeFunctionSig);
-	benchmarkModule.types.push_back(benchmarkFunctionSig);
-	benchmarkModule.functions.imports.push_back({{0}, "", ""});
-	benchmarkModule.imports.push_back({ExternKind::function, 0});
-
-	// Generate a function that calls the imported function a variable number of times.
-	Serialization::ArrayOutputStream codeByteStream;
-	OperatorEncoderStream encoder(codeByteStream);
-
-	encoder.loop({{IndexedBlockType::noParametersOrResult}});
-
-	// Exit the loop once the number of iterations remaining reaches zero.
-	encoder.local_get({0});
-	encoder.i32_eqz();
-	encoder.br_if({1});
-
-	// Decrement the number of iterations remaining.
-	encoder.local_get({0});
-	encoder.i32_const({1});
-	encoder.i32_sub();
-	encoder.local_set({0});
-
-	// Translate the invoke arguments to XXX.const instructions.
-	for(const Value& arg : invokeAction->arguments)
-	{
-		switch(arg.type)
-		{
-		case ValueType::i32: encoder.i32_const({arg.i32}); break;
-		case ValueType::i64: encoder.i64_const({arg.i64}); break;
-		case ValueType::f32: encoder.f32_const({arg.f32}); break;
-		case ValueType::f64: encoder.f64_const({arg.f64}); break;
-		case ValueType::v128: encoder.v128_const({arg.v128}); break;
-
-		case ValueType::externref:
-		case ValueType::funcref: Errors::unimplemented("Benchmark invoke reference arguments");
-
-		case ValueType::any:
-		case ValueType::none:
-		default: WAVM_UNREACHABLE();
-		};
-	}
-
-	// Call the imported invoke function.
-	encoder.call({0});
-
-	// Drop all the invoked functions' results.
-	for(const ValueType result : invokeFunctionSig.results())
-	{
-		WAVM_SUPPRESS_UNUSED(result);
-		encoder.drop();
-	}
-
-	// Branch to the beginning of the loop.
-	encoder.br({0});
-
-	// End the loop and the function body.
-	encoder.end();
-	encoder.end();
-
-	benchmarkModule.functions.defs.push_back({{1}, {}, codeByteStream.getBytes(), {}});
-	benchmarkModule.exports.push_back({"benchmark", ExternKind::function, 1});
-
-	// Validate the generated module in builds with assertions enabled.
-	if(WAVM_ENABLE_ASSERTS)
-	{
-		std::shared_ptr<IR::ModuleValidationState> moduleValidationState
-			= IR::createModuleValidationState(benchmarkModule);
-		IR::validatePreCodeSections(*moduleValidationState);
-		IR::validateCodeSection(*moduleValidationState);
-		IR::validatePostCodeSections(*moduleValidationState);
-	}
-
-	// Compile and instantiate the generated module.
-	Instance* benchmarkInstance = instantiateModule(
-		state.compartment, compileModule(benchmarkModule), {asObject(invokeFunction)}, "benchmark");
-	Function* benchmarkFunction = getTypedInstanceExport(
-		benchmarkInstance, "benchmark", FunctionType({}, {ValueType::i32}));
-
-	// Run the benchmark once to warm up caches (not just CPU, also the cached invoke thunk).
-	UntaggedValue benchmarkArgs[1];
-	benchmarkArgs[0].u32 = 10;
-	Runtime::invokeFunction(state.context, benchmarkFunction, benchmarkFunctionSig, benchmarkArgs);
-
-	// Sample the benchmark until 20ms or 1 million samples have been collected.
-	static constexpr F64 minSamplingNS = 20000000.0;
-	static constexpr Uptr maxSamples = 1000000;
-	U32 numIterationsPerSample = 10;
-	F64 totalNS = 0.0;
-	Uptr numSamples = 0;
-	Uptr numIterations = 0;
-	while(numSamples < maxSamples && totalNS < minSamplingNS)
-	{
-		benchmarkArgs[0].u32 = numIterationsPerSample;
-		Timing::Timer timer;
-		Runtime::invokeFunction(
-			state.context, benchmarkFunction, benchmarkFunctionSig, benchmarkArgs);
-		timer.stop();
-		totalNS += timer.getNanoseconds();
-		++numSamples;
-		numIterations += numIterationsPerSample;
-		numIterationsPerSample = numIterationsPerSample * 3 / 2;
-	};
-	const F64 nsPerIteration = totalNS / numIterations;
-
-	Log::printf(Log::output,
-				"%s benchmark: %.1fns (%" WAVM_PRIuPTR " iterations)\n",
-				benchmarkCommand->name.c_str(),
-				nsPerIteration,
-				numIterations);
-}
-
 static void processCommands(TestScriptState& state,
 							const std::vector<std::unique_ptr<Command>>& commands);
 
@@ -1377,7 +1221,6 @@ static void processCommand(TestScriptState& state, const Command* command)
 	case Command::assert_unlinkable:
 		processAssertUnlinkable(state, (AssertUnlinkableCommand*)command);
 		break;
-	case Command::benchmark: processBenchmark(state, (BenchmarkCommand*)command); break;
 	case Command::thread: processThread(state, (ThreadCommand*)command); break;
 	case Command::wait: processWait(state, (WaitCommand*)command); break;
 

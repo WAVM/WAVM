@@ -2,15 +2,13 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <initializer_list>
 #include <string>
 #include <vector>
-#include "WAVM/IR/IR.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/StringBuilder.h"
 
 namespace WAVM { namespace Runtime {
 	struct Object;
@@ -32,7 +30,7 @@ namespace WAVM { namespace IR {
 		funcref
 	};
 
-	static constexpr U8 numValueTypes = U8(ValueType::funcref) + 1;
+	inline constexpr U8 numValueTypes = U8(ValueType::funcref) + 1;
 
 	// The reference types subset of ValueType.
 	enum class ReferenceType : U8
@@ -73,17 +71,14 @@ namespace WAVM { namespace IR {
 
 	inline std::string asString(const V128& v128)
 	{
-		// buffer needs 50 characters:
-		// i32x4 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH\0
-		char buffer[50];
-		snprintf(buffer,
-				 sizeof(buffer),
-				 "i32x4 0x%.8x 0x%.8x 0x%.8x 0x%.8x",
-				 v128.u32x4[0],
-				 v128.u32x4[1],
-				 v128.u32x4[2],
-				 v128.u32x4[3]);
-		return std::string(buffer);
+		// 50 characters: i32x4 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH\0
+		FixedStringBuilder<50> sb;
+		sb.appendf("i32x4 0x%.8x 0x%.8x 0x%.8x 0x%.8x",
+				   v128.u32x4[0],
+				   v128.u32x4[1],
+				   v128.u32x4[2],
+				   v128.u32x4[3]);
+		return sb.toString();
 	}
 
 	inline U8 getTypeByteWidth(ValueType type)

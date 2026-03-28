@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <vector>
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
@@ -6,10 +7,10 @@
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/Constant.h>
-#include <llvm/IR/Constants.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
@@ -26,22 +27,23 @@ using namespace WAVM::LLVMJIT;
 
 void EmitFunctionContext::local_get(GetOrSetVariableImm<false> imm)
 {
-	WAVM_ASSERT(imm.variableIndex < localPointers.size());
-	push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
+	WAVM_ASSERT(imm.variableIndex < locals.size());
+	const Local& local = locals[imm.variableIndex];
+	push(irBuilder.CreateLoad(local.type, local.pointer));
 }
 void EmitFunctionContext::local_set(GetOrSetVariableImm<false> imm)
 {
-	WAVM_ASSERT(imm.variableIndex < localPointers.size());
-	auto value = irBuilder.CreateBitCast(
-		pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
-	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
+	WAVM_ASSERT(imm.variableIndex < locals.size());
+	const Local& local = locals[imm.variableIndex];
+	auto value = irBuilder.CreateBitCast(pop(), local.type);
+	irBuilder.CreateStore(value, local.pointer);
 }
 void EmitFunctionContext::local_tee(GetOrSetVariableImm<false> imm)
 {
-	WAVM_ASSERT(imm.variableIndex < localPointers.size());
-	auto value = irBuilder.CreateBitCast(
-		getValueFromTop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
-	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
+	WAVM_ASSERT(imm.variableIndex < locals.size());
+	const Local& local = locals[imm.variableIndex];
+	auto value = irBuilder.CreateBitCast(getValueFromTop(), local.type);
+	irBuilder.CreateStore(value, local.pointer);
 }
 
 //
@@ -72,7 +74,9 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		llvm::Value* globalDataOffset = irBuilder.CreatePtrToInt(
 			moduleContext.globals[imm.variableIndex], moduleContext.iptrType);
 		llvm::Value* globalPointer = irBuilder.CreateInBoundsGEP(
-			irBuilder.CreateLoad(contextPointerVariable), {globalDataOffset});
+			llvmContext.i8Type,
+			irBuilder.CreateLoad(llvmContext.ptrType, contextPointerVariable),
+			{globalDataOffset});
 		value = loadFromUntypedPointer(globalPointer,
 									   asLLVMType(llvmContext, globalType.valueType),
 									   getTypeByteWidth(globalType.valueType));
@@ -148,6 +152,8 @@ void EmitFunctionContext::global_set(GetOrSetVariableImm<true> imm)
 	llvm::Value* globalDataOffset = irBuilder.CreatePtrToInt(
 		moduleContext.globals[imm.variableIndex], moduleContext.iptrType);
 	llvm::Value* globalPointer = irBuilder.CreateInBoundsGEP(
-		irBuilder.CreateLoad(contextPointerVariable), {globalDataOffset});
+		llvmContext.i8Type,
+		irBuilder.CreateLoad(llvmContext.ptrType, contextPointerVariable),
+		{globalDataOffset});
 	storeToUntypedPointer(value, globalPointer);
 }

@@ -2,60 +2,53 @@
 
 ## Install a binary build
 
-A good place to start is by installing a binary build of WAVM, and trying out the command-line
-tools. Nightly and release builds are available on [GitHub releases](https://github.com/WAVM/WAVM/releases)
-for Windows, MacOS, and Linux.
+Binary builds of WAVM are available on [GitHub releases](https://github.com/WAVM/WAVM/releases) for Windows, Linux, and macOS.
 
 ### Windows
 
-Windows builds are available as either an executable installer or a zip archive. The installer
-provides the option to add the wavm binaries directory to the `PATH` environment variable, and the
-instructions below assume that you have done so.
+Download `wavm-windows-x64.zip` and extract it anywhere in your filesystem. Add the `bin` directory to your `PATH` environment variable to use `wavm` from any directory.
 
 ### Linux
 
-Linux builds are available as `deb` or `rpm` packages, or `.tar.gz` archives. If your distribution
-uses `apt` for package management, you can install the `deb` package with the command:
+Linux builds are available as `.deb` packages, `.rpm` packages, or `.tar.gz` archives.
 
-  ```
-  sudo apt install ./wavm-1.0.0-linux.deb
-  ```
+**Debian/Ubuntu (deb):**
+```bash
+sudo apt install ./wavm-{version}-linux.deb
+# To remove: sudo apt remove wavm
+```
 
-Or if your distribution uses `yum` for package management, you can install the `rpm package with the
-command:
+**Fedora/RHEL/AlmaLinux (rpm):**
+```bash
+sudo dnf install ./wavm-{version}-linux.rpm
+# To remove: sudo dnf remove wavm
+```
 
-  ```
-  sudo yum install ./wavm-1.0.0-linux.rpm
-  ```
+**Other distributions (tar.gz):**
+```bash
+mkdir wavm && tar -xzf wavm-{version}-linux.tar.gz -C wavm
+```
 
-Once it is installed, you may remove it with the command:
+The Linux binaries are built on a manylinux_2_28 (AlmaLinux 8) base and should work on most modern glibc-based Linux distributions, including:
+* Ubuntu 20.04+
+* Debian 11+
+* Fedora 40+
+* AlmaLinux/Rocky Linux 8+
+* openSUSE Leap 15.6+
 
-  ```
-  sudo apt remove wavm
-  ```
+### macOS
 
-Or:
+Download `wavm-macos-arm64.tar.gz` and extract it:
 
-  ```
-  sudo yum remove wavm
-  ```
+```bash
+mkdir wavm && tar -xzf wavm-macos-arm64.tar.gz -C wavm
+```
 
-You may extract a `.tar.gz` build anywhere in your filesystem.
+Note: macOS builds are currently ARM64 (Apple Silicon) only.
 
-The Linux binaries in the `.tar.gz` package are built on Ubuntu 16.04, but should work on any
-up-to-date glibc-based Linux distribution. They are tested on:
-* CentOS 7.0, 7.7, and 8.0
-* Ubuntu 16.04, 18.04, and 19.04
-* Debian 8, 9, and 10
+## Build from source
 
-### MacOS
-
-MacOS builds are only available as `.tar.gz` archives.
-
-Similar to Linux, you may extract a `.tar.gz` build anywhere in your filesystem, but a few things
-are smoother if you extract the archive to `/usr/local`.
-
-The MacOS binaries are built on MacOS 10.14. 
+Alternatively, you can build WAVM from source. See [Building WAVM from source](Building.md) for instructions.
 
 ## WAVM on the command line
 
@@ -65,7 +58,7 @@ The `wavm` executable provides command-line access to WAVM. It has several sub-c
   sub-command.
 
 * `wavm run` loads a WebAssembly file (text or binary) and calls `main` (or a specified function).
-  
+
 * `wavm assemble` loads a WebAssembly text file (WAST/WAT), and saves it as a WebAssembly binary
   file (WASM).
 
@@ -78,41 +71,40 @@ The `wavm` executable provides command-line access to WAVM. It has several sub-c
 
 ### Run some example programs
 
-  WAVM builds include some simple WebAssembly programs to try. In Windows builds, they will be in
-  `WAVM/examples`. In Linux and MacOS builds, they will be in `share/wavm/examples`. Try running
-  these example programs from that directory:
+WAVM builds include some simple WebAssembly programs to try. In Windows builds, they will be in
+`examples`. In Linux and macOS builds, they will be in `share/wavm/examples`. Try running
+these example programs:
 
-  ```
-  wavm run examples/helloworld.wast
-  wavm run examples/zlib.wasm
-  wavm run examples/trap.wast
-  wavm run examples/echo.wast "Hello, world!"
-  wavm run examples/helloworld.wast | wavm run examples/tee.wast
-  wavm run examples/blake2b.wast
-  ```
+```bash
+wavm run examples/helloworld.wast
+wavm run examples/zlib.wasm
+wavm run examples/trap.wast
+wavm run examples/echo.wast "Hello, world!"
+wavm run examples/helloworld.wast | wavm run examples/tee.wast
+wavm run examples/blake2b.wast
+```
 
 ## Disassemble a WebAssembly module
 
-  ```
-  wavm disassemble examples/zlib.wasm zlib.wast
-  ```
+```bash
+wavm disassemble examples/zlib.wasm zlib.wast
+```
 
 ## Set up an object cache
 
-  WAVM supports caching compiled object code for WebAssembly modules. The cache is configured by
-  setting a `WAVM_OBJECT_CACHE_DIR` environment variable to point to a directory to store the
-  cache in.
+WAVM supports caching compiled object code for WebAssembly modules. The cache is configured by
+setting a `WAVM_OBJECT_CACHE_DIR` environment variable to point to a directory to store the
+cache in.
 
-  On Linux or MacOS:
-  ```
-  export WAVM_OBJECT_CACHE_DIR=/path/to/existing/directory
-  wavm run huge.wasm # Slow
-  wavm run huge.wasm # Fast
-  ```
+```bash
+export WAVM_OBJECT_CACHE_DIR=/path/to/existing/directory
+wavm run huge.wasm # Slow
+wavm run huge.wasm # Fast
+```
 
-  The first time `wavm` loads `huge.wasm`, it must spend some time to compile it to object code.
-  The second time `wavm` loads `huge.wasm`, it just needs to load its object code from the cache.
-  For small modules, that may not save much time, but for large WebAssembly modules, that can be
-  much faster than compiling the module from scratch.
+The first time `wavm` loads `huge.wasm`, it must spend some time to compile it to object code.
+The second time `wavm` loads `huge.wasm`, it just needs to load its object code from the cache.
+For small modules, that may not save much time, but for large WebAssembly modules, that can be
+much faster than compiling the module from scratch.
 
 ## Continue to: [Building WAVM from source](Building.md)

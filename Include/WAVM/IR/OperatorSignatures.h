@@ -4,6 +4,8 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM { namespace IR {
 
@@ -53,68 +55,75 @@ namespace WAVM { namespace IR {
 
 	namespace OpSignatures {
 		// Monomorphic signatures.
-		constexpr OpSignature none_to_none{{}, {}};
-		constexpr OpSignature none_to_i32{{ValueType::i32}, {}};
-		constexpr OpSignature none_to_i64{{ValueType::i64}, {}};
-		constexpr OpSignature none_to_f32{{ValueType::f32}, {}};
-		constexpr OpSignature none_to_f64{{ValueType::f64}, {}};
-		constexpr OpSignature none_to_v128{{ValueType::v128}, {}};
-		constexpr OpSignature none_to_funcref{{ValueType::funcref}, {}};
+		inline constexpr OpSignature none_to_none{{}, {}};
+		inline constexpr OpSignature none_to_i32{{ValueType::i32}, {}};
+		inline constexpr OpSignature none_to_i64{{ValueType::i64}, {}};
+		inline constexpr OpSignature none_to_f32{{ValueType::f32}, {}};
+		inline constexpr OpSignature none_to_f64{{ValueType::f64}, {}};
+		inline constexpr OpSignature none_to_v128{{ValueType::v128}, {}};
+		inline constexpr OpSignature none_to_funcref{{ValueType::funcref}, {}};
 
-		constexpr OpSignature i32_to_i32{{ValueType::i32}, {ValueType::i32}};
-		constexpr OpSignature i64_to_i64{{ValueType::i64}, {ValueType::i64}};
-		constexpr OpSignature f32_to_f32{{ValueType::f32}, {ValueType::f32}};
-		constexpr OpSignature f64_to_f64{{ValueType::f64}, {ValueType::f64}};
-		constexpr OpSignature v128_to_v128{{ValueType::v128}, {ValueType::v128}};
+		inline constexpr OpSignature i32_to_i32{{ValueType::i32}, {ValueType::i32}};
+		inline constexpr OpSignature i64_to_i64{{ValueType::i64}, {ValueType::i64}};
+		inline constexpr OpSignature f32_to_f32{{ValueType::f32}, {ValueType::f32}};
+		inline constexpr OpSignature f64_to_f64{{ValueType::f64}, {ValueType::f64}};
+		inline constexpr OpSignature v128_to_v128{{ValueType::v128}, {ValueType::v128}};
 
-		constexpr OpSignature i32_to_i64{{ValueType::i64}, {ValueType::i32}};
-		constexpr OpSignature i32_to_f32{{ValueType::f32}, {ValueType::i32}};
-		constexpr OpSignature i32_to_f64{{ValueType::f64}, {ValueType::i32}};
-		constexpr OpSignature i32_to_v128{{ValueType::v128}, {ValueType::i32}};
+		inline constexpr OpSignature i32_to_i64{{ValueType::i64}, {ValueType::i32}};
+		inline constexpr OpSignature i32_to_f32{{ValueType::f32}, {ValueType::i32}};
+		inline constexpr OpSignature i32_to_f64{{ValueType::f64}, {ValueType::i32}};
+		inline constexpr OpSignature i32_to_v128{{ValueType::v128}, {ValueType::i32}};
 
-		constexpr OpSignature i64_to_i32{{ValueType::i32}, {ValueType::i64}};
-		constexpr OpSignature i64_to_f32{{ValueType::f32}, {ValueType::i64}};
-		constexpr OpSignature i64_to_f64{{ValueType::f64}, {ValueType::i64}};
-		constexpr OpSignature i64_to_v128{{ValueType::v128}, {ValueType::i64}};
+		inline constexpr OpSignature i64_to_i32{{ValueType::i32}, {ValueType::i64}};
+		inline constexpr OpSignature i64_to_f32{{ValueType::f32}, {ValueType::i64}};
+		inline constexpr OpSignature i64_to_f64{{ValueType::f64}, {ValueType::i64}};
+		inline constexpr OpSignature i64_to_v128{{ValueType::v128}, {ValueType::i64}};
 
-		constexpr OpSignature f32_to_f64{{ValueType::f64}, {ValueType::f32}};
-		constexpr OpSignature f32_to_i32{{ValueType::i32}, {ValueType::f32}};
-		constexpr OpSignature f32_to_i64{{ValueType::i64}, {ValueType::f32}};
-		constexpr OpSignature f32_to_v128{{ValueType::v128}, {ValueType::f32}};
+		inline constexpr OpSignature f32_to_f64{{ValueType::f64}, {ValueType::f32}};
+		inline constexpr OpSignature f32_to_i32{{ValueType::i32}, {ValueType::f32}};
+		inline constexpr OpSignature f32_to_i64{{ValueType::i64}, {ValueType::f32}};
+		inline constexpr OpSignature f32_to_v128{{ValueType::v128}, {ValueType::f32}};
 
-		constexpr OpSignature f64_to_f32{{ValueType::f32}, {ValueType::f64}};
-		constexpr OpSignature f64_to_i32{{ValueType::i32}, {ValueType::f64}};
-		constexpr OpSignature f64_to_i64{{ValueType::i64}, {ValueType::f64}};
-		constexpr OpSignature f64_to_v128{{ValueType::v128}, {ValueType::f64}};
+		inline constexpr OpSignature f64_to_f32{{ValueType::f32}, {ValueType::f64}};
+		inline constexpr OpSignature f64_to_i32{{ValueType::i32}, {ValueType::f64}};
+		inline constexpr OpSignature f64_to_i64{{ValueType::i64}, {ValueType::f64}};
+		inline constexpr OpSignature f64_to_v128{{ValueType::v128}, {ValueType::f64}};
 
-		constexpr OpSignature v128_to_i32{{ValueType::i32}, {ValueType::v128}};
-		constexpr OpSignature v128_to_i64{{ValueType::i64}, {ValueType::v128}};
-		constexpr OpSignature v128_to_f32{{ValueType::f32}, {ValueType::v128}};
-		constexpr OpSignature v128_to_f64{{ValueType::f64}, {ValueType::v128}};
+		inline constexpr OpSignature v128_to_i32{{ValueType::i32}, {ValueType::v128}};
+		inline constexpr OpSignature v128_to_i64{{ValueType::i64}, {ValueType::v128}};
+		inline constexpr OpSignature v128_to_f32{{ValueType::f32}, {ValueType::v128}};
+		inline constexpr OpSignature v128_to_f64{{ValueType::f64}, {ValueType::v128}};
 
-		constexpr OpSignature i32_i32_to_i32{{ValueType::i32}, {ValueType::i32, ValueType::i32}};
-		constexpr OpSignature i64_i64_to_i64{{ValueType::i64}, {ValueType::i64, ValueType::i64}};
-		constexpr OpSignature f32_f32_to_f32{{ValueType::f32}, {ValueType::f32, ValueType::f32}};
-		constexpr OpSignature f64_f64_to_f64{{ValueType::f64}, {ValueType::f64, ValueType::f64}};
-		constexpr OpSignature v128_v128_to_v128{{ValueType::v128},
-												{ValueType::v128, ValueType::v128}};
+		inline constexpr OpSignature i32_i32_to_i32{{ValueType::i32},
+													{ValueType::i32, ValueType::i32}};
+		inline constexpr OpSignature i64_i64_to_i64{{ValueType::i64},
+													{ValueType::i64, ValueType::i64}};
+		inline constexpr OpSignature f32_f32_to_f32{{ValueType::f32},
+													{ValueType::f32, ValueType::f32}};
+		inline constexpr OpSignature f64_f64_to_f64{{ValueType::f64},
+													{ValueType::f64, ValueType::f64}};
+		inline constexpr OpSignature v128_v128_to_v128{{ValueType::v128},
+													   {ValueType::v128, ValueType::v128}};
 
-		constexpr OpSignature i64_i64_to_i32{{ValueType::i32}, {ValueType::i64, ValueType::i64}};
-		constexpr OpSignature f32_f32_to_i32{{ValueType::i32}, {ValueType::f32, ValueType::f32}};
-		constexpr OpSignature f64_f64_to_i32{{ValueType::i32}, {ValueType::f64, ValueType::f64}};
+		inline constexpr OpSignature i64_i64_to_i32{{ValueType::i32},
+													{ValueType::i64, ValueType::i64}};
+		inline constexpr OpSignature f32_f32_to_i32{{ValueType::i32},
+													{ValueType::f32, ValueType::f32}};
+		inline constexpr OpSignature f64_f64_to_i32{{ValueType::i32},
+													{ValueType::f64, ValueType::f64}};
 
-		constexpr OpSignature v128_v128_v128_to_v128{
+		inline constexpr OpSignature v128_v128_v128_to_v128{
 			{ValueType::v128},
 			{ValueType::v128, ValueType::v128, ValueType::v128}};
 
-		constexpr OpSignature v128_i32_to_v128{{ValueType::v128},
-											   {ValueType::v128, ValueType::i32}};
-		constexpr OpSignature v128_i64_to_v128{{ValueType::v128},
-											   {ValueType::v128, ValueType::i64}};
-		constexpr OpSignature v128_f32_to_v128{{ValueType::v128},
-											   {ValueType::v128, ValueType::f32}};
-		constexpr OpSignature v128_f64_to_v128{{ValueType::v128},
-											   {ValueType::v128, ValueType::f64}};
+		inline constexpr OpSignature v128_i32_to_v128{{ValueType::v128},
+													  {ValueType::v128, ValueType::i32}};
+		inline constexpr OpSignature v128_i64_to_v128{{ValueType::v128},
+													  {ValueType::v128, ValueType::i64}};
+		inline constexpr OpSignature v128_f32_to_v128{{ValueType::v128},
+													  {ValueType::v128, ValueType::f32}};
+		inline constexpr OpSignature v128_f64_to_v128{{ValueType::v128},
+													  {ValueType::v128, ValueType::f64}};
 
 		// Memory/table index polymorphic signatures.
 		inline OpSignature load(const Module& module,

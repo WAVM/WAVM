@@ -1,4 +1,5 @@
 #include "WAVM/RegExp/RegExp.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/DenseStaticIntSet.h"
 #include "WAVM/Inline/Errors.h"

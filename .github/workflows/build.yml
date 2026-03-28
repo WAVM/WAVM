@@ -1,0 +1,644 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 6 * * *'  # Nightly at 6 AM UTC
+  workflow_dispatch:
+
+# WAVM_BUILD_TOOL_WORK_DIR and PACKAGE_DIR are set by a "Set build paths" step
+# in each job rather than as workflow-level env vars. In container jobs,
+# ${{ github.workspace }} resolves to the host path in run steps but the
+# container mount path in uses steps, so paths built from it are inconsistent
+# between run and upload/download-artifact steps. Using $GITHUB_WORKSPACE (the
+# shell variable) in a run step and writing to $GITHUB_ENV produces a path that
+# is correct for the current execution context and visible to all later steps.
+
+jobs:
+  # Config detection must run on each platform (different compilers available)
+  get-linux-x64-configs:
+    runs-on: ubuntu-latest
+    container: ghcr.io/wavm/builder-linux-x64:latest
+    outputs:
+      configs: ${{ steps.get.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: get
+        run: echo "configs=$(python3 Build/dev.py list-configs | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+
+  get-linux-aarch64-configs:
+    runs-on: ubuntu-24.04-arm
+    container: ghcr.io/wavm/builder-linux-aarch64:latest
+    outputs:
+      configs: ${{ steps.get.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: get
+        run: echo "configs=$(python3 Build/dev.py list-configs | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+
+  get-windows-x64-configs:
+    runs-on: windows-latest
+    outputs:
+      configs: ${{ steps.get.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: get
+        shell: bash
+        run: echo "configs=$(python3 Build/dev.py list-configs | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+
+  get-windows-arm64-configs:
+    runs-on: windows-11-arm
+    outputs:
+      configs: ${{ steps.get.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: get
+        shell: bash
+        run: echo "configs=$(python3 Build/dev.py list-configs | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+
+  get-macos-arm64-configs:
+    runs-on: macos-latest
+    outputs:
+      configs: ${{ steps.get.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: get
+        run: echo "configs=$(python3 Build/dev.py list-configs | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+
+  get-macos-x64-configs:
+    runs-on: macos-latest
+    outputs:
+      configs: ${{ steps.get.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: get
+        run: echo "configs=$(python3 Build/dev.py --target-arch x64 list-configs | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+
+  lint:
+    runs-on: ubuntu-latest
+    container: ghcr.io/wavm/builder-linux-x64:latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 Build/dev.py format
+      - run: python3 Build/dev.py lint
+      - run: python3 Build/dev.py tidy
+
+  # Linux x64: build, test, and package all configs
+  linux-x64-build-test-package:
+    needs: get-linux-x64-configs
+    runs-on: ubuntu-latest
+    container: ghcr.io/wavm/builder-linux-x64:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.get-linux-x64-configs.outputs.configs) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: python3 Build/dev.py test --no-lint --config ${{ matrix.config }}
+      - name: Package
+        run: python3 Build/dev.py package --config ${{ matrix.config }} ${{ env.PACKAGE_DIR }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-x64-${{ matrix.config }}-packages
+          path: ${{ env.PACKAGE_DIR }}/*
+          retention-days: 1
+      - uses: actions/upload-artifact@v7
+        if: matrix.config == 'Checked'
+        with:
+          name: Linux-x64-coverage
+          path: ${{ env.WAVM_BUILD_TOOL_WORK_DIR }}/coverage.lcov
+          retention-days: 7
+        continue-on-error: true
+
+  # Linux AArch64: build, test, and package all configs
+  linux-aarch64-build-test-package:
+    needs: get-linux-aarch64-configs
+    runs-on: ubuntu-24.04-arm
+    container: ghcr.io/wavm/builder-linux-aarch64:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.get-linux-aarch64-configs.outputs.configs) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: python3 Build/dev.py test --no-lint --config ${{ matrix.config }}
+      - name: Package
+        run: python3 Build/dev.py package --config ${{ matrix.config }} ${{ env.PACKAGE_DIR }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-aarch64-${{ matrix.config }}-packages
+          path: ${{ env.PACKAGE_DIR }}/*
+          retention-days: 1
+      - uses: actions/upload-artifact@v7
+        if: matrix.config == 'Checked'
+        with:
+          name: Linux-aarch64-coverage
+          path: ${{ env.WAVM_BUILD_TOOL_WORK_DIR }}/coverage.lcov
+          retention-days: 7
+        continue-on-error: true
+
+  # Linux x64 distro testing: test LTO packages on various distros
+  linux-x64-test-distros:
+    needs: linux-x64-build-test-package
+    runs-on: ubuntu-latest
+    container: ghcr.io/wavm/tester:${{ matrix.distro }}
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04, debian-11, debian-12, fedora-40, fedora-41, almalinux-8, almalinux-9, opensuse-15.6, arch]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-x64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Extract tarball
+        run: |
+          mkdir -p /wavm-install
+          tar -xzf ${{ env.PACKAGE_DIR }}/*.tar.gz -C /wavm-install
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO /wavm-install
+
+  # Linux x64 package format testing
+  linux-x64-test-deb:
+    needs: linux-x64-build-test-package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04, debian-11, debian-12]
+    container: ghcr.io/wavm/tester:${{ matrix.distro }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-x64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Install deb package
+        run: |
+          apt-get update
+          apt-get install -y ${{ env.PACKAGE_DIR }}/*.deb
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO /usr
+
+  linux-x64-test-rpm:
+    needs: linux-x64-build-test-package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [fedora-40, fedora-41, almalinux-8, almalinux-9, opensuse-15.6]
+    container: ghcr.io/wavm/tester:${{ matrix.distro }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-x64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Install rpm package
+        run: rpm -i --nodeps ${{ env.PACKAGE_DIR }}/*.rpm
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO /usr
+
+  # Linux AArch64 distro testing: test LTO packages on various distros
+  linux-aarch64-test-distros:
+    needs: linux-aarch64-build-test-package
+    runs-on: ubuntu-24.04-arm
+    container: ghcr.io/wavm/tester:aarch64-${{ matrix.distro }}
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04, debian-11, debian-12, fedora-40, fedora-41, almalinux-8, almalinux-9, opensuse-15.6]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-aarch64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Extract tarball
+        run: |
+          mkdir -p /wavm-install
+          tar -xzf ${{ env.PACKAGE_DIR }}/*.tar.gz -C /wavm-install
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO /wavm-install
+
+  # Linux AArch64 package format testing
+  linux-aarch64-test-deb:
+    needs: linux-aarch64-build-test-package
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04, debian-11, debian-12]
+    container: ghcr.io/wavm/tester:aarch64-${{ matrix.distro }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-aarch64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Install deb package
+        run: |
+          apt-get update
+          apt-get install -y ${{ env.PACKAGE_DIR }}/*.deb
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO /usr
+
+  linux-aarch64-test-rpm:
+    needs: linux-aarch64-build-test-package
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [fedora-40, fedora-41, almalinux-8, almalinux-9, opensuse-15.6]
+    container: ghcr.io/wavm/tester:aarch64-${{ matrix.distro }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-aarch64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Install rpm package
+        run: rpm -i --nodeps ${{ env.PACKAGE_DIR }}/*.rpm
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO /usr
+
+  # Windows x64: build, test, and package all configs
+  windows-x64-build-test-package:
+    needs: get-windows-x64-configs
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.get-windows-x64-configs.outputs.configs) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - name: Install NSIS and apply string-length patch
+        run: |
+          choco install nsis -y --no-progress
+          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+          Expand-Archive -Path Build/nsis-3.04-strlen_8192.zip -DestinationPath "$env:TEMP/nsis-patch"
+          robocopy "$env:TEMP/nsis-patch" "C:/Program Files (x86)/NSIS" /E /IS /IT
+          if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
+      - name: Build and test
+        run: python3 Build/dev.py test --no-lint --config ${{ matrix.config }}
+      - name: Package
+        run: python3 Build/dev.py package --config ${{ matrix.config }} ${{ env.PACKAGE_DIR }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64-${{ matrix.config }}-packages
+          path: ${{ env.PACKAGE_DIR }}/*
+          retention-days: 1
+      - uses: actions/upload-artifact@v7
+        if: matrix.config == 'Checked'
+        with:
+          name: Windows-x64-coverage
+          path: ${{ env.WAVM_BUILD_TOOL_WORK_DIR }}/coverage.lcov
+          retention-days: 7
+        continue-on-error: true
+
+  # Windows ARM64: build, test, and package all configs
+  windows-arm64-build-test-package:
+    needs: get-windows-arm64-configs
+    runs-on: windows-11-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.get-windows-arm64-configs.outputs.configs) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: python3 Build/dev.py test --no-lint --config ${{ matrix.config }}
+      - name: Package
+        run: python3 Build/dev.py package --config ${{ matrix.config }} ${{ env.PACKAGE_DIR }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-arm64-${{ matrix.config }}-packages
+          path: ${{ env.PACKAGE_DIR }}/*
+          retention-days: 1
+      - uses: actions/upload-artifact@v7
+        if: matrix.config == 'Checked'
+        with:
+          name: Windows-arm64-coverage
+          path: ${{ env.WAVM_BUILD_TOOL_WORK_DIR }}/coverage.lcov
+          retention-days: 7
+        continue-on-error: true
+
+  # Windows x64 package testing
+  windows-x64-test-exe:
+    needs: windows-x64-build-test-package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-x64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Install exe package
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "${{ env.PACKAGE_DIR }}/*.exe" | Select-Object -First 1
+          Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=C:\wavm-install" -Wait
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO C:\wavm-install
+
+  windows-x64-test-zip:
+    needs: windows-x64-build-test-package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-x64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Extract zip package
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem "${{ env.PACKAGE_DIR }}/*.zip" | Select-Object -First 1
+          Expand-Archive -Path $zip.FullName -DestinationPath C:\wavm-install
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO C:\wavm-install
+
+  windows-arm64-test-zip:
+    needs: windows-arm64-build-test-package
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-arm64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Extract zip package
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem "${{ env.PACKAGE_DIR }}/*.zip" | Select-Object -First 1
+          Expand-Archive -Path $zip.FullName -DestinationPath C:\wavm-install
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO C:\wavm-install
+
+  # macOS ARM64: build, test, and package all configs
+  macos-arm64-build-test-package:
+    needs: get-macos-arm64-configs
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.get-macos-arm64-configs.outputs.configs) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: python3 Build/dev.py test --no-lint --config ${{ matrix.config }}
+      - name: Package
+        run: python3 Build/dev.py package --config ${{ matrix.config }} ${{ env.PACKAGE_DIR }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-arm64-${{ matrix.config }}-packages
+          path: ${{ env.PACKAGE_DIR }}/*
+          retention-days: 1
+      - uses: actions/upload-artifact@v7
+        if: matrix.config == 'Checked'
+        with:
+          name: macOS-arm64-coverage
+          path: ${{ env.WAVM_BUILD_TOOL_WORK_DIR }}/coverage.lcov
+          retention-days: 7
+        continue-on-error: true
+
+  # macOS x64: cross-compile on ARM64 runner, test via Rosetta
+  macos-x64-build-test-package:
+    needs: get-macos-x64-configs
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.get-macos-x64-configs.outputs.configs) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: python3 Build/dev.py --target-arch x64 test --config ${{ matrix.config }}
+      - name: Package
+        run: python3 Build/dev.py --target-arch x64 package --config ${{ matrix.config }} ${{ env.PACKAGE_DIR }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-x64-${{ matrix.config }}-packages
+          path: ${{ env.PACKAGE_DIR }}/*
+          retention-days: 1
+      - uses: actions/upload-artifact@v7
+        if: matrix.config == 'Checked'
+        with:
+          name: macOS-x64-coverage
+          path: ${{ env.WAVM_BUILD_TOOL_WORK_DIR }}/coverage.lcov
+          retention-days: 7
+        continue-on-error: true
+
+  # macOS ARM64 package testing
+  macos-arm64-test-tgz:
+    needs: macos-arm64-build-test-package
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: macos-arm64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Extract tarball
+        run: |
+          mkdir -p ~/wavm-install
+          tar -xzf ${{ env.PACKAGE_DIR }}/*.tar.gz -C ~/wavm-install
+      - name: Test install
+        run: python3 Build/dev.py test-install --config LTO ~/wavm-install
+
+  # macOS x64 package testing (runs via Rosetta)
+  macos-x64-test-tgz:
+    needs: macos-x64-build-test-package
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: macos-x64-LTO-packages
+          path: ${{ env.PACKAGE_DIR }}
+      - name: Extract tarball
+        run: |
+          mkdir -p ~/wavm-install
+          tar -xzf ${{ env.PACKAGE_DIR }}/*.tar.gz -C ~/wavm-install
+      - name: Test install
+        run: python3 Build/dev.py --target-arch x64 test-install --config LTO ~/wavm-install
+
+  # Merge coverage from all platforms
+  coverage-merge:
+    if: always()
+    needs:
+      - linux-x64-build-test-package
+      - linux-aarch64-build-test-package
+      - windows-x64-build-test-package
+      - windows-arm64-build-test-package
+      - macos-arm64-build-test-package
+      - macos-x64-build-test-package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set build paths
+        shell: bash
+        run: |
+          echo "WAVM_BUILD_TOOL_WORK_DIR=$GITHUB_WORKSPACE/_working" >> "$GITHUB_ENV"
+          echo "PACKAGE_DIR=$GITHUB_WORKSPACE/_packages" >> "$GITHUB_ENV"
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '*-coverage'
+          path: ${{ runner.temp }}/coverage-artifacts
+        continue-on-error: true
+      - name: Merge coverage
+        run: |
+          shopt -s nullglob globstar
+          lcov_files=(${{ runner.temp }}/coverage-artifacts/**/*.lcov)
+          if [ ${#lcov_files[@]} -gt 0 ]; then
+            python3 Build/dev.py merge-coverage --output-dir ${{ runner.temp }}/combined-coverage "${lcov_files[@]}"
+          else
+            echo "No coverage files found, skipping merge"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: success()
+        with:
+          name: combined-coverage-report
+          path: ${{ runner.temp }}/combined-coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+        continue-on-error: true
+
+  # Publish release (tags only)
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - linux-x64-test-distros
+      - linux-x64-test-deb
+      - linux-x64-test-rpm
+      - linux-aarch64-test-distros
+      - linux-aarch64-test-deb
+      - linux-aarch64-test-rpm
+      - windows-x64-test-exe
+      - windows-x64-test-zip
+      - windows-arm64-test-zip
+      - macos-arm64-test-tgz
+      - macos-x64-test-tgz
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '*-LTO-*-packages'
+          path: artifacts
+      - name: Rename packages with platform and version
+        run: |
+          version="${GITHUB_REF#refs/tags/}"
+          for dir in artifacts/*/; do
+            dirname="$(basename "$dir")"
+            # Extract platform-arch from artifact name (e.g. linux-x64, macos-arm64)
+            platform_arch="${dirname%-LTO-*-packages}"
+            for f in "$dir"wavm-package.*; do
+              [ -e "$f" ] || continue
+              ext="${f#*wavm-package}"
+              mv "$f" "artifacts/wavm-${version}-${platform_arch}${ext}"
+            done
+          done
+          find artifacts -mindepth 1 -type d -empty -delete
+          ls -la artifacts/
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          files: artifacts/*
+          generate_release_notes: true

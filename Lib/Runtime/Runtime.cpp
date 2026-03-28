@@ -1,8 +1,12 @@
 #include "WAVM/Runtime/Runtime.h"
+#include <atomic>
+#include <cstdint>
+#include <string>
+#include <utility>
 #include "RuntimePrivate.h"
+#include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -185,6 +189,15 @@ Memory* Runtime::getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Platform::RWMutex::ShareableLock compartmentLock(compartment->mutex);
 	return compartment->memories[memoryId];
+}
+
+Runtime::Foreign::~Foreign()
+{
+	if(id != UINTPTR_MAX)
+	{
+		WAVM_ASSERT_RWMUTEX_IS_EXCLUSIVELY_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
+		compartment->foreigns.removeOrFail(id);
+	}
 }
 
 Foreign* Runtime::createForeign(Compartment* compartment,

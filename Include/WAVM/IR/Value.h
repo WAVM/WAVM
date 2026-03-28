@@ -1,8 +1,12 @@
 #pragma once
 
 #include <string.h>
+#include <string>
+#include <vector>
 #include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/StringBuilder.h"
 
 namespace WAVM { namespace Runtime {
 	struct Object;
@@ -70,15 +74,12 @@ namespace WAVM { namespace IR {
 			case ValueType::v128: return "v128.const " + asString(value.v128);
 			case ValueType::externref:
 			case ValueType::funcref: {
-				// buffer needs 29 characters:
-				// (externref|funcref) 0xHHHHHHHHHHHHHHHH\0
-				char buffer[29];
-				snprintf(buffer,
-						 sizeof(buffer),
-						 "%s 0x%.16" WAVM_PRIxPTR,
-						 value.type == ValueType::externref ? "externref" : "funcref",
-						 reinterpret_cast<Uptr>(value.object));
-				return std::string(buffer);
+				// 29 characters: (externref|funcref) 0xHHHHHHHHHHHHHHHH\0
+				FixedStringBuilder<29> sb;
+				sb.appendf("%s 0x%.16" WAVM_PRIxPTR,
+						   value.type == ValueType::externref ? "externref" : "funcref",
+						   reinterpret_cast<Uptr>(value.object));
+				return sb.toString();
 			}
 
 			case ValueType::none:

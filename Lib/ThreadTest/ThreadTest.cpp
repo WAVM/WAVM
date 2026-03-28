@@ -1,9 +1,7 @@
 #include "WAVM/Platform/Thread.h"
 #include <stdint.h>
 #include <atomic>
-#include <memory>
 #include <utility>
-#include <vector>
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
@@ -11,6 +9,7 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Inline/IntrusiveSharedPtr.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"

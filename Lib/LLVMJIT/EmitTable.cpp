@@ -1,21 +1,18 @@
-#include "EmitContext.h"
+#include <cstddef>
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/Constant.h>
-#include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
-#include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
@@ -53,8 +50,7 @@ void EmitFunctionContext::table_get(TableImm imm)
 		FunctionType({ValueType::externref},
 					 TypeTuple({moduleContext.iptrValueType, moduleContext.iptrValueType}),
 					 IR::CallingConvention::intrinsic),
-		{zext(index, moduleContext.iptrType),
-		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])})[0];
+		{zext(index, moduleContext.iptrType), moduleContext.tableIds[imm.tableIndex]})[0];
 	push(result);
 }
 
@@ -62,15 +58,14 @@ void EmitFunctionContext::table_set(TableImm imm)
 {
 	llvm::Value* value = pop();
 	llvm::Value* index = pop();
-	emitRuntimeIntrinsic("table.set",
-						 FunctionType({},
-									  TypeTuple({moduleContext.iptrValueType,
-												 ValueType::externref,
-												 moduleContext.iptrValueType}),
-									  IR::CallingConvention::intrinsic),
-						 {zext(index, moduleContext.iptrType),
-						  value,
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+	emitRuntimeIntrinsic(
+		"table.set",
+		FunctionType(
+			{},
+			TypeTuple(
+				{moduleContext.iptrValueType, ValueType::externref, moduleContext.iptrValueType}),
+			IR::CallingConvention::intrinsic),
+		{zext(index, moduleContext.iptrType), value, moduleContext.tableIds[imm.tableIndex]});
 }
 
 void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
@@ -91,7 +86,7 @@ void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
 						  zext(sourceOffset, moduleContext.iptrType),
 						  zext(numElements, moduleContext.iptrType),
 						  moduleContext.instanceId,
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex]),
+						  moduleContext.tableIds[imm.tableIndex],
 						  emitLiteralIptr(imm.elemSegmentIndex, moduleContext.iptrType)});
 }
 
@@ -122,8 +117,8 @@ void EmitFunctionContext::table_copy(TableCopyImm imm)
 						 {zext(destOffset, moduleContext.iptrType),
 						  zext(sourceOffset, moduleContext.iptrType),
 						  zext(numElements, moduleContext.iptrType),
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.destTableIndex]),
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.sourceTableIndex])});
+						  moduleContext.tableIds[imm.destTableIndex],
+						  moduleContext.tableIds[imm.sourceTableIndex]});
 }
 
 void EmitFunctionContext::table_fill(TableImm imm)
@@ -142,7 +137,7 @@ void EmitFunctionContext::table_fill(TableImm imm)
 						 {zext(destOffset, moduleContext.iptrType),
 						  value,
 						  zext(numElements, moduleContext.iptrType),
-						  getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+						  moduleContext.tableIds[imm.tableIndex]});
 }
 
 void EmitFunctionContext::table_grow(TableImm imm)
@@ -158,7 +153,7 @@ void EmitFunctionContext::table_grow(TableImm imm)
 			IR::CallingConvention::intrinsic),
 		{value,
 		 zext(deltaNumElements, moduleContext.iptrType),
-		 getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+		 moduleContext.tableIds[imm.tableIndex]});
 	WAVM_ASSERT(previousNumElements.size() == 1);
 	const TableType& tableType = moduleContext.irModule.tables.getType(imm.tableIndex);
 	push(coerceIptrToIndex(tableType.indexType, previousNumElements[0]));
@@ -170,7 +165,7 @@ void EmitFunctionContext::table_size(TableImm imm)
 							   FunctionType(TypeTuple(moduleContext.iptrValueType),
 											TypeTuple(moduleContext.iptrValueType),
 											IR::CallingConvention::intrinsic),
-							   {getTableIdFromOffset(moduleContext.tableOffsets[imm.tableIndex])});
+							   {moduleContext.tableIds[imm.tableIndex]});
 	WAVM_ASSERT(currentNumElements.size() == 1);
 	const TableType& tableType = moduleContext.irModule.tables.getType(imm.tableIndex);
 	push(coerceIptrToIndex(tableType.indexType, currentNumElements[0]));

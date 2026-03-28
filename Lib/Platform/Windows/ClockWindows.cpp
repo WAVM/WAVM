@@ -1,12 +1,16 @@
+#if WAVM_PLATFORM_WINDOWS
+
+#include <cstdint>
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#include <profileapi.h>
+#include <sysinfoapi.h>
+#include <timezoneapi.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -116,3 +120,5 @@ Time Platform::getClockResolution(Clock clock)
 	default: WAVM_UNREACHABLE();
 	};
 }
+
+#endif // WAVM_PLATFORM_WINDOWS

@@ -1,14 +1,19 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
-#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Inline/StringBuilder.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Error.h"
+#include "WAVM/Platform/Unwind.h"
 
 // Declare some types to avoid including the full definition.
 namespace WAVM {
@@ -226,6 +231,7 @@ namespace WAVM { namespace Runtime {
 	// Exceptions
 	//
 
+	struct CallStack;
 	struct Exception;
 
 	// Exception UserData
@@ -236,7 +242,7 @@ namespace WAVM { namespace Runtime {
 	WAVM_API Exception* createException(ExceptionType* type,
 										const IR::UntaggedValue* arguments,
 										Uptr numArguments,
-										Platform::CallStack&& callStack);
+										CallStack&& callStack);
 
 	// Destroys a runtime exception.
 	WAVM_API void destroyException(Exception* exception);
@@ -248,7 +254,7 @@ namespace WAVM { namespace Runtime {
 	WAVM_API IR::UntaggedValue getExceptionArgument(const Exception* exception, Uptr argIndex);
 
 	// Returns the call stack at the origin of an exception.
-	WAVM_API const Platform::CallStack& getExceptionCallStack(const Exception* exception);
+	WAVM_API const CallStack& getExceptionCallStack(const Exception* exception);
 
 	// Returns a string that describes the given exception cause.
 	WAVM_API std::string describeException(const Exception* exception);
@@ -257,8 +263,12 @@ namespace WAVM { namespace Runtime {
 	[[noreturn]] WAVM_API void throwException(Exception* exception);
 
 	// Creates and throws a runtime exception.
+	// numOmittedFramesFromCaller is the number of additional frames to omit beyond throwException
+	// itself. Pass 0 (default) to have the call stack start at the caller of throwException.
+	// Intrinsic functions should pass 1 to also skip themselves.
 	[[noreturn]] WAVM_API void throwException(ExceptionType* type,
-											  const std::vector<IR::UntaggedValue>& arguments = {});
+											  const std::vector<IR::UntaggedValue>& arguments = {},
+											  Uptr numOmittedFramesFromCaller = 0);
 
 	// Calls a thunk and catches any runtime exceptions that occur within it. Note that the
 	// catchThunk takes ownership of the exception, and is responsible for calling destroyException.
@@ -268,6 +278,15 @@ namespace WAVM { namespace Runtime {
 	// Calls a thunk and ensures that any signals that occur within the thunk will be thrown as
 	// runtime exceptions.
 	WAVM_API void unwindSignalsAsExceptions(const std::function<void()>& thunk);
+
+	// Error handler that produces symbolicated call stacks including JIT'd WASM frames.
+	// Pass to Platform::setErrorHandler to enable rich error output.
+	WAVM_API void handleError(const char* message,
+							  bool printCallStack,
+							  Platform::UnwindState&& state);
+
+	// Maximum number of inline source frames to resolve for a single address.
+	inline constexpr Uptr maxInlineSourceFrames = 16;
 
 	// Describes the source of an instruction; may be either WASM or native code.
 	struct InstructionSource
@@ -294,13 +313,33 @@ namespace WAVM { namespace Runtime {
 		InstructionSource() : type(Type::unknown) {}
 	};
 
-	WAVM_API std::string asString(const InstructionSource& source);
+	// Signal-safe: formats an InstructionSource into a caller-provided buffer.
+	// Returns the number of characters written (not counting null terminator).
+	WAVM_API void appendToString(StringBuilderBase& stringBuilder, const InstructionSource& source);
 
 	// Looks up the source of an instruction from either a native or WASM module.
-	bool getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource);
+	// For WASM code, returns a stack of InstructionSource entries from innermost to outermost
+	// (accounting for inlined functions). For native code, returns a single entry.
+	// Signal-safe: no heap allocations.
+	WAVM_API Uptr getInstructionSourceByAddress(Uptr ip,
+												InstructionSource* outSources,
+												Uptr maxSources);
+
+	// Resolves all frames in a call stack into a flat list of InstructionSources, expanding inline
+	// frames. Each physical frame may produce multiple InstructionSource entries.
+	WAVM_API std::vector<InstructionSource> resolveCallStackFrames(const CallStack& callStack);
 
 	// Describes a call stack.
-	WAVM_API std::vector<std::string> describeCallStack(const Platform::CallStack& callStack);
+	WAVM_API std::vector<std::string> describeCallStack(const CallStack& callStack);
+
+	// Walks an UnwindState and collects frame IPs into a CallStack.
+	// Also traces each frame when the trace-unwind log category is enabled
+	// (with instruction source, procedure info, disassembly, and register state).
+	WAVM_API CallStack unwindCallStack(Platform::UnwindState& state);
+
+	// Pre-create resources needed for trace-unwind diagnostics (e.g., the host disassembler).
+	// Must be called before entering signal handler paths (e.g., from unwindSignalsAsExceptions).
+	WAVM_API void initTraceUnwindState();
 
 	//
 	// Functions
@@ -448,7 +487,7 @@ namespace WAVM { namespace Runtime {
 											 const std::vector<U8>& objectCode);
 
 	// Accesses the IR for a compiled module.
-	WAVM_API const IR::Module& getModuleIR(ModuleConstRefParam module);
+	WAVM_NO_DANGLING WAVM_API const IR::Module& getModuleIR(ModuleConstRefParam module);
 
 	// Extracts the compiled object code for a module. This may be used as an input to
 	// loadPrecompiledModule to bypass redundant compilations of the module.

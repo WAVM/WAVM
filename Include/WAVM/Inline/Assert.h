@@ -1,9 +1,8 @@
 #pragma once
 
-#include <cstdarg>
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Error.h"
+#include "WAVM/Platform/Error.h" // IWYU pragma: keep
 
 #define WAVM_ENABLE_ASSERTS (WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS)
 

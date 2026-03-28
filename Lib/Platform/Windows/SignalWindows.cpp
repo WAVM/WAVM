@@ -1,41 +1,17 @@
-#include <atomic>
-#include <functional>
+#if WAVM_PLATFORM_WINDOWS
+
+#include <utility>
 #include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Alloca.h"
 #include "WAVM/Platform/Signal.h"
+#include "WAVM/Platform/Unwind.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#include <excpt.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
-
-void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
-{
-#ifdef _WIN64
-	const U32 numFunctions = (U32)(numBytes / sizeof(RUNTIME_FUNCTION));
-
-	// Register our manually fixed up copy of the function table.
-	if(!RtlAddFunctionTable(
-		   (RUNTIME_FUNCTION*)ehFrames, numFunctions, reinterpret_cast<ULONG_PTR>(imageBase)))
-	{
-		Errors::fatal("RtlAddFunctionTable failed");
-	}
-#else
-	Errors::fatal("registerEHFrames isn't implemented on 32-bit Windows");
-#endif
-}
-void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
-{
-#ifdef _WIN64
-	RtlDeleteFunctionTable((RUNTIME_FUNCTION*)ehFrames);
-#else
-	Errors::fatal("deregisterEHFrames isn't implemented on 32-bit Windows");
-#endif
-}
 
 static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& outSignal)
 {
@@ -62,17 +38,19 @@ static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& 
 // __try/__except doesn't support locals with destructors in the same function, so this is just
 // the body of the sehSignalFilterFunction __try pulled out into a function.
 static LONG CALLBACK sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
-														 bool (*filter)(void*, Signal, CallStack&&),
+														 bool (*filter)(void*,
+																		Signal,
+																		UnwindState&&),
 														 void* context)
 {
 	Signal signal;
 	if(!translateSEHToSignal(exceptionPointers, signal)) { return EXCEPTION_CONTINUE_SEARCH; }
 	else
 	{
-		// Unwind the stack frames from the context of the exception.
-		CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
+		// Create an unwind state from the exception context.
+		UnwindState state = makeUnwindStateFromSignalContext(exceptionPointers->ContextRecord);
 
-		if((*filter)(context, signal, std::move(callStack))) { return EXCEPTION_EXECUTE_HANDLER; }
+		if((*filter)(context, signal, std::move(state))) { return EXCEPTION_EXECUTE_HANDLER; }
 		else
 		{
 			return EXCEPTION_CONTINUE_SEARCH;
@@ -81,7 +59,7 @@ static LONG CALLBACK sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exc
 }
 
 static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
-											 bool (*filter)(void*, Signal, CallStack&&),
+											 bool (*filter)(void*, Signal, UnwindState&&),
 											 void* context)
 {
 	__try
@@ -95,7 +73,7 @@ static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointe
 }
 
 bool Platform::catchSignals(void (*thunk)(void*),
-							bool (*filter)(void*, Signal, CallStack&&),
+							bool (*filter)(void*, Signal, UnwindState&&),
 							void* context)
 {
 	initThread();
@@ -113,3 +91,5 @@ bool Platform::catchSignals(void (*thunk)(void*),
 		return true;
 	}
 }
+
+#endif // WAVM_PLATFORM_WINDOWS

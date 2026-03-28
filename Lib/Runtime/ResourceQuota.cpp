@@ -1,6 +1,6 @@
 #include <memory>
 #include "RuntimePrivate.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Runtime.h"
 
 using namespace WAVM;

@@ -1,11 +1,9 @@
 #pragma once
 
-#include <string.h>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
-#include "WAVM/Platform/Intrinsic.h"
+#include "WAVM/Platform/Intrinsic.h" // IWYU pragma: keep
 
 namespace WAVM {
 	// Encapsulates a set of integers that are in the range 0 to maxIndexPlusOne (excluding

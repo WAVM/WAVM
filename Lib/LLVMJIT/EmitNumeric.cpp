@@ -2,13 +2,13 @@
 #include "EmitContext.h"
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
-#include "EmitWorkarounds.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/FloatComponents.h"
+#include "WAVM/Platform/Defines.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/ADT/APInt.h>
@@ -22,13 +22,11 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Intrinsics.h>
-#include <llvm/IR/Type.h>
-#include <llvm/IR/Value.h>
-
-#if LLVM_VERSION_MAJOR >= 10
 #include <llvm/IR/IntrinsicsAArch64.h>
 #include <llvm/IR/IntrinsicsX86.h>
-#endif
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
+#include <llvm/TargetParser/Triple.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
@@ -145,11 +143,11 @@ llvm::Value* EmitFunctionContext::emitSRem(ValueType type, llvm::Value* left, ll
 	auto endBlock = llvm::BasicBlock::Create(llvmContext, "sremEnd", function);
 	auto noOverflow = irBuilder.CreateOr(
 		irBuilder.CreateICmpNE(left,
-							   type == ValueType::i32 ? emitLiteral(llvmContext, (U32)INT32_MIN)
-													  : emitLiteral(llvmContext, (U64)INT64_MIN)),
+							   type == ValueType::i32 ? emitLiteral(llvmContext, (I32)INT32_MIN)
+													  : emitLiteral(llvmContext, (I64)INT64_MIN)),
 		irBuilder.CreateICmpNE(right,
-							   type == ValueType::i32 ? emitLiteral(llvmContext, (U32)-1)
-													  : emitLiteral(llvmContext, (U64)-1)));
+							   type == ValueType::i32 ? emitLiteral(llvmContext, (I32)-1)
+													  : emitLiteral(llvmContext, (I64)-1)));
 	irBuilder.CreateCondBr(
 		noOverflow, noOverflowBlock, endBlock, moduleContext.likelyTrueBranchWeights);
 
@@ -302,7 +300,7 @@ EMIT_FP_UNARY_OP(sqrt,
 	{                                                                                              \
 		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
 		auto left = irBuilder.CreateBitCast(pop(), llvmOperandType);                               \
-		push(zextOrSext(createFCmpWithWorkaround(irBuilder, pred, left, right), llvmResultType));  \
+		push(zextOrSext(irBuilder.CreateFCmp(pred, left, right), llvmResultType));                 \
 	}
 
 #define EMIT_FP_COMPARE(name, pred)                                                                \
@@ -322,23 +320,14 @@ static llvm::Value* quietNaN(EmitFunctionContext& context,
 							 llvm::Value* nan,
 							 llvm::Value* quietNaNMask)
 {
-#if LLVM_VERSION_MAJOR >= 10
 	// Converts a signaling NaN to a quiet NaN by adding zero to it.
+	WAVM_SUPPRESS_UNUSED(quietNaNMask);
 	return context.callLLVMIntrinsic({nan->getType()},
 									 llvm::Intrinsic::experimental_constrained_fadd,
 									 {nan,
 									  llvm::Constant::getNullValue(nan->getType()),
 									  context.moduleContext.fpRoundingModeMetadata,
 									  context.moduleContext.fpExceptionMetadata});
-#else
-	// Converts a signaling NaN to a quiet NaN by setting its top bit. This works around a LLVM bug
-	// that is triggered by the above constrained fadd technique:
-	// https://bugs.llvm.org/show_bug.cgi?id=43510
-	return context.irBuilder.CreateBitCast(
-		context.irBuilder.CreateOr(context.irBuilder.CreateBitCast(nan, quietNaNMask->getType()),
-								   quietNaNMask),
-		nan->getType());
-#endif
 }
 
 static llvm::Value* emitFloatMin(EmitFunctionContext& context,
@@ -349,14 +338,11 @@ static llvm::Value* emitFloatMin(EmitFunctionContext& context,
 {
 	llvm::IRBuilder<>& irBuilder = context.irBuilder;
 	llvm::Type* floatType = left->getType();
-	llvm::Value* isLeftNaN
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, left, left);
-	llvm::Value* isRightNaN
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, right, right);
-	llvm::Value* isLeftLessThanRight
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right);
+	llvm::Value* isLeftNaN = irBuilder.CreateFCmp(llvm::CmpInst::FCMP_UNO, left, left);
+	llvm::Value* isRightNaN = irBuilder.CreateFCmp(llvm::CmpInst::FCMP_UNO, right, right);
+	llvm::Value* isLeftLessThanRight = irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OLT, left, right);
 	llvm::Value* isLeftGreaterThanRight
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OGT, left, right);
+		= irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OGT, left, right);
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
@@ -387,14 +373,11 @@ static llvm::Value* emitFloatMax(EmitFunctionContext& context,
 {
 	llvm::IRBuilder<>& irBuilder = context.irBuilder;
 	llvm::Type* floatType = left->getType();
-	llvm::Value* isLeftNaN
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, left, left);
-	llvm::Value* isRightNaN
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, right, right);
-	llvm::Value* isLeftLessThanRight
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right);
+	llvm::Value* isLeftNaN = irBuilder.CreateFCmp(llvm::CmpInst::FCMP_UNO, left, left);
+	llvm::Value* isRightNaN = irBuilder.CreateFCmp(llvm::CmpInst::FCMP_UNO, right, right);
+	llvm::Value* isLeftLessThanRight = irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OLT, left, right);
 	llvm::Value* isLeftGreaterThanRight
-		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OGT, left, right);
+		= irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OGT, left, right);
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
@@ -479,7 +462,7 @@ EMIT_SIMD_BINARY_OP(i64x2_mul, llvmContext.i64x2Type, irBuilder.CreateMul(left, 
 	{                                                                                              \
 		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
 		auto left = irBuilder.CreateBitCast(pop(), llvmOperandType);                               \
-		push(zextOrSext(createICmpWithWorkaround(irBuilder, pred, left, right), llvmDestType));    \
+		push(zextOrSext(irBuilder.CreateICmp(pred, left, right), llvmDestType));                   \
 	}
 
 #define EMIT_INT_COMPARE_U(name, pred)                                                             \
@@ -528,7 +511,7 @@ static llvm::Value* emitSubUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
 	right = irBuilder.CreateBitCast(right, type);
 	return irBuilder.CreateSub(
 		irBuilder.CreateSelect(
-			createICmpWithWorkaround(irBuilder, llvm::CmpInst::ICMP_UGT, left, right), left, right),
+			irBuilder.CreateICmp(llvm::CmpInst::ICMP_UGT, left, right), left, right),
 		right);
 }
 
@@ -545,7 +528,6 @@ EMIT_SIMD_BINARY_OP(i16x8_sub_sat_u,
 					llvmContext.i16x8Type,
 					emitSubUnsignedSaturated(irBuilder, left, right, llvmContext.i16x8Type))
 
-#if LLVM_VERSION_MAJOR >= 8
 EMIT_SIMD_BINARY_OP(i8x16_add_sat_s,
 					llvmContext.i8x16Type,
 					callLLVMIntrinsic({llvmContext.i8x16Type},
@@ -566,20 +548,6 @@ EMIT_SIMD_BINARY_OP(i16x8_sub_sat_s,
 					callLLVMIntrinsic({llvmContext.i16x8Type},
 									  llvm::Intrinsic::ssub_sat,
 									  {left, right}))
-#else
-EMIT_SIMD_BINARY_OP(i8x16_add_sat_s,
-					llvmContext.i8x16Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_b, {left, right}))
-EMIT_SIMD_BINARY_OP(i8x16_sub_sat_s,
-					llvmContext.i8x16Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_b, {left, right}))
-EMIT_SIMD_BINARY_OP(i16x8_add_sat_s,
-					llvmContext.i16x8Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_w, {left, right}))
-EMIT_SIMD_BINARY_OP(i16x8_sub_sat_s,
-					llvmContext.i16x8Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_w, {left, right}))
-#endif
 
 #define EMIT_SIMD_INT_BINARY_OP_NO64(name, emitCode)                                               \
 	EMIT_SIMD_BINARY_OP(i8x16##_##name, llvmContext.i8x16Type, emitCode)                           \
@@ -696,35 +664,27 @@ EMIT_SIMD_BINARY_OP(f64x2_max,
 // SIMD pseudo-minimum: right < left ? right : left
 //
 
-EMIT_SIMD_BINARY_OP(f32x4_pmin,
-					llvmContext.f32x4Type,
-					irBuilder.CreateSelect(
-						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, right, left),
-						right,
-						left))
-EMIT_SIMD_BINARY_OP(f64x2_pmin,
-					llvmContext.f64x2Type,
-					irBuilder.CreateSelect(
-						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, right, left),
-						right,
-						left))
+EMIT_SIMD_BINARY_OP(
+	f32x4_pmin,
+	llvmContext.f32x4Type,
+	irBuilder.CreateSelect(irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OLT, right, left), right, left))
+EMIT_SIMD_BINARY_OP(
+	f64x2_pmin,
+	llvmContext.f64x2Type,
+	irBuilder.CreateSelect(irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OLT, right, left), right, left))
 
 //
 // SIMD pseudo-maximum: left < right ? right : left
 //
 
-EMIT_SIMD_BINARY_OP(f32x4_pmax,
-					llvmContext.f32x4Type,
-					irBuilder.CreateSelect(
-						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right),
-						right,
-						left))
-EMIT_SIMD_BINARY_OP(f64x2_pmax,
-					llvmContext.f64x2Type,
-					irBuilder.CreateSelect(
-						createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right),
-						right,
-						left))
+EMIT_SIMD_BINARY_OP(
+	f32x4_pmax,
+	llvmContext.f32x4Type,
+	irBuilder.CreateSelect(irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OLT, left, right), right, left))
+EMIT_SIMD_BINARY_OP(
+	f64x2_pmax,
+	llvmContext.f64x2Type,
+	irBuilder.CreateSelect(irBuilder.CreateFCmp(llvm::CmpInst::FCMP_OLT, left, right), right, left))
 
 EMIT_SIMD_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
 EMIT_SIMD_FP_UNARY_OP(abs,

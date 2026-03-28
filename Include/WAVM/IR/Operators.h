@@ -2,12 +2,10 @@
 
 #include <string.h>
 #include <vector>
-#include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Serialization.h"
-#include "WAVM/Platform/Defines.h"
 
 #include "OperatorTable.h"
 
@@ -179,7 +177,7 @@ namespace WAVM { namespace IR {
 #undef VISIT_OPCODE
 	};
 
-	static constexpr U64 maxSingleByteOpcode = 0xdf;
+	inline constexpr U64 maxSingleByteOpcode = 0xdf;
 
 	template<typename Imm> struct OpcodeAndImm
 	{
@@ -254,7 +252,7 @@ namespace WAVM { namespace IR {
 		OpcodeAndImm<Imm> encodedOperator;                                                         \
 		encodedOperator.opcode = Opcode::name;                                                     \
 		encodedOperator.imm = imm;                                                                 \
-		memcpy((OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)),                  \
+		memcpy(byteStream.advance(sizeof(OpcodeAndImm<Imm>)),                                      \
 			   &encodedOperator,                                                                   \
 			   sizeof(OpcodeAndImm<Imm>));                                                         \
 	}

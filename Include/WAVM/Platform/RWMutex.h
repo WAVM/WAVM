@@ -3,7 +3,7 @@
 #include <atomic>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Defines.h"
+#include "WAVM/Inline/Config.h"
 
 namespace WAVM { namespace Platform {
 	// Platform-independent reader-writer mutexes.
@@ -70,18 +70,9 @@ namespace WAVM { namespace Platform {
 		};
 
 	private:
-		struct LockData
+		struct alignas(WAVM_PLATFORM_RWMUTEX_ALIGN) LockData
 		{
-#if defined(WIN32)
-			Uptr data;
-#elif defined(__linux__) && defined(__x86_64__)
-			U64 data[7];
-#elif defined(__APPLE__)
-			U64 data[25]; // !!
-#else
-			// For unidentified platforms, just allocate 64 bytes for the mutex.
-			U64 data[8];
-#endif
+			U8 data[WAVM_PLATFORM_RWMUTEX_SIZE];
 		} lockData;
 
 #if WAVM_ENABLE_ASSERTS

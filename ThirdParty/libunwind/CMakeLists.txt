@@ -7,10 +7,12 @@ set(Sources
 	src/DwarfInstructions.hpp
 	src/DwarfParser.hpp
 	src/EHHeaderParser.hpp
+	src/FrameHeaderCache.hpp
 	src/libunwind_ext.h
 	src/libunwind.cpp
 	src/Registers.hpp
 	src/RWMutex.hpp
+	src/shadow_stack_unwind.h
 	src/Unwind-sjlj.c
 	src/UnwindCursor.hpp
 	src/UnwindLevel1-gcc-ext.c
@@ -20,7 +22,6 @@ set(Sources
 	)
 
 set(AppleSources
-	src/Unwind_AppleExtras.cpp
 	src/Unwind-EHABI.cpp
 	src/Unwind-EHABI.h
 	)
@@ -29,6 +30,8 @@ set(PublicHeaders
 	include/__libunwind_config.h
 	include/libunwind.h
 	include/unwind.h
+	include/unwind_arm_ehabi.h
+	include/unwind_itanium.h
 	include/mach-o/compact_unwind_encoding.h
 	)
 
@@ -38,15 +41,10 @@ else()
 	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 		set(Sources ${Sources} ${AppleSources})
 	endif()
-	
-	set(UNWIND_COMPILER_OPTIONS)
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		list(APPEND UNWIND_COMPILER_OPTIONS "-Wno-maybe-uninitialized" "-Wno-unused-but-set-variable")
-	endif()
 
 	WAVM_ADD_THIRD_PARTY_LIBRARY(WAVMUnwind
 		SOURCES ${Sources} ${PublicHeaders}
 		PRIVATE_INCLUDE_DIRECTORIES include
-		PRIVATE_COMPILE_OPTIONS ${UNWIND_COMPILER_OPTIONS}
+		PRIVATE_DEFINITIONS _LIBUNWIND_IS_NATIVE_ONLY
 	)
 endif()

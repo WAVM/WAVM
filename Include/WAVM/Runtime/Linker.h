@@ -1,12 +1,9 @@
 #pragma once
 
-#include <functional>
 #include <string>
-#include <utility>
 #include <vector>
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
-#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Runtime.h"
 
 namespace WAVM { namespace Runtime {

@@ -1,7 +1,10 @@
+#include <cstring>
+#include <string>
 #include "./WASIPrivate.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/WASI/WASI.h"
 #include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;

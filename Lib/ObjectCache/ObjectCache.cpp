@@ -1,13 +1,18 @@
 #include "WAVM/ObjectCache/ObjectCache.h"
 #include <errno.h>
+#include <cinttypes>
+#include <cstdint>
+#include <cstring>
 #include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -127,17 +132,6 @@ template<> void fromMDBVal<MDB_val>(const MDB_val& mdbVal, MDB_val& outMDBVal)
 	outMDBVal = mdbVal;
 }
 
-static bool testSoftFailure()
-{
-#if 0
-	const U64 clockHash
-		= Hash<U64>()(U64(Platform::getClockTime(Platform::Clock::realtime).ns & UINT64_MAX), 0);
-	return (clockHash & 15) == 0;
-#else
-	return false;
-#endif
-}
-
 // A thin wrapper around a LMDB database that encapsulates error handling and translating
 // keys/values to MDB_val.
 struct Database
@@ -175,8 +169,6 @@ struct Database
 	// All other errors are fatal.
 	MDB_txn* beginTxn(unsigned int flags = 0, MDB_txn* parentTxn = nullptr)
 	{
-		if(testSoftFailure()) { throw Exception(Exception::Type::tooManyReaders); }
-
 		MDB_txn* txn = nullptr;
 		int beginResult = mdb_txn_begin(env, parentTxn, flags, &txn);
 		if(beginResult == MDB_MAP_RESIZED)
@@ -224,7 +216,7 @@ struct Database
 	template<typename Key, typename Value>
 	static void getKeyValue(MDB_txn* txn, MDB_dbi dbi, const Key& key, Value& outValue)
 	{
-		if(!tryGetKeyValue(txn, dbi, key, outValue) || testSoftFailure())
+		if(!tryGetKeyValue(txn, dbi, key, outValue))
 		{
 			throw Exception(Exception::Type::keyNotFound);
 		}
@@ -253,10 +245,7 @@ struct Database
 	template<typename Key, typename Value>
 	static void putKeyValue(MDB_txn* txn, MDB_dbi dbi, const Key& key, const Value& value)
 	{
-		if(!tryPutKeyValue(txn, dbi, key, value) || testSoftFailure())
-		{
-			throw Exception(Exception::Type::mapIsFull);
-		}
+		if(!tryPutKeyValue(txn, dbi, key, value)) { throw Exception(Exception::Type::mapIsFull); }
 	}
 
 	// Deletes a key from a table.
@@ -281,10 +270,7 @@ struct Database
 	// All other errors are fatal.
 	template<typename Key> static void deleteKey(MDB_txn* txn, MDB_dbi dbi, const Key& key)
 	{
-		if(!tryDeleteKey(txn, dbi, key) || testSoftFailure())
-		{
-			throw Exception(Exception::Type::keyNotFound);
-		}
+		if(!tryDeleteKey(txn, dbi, key)) { throw Exception(Exception::Type::keyNotFound); }
 	}
 
 	// Opens a cursor for the given table. All errors are fatal.
@@ -353,7 +339,7 @@ struct ScopedTxn
 		int commitResult = mdb_txn_commit(txn);
 		txn = nullptr;
 
-		if(commitResult == ENOSPC || testSoftFailure())
+		if(commitResult == ENOSPC)
 		{
 			throw Database::Exception(Database::Exception::Type::diskIsFull);
 		}
@@ -367,6 +353,29 @@ private:
 	MDB_txn* txn;
 };
 
+static void logModuleHash(const char* prefix, const U8 moduleHashBytes[16])
+{
+	Log::printf(Log::traceObjectCache,
+				"%s: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+				prefix,
+				moduleHashBytes[0],
+				moduleHashBytes[1],
+				moduleHashBytes[2],
+				moduleHashBytes[3],
+				moduleHashBytes[4],
+				moduleHashBytes[5],
+				moduleHashBytes[6],
+				moduleHashBytes[7],
+				moduleHashBytes[8],
+				moduleHashBytes[9],
+				moduleHashBytes[10],
+				moduleHashBytes[11],
+				moduleHashBytes[12],
+				moduleHashBytes[13],
+				moduleHashBytes[14],
+				moduleHashBytes[15]);
+}
+
 // Encapsulates the global state of the object cache.
 struct LMDBObjectCache : Runtime::ObjectCacheInterface
 {
@@ -374,22 +383,29 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 	{
 		codeKey = inCodeKey;
 
-		// Open the LMDB database.
+		// Open the LMDB database, retrying on ENOENT.
 		MDB_env* env = nullptr;
-		ERROR_UNLESS_MDB_SUCCESS(mdb_env_create(&env));
-		ERROR_UNLESS_MDB_SUCCESS(mdb_env_set_mapsize(env, maxBytes));
-		ERROR_UNLESS_MDB_SUCCESS(mdb_env_set_maxdbs(env, 5));
-		const int openError = mdb_env_open(env, path, MDB_NOMETASYNC, 0666);
+		int openError = 0;
+		for(Uptr attempt = 0; attempt <= 3; ++attempt)
+		{
+			ERROR_UNLESS_MDB_SUCCESS(mdb_env_create(&env));
+			ERROR_UNLESS_MDB_SUCCESS(mdb_env_set_mapsize(env, maxBytes));
+			ERROR_UNLESS_MDB_SUCCESS(mdb_env_set_maxdbs(env, 5));
+			openError = mdb_env_open(env, path, MDB_NOMETASYNC, 0666);
+			if(!openError) { break; }
+			mdb_env_close(env);
+			env = nullptr;
+			if(openError != ENOENT) { break; }
+		}
+
 		if(openError)
 		{
-			mdb_env_close(env);
 			switch(openError)
 			{
 			case ENOENT: return OpenResult::doesNotExist;
 			case ENOTDIR: return OpenResult::notDirectory;
 			case EACCES: return OpenResult::notAccessible;
 			case MDB_INVALID: return OpenResult::invalidDatabase;
-
 			default:
 				Errors::fatalf(
 					"mdb_env_open(env, \"%s\", 0, 0666) failed: %s", path, mdb_strerror(openError));
@@ -650,6 +666,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		{
 			if(tryGetCachedObject(moduleHashBytes, wasmBytes, numWASMBytes, objectCode))
 			{
+				logModuleHash("Object cache hit", moduleHashBytes);
 				return objectCode;
 			}
 		}
@@ -661,6 +678,7 @@ struct LMDBObjectCache : Runtime::ObjectCacheInterface
 		}
 
 		// If there wasn't a matching cached module+object code, compile the module.
+		logModuleHash("Object cache miss", moduleHashBytes);
 		objectCode = compileThunk();
 
 		// Add the cached module+object code to the database.

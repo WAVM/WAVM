@@ -1,69 +1,44 @@
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 #include <map>
 #include <memory>
 #include <string>
-#include <system_error>
-#include <type_traits>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include "LLVMJITPrivate.h"
+#include "WAVM/DWARF/DWARF.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/ObjectLinker/ObjectLinker.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Memory.h"
-#include "WAVM/Platform/Mutex.h"
 #include "WAVM/Platform/RWMutex.h"
-#include "WAVM/Platform/Signal.h"
+#include "WAVM/Platform/Unwind.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
-PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include <llvm/ADT/StringRef.h>
-#include <llvm/DebugInfo/DIContext.h>
-#include <llvm/DebugInfo/DWARF/DWARFContext.h>
-#include <llvm/ExecutionEngine/JITEventListener.h>
-#include <llvm/ExecutionEngine/JITSymbol.h>
-#include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
-#include <llvm/ExecutionEngine/RuntimeDyld.h>
-#include <llvm/Object/ObjectFile.h>
-#include <llvm/Object/SymbolSize.h>
-#include <llvm/Object/SymbolicFile.h>
-#include <llvm/Support/Error.h>
-#include <llvm/Support/Memory.h>
-#include <llvm/Support/MemoryBuffer.h>
-POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-
-#ifdef _WIN32
-#define USE_WINDOWS_SEH 1
-#else
-#define USE_WINDOWS_SEH 0
-#endif
-
-#if !USE_WINDOWS_SEH
+#ifndef _WIN32
 #include <cxxabi.h>
+#include <typeinfo>
+#define USE_WINDOWS_SEH 0
+#else
+#define USE_WINDOWS_SEH 1
 #endif
+
+using namespace WAVM;
+using namespace WAVM::LLVMJIT;
 
 namespace WAVM { namespace Runtime {
 	struct ExceptionType;
 }}
 
-#define KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED 0
-
-using namespace WAVM;
-using namespace WAVM::LLVMJIT;
-
 struct LLVMJIT::GlobalModuleState
 {
-	Platform::Mutex gdbRegistrationListenerMutex;
-	llvm::JITEventListener* gdbRegistrationListener = nullptr;
-
 	// A map from address to loaded JIT symbols.
 	Platform::RWMutex addressToModuleMapMutex;
 	std::map<Uptr, LLVMJIT::Module*> addressToModuleMap;
@@ -74,584 +49,139 @@ struct LLVMJIT::GlobalModuleState
 		return singleton;
 	}
 
-	// These constructor and destructor should not be called directly, but must be public in order
-	// to be accessible by std::make_shared.
-	GlobalModuleState()
-	{
-		gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
-	}
-	~GlobalModuleState() { delete gdbRegistrationListener; }
+	GlobalModuleState() {}
+	~GlobalModuleState() {}
 };
 
-// Allocates memory for the LLVM object loader.
-struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
+// Tracks the linked image memory for cleanup.
+struct LLVMJIT::ModuleMemoryManager
 {
-	ModuleMemoryManager()
-	: imageBaseAddress(nullptr)
-	, isFinalized(false)
-	, codeSection({nullptr, 0, 0})
-	, readOnlySection({nullptr, 0, 0})
-	, readWriteSection({nullptr, 0, 0})
-	, hasRegisteredEHFrames(false)
-	{
-	}
-	virtual ~ModuleMemoryManager() override
-	{
-		// Deregister the exception handling frame info.
-		deregisterEHFrames();
+	ModuleMemoryManager() : imageBase(nullptr), numPages(0) {}
 
-		if(!KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED)
-		{
-			Platform::freeVirtualPages(imageBaseAddress, numAllocatedImagePages);
-		}
-		else
-		{
-			// Decommit the image pages, but leave them reserved to catch any references to them
-			// that might erroneously remain.
-			Platform::decommitVirtualPages(imageBaseAddress, numAllocatedImagePages);
-		}
-		Platform::deregisterVirtualAllocation(numAllocatedImagePages
-											  << Platform::getBytesPerPageLog2());
-	}
-
-	void registerEHFrames(U8* addr, U64 loadAddr, uintptr_t numBytes) override
+	~ModuleMemoryManager()
 	{
-		if(!USE_WINDOWS_SEH)
+		if(imageBase)
 		{
-			Platform::registerEHFrames(imageBaseAddress, addr, numBytes);
-			hasRegisteredEHFrames = true;
-			ehFramesAddr = addr;
-			ehFramesNumBytes = numBytes;
-		}
-	}
-	void registerFixedSEHFrames(U8* addr, Uptr numBytes)
-	{
-		Platform::registerEHFrames(imageBaseAddress, addr, numBytes);
-		hasRegisteredEHFrames = true;
-		ehFramesAddr = addr;
-		ehFramesNumBytes = numBytes;
-	}
-	void deregisterEHFrames() override
-	{
-		if(hasRegisteredEHFrames)
-		{
-			hasRegisteredEHFrames = false;
-			Platform::deregisterEHFrames(imageBaseAddress, ehFramesAddr, ehFramesNumBytes);
+			Platform::freeVirtualPages(imageBase, numPages);
+			Platform::deregisterVirtualAllocation(numPages << Platform::getBytesPerPageLog2());
 		}
 	}
 
-	virtual bool needsToReserveAllocationSpace() override { return true; }
-	virtual void reserveAllocationSpace(uintptr_t numCodeBytes,
-										U32 codeAlignment,
-										uintptr_t numReadOnlyBytes,
-										U32 readOnlyAlignment,
-										uintptr_t numReadWriteBytes,
-										U32 readWriteAlignment) override
-	{
-		if(USE_WINDOWS_SEH)
-		{
-			// Pad the code section to allow for the SEH trampoline.
-			numCodeBytes += 32;
-		}
-
-		// Calculate the number of pages to be used by each section.
-		codeSection.numPages = shrAndRoundUp(numCodeBytes, Platform::getBytesPerPageLog2());
-		readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes, Platform::getBytesPerPageLog2());
-		readWriteSection.numPages
-			= shrAndRoundUp(numReadWriteBytes, Platform::getBytesPerPageLog2());
-		numAllocatedImagePages
-			= codeSection.numPages + readOnlySection.numPages + readWriteSection.numPages;
-		if(numAllocatedImagePages)
-		{
-			// Reserve enough contiguous pages for all sections.
-			imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
-			if(!imageBaseAddress
-			   || !Platform::commitVirtualPages(imageBaseAddress, numAllocatedImagePages))
-			{
-				Errors::fatal("memory allocation for JIT code failed");
-			}
-			Platform::registerVirtualAllocation(numAllocatedImagePages
-												<< Platform::getBytesPerPageLog2());
-			codeSection.baseAddress = imageBaseAddress;
-			readOnlySection.baseAddress
-				= codeSection.baseAddress
-				  + (codeSection.numPages << Platform::getBytesPerPageLog2());
-			readWriteSection.baseAddress
-				= readOnlySection.baseAddress
-				  + (readOnlySection.numPages << Platform::getBytesPerPageLog2());
-		}
-	}
-	virtual U8* allocateCodeSection(uintptr_t numBytes,
-									U32 alignment,
-									U32 sectionID,
-									llvm::StringRef sectionName) override
-	{
-		return allocateBytes(sectionName, (Uptr)numBytes, alignment, codeSection);
-	}
-	virtual U8* allocateDataSection(uintptr_t numBytes,
-									U32 alignment,
-									U32 sectionID,
-									llvm::StringRef sectionName,
-									bool isReadOnly) override
-	{
-		return allocateBytes(sectionName,
-							 (Uptr)numBytes,
-							 alignment,
-							 isReadOnly ? readOnlySection : readWriteSection);
-	}
-	virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
-	{
-		// finalizeMemory is called before we manually apply SEH relocations, so don't do anything
-		// here and let the finalize callback call reallyFinalizeMemory when it's done applying the
-		// SEH relocations.
-		return true;
-	}
-	void reallyFinalizeMemory()
-	{
-		WAVM_ASSERT(!isFinalized);
-		isFinalized = true;
-		if(codeSection.numPages)
-		{
-			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(codeSection.baseAddress,
-															 codeSection.numPages,
-															 Platform::MemoryAccess::readExecute));
-		}
-		if(readOnlySection.numPages)
-		{
-			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(readOnlySection.baseAddress,
-															 readOnlySection.numPages,
-															 Platform::MemoryAccess::readOnly));
-		}
-		if(readWriteSection.numPages)
-		{
-			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(readWriteSection.baseAddress,
-															 readWriteSection.numPages,
-															 Platform::MemoryAccess::readWrite));
-		}
-
-		// Invalidate the instruction cache.
-		invalidateInstructionCache();
-	}
-	virtual void invalidateInstructionCache()
-	{
-		// Invalidate the instruction cache for the whole image.
-		llvm::sys::Memory::InvalidateInstructionCache(
-			imageBaseAddress, numAllocatedImagePages << Platform::getBytesPerPageLog2());
-	}
-
-	U8* getImageBaseAddress() const { return imageBaseAddress; }
-	Uptr getNumImageBytes() const
-	{
-		return numAllocatedImagePages << Platform::getBytesPerPageLog2();
-	}
-
-	Uptr getNumCodeBytes() const { return codeSection.numCommittedBytes; }
-	Uptr getNumReadOnlyBytes() const { return readOnlySection.numCommittedBytes; }
-	Uptr getNumReadWriteBytes() const { return readWriteSection.numCommittedBytes; }
-
-	const llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>>& getSectionNameToContentsMap() const
-	{
-		return sectionNameToContentsMap;
-	}
-
-private:
-	struct Section
-	{
-		U8* baseAddress;
-		Uptr numPages;
-		Uptr numCommittedBytes;
-	};
-
-	U8* imageBaseAddress;
-	Uptr numAllocatedImagePages;
-	bool isFinalized;
-
-	Section codeSection;
-	Section readOnlySection;
-	Section readWriteSection;
-
-	bool hasRegisteredEHFrames;
-	const U8* ehFramesAddr;
-	Uptr ehFramesNumBytes;
-
-	llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>> sectionNameToContentsMap;
-
-	U8* allocateBytes(llvm::StringRef sectionName, Uptr numBytes, Uptr alignment, Section& section)
-	{
-		if(alignment == 0) { alignment = 1; }
-
-		WAVM_ASSERT(section.baseAddress);
-		WAVM_ASSERT(!(alignment & (alignment - 1)));
-		WAVM_ASSERT(!isFinalized);
-
-		// Allocate the section at the lowest uncommitted byte of image memory.
-		U8* allocationBaseAddress
-			= section.baseAddress + align(section.numCommittedBytes, alignment);
-		WAVM_ASSERT(!(reinterpret_cast<Uptr>(allocationBaseAddress) & (alignment - 1)));
-		section.numCommittedBytes
-			= align(section.numCommittedBytes, alignment) + align(numBytes, alignment);
-
-		// Check that enough space was reserved in the section.
-		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
-		{
-			Errors::fatal("didn't reserve enough space in section");
-		}
-
-		// Drop the '.' or '__' prefix on section names.
-		if(sectionName.size() && sectionName[0] == '.') { sectionName = sectionName.drop_front(1); }
-		else if(sectionName.size() > 2 && sectionName[0] == '_' && sectionName[1] == '_')
-		{
-			sectionName = sectionName.drop_front(2);
-		}
-
-		// Record the address the section was allocated at.
-		sectionNameToContentsMap.insert(std::make_pair(
-			sectionName,
-			llvm::MemoryBuffer::getMemBuffer(
-				llvm::StringRef((const char*)allocationBaseAddress, numBytes), "", false)));
-
-		return allocationBaseAddress;
-	}
-
-	static Uptr align(Uptr size, Uptr alignment)
-	{
-		return (size + alignment - 1) & ~(alignment - 1);
-	}
-	static Uptr shrAndRoundUp(Uptr value, Uptr shift)
-	{
-		return (value + (Uptr(1) << shift) - 1) >> shift;
-	}
-
-	ModuleMemoryManager(const ModuleMemoryManager&) = delete;
-	void operator=(const ModuleMemoryManager&) = delete;
+	U8* imageBase;
+	Uptr numPages;
 };
 
-Module::Module(const std::vector<U8>& objectBytes,
+Module::Module(std::vector<U8> objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
 			   bool shouldLogMetrics,
 			   std::string&& inDebugName)
 : debugName(std::move(inDebugName))
 , memoryManager(new ModuleMemoryManager())
 , globalModuleState(GlobalModuleState::get())
-#if LLVM_VERSION_MAJOR < 8
-, objectBytes(objectBytes)
-#endif
 {
 	Timing::Timer loadObjectTimer;
 
-#if LLVM_VERSION_MAJOR >= 8
-	std::unique_ptr<llvm::object::ObjectFile> object;
-#endif
+	// Link the object using the ObjectLinker.
+	ObjectLinker::LinkResult linkResult;
+	ObjectLinker::linkObject(objectBytes.data(), objectBytes.size(), importedSymbolMap, linkResult);
 
-	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
-		llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "memory")));
+	// Transfer ownership of the linked image to the memory manager.
+	memoryManager->imageBase = linkResult.imageBase;
+	memoryManager->numPages = linkResult.numImagePages;
 
-	// Create the LLVM object loader.
-	struct SymbolResolver : llvm::JITSymbolResolver
+	// Flush the instruction cache for the code segment.
+	if(linkResult.numCodeBytes > 0)
 	{
-		const HashMap<std::string, Uptr>& importedSymbolMap;
-
-		SymbolResolver(const HashMap<std::string, Uptr>& inImportedSymbolMap)
-		: importedSymbolMap(inImportedSymbolMap)
-		{
-		}
-
-#if LLVM_VERSION_MAJOR >= 8
-		virtual void lookup(const LookupSet& symbols,
-							llvm::JITSymbolResolver::OnResolvedFunction onResolvedFunction) override
-		{
-			LookupResult result;
-			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
-			onResolvedFunction(result);
-		}
-		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& symbols) override
-		{
-			return LookupSet();
-		}
-#elif LLVM_VERSION_MAJOR == 7
-		virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override
-		{
-			LookupResult result;
-			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
-			return result;
-		}
-		virtual llvm::Expected<LookupFlagsResult> lookupFlags(const LookupSet& symbols) override
-		{
-			LookupFlagsResult result;
-			for(auto symbol : symbols)
-			{
-				result.emplace(symbol, findSymbolImpl(symbol).getFlags());
-			}
-			return result;
-		}
-#else
-		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override
-		{
-			return findSymbolImpl(name);
-		}
-		virtual llvm::JITSymbol findSymbol(const std::string& name) override
-		{
-			return findSymbolImpl(name);
-		}
-#endif
-
-	private:
-		llvm::JITEvaluatedSymbol findSymbolImpl(llvm::StringRef name)
-		{
-			const std::string nameString = demangleSymbol(name.str());
-			const Uptr* symbolValue = importedSymbolMap.get(nameString);
-			if(!symbolValue) { return resolveJITImport(nameString); }
-			else
-			{
-				// LLVM assumes that a symbol value of zero is a symbol that wasn't resolved.
-				WAVM_ASSERT(*symbolValue);
-				return llvm::JITEvaluatedSymbol(U64(*symbolValue), llvm::JITSymbolFlags::None);
-			}
-		}
-	};
-	SymbolResolver symbolResolver(importedSymbolMap);
-	llvm::RuntimeDyld loader(*memoryManager, symbolResolver);
-	// Process all sections on non-Windows platforms. On Windows, this triggers errors due to
-	// unimplemented relocation types in the debug sections.
-#if !defined(_WIN32) || LAZY_PARSE_DWARF_LINE_INFO
-	loader.setProcessAllSections(true);
-#endif
-
-	// The LLVM dynamic loader doesn't correctly apply the IMAGE_REL_AMD64_ADDR32NB relocations in
-	// the pdata and xdata sections
-	// (https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96)
-	// Make a copy of those sections before they are clobbered, so we can do the fixup ourselves
-	// later.
-	llvm::object::SectionRef pdataSection;
-	U8* pdataCopy = nullptr;
-	Uptr pdataNumBytes = 0;
-	llvm::object::SectionRef xdataSection;
-	U8* xdataCopy = nullptr;
-	if(USE_WINDOWS_SEH)
-	{
-		for(auto section : object->sections())
-		{
-#if LLVM_VERSION_MAJOR >= 10
-			llvm::Expected<llvm::StringRef> sectionNameOrError = section.getName();
-			if(sectionNameOrError)
-			{
-				const llvm::StringRef& sectionName = sectionNameOrError.get();
-#else
-			llvm::StringRef sectionName;
-			if(!section.getName(sectionName))
-			{
-#endif
-
-#if LLVM_VERSION_MAJOR >= 9
-				llvm::Expected<llvm::StringRef> sectionContentsOrError = section.getContents();
-				if(sectionContentsOrError)
-				{
-					const llvm::StringRef& sectionContents = sectionContentsOrError.get();
-#else
-				llvm::StringRef sectionContents;
-				if(!section.getContents(sectionContents))
-				{
-#endif
-					const U8* loadedSection = (const U8*)sectionContents.data();
-					if(sectionName == ".pdata")
-					{
-						pdataCopy = new U8[section.getSize()];
-						pdataNumBytes = section.getSize();
-						pdataSection = section;
-						memcpy(pdataCopy, loadedSection, section.getSize());
-					}
-					else if(sectionName == ".xdata")
-					{
-						xdataCopy = new U8[section.getSize()];
-						xdataSection = section;
-						memcpy(xdataCopy, loadedSection, section.getSize());
-					}
-				}
-			}
-		}
+		Platform::flushInstructionCache(linkResult.imageBase, linkResult.numCodeBytes);
 	}
 
-	// Use the LLVM object loader to load the object.
-	std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo> loadedObject = loader.loadObject(*object);
-	loader.finalizeWithMemoryManagerLocking();
-	if(loader.hasError())
+	// Register unwind sections for exception handling.
+	unwindRegistration = Platform::registerUnwindData(
+		linkResult.imageBase, linkResult.numImagePages, linkResult.unwindInfo);
+
+	// Iterate over the defined symbols from the linker.
+	Uptr imageBase = reinterpret_cast<Uptr>(linkResult.imageBase);
+	Uptr imageEnd = imageBase + (linkResult.numImagePages << Platform::getBytesPerPageLog2());
+
+	for(const auto& symbolInfo : linkResult.definedSymbols)
 	{
-		Errors::fatalf("RuntimeDyld failed: %s", loader.getErrorString().data());
-	}
-
-	if(USE_WINDOWS_SEH && pdataCopy)
-	{
-		// Lookup the real address of _CxxFrameHandler3.
-		const llvm::JITEvaluatedSymbol sehHandlerSymbol = resolveJITImport("__CxxFrameHandler3");
-		WAVM_ERROR_UNLESS(sehHandlerSymbol);
-		const U64 sehHandlerAddress = U64(sehHandlerSymbol.getAddress());
-
-		// Create a trampoline within the image's 2GB address space that jumps to
-		// __CxxFrameHandler3. jmp [rip+0] <64-bit address>
-		U8* trampolineBytes = memoryManager->allocateCodeSection(16, 16, 0, "seh_trampoline");
-		trampolineBytes[0] = 0xff;
-		trampolineBytes[1] = 0x25;
-		memset(trampolineBytes + 2, 0, 4);
-		memcpy(trampolineBytes + 6, &sehHandlerAddress, sizeof(U64));
-
-		processSEHTables(memoryManager->getImageBaseAddress(),
-						 *loadedObject,
-						 pdataSection,
-						 pdataCopy,
-						 pdataNumBytes,
-						 xdataSection,
-						 xdataCopy,
-						 reinterpret_cast<Uptr>(trampolineBytes));
-
-		memoryManager->registerFixedSEHFrames(
-			reinterpret_cast<U8*>(Uptr(loadedObject->getSectionLoadAddress(pdataSection))),
-			pdataNumBytes);
-	}
-
-	// Free the copies of the Windows SEH sections created above.
-	if(pdataCopy)
-	{
-		delete[] pdataCopy;
-		pdataCopy = nullptr;
-	}
-	if(xdataCopy)
-	{
-		delete[] xdataCopy;
-		xdataCopy = nullptr;
-	}
-
-	// After having a chance to manually apply relocations for the pdata/xdata sections, apply the
-	// final non-writable memory permissions.
-	memoryManager->reallyFinalizeMemory();
-
-	// Notify GDB of the new object.
-	{
-		Platform::Mutex::Lock lock(globalModuleState->gdbRegistrationListenerMutex);
-#if LLVM_VERSION_MAJOR >= 8
-		globalModuleState->gdbRegistrationListener->notifyObjectLoaded(
-			reinterpret_cast<Uptr>(this), *object, *loadedObject);
-#else
-		globalModuleState->gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
-#endif
-	}
-
-	// Create a DWARF context to interpret the debug information in this compilation unit.
-#if LAZY_PARSE_DWARF_LINE_INFO
-	Platform::Mutex::Lock dwarfContextLock(dwarfContextMutex);
-	dwarfContext
-		= llvm::DWARFContext::create(memoryManager->getSectionNameToContentsMap(), sizeof(Uptr));
-#else
-	auto dwarfContext = llvm::DWARFContext::create(*object, &*loadedObject);
-#endif
-
-	// Iterate over the functions in the loaded object.
-	for(std::pair<llvm::object::SymbolRef, U64> symbolSizePair :
-		llvm::object::computeSymbolSizes(*object))
-	{
-		llvm::object::SymbolRef symbol = symbolSizePair.first;
-
-		// Only process global symbols, which excludes SEH funclets.
-#if LLVM_VERSION_MAJOR >= 11
-		auto maybeFlags = symbol.getFlags();
-		if(!(maybeFlags && *maybeFlags & llvm::object::SymbolRef::SF_Global)) { continue; }
-#else
-		if(!(symbol.getFlags() & llvm::object::SymbolRef::SF_Global)) { continue; }
-#endif
-
-		// Get the type, name, and address of the symbol. Need to be careful not to get the
-		// Expected<T> for each value unless it will be checked for success before continuing.
-		llvm::Expected<llvm::object::SymbolRef::Type> type = symbol.getType();
-		if(!type || *type != llvm::object::SymbolRef::ST_Function) { continue; }
-		llvm::Expected<llvm::StringRef> name = symbol.getName();
-		if(!name) { continue; }
-		llvm::Expected<U64> address = symbol.getAddress();
-		if(!address) { continue; }
-
-		// Compute the address the function was loaded at.
-		WAVM_ASSERT(*address <= UINTPTR_MAX);
-		Uptr loadedAddress = Uptr(*address);
-		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
-		{
-			loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
-		}
-
-		std::map<U32, U32> offsetToOpIndexMap;
-#if !LAZY_PARSE_DWARF_LINE_INFO
-		// Get the DWARF line info for this symbol, which maps machine code addresses to
-		// WebAssembly op indices.
-#if LLVM_VERSION_MAJOR >= 9
-		llvm::Expected<llvm::object::section_iterator> section = symbol.getSection();
-		if(!section) { continue; }
-		llvm::DILineInfoTable lineInfoTable = dwarfContext->getLineInfoForAddressRange(
-			llvm::object::SectionedAddress{loadedAddress, section.get()->getIndex()},
-			symbolSizePair.second);
-#else
-		llvm::DILineInfoTable lineInfoTable
-			= dwarfContext->getLineInfoForAddressRange(loadedAddress, symbolSizePair.second);
-#endif
-		for(auto lineInfo : lineInfoTable)
-		{
-			offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line);
-		}
-#endif
+		const std::string& name = symbolInfo.name;
+		Uptr loadedAddress = symbolInfo.address;
+		Uptr symbolSize = symbolInfo.size;
 
 		// Add the function to the module's name and address to function maps.
-		WAVM_ASSERT(symbolSizePair.second <= UINTPTR_MAX);
+		// The symbol name from the linker is already demangled.
 		Runtime::Function* function
 			= (Runtime::Function*)(loadedAddress - offsetof(Runtime::Function, code));
-		nameToFunctionMap.addOrFail(std::string(*name), function);
-		addressToFunctionMap.emplace(Uptr(loadedAddress + symbolSizePair.second), function);
+		nameToFunctionMap.addOrFail(std::string(name), function);
+		addressToFunctionMap.emplace(loadedAddress + symbolSize, function);
 
 		// Initialize the function mutable data.
 		WAVM_ASSERT(function->mutableData);
 		function->mutableData->jitModule = this;
 		function->mutableData->function = function;
-		function->mutableData->numCodeBytes = Uptr(symbolSizePair.second);
-		function->mutableData->offsetToOpIndexMap = std::move(offsetToOpIndexMap);
+		function->mutableData->numCodeBytes = symbolSize;
 	}
 
-	const Uptr moduleEndAddress = reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
-														 + memoryManager->getNumImageBytes());
+	// Only insert into the address map if we have valid memory allocated.
+	if(linkResult.imageBase)
 	{
+		const Uptr moduleEndAddress = imageEnd;
 		Platform::RWMutex::ExclusiveLock addressToModuleMapLock(
 			globalModuleState->addressToModuleMapMutex);
 		globalModuleState->addressToModuleMap.emplace(moduleEndAddress, this);
 	}
 
+	// Store DWARF section pointers for signal-safe source location lookup.
+	dwarfSections = linkResult.dwarf;
+
+	// Keep the object bytes for GDB. On ELF, section addresses are patched in the bytes
+	// so GDB sees runtime addresses directly.
+	this->objectBytes = std::move(objectBytes);
+
+	// Register the object with GDB for debugging. GDB reads debug info from the object bytes
+	// on demand. The linker has already patched section addresses so GDB can correlate
+	// debug info with the loaded code.
+	// On macOS, skip GDB JIT registration for MachO objects: system libunwind scans objects
+	// registered via __jit_debug_descriptor for DWARF FDEs. MachO objects without __eh_frame
+	// cause libunwind to misinterpret other sections (e.g. __debug_line) as FDE data, leading
+	// to crashes in decodeFDE during stack unwinding.
+#if !defined(__APPLE__)
+	gdbRegistrationHandle
+		= registerObjectWithGDB(this->objectBytes.data(), this->objectBytes.size());
+#endif
+
 	if(shouldLogMetrics)
 	{
 		Timing::logRatePerSecond((std::string("Loaded ") + debugName).c_str(),
 								 loadObjectTimer,
-								 (F64)objectBytes.size() / 1024.0 / 1024.0,
+								 (F64)this->objectBytes.size() / 1024.0 / 1024.0,
 								 "MiB");
 		Log::printf(Log::Category::metrics,
 					"Code: %.1f KiB, read-only data: %.1f KiB, read-write data: %.1f KiB\n",
-					memoryManager->getNumCodeBytes() / 1024.0,
-					memoryManager->getNumReadOnlyBytes() / 1024.0,
-					memoryManager->getNumReadWriteBytes() / 1024.0);
+					linkResult.numCodeBytes / 1024.0,
+					linkResult.numReadOnlyBytes / 1024.0,
+					linkResult.numReadWriteBytes / 1024.0);
 	}
 }
 
 Module::~Module()
 {
-	// Notify GDB that the object is being unloaded.
-	{
-		Platform::Mutex::Lock lock(globalModuleState->gdbRegistrationListenerMutex);
-#if LLVM_VERSION_MAJOR >= 8
-		globalModuleState->gdbRegistrationListener->notifyFreeingObject(
-			reinterpret_cast<Uptr>(this));
-#else
-		globalModuleState->gdbRegistrationListener->NotifyFreeingObject(*object);
-#endif
-	}
+	// Deregister the unwind data.
+	if(unwindRegistration) { Platform::deregisterUnwindData(unwindRegistration); }
 
-	// Remove the module from the global address to module map.
+	// Unregister from GDB.
+	unregisterObjectWithGDB(gdbRegistrationHandle);
+
+	// Remove the module from the global address to module map (only if we inserted it).
+	if(memoryManager->imageBase)
 	{
 		Platform::RWMutex::ExclusiveLock addressToModuleMapLock(
 			globalModuleState->addressToModuleMapMutex);
 		globalModuleState->addressToModuleMap.erase(
 			globalModuleState->addressToModuleMap.find(reinterpret_cast<Uptr>(
-				memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
+				memoryManager->imageBase
+				+ (memoryManager->numPages << Platform::getBytesPerPageLog2()))));
 	}
 
 	// Free the FunctionMutableData objects.
@@ -700,24 +230,24 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 									reinterpret_cast<Uptr>(functionImports[importIndex].code));
 	}
 
-	// Bind the table symbols. The compiled module uses the symbol's value as an offset into
-	// CompartmentRuntimeData to the table's entry in CompartmentRuntimeData::tableBases.
+	// Bind the table symbols.
 	for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
 	{
-		importedSymbolMap.addOrFail(
-			getExternalName("tableOffset", tableIndex),
-			offsetof(Runtime::CompartmentRuntimeData, tables)
-				+ sizeof(Runtime::TableRuntimeData) * tables[tableIndex].id);
+		const TableBinding& table = tables[tableIndex];
+		importedSymbolMap.addOrFail(getExternalName("tableOffset", tableIndex),
+									offsetof(Runtime::CompartmentRuntimeData, tables)
+										+ sizeof(Runtime::TableRuntimeData) * table.id);
+		importedSymbolMap.addOrFail(getExternalName("tableId", tableIndex), table.id);
 	}
 
-	// Bind the memory symbols. The compiled module uses the symbol's value as an offset into
-	// CompartmentRuntimeData to the memory's entry in CompartmentRuntimeData::memoryBases.
+	// Bind the memory symbols.
 	for(Uptr memoryIndex = 0; memoryIndex < memories.size(); ++memoryIndex)
 	{
-		importedSymbolMap.addOrFail(
-			getExternalName("memoryOffset", memoryIndex),
-			offsetof(Runtime::CompartmentRuntimeData, memories)
-				+ sizeof(Runtime::MemoryRuntimeData) * memories[memoryIndex].id);
+		const MemoryBinding& memory = memories[memoryIndex];
+		importedSymbolMap.addOrFail(getExternalName("memoryOffset", memoryIndex),
+									offsetof(Runtime::CompartmentRuntimeData, memories)
+										+ sizeof(Runtime::MemoryRuntimeData) * memory.id);
+		importedSymbolMap.addOrFail(getExternalName("memoryId", memoryIndex), memory.id);
 	}
 
 	// Bind the globals symbols.
@@ -727,29 +257,25 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 		Uptr value;
 		if(globalSpec.type.isMutable)
 		{
-			// If the global is mutable, bind the symbol to the offset into
-			// ContextRuntimeData::globalData where it is stored.
 			value = offsetof(Runtime::ContextRuntimeData, mutableGlobals)
 					+ globalSpec.mutableGlobalIndex * sizeof(IR::UntaggedValue);
 		}
 		else
 		{
-			// Otherwise, bind the symbol to a pointer to the global's immutable value.
 			value = reinterpret_cast<Uptr>(globalSpec.immutableValuePointer);
 		}
 		importedSymbolMap.addOrFail(getExternalName("global", globalIndex), value);
 	}
 
-	// Bind exception type symbols to point to the exception type instance.
+	// Bind exception type symbols.
 	for(Uptr exceptionTypeIndex = 0; exceptionTypeIndex < exceptionTypes.size();
 		++exceptionTypeIndex)
 	{
-		importedSymbolMap.addOrFail(getExternalName("biasedExceptionTypeId", exceptionTypeIndex),
-									exceptionTypes[exceptionTypeIndex].id + 1);
+		importedSymbolMap.addOrFail(getExternalName("exceptionTypeId", exceptionTypeIndex),
+									exceptionTypes[exceptionTypeIndex].id);
 	}
 
-	// Allocate FunctionMutableData objects for each function def, and bind them to the symbols
-	// imported by the compiled module.
+	// Bind FunctionMutableData symbols.
 	for(Uptr functionDefIndex = 0; functionDefIndex < functionDefMutableDatas.size();
 		++functionDefIndex)
 	{
@@ -759,21 +285,15 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 									reinterpret_cast<Uptr>(functionMutableData));
 	}
 
-	// Bind the instance symbol to point to the Instance.
+	// Bind the instance symbol.
 	WAVM_ASSERT(instance.id != UINTPTR_MAX);
-	importedSymbolMap.addOrFail("biasedInstanceId", instance.id + 1);
+	importedSymbolMap.addOrFail("instanceId", instance.id);
 
-	// Bind the tableReferenceBias symbol to the tableReferenceBias.
+	// Bind the tableReferenceBias symbol.
 	importedSymbolMap.addOrFail("tableReferenceBias", tableReferenceBias);
 
-#if LLVM_VERSION_MAJOR < 10
-	// Bind the unoptimizableOne symbol to 1.
-	importedSymbolMap.addOrFail("unoptimizableOne", 1);
-#endif
-
 #if !USE_WINDOWS_SEH
-	// Use __cxxabiv1::__cxa_current_exception_type to get a reference to the std::type_info for
-	// Runtime::Exception* without enabling RTTI.
+	// Get the std::type_info for Runtime::Exception* without enabling RTTI.
 	std::type_info* runtimeExceptionPointerTypeInfo = nullptr;
 	try
 	{
@@ -784,65 +304,110 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 		runtimeExceptionPointerTypeInfo = __cxxabiv1::__cxa_current_exception_type();
 	}
 
-	// Bind the std::type_info for Runtime::Exception.
 	importedSymbolMap.addOrFail("runtimeExceptionTypeInfo",
 								reinterpret_cast<Uptr>(runtimeExceptionPointerTypeInfo));
 #endif
+
+	// Add LLVM runtime symbols (memcpy, personality function, etc.)
+	// that LLVM-generated code may reference.
+	addLLVMRuntimeSymbols(importedSymbolMap);
 
 	// Load the module.
 	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true, std::move(debugName));
 }
 
-bool LLVMJIT::getInstructionSourceByAddress(Uptr address, InstructionSource& outSource)
+Uptr LLVMJIT::getInstructionSourceByAddress(Uptr address,
+											InstructionSource* outSources,
+											Uptr maxSources)
 {
+	if(maxSources == 0) { return 0; }
+
+	auto globalModuleState = GlobalModuleState::get();
+
 	Module* jitModule;
 	{
-		auto globalModuleState = GlobalModuleState::get();
 		Platform::RWMutex::ShareableLock addressToModuleMapLock(
 			globalModuleState->addressToModuleMapMutex);
+
 		auto moduleIt = globalModuleState->addressToModuleMap.upper_bound(address);
-		if(moduleIt == globalModuleState->addressToModuleMap.end()) { return false; }
+		if(moduleIt == globalModuleState->addressToModuleMap.end()) { return 0; }
 		jitModule = moduleIt->second;
 	}
 
 	auto functionIt = jitModule->addressToFunctionMap.upper_bound(address);
-	if(functionIt == jitModule->addressToFunctionMap.end()) { return false; }
-	outSource.function = functionIt->second;
-	const Uptr codeAddress = reinterpret_cast<Uptr>(outSource.function->code);
-	if(address < codeAddress
-	   || address >= codeAddress + outSource.function->mutableData->numCodeBytes)
+	if(functionIt == jitModule->addressToFunctionMap.end()) { return 0; }
+	Runtime::Function* function = functionIt->second;
+	const Uptr codeAddress = reinterpret_cast<Uptr>(function->code);
+	if(address < codeAddress || address >= codeAddress + function->mutableData->numCodeBytes)
 	{
-		return false;
+		return 0;
 	}
 
-#if LAZY_PARSE_DWARF_LINE_INFO
-	Platform::Mutex::Lock dwarfContextLock(jitModule->dwarfContextMutex);
-	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
-		llvm::object::SectionedAddress{address, llvm::object::SectionedAddress::UndefSection},
-		llvm::DILineInfoSpecifier(
-#if LLVM_VERSION_MAJOR >= 11
-			llvm::DILineInfoSpecifier::FileLineInfoKind::RawValue,
-#else
-			llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
-#endif
-			llvm::DINameKind::None));
-
-	outSource.instructionIndex = Uptr(lineInfo.Line);
-	return true;
-#else
-	// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
-	U32 ipOffset = (U32)(address - codeAddress);
-	Iptr opIndex = -1;
-	for(auto offsetMapIt : outSource.function->mutableData->offsetToOpIndexMap)
+	// Query DWARF info using the signal-safe, zero-allocation DWARF parser.
+	if(jitModule->dwarfSections.debugInfo)
 	{
-		if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
-		else
+		DWARF::SourceLocation locations[16];
+		Uptr numLocations
+			= DWARF::getSourceLocations(jitModule->dwarfSections, address, locations, 16);
+
+		Log::printf(Log::traceDwarf,
+					"DWARF lookup: address=0x%" WAVM_PRIxPTR
+					" function=%s numLocations=%" WAVM_PRIuPTR "\n",
+					address,
+					function->mutableData->debugName.c_str(),
+					numLocations);
+		for(Uptr i = 0; i < numLocations; ++i)
 		{
-			break;
+			Log::printf(Log::traceDwarf,
+						"  location[%" WAVM_PRIuPTR "]: linkageName=%s name=%s line=%" WAVM_PRIuPTR
+						"\n",
+						i,
+						locations[i].linkageName ? locations[i].linkageName : "(null)",
+						locations[i].name ? locations[i].name : "(null)",
+						locations[i].line);
+		}
+
+		if(numLocations > 0)
+		{
+			Uptr numResults = 0;
+			for(Uptr i = 0; i < numLocations && numResults < maxSources; ++i)
+			{
+				Runtime::Function* frameFunction = function;
+				if(numLocations > 1 && locations[i].linkageName)
+				{
+					const char* name = locations[i].linkageName;
+					std::string_view lookupName(name);
+					Log::printf(Log::traceDwarf,
+								"  Looking up '%.*s' in nameToFunctionMap\n",
+								(int)lookupName.size(),
+								lookupName.data());
+					Runtime::Function** resolvedFunction
+						= jitModule->nameToFunctionMap.get(lookupName);
+					if(resolvedFunction) { frameFunction = *resolvedFunction; }
+					else
+					{
+						Log::printf(Log::traceDwarf, "  Name lookup FAILED\n");
+						// Name lookup failed; fall through to fallback.
+						break;
+					}
+				}
+				outSources[numResults++] = {frameFunction, locations[i].line};
+			}
+			if(numResults > 0) { return numResults; }
 		}
 	}
+	else
+	{
+		Log::printf(Log::traceDwarf,
+					"No DWARF sections for address 0x%" WAVM_PRIxPTR " function=%s\n",
+					address,
+					function->mutableData->debugName.c_str());
+	}
 
-	outSource.instructionIndex = opIndex > 0 ? Uptr(opIndex) : 0;
-	return true;
-#endif
+	// Fallback: no DWARF frames available.
+	Log::printf(Log::traceDwarf,
+				"Falling back to {function=%s, 0}\n",
+				function->mutableData->debugName.c_str());
+	outSources[0] = {function, 0};
+	return 1;
 }

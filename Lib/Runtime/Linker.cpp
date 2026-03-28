@@ -1,8 +1,16 @@
 #include "WAVM/Runtime/Linker.h"
+#include <memory>
+#include <string>
+#include <utility>
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
 #include "WAVM/IR/Validate.h"
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Serialization.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Runtime.h"
 

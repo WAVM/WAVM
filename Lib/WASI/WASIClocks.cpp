@@ -1,6 +1,7 @@
+#include <cinttypes>
 #include "./WASIPrivate.h"
-#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"

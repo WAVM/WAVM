@@ -3,6 +3,6 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Logging/Logging.h)
 
-WAVM_ADD_LIB_COMPONENT(Logging 
-	SOURCES ${Sources} ${PublicHeaders}
-	PRIVATE_LIB_COMPONENTS Platform)
+WAVM_ADD_LIB_COMPONENT(Logging
+	SOURCES ${Sources}
+	HEADERS ${PublicHeaders})

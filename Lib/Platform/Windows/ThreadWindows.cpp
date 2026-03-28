@@ -1,15 +1,18 @@
+#if WAVM_PLATFORM_WINDOWS
+
 #include <intrin.h>
 #include <atomic>
+#include <cstring>
 #include <memory>
+#include <vector>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Platform/Event.h"
 #include "WAVM/Platform/Thread.h"
 #include "WindowsPrivate.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#include <processtopologyapi.h>
+#include <winbase.h>
 
 #define POISON_FORKED_STACK_SELF_POINTERS 0
 
@@ -148,6 +151,7 @@ I64 Platform::joinThread(Thread* thread)
 		Errors::fatal("WaitForSingleObject(INFINITE) on thread returned WAIT_TIMEOUT");
 		break;
 	case WAIT_FAILED:
+	default:
 		Errors::fatalf(
 			"WaitForSingleObject(INFINITE) on thread returned WAIT_FAILED. GetLastError()=%u",
 			GetLastError());
@@ -177,3 +181,5 @@ Uptr Platform::getNumberOfHardwareThreads()
 }
 
 void Platform::yieldToAnotherThread() { SwitchToThread(); }
+
+#endif // WAVM_PLATFORM_WINDOWS

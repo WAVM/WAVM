@@ -63,3 +63,100 @@
 
 (assert_return (invoke "createThreadWithReturn") (i64.const 11))
 (assert_return (invoke "createThreadWithExit") (i64.const 11))
+
+;; Cross-thread wait/notify tests
+
+(module
+	(import "threadTest" "createThread" (func $threadTest.createThread (param funcref i32) (result i64)))
+	(import "threadTest" "joinThread" (func $threadTest.joinThread (param i64) (result i64)))
+
+	(memory 1 1 shared)
+
+	(elem declare $wait32ThreadEntry $wait64ThreadEntry)
+
+	;; Memory layout:
+	;; addr 0: value being waited on (i32 for wait32, i64 for wait64)
+	;; addr 16: ready flag (i32, set to 1 by thread before calling wait)
+
+	;; Thread entry: sets ready flag, then waits on addr 0 expecting i32 value 0
+	(func $wait32ThreadEntry (param $argument i32) (result i64)
+		;; Set the ready flag to signal we're about to wait
+		(i32.atomic.store (i32.const 16) (i32.const 1))
+		;; Wait on address 0, expecting value 0, with infinite timeout
+		(i64.extend_i32_u
+			(memory.atomic.wait32 (i32.const 0) (i32.const 0) (i64.const -1)))
+	)
+
+	;; Thread entry: sets ready flag, then waits on addr 0 expecting i64 value 0
+	(func $wait64ThreadEntry (param $argument i32) (result i64)
+		;; Set the ready flag to signal we're about to wait
+		(i32.atomic.store (i32.const 16) (i32.const 1))
+		;; Wait on address 0, expecting value 0, with infinite timeout
+		(i64.extend_i32_u
+			(memory.atomic.wait64 (i32.const 0) (i64.const 0) (i64.const -1)))
+	)
+
+	(func (export "testWait32Notify") (result i64)
+		(local $thread i64)
+		;; Initialize: clear wait address and ready flag
+		(i32.atomic.store (i32.const 0) (i32.const 0))
+		(i32.atomic.store (i32.const 16) (i32.const 0))
+		;; Create thread that will wait on addr 0
+		(local.set $thread
+			(call $threadTest.createThread (ref.func $wait32ThreadEntry) (i32.const 0)))
+		;; Spin until the ready flag is set
+		(block $break
+			(loop $spin
+				(br_if $break (i32.atomic.load (i32.const 16)))
+				(br $spin)
+			)
+		)
+		;; Spin-notify until a waiter is woken
+		(block $done
+			(loop $notify_loop
+				(br_if $done
+					(i32.gt_u
+						(memory.atomic.notify (i32.const 0) (i32.const 1))
+						(i32.const 0)))
+				(br $notify_loop)
+			)
+		)
+		;; Join thread and return its result (should be 0 = "woken")
+		(call $threadTest.joinThread (local.get $thread))
+	)
+
+	(func (export "testWait64Notify") (result i64)
+		(local $thread i64)
+		;; Initialize: clear wait address and ready flag
+		(i64.atomic.store (i32.const 0) (i64.const 0))
+		(i32.atomic.store (i32.const 16) (i32.const 0))
+		;; Create thread that will wait on addr 0
+		(local.set $thread
+			(call $threadTest.createThread (ref.func $wait64ThreadEntry) (i32.const 0)))
+		;; Spin until the ready flag is set
+		(block $break
+			(loop $spin
+				(br_if $break (i32.atomic.load (i32.const 16)))
+				(br $spin)
+			)
+		)
+		;; Spin-notify until a waiter is woken
+		(block $done
+			(loop $notify_loop
+				(br_if $done
+					(i32.gt_u
+						(memory.atomic.notify (i32.const 0) (i32.const 1))
+						(i32.const 0)))
+				(br $notify_loop)
+			)
+		)
+		;; Join thread and return its result (should be 0 = "woken")
+		(call $threadTest.joinThread (local.get $thread))
+	)
+)
+
+;; wait32 + notify: thread should return 0 (woken)
+(assert_return (invoke "testWait32Notify") (i64.const 0))
+
+;; wait64 + notify: thread should return 0 (woken)
+(assert_return (invoke "testWait64Notify") (i64.const 0))

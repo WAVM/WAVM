@@ -1,8 +1,16 @@
 #include <atomic>
+#include <cstdarg>
+#include <string>
+#include <vector>
 #include "./WASIPrivate.h"
-#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Unwind.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASI/WASI.h"
+#include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
 using namespace WAVM::WASI;
@@ -99,7 +107,9 @@ static const char* describeErrNo(__wasi_errno_t wasiErrNo)
 	}
 }
 
-static void traceSyscallv(const char* syscallName, const char* argFormat, va_list argList)
+WAVM_FORCENOINLINE static void traceSyscallv(const char* syscallName,
+											 const char* argFormat,
+											 va_list argList)
 {
 	SyscallTraceLevel syscallTraceLevelSnapshot = syscallTraceLevel.load(std::memory_order_relaxed);
 	if(syscallTraceLevelSnapshot != SyscallTraceLevel::none)
@@ -116,7 +126,9 @@ static void traceSyscallv(const char* syscallName, const char* argFormat, va_lis
 		{
 			Log::printf(Log::output, " - Call stack:\n");
 
-			Platform::CallStack callStack = Platform::captureCallStack(4);
+			// Skip traceSyscallv + traceSyscallf + WASI wrappers.
+			Platform::UnwindState state = Platform::UnwindState::capture(4);
+			Runtime::CallStack callStack = Runtime::unwindCallStack(state);
 			if(callStack.frames.size() > 4) { callStack.frames.resize(4); }
 			std::vector<std::string> callStackFrameDescriptions
 				= Runtime::describeCallStack(callStack);

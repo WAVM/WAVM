@@ -1,7 +1,7 @@
 #include "WAVM/IR/Validate.h"
 #include <stdint.h>
-#include <algorithm>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 #include "WAVM/IR/FeatureSpec.h"
@@ -13,10 +13,10 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

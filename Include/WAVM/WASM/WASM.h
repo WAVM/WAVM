@@ -1,9 +1,9 @@
 #pragma once
 
+#include <string>
 #include <vector>
 #include "WAVM/IR/Validate.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Logging/Logging.h"
 
 namespace WAVM { namespace IR {
 	struct Module;
@@ -11,7 +11,7 @@ namespace WAVM { namespace IR {
 
 namespace WAVM { namespace WASM {
 	// The magic number that is at the beginning of every WASM binary module.
-	static constexpr U8 magicNumber[4] = {0x00, 0x61, 0x73, 0x6d};
+	inline constexpr U8 magicNumber[4] = {0x00, 0x61, 0x73, 0x6d};
 
 	// Saves a binary module.
 	WAVM_API std::vector<U8> saveBinaryModule(const IR::Module& module);

@@ -1,11 +1,23 @@
+#include <cinttypes>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 #include "./WASIPrivate.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/RWMutex.h"
+#include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
+#include "WAVM/WASI/WASI.h"
 #include "WAVM/WASI/WASIABI.h"
 
 using namespace WAVM;
@@ -59,6 +71,11 @@ static __wasi_errno_t asWASIErrNo(VFS::Result result)
 
 	default: WAVM_UNREACHABLE();
 	};
+}
+
+static __wasi_timestamp_t asWASITimestamp(I128 time)
+{
+	return clampedCast<__wasi_timestamp_t>(time);
 }
 
 struct LockedFDE
@@ -1217,9 +1234,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_filetype = asWASIFileType(fileInfo.type);
 	fileStat.st_nlink = fileInfo.numLinks;
 	fileStat.st_size = fileInfo.numBytes;
-	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime.ns);
-	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime.ns);
-	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime.ns);
+	fileStat.st_atim = asWASITimestamp(fileInfo.lastAccessTime.ns);
+	fileStat.st_mtim = asWASITimestamp(fileInfo.lastWriteTime.ns);
+	fileStat.st_ctim = asWASITimestamp(fileInfo.creationTime.ns);
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS,
 								"(st_dev=%" PRIu64 ", st_ino=%" PRIu64
@@ -1350,9 +1367,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_filetype = asWASIFileType(fileInfo.type);
 	fileStat.st_nlink = fileInfo.numLinks;
 	fileStat.st_size = fileInfo.numBytes;
-	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime.ns);
-	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime.ns);
-	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime.ns);
+	fileStat.st_atim = asWASITimestamp(fileInfo.lastAccessTime.ns);
+	fileStat.st_mtim = asWASITimestamp(fileInfo.lastWriteTime.ns);
+	fileStat.st_ctim = asWASITimestamp(fileInfo.creationTime.ns);
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS,
 								"(st_dev=%" PRIu64 ", st_ino=%" PRIu64

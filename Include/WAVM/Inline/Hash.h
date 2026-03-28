@@ -2,21 +2,15 @@
 
 #include <functional>
 #include <string>
-#include <type_traits>
+#include <string_view>
 #include <vector>
 #include "BasicTypes.h"
 
-#if defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wswitch-default"
-#endif
-
 #define XXH_FORCE_NATIVE_FORMAT 1
 #define XXH_INLINE_ALL
-#include "xxhash/xxhash.h"
+#include <xxhash.h>
 
-#if defined(__GNUC__)
-#pragma GCC diagnostic pop
+#if defined(__GNUC__) || defined(__clang__)
 #undef Long
 #endif
 
@@ -113,6 +107,14 @@ namespace WAVM {
 		}
 	};
 
+	template<> struct Hash<std::string_view>
+	{
+		Uptr operator()(std::string_view string, Uptr seed = 0) const
+		{
+			return Uptr(XXH64(string.data(), string.size(), seed));
+		}
+	};
+
 	template<typename Element> struct Hash<std::vector<Element>>
 	{
 		Uptr operator()(const std::vector<Element>& vector, Uptr seed = 0) const
@@ -127,5 +129,25 @@ namespace WAVM {
 	{
 		static bool areKeysEqual(const Key& left, const Key& right) { return left == right; }
 		static Uptr getKeyHash(const Key& key) { return Hash<Key>()(key); }
+	};
+
+	template<> struct DefaultHashPolicy<std::string>
+	{
+		static bool areKeysEqual(const std::string& left, const std::string& right)
+		{
+			return left == right;
+		}
+		static bool areKeysEqual(const std::string& left, std::string_view right)
+		{
+			return left == right;
+		}
+		static Uptr getKeyHash(const std::string& key)
+		{
+			return Uptr(XXH64(key.data(), key.size(), 0));
+		}
+		static Uptr getKeyHash(std::string_view key)
+		{
+			return Uptr(XXH64(key.data(), key.size(), 0));
+		}
 	};
 }

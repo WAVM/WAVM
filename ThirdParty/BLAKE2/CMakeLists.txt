@@ -63,11 +63,6 @@ set(PublicHeaders
 	include/blake2.h
 	)
 
-if(MSVC)
-	list(APPEND BLAKE2_COMPILER_OPTIONS "/wd4244") # conversion from 'uint64_t' to 'uint32_t', possible loss of data
-	list(APPEND BLAKE2_COMPILER_OPTIONS "/wd4267") # conversion from 'size_t' to 'uint8_t', possible loss of data
-endif()
-
 WAVM_ADD_THIRD_PARTY_LIBRARY(WAVMBLAKE2
 	SOURCES ${Sources} ${PublicHeaders}
 	PUBLIC_INCLUDE_DIRECTORIES $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

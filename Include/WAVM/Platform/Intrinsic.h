@@ -1,7 +1,6 @@
 #pragma once
 
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Defines.h"
 
 #ifdef _WIN32
 #include <intrin.h>
@@ -14,7 +13,7 @@
 
 namespace WAVM {
 	// The number of bytes in a cache line: assume 64 for now.
-	static constexpr Uptr numCacheLineBytes = 64;
+	inline constexpr Uptr numCacheLineBytes = 64;
 
 	// countLeadingZeroes returns the number of leading zeroes, or the bit width of the input if no
 	// bits are set.
@@ -127,7 +126,7 @@ namespace WAVM {
 
 	inline void bytewiseMemCopy(volatile U8* dest, const U8* source, Uptr numBytes)
 	{
-#ifdef _WIN32
+#if defined(_WIN32) && (defined(_M_X64) || defined(_M_IX86))
 		__movsb((U8*)dest, source, numBytes);
 #elif defined(__i386__) || defined(__x86_64__)
 		asm volatile("rep movsb"
@@ -149,7 +148,7 @@ namespace WAVM {
 
 	inline void bytewiseMemSet(volatile U8* dest, U8 value, Uptr numBytes)
 	{
-#ifdef _WIN32
+#if defined(_WIN32) && (defined(_M_X64) || defined(_M_IX86))
 		__stosb((U8*)dest, value, numBytes);
 #elif defined(__i386__) || defined(__x86_64__)
 		asm volatile("rep stosb"

@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+#include <cstdint>
+#include <cstdio>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -8,12 +11,11 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/HashSet.h"
-#include "WAVM/LLVMJIT/LLVMJIT.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Error.h"
 #include "WAVM/Platform/RWMutex.h"
 #include "WAVM/Platform/Signal.h"
+#include "WAVM/Platform/Unwind.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
@@ -42,86 +44,6 @@ void Runtime::setUserData(Exception* exception, void* userData, void (*finalizer
 	exception->finalizeUserData = finalizer;
 }
 void* Runtime::getUserData(const Exception* exception) { return exception->userData; }
-
-std::string Runtime::asString(const InstructionSource& source)
-{
-	switch(source.type)
-	{
-	case InstructionSource::Type::unknown: return "<unknown>";
-	case InstructionSource::Type::native: return "host!" + asString(source.native);
-	case InstructionSource::Type::wasm:
-		return source.wasm.function->mutableData->debugName + '+'
-			   + std::to_string(source.wasm.instructionIndex);
-	default: WAVM_UNREACHABLE();
-	};
-}
-
-bool Runtime::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
-{
-	LLVMJIT::InstructionSource llvmjitSource;
-	if(!LLVMJIT::getInstructionSourceByAddress(ip, llvmjitSource))
-	{
-		outSource.type = InstructionSource::Type::native;
-		return Platform::getInstructionSourceByAddress(ip, outSource.native);
-	}
-	else
-	{
-		outSource.type = InstructionSource::Type::wasm;
-		outSource.wasm.function = llvmjitSource.function;
-		outSource.wasm.instructionIndex = llvmjitSource.instructionIndex;
-		return true;
-	}
-}
-
-// Returns a vector of strings, each element describing a frame of the call stack. If the frame is a
-// JITed function, use the JIT's information about the function to describe it, otherwise fallback
-// to whatever platform-specific symbol resolution is available.
-std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& callStack)
-{
-	std::vector<std::string> frameDescriptions;
-	HashSet<Uptr> describedIPs;
-	Uptr frameIndex = 0;
-	while(frameIndex < callStack.frames.size())
-	{
-		if(frameIndex + 1 < callStack.frames.size()
-		   && describedIPs.contains(callStack.frames[frameIndex].ip)
-		   && describedIPs.contains(callStack.frames[frameIndex + 1].ip))
-		{
-			Uptr numOmittedFrames = 2;
-			while(frameIndex + numOmittedFrames < callStack.frames.size()
-				  && describedIPs.contains(callStack.frames[frameIndex + numOmittedFrames].ip))
-			{
-				++numOmittedFrames;
-			}
-
-			frameDescriptions.emplace_back("<" + std::to_string(numOmittedFrames)
-										   + " redundant frames omitted>");
-
-			frameIndex += numOmittedFrames;
-		}
-		else
-		{
-			const Uptr frameIP = callStack.frames[frameIndex].ip;
-
-			std::string frameDescription;
-			InstructionSource source;
-			if(!getInstructionSourceByAddress(frameIP, source))
-			{
-				frameDescription = "<unknown function>";
-			}
-			else
-			{
-				frameDescription = asString(source);
-			}
-
-			describedIPs.add(frameIP);
-			frameDescriptions.push_back(frameDescription);
-
-			++frameIndex;
-		}
-	}
-	return frameDescriptions;
-}
 
 ExceptionType* Runtime::createExceptionType(Compartment* compartment,
 											IR::ExceptionType sig,
@@ -175,7 +97,7 @@ IR::TypeTuple Runtime::getExceptionTypeParameters(const ExceptionType* type)
 Exception* Runtime::createException(ExceptionType* type,
 									const IR::UntaggedValue* arguments,
 									Uptr numArguments,
-									Platform::CallStack&& callStack)
+									CallStack&& callStack)
 {
 	const IR::TypeTuple& params = type->sig.params;
 	WAVM_ASSERT(numArguments == params.size());
@@ -204,7 +126,7 @@ IR::UntaggedValue Runtime::getExceptionArgument(const Exception* exception, Uptr
 	return exception->arguments[argIndex];
 }
 
-const Platform::CallStack& Runtime::getExceptionCallStack(const Exception* exception)
+const CallStack& Runtime::getExceptionCallStack(const Exception* exception)
 {
 	return exception->callStack;
 }
@@ -260,7 +182,8 @@ std::string Runtime::describeException(const Exception* exception)
 		}
 		result += ')';
 	}
-	std::vector<std::string> callStackDescription = describeCallStack(exception->callStack);
+	std::vector<std::string> callStackDescription
+		= Runtime::describeCallStack(exception->callStack);
 	result += "\nCall stack:\n";
 	for(auto calledFunction : callStackDescription)
 	{
@@ -273,12 +196,16 @@ std::string Runtime::describeException(const Exception* exception)
 
 [[noreturn]] void Runtime::throwException(Exception* exception) { throw exception; }
 
-[[noreturn]] void Runtime::throwException(ExceptionType* type,
-										  const std::vector<IR::UntaggedValue>& arguments)
+[[noreturn]] WAVM_FORCENOINLINE void Runtime::throwException(
+	ExceptionType* type,
+	const std::vector<IR::UntaggedValue>& arguments,
+	Uptr numOmittedFramesFromCaller)
 {
 	WAVM_ASSERT(type->sig.params.size() == arguments.size());
+	// Skip throwException + caller's requested frames.
+	Platform::UnwindState state = Platform::UnwindState::capture(1 + numOmittedFramesFromCaller);
 	throwException(
-		createException(type, arguments.data(), arguments.size(), Platform::captureCallStack(1)));
+		createException(type, arguments.data(), arguments.size(), Runtime::unwindCallStack(state)));
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
@@ -297,8 +224,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 	}
 	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));
 
+	// Skip intrinsicCreateException.
+	Platform::UnwindState state = Platform::UnwindState::capture(1);
 	Exception* exception = createException(
-		exceptionType, args, exceptionType->sig.params.size(), Platform::captureCallStack(1));
+		exceptionType, args, exceptionType->sig.params.size(), Runtime::unwindCallStack(state));
 
 	return reinterpret_cast<Uptr>(exception);
 }
@@ -347,7 +276,7 @@ static bool isRuntimeException(const Platform::Signal& signal)
 }
 
 static void translateSignalToRuntimeException(const Platform::Signal& signal,
-											  Platform::CallStack&& callStack,
+											  CallStack&& callStack,
 											  Runtime::Exception*& outException)
 {
 	switch(signal.type)
@@ -407,14 +336,30 @@ void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
 	}
 }
 
+void Runtime::handleError(const char* message, bool printCallStack, Platform::UnwindState&& state)
+{
+	std::fprintf(stderr, "%s\n", message);
+	if(printCallStack)
+	{
+		std::fprintf(stderr, "Call stack:\n");
+		CallStack callStack = Runtime::unwindCallStack(state);
+		std::vector<std::string> descriptions = Runtime::describeCallStack(callStack);
+		for(const auto& desc : descriptions) { std::fprintf(stderr, "  %s\n", desc.c_str()); }
+	}
+	std::fflush(stderr);
+}
+
 void Runtime::unwindSignalsAsExceptions(const std::function<void()>& thunk)
 {
+	// Pre-create trace-unwind resources before entering the signal-catching scope.
+	initTraceUnwindState();
+
 	// Catch signals and translate them into runtime exceptions.
 	struct UnwindContext
 	{
 		const std::function<void()>* thunk;
 		Platform::Signal signal;
-		Platform::CallStack callStack;
+		CallStack callStack;
 	} context;
 	context.thunk = &thunk;
 	if(Platform::catchSignals(
@@ -422,13 +367,13 @@ void Runtime::unwindSignalsAsExceptions(const std::function<void()>& thunk)
 			   UnwindContext& context = *(UnwindContext*)contextVoid;
 			   (*context.thunk)();
 		   },
-		   [](void* contextVoid, Platform::Signal signal, Platform::CallStack&& callStack) {
+		   [](void* contextVoid, Platform::Signal signal, Platform::UnwindState&& state) {
 			   if(!isRuntimeException(signal)) { return false; }
 			   else
 			   {
 				   UnwindContext& context = *(UnwindContext*)contextVoid;
 				   context.signal = signal;
-				   context.callStack = std::move(callStack);
+				   context.callStack = Runtime::unwindCallStack(state);
 				   return true;
 			   }
 		   },

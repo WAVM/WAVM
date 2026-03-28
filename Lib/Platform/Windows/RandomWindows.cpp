@@ -1,8 +1,12 @@
-#include <Windows.h>
-#include <bcrypt.h>
+#if WAVM_PLATFORM_WINDOWS
+
+#include <climits>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Random.h"
+#include "WindowsPrivate.h"
+
+#include <bcrypt.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -14,3 +18,5 @@ void Platform::getCryptographicRNG(U8* outRandomBytes, Uptr numBytes)
 	WAVM_ERROR_UNLESS(!BCryptGenRandom(
 		nullptr, outRandomBytes, ULONG(numBytes), BCRYPT_USE_SYSTEM_PREFERRED_RNG));
 }
+
+#endif // WAVM_PLATFORM_WINDOWS

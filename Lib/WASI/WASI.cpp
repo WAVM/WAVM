@@ -1,14 +1,17 @@
 #include "WAVM/WASI/WASI.h"
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 #include "./WASIPrivate.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
-#include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/File.h"
-#include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Random.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
@@ -108,6 +111,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasi,
 		},
 		[&](Runtime::Exception* exception) {
 			WAVM_ASSERT(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			Runtime::destroyException(exception);
 			result = __WASI_EFAULT;
 		});
 

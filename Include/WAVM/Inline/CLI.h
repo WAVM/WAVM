@@ -1,9 +1,14 @@
 #pragma once
 
+#include <cstdint>
+#include <cstdlib>
+#include <cstring> // IWYU pragma: keep
 #include <string>
 #include <vector>
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
 
@@ -94,6 +99,9 @@ namespace WAVM {
 			   "      debug              Debug information\n"
 			   "      trace-validation   Trace instructions as they are validated\n"
 			   "      trace-compilation  Trace instructions as they are compiled\n"
+			   "      trace-unwind       Trace stack unwinding before exceptions\n"
+			   "      trace-object-cache Trace object cache lookups\n"
+			   "      trace-linking      Trace object linking relocations\n"
 			   "\n"
 			   "  WAVM_OBJECT_CACHE_DIR=<directory>\n"
 			   "    Specifies a directory that WAVM will use to cache compiled object\n"
@@ -126,6 +134,22 @@ namespace WAVM {
 					{
 						Log::setCategoryEnabled(Log::traceCompilation, true);
 					}
+					else if(category == "trace-unwind")
+					{
+						Log::setCategoryEnabled(Log::traceUnwind, true);
+					}
+					else if(category == "trace-object-cache")
+					{
+						Log::setCategoryEnabled(Log::traceObjectCache, true);
+					}
+					else if(category == "trace-linking")
+					{
+						Log::setCategoryEnabled(Log::traceLinking, true);
+					}
+					else if(category == "trace-dwarf")
+					{
+						Log::setCategoryEnabled(Log::traceDwarf, true);
+					}
 					else
 					{
 						Log::printf(Log::error,
@@ -143,6 +167,68 @@ namespace WAVM {
 			}
 		}
 
+		return true;
+	}
+
+	template<Uptr numPrefixChars>
+	bool stringStartsWith(const char* string,
+						  const char (&prefix)[numPrefixChars],
+						  const char*& outSuffixStart)
+	{
+		if(!strncmp(string, prefix, numPrefixChars - 1))
+		{
+			outSuffixStart = string + numPrefixChars - 1;
+			return true;
+		}
+		else
+		{
+			outSuffixStart = nullptr;
+			return false;
+		}
+	}
+
+	// Parses a comma-separated feature spec like "+sse4.1,+avx,-avx512f".
+	// Each item must have a '+' or '-' prefix. The setFeature lambda is called
+	// with (name, enable) for each parsed feature and must return true if the
+	// feature name was recognized.
+	template<typename F> bool parseFeatureSpec(const char* featureStr, F&& setFeature)
+	{
+		const char* ptr = featureStr;
+		while(*ptr)
+		{
+			if(*ptr == ',')
+			{
+				++ptr;
+				continue;
+			}
+
+			bool enable;
+			if(*ptr == '+')
+			{
+				enable = true;
+				++ptr;
+			}
+			else if(*ptr == '-')
+			{
+				enable = false;
+				++ptr;
+			}
+			else
+			{
+				Log::printf(Log::error, "Expected '+' or '-' prefix in feature spec: %s\n", ptr);
+				return false;
+			}
+
+			const char* nameStart = ptr;
+			while(*ptr && *ptr != ',') { ++ptr; }
+			std::string name(nameStart, ptr);
+
+			if(!setFeature(name, enable))
+			{
+				Log::printf(Log::error, "Unknown feature '%s'.\n", name.c_str());
+				return false;
+			}
+		}
 		return true;
 	}
 }

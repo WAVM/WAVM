@@ -1,6 +1,4 @@
-#include <string.h>
-#include <memory>
-#include <vector>
+#include <atomic>
 #include "RuntimePrivate.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
@@ -8,6 +6,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 

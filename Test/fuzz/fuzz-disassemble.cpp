@@ -1,12 +1,10 @@
-#include <stdlib.h>
 #include <string>
 #include <vector>
 #include "FuzzTargetCommonMain.h"
 #include "ModuleMatcher.h"
-#include "WAVM/IR/IR.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Logging/Logging.h"

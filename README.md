@@ -1,7 +1,7 @@
 [![BSD license](https://img.shields.io/badge/license-BSD-green)](LICENSE.txt)
 [![GitHub repo](https://img.shields.io/badge/repo-github-green.svg)](https://github.com/WAVM/WAVM)
 [![Discord](https://img.shields.io/discord/484466837988573194)](https://discordapp.com/invite/fchkxFM)
-[![Azure Build Status](https://dev.azure.com/WAVM/WAVM/_apis/build/status/WAVM.WAVM)](https://dev.azure.com/WAVM/WAVM/_build/latest?definitionId=1)
+[![Build Status](https://github.com/WAVM/WAVM/actions/workflows/build.yml/badge.svg)](https://github.com/WAVM/WAVM/actions/workflows/build.yml)
 
 # WAVM
 
@@ -48,12 +48,9 @@ WAVM fully supports WebAssembly 1.0, plus many proposed extensions to it:
 WAVM is written in portable C/C++, with a small amount of architecture-specific assembly and LLVM
 IR generation code.
 
-WAVM is tested on and fully supports X86-64 Windows, MacOS, and Linux. It is designed to run on any
-POSIX-compatible system, but is not routinely tested on other systems.
-
-Support for AArch64 is a [work-in-progress](#76).
-WAVM mostly works on AArch64 Linux, but with some known bugs with handling WebAssembly stack
-overflow and partially out-of-bounds stores.
+WAVM is tested on and fully supports x86-64 and AArch64 on Windows, macOS, and Linux. All six
+platform/architecture combinations are tested in CI. It is designed to run on any POSIX-compatible
+system, but is not routinely tested on other systems.
 
 WAVM's runtime requires a 64-bit virtual address space, and so is not portable to 32-bit hosts.
 However, WAVM's assembler and disassembler work on 32-bit hosts.

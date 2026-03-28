@@ -1,11 +1,11 @@
 #pragma once
 
-#include "WAVM/IR/IR.h"
+#include <string>
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Serialization.h"
 
 namespace WAVM { namespace IR {
 	struct OperatorPrinter

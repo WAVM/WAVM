@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <cmath>
+#include <cstdlib>
 #include <string>
 #include "Lexer.h"
 #include "Parse.h"
@@ -7,8 +8,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/FloatComponents.h"
-#include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Intrinsic.h"
 
 using namespace WAVM;
 using namespace WAVM::WAST;

@@ -1,10 +1,10 @@
 #include "Lexer.h"
-#include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
 #include <tuple>
 #include <utility>
+#include "WAVM/IR/Operators.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"

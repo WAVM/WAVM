@@ -1,7 +1,5 @@
 #pragma once
 
-#include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Time.h"
 
 namespace WAVM { namespace Platform {

@@ -9,9 +9,11 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Validate.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Platform/Defines.h"
 #include "WAVM/WASTParse/WASTParse.h"
 
 namespace WAVM { namespace WAST {

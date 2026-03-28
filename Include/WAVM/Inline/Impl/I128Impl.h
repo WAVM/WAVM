@@ -1,77 +1,107 @@
 // IWYU pragma: private, include "WAVM/Inline/I128.h"
 // You should only include this file indirectly by including I128.h.
 #pragma once
+#ifndef WAVM_INLINE_IMPL_I128IMPL_H
+#define WAVM_INLINE_IMPL_I128IMPL_H
 
-#include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/FloatComponents.h"
+// I128 Encoding Scheme
+// ====================
+//
+// Storage:
+//   Two 64-bit words accessed via unions: lowU64/lowI64 and highU64/highI64.
+//
+// Value interpretation:
+//   The encoding is two's complement over 128 bits, with the mathematical value:
+//     value = (highI64 * 2^64) + lowU64
+//
+//   The sign is determined by bit 127 (the MSB of highI64). When highI64 < 0, the
+//   number is negative.
+//
+// Range:
+//   Standard 128-bit two's complement would have range [-2^127, 2^127 - 1], but this
+//   implementation reserves the most negative bit pattern as NaN, giving a symmetric
+//   range: [-(2^127 - 1), +(2^127 - 1)].
+//
+// Special values:
+//   NaN: high = 0x8000000000000000, low = 0x0000000000000000  (bit pattern for -2^127)
+//   min: high = 0x8000000000000000, low = 0x0000000000000001  (value: -(2^127 - 1))
+//   max: high = 0x7FFFFFFFFFFFFFFF, low = 0xFFFFFFFFFFFFFFFF  (value: +(2^127 - 1))
+//
+// Negation preserves NaN:
+//   -NaN = ~(0x8000000000000000:0) + 1 = (0x7FFFFFFFFFFFFFFF:0xFFFFFFFFFFFFFFFF) + 1
+//        = (0x8000000000000000:0) = NaN
+//
+// Comparison ordering:
+//   The high words are compared as signed (highI64) to correctly order positive vs
+//   negative numbers. When high words are equal, the low words must be compared as
+//   unsigned (lowU64) because they represent an unsigned offset within a "quadrant"
+//   of the number space. For example:
+//     - I128(U64_MAX) = (high=0, low=0xFFFFFFFFFFFFFFFF) should be > I128(0)
+//     - Signed low comparison would incorrectly give: -1 > 0 = false
+//     - Unsigned low comparison correctly gives: 0xFFFFFFFFFFFFFFFF > 0 = true
+
 #include "WAVM/Inline/I128.h"
+
+#include <cstdint>
+#include <limits> // IWYU pragma: keep
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Platform/Intrinsic.h"
 
 namespace WAVM {
 	inline I128::operator U8() const
 	{
-		if(isNaN(*this) || highI64 || lowU64 > UINT8_MAX) { WAVM_DEBUG_TRAP(); }
+		WAVM_ASSERT(!isNaN(*this) && !highI64 && lowU64 <= UINT8_MAX);
 		return U8(lowU64);
 	}
 
 	inline I128::operator I8() const
 	{
-		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT8_MIN)
-		   || (highI64 == 0 && lowI64 > INT8_MAX))
-		{
-			WAVM_DEBUG_TRAP();
-		}
-
+		WAVM_ASSERT(!isNaN(*this) && highI64 <= 0 && highI64 >= -1
+					&& !(highI64 == -1 && lowI64 < INT8_MIN)
+					&& !(highI64 == 0 && lowI64 > INT8_MAX));
 		return I8(lowI64);
 	}
 
 	inline I128::operator U16() const
 	{
-		if(isNaN(*this) || highI64 || lowU64 > UINT16_MAX) { WAVM_DEBUG_TRAP(); }
-		return U8(lowU64);
+		WAVM_ASSERT(!isNaN(*this) && !highI64 && lowU64 <= UINT16_MAX);
+		return U16(lowU64);
 	}
 
 	inline I128::operator I16() const
 	{
-		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT16_MIN)
-		   || (highI64 == 0 && lowI64 > INT16_MAX))
-		{
-			WAVM_DEBUG_TRAP();
-		}
-
+		WAVM_ASSERT(!isNaN(*this) && highI64 <= 0 && highI64 >= -1
+					&& !(highI64 == -1 && lowI64 < INT16_MIN)
+					&& !(highI64 == 0 && lowI64 > INT16_MAX));
 		return I16(lowI64);
 	}
 
 	inline I128::operator U32() const
 	{
-		if(isNaN(*this) || highI64 || lowU64 > UINT32_MAX) { WAVM_DEBUG_TRAP(); }
+		WAVM_ASSERT(!isNaN(*this) && !highI64 && lowU64 <= UINT32_MAX);
 		return U32(lowU64);
 	}
 
 	inline I128::operator I32() const
 	{
-		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT32_MIN)
-		   || (highI64 == 0 && lowI64 > INT32_MAX))
-		{
-			WAVM_DEBUG_TRAP();
-		}
-
+		WAVM_ASSERT(!isNaN(*this) && highI64 <= 0 && highI64 >= -1
+					&& !(highI64 == -1 && lowI64 < INT32_MIN)
+					&& !(highI64 == 0 && lowI64 > INT32_MAX));
 		return I32(lowI64);
 	}
 
 	inline I128::operator U64() const
 	{
-		if(isNaN(*this) || highI64) { WAVM_DEBUG_TRAP(); }
+		WAVM_ASSERT(!isNaN(*this) && !highI64);
 		return lowU64;
 	}
 
 	inline I128::operator I64() const
 	{
-		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 >= 0)
-		   || (highI64 == 0 && lowI64 < 0))
-		{
-			WAVM_DEBUG_TRAP();
-		}
+		WAVM_ASSERT(!isNaN(*this) && highI64 <= 0 && highI64 >= -1
+					&& !(highI64 == -1 && lowI64 >= 0) && !(highI64 == 0 && lowI64 < 0));
 		return lowI64;
 	}
 
@@ -116,11 +146,50 @@ namespace WAVM {
 		components.bits.exponent = Bits(exponent + Components::exponentBias);
 
 		// Shift the most-significant set bit to be the MSB in a U64.
-		const U64 significand64 = (absoluteI128 << leadingZeroes).highU64;
+		// This is normalization, not arithmetic, so we shift inline without overflow checking.
+		U64 significand64;
+		if(leadingZeroes == 0) { significand64 = absoluteI128.highU64; }
+		else if(leadingZeroes < 64)
+		{
+			significand64 = (absoluteI128.highU64 << leadingZeroes)
+							| (absoluteI128.lowU64 >> (64 - leadingZeroes));
+		}
+		else if(leadingZeroes == 64) { significand64 = absoluteI128.lowU64; }
+		else
+		{
+			significand64 = absoluteI128.lowU64 << (leadingZeroes - 64);
+		}
 
-		// Shift the most-significant set bit down to the 53rd bit, and take the 52 bits below it as
-		// the significand.
-		components.bits.significand = significand64 >> 11;
+		// Shift the most-significant set bit down and take the significand bits below it.
+		// The shift amount is 64 - (numSignificandBits + 1) to account for the hidden bit.
+		constexpr Uptr shift = 63 - Components::numSignificandBits;
+		Bits significand = Bits(significand64 >> shift);
+
+		// Round-to-nearest-even: examine the truncated bits
+		U64 truncatedBits = significand64 & ((U64(1) << shift) - 1);
+		U64 halfPoint = U64(1) << (shift - 1);
+
+		bool roundUp = truncatedBits > halfPoint;
+		if(truncatedBits == halfPoint)
+		{
+			// Tie: round to even (round up if LSB of significand is 1)
+			roundUp = (significand & 1) != 0;
+		}
+
+		if(roundUp)
+		{
+			significand++;
+			// Check for overflow: significand has (numSignificandBits + 1) bits including hidden
+			// bit. If it overflows to (1 << (numSignificandBits + 1)), that's 2.0 * 2^exp = 1.0 *
+			// 2^(exp+1).
+			if(significand == (Bits(1) << (Components::numSignificandBits + 1)))
+			{
+				significand = 0;
+				components.bits.exponent++;
+			}
+		}
+
+		components.bits.significand = significand;
 
 		return components.value;
 	}
@@ -245,9 +314,7 @@ namespace WAVM {
 		overflowed = m13 || m22 || m31 || m23 || m32 || m33 || overflowed;
 
 		// Restore the correct sign for the product.
-		out->highI64 ^= sign;
-		out->lowI64 ^= sign;
-		addAndCheckOverflow(*out, -sign, out);
+		if(sign) { *out = -*out; }
 
 		return overflowed;
 	}
@@ -270,11 +337,11 @@ namespace WAVM {
 		if(isNaN(a) || isNaN(b) || b == 0) { return I128::nan(); }
 
 		I128 remainder;
-		I64 sign = (a.highI64 >> 63) ^ (b.highI64 >> 63); // sign of quotient
+		bool negative = (a.highI64 < 0) != (b.highI64 < 0);
 		a = abs(a);
 		b = abs(b);
-		return (I128::udivmod(a, b, remainder) ^ I128(sign, sign))
-			   - I128(sign, sign); // negate if sign == -1
+		I128 quotient = I128::udivmod(a, b, remainder);
+		return negative ? -quotient : quotient;
 	}
 
 	inline I128 operator%(I128 a, I128 b)
@@ -312,7 +379,7 @@ namespace WAVM {
 		{
 			// 0 <= |b| < 64
 			result.highI64 = a.highI64 >> b64;
-			result.lowU64 = (a.highI64 << (64 - b64)) | (a.lowU64 >> b64);
+			result.lowU64 = (U64(a.highI64) << (64 - b64)) | (a.lowU64 >> b64);
 		}
 		return result;
 	}
@@ -321,23 +388,29 @@ namespace WAVM {
 	{
 		if(isNaN(a) || isNaN(b)) { return I128::nan(); }
 
-		I128 result;
-		U64 b64 = b.lowU64;
+		// Shifts by negative amounts or amounts >= 127 overflow (except shifting 0)
+		if(b.highI64 != 0 || b.lowU64 >= 127) { return (a == 0) ? a : I128::nan(); }
 
-		b64 &= 127;
-		if(b64 == 0) { result = a; }
-		else if(b64 & 64)
+		U64 b64 = b.lowU64;
+		if(b64 == 0) { return a; }
+
+		I128 result;
+		if(b64 & 64)
 		{
-			// 64 <= b < 128
+			// 64 <= b < 127
 			result.lowU64 = 0;
 			result.highI64 = a.lowU64 << (b64 - 64);
 		}
 		else
 		{
-			// 0 <= |b| < 64
+			// 0 < b < 64
 			result.lowU64 = a.lowU64 << b64;
 			result.highU64 = (a.highU64 << b64) | (a.lowU64 >> (64 - b64));
 		}
+
+		// Overflow if information was lost: shifting back should give original value
+		if((result >> b) != a) { return I128::nan(); }
+
 		return result;
 	}
 
@@ -365,47 +438,36 @@ namespace WAVM {
 	inline bool operator>(I128 a, I128 b)
 	{
 		if(isNaN(a) || isNaN(b)) { return false; }
-		return a.highI64 > b.highI64 || (a.highI64 == b.highI64 && a.lowI64 > b.lowI64);
+		return a.highI64 > b.highI64 || (a.highI64 == b.highI64 && a.lowU64 > b.lowU64);
 	}
 
 	inline bool operator>=(I128 a, I128 b)
 	{
-		if(isNaN(a) || isNaN(b)) { return false; }
-		return a.highI64 > b.highI64 || (a.highI64 == b.highI64 && a.lowI64 >= b.lowI64);
+		if(isNaN(a) || isNaN(b)) { return isNaN(a) && isNaN(b); }
+		return a.highI64 > b.highI64 || (a.highI64 == b.highI64 && a.lowU64 >= b.lowU64);
 	}
 
 	inline bool operator<(I128 a, I128 b)
 	{
 		if(isNaN(a) || isNaN(b)) { return false; }
-		return a.highI64 < b.highI64 || (a.highI64 == b.highI64 && a.lowI64 < b.lowI64);
+		return a.highI64 < b.highI64 || (a.highI64 == b.highI64 && a.lowU64 < b.lowU64);
 	}
 
 	inline bool operator<=(I128 a, I128 b)
 	{
-		if(isNaN(a) || isNaN(b)) { return false; }
-		return a.highI64 < b.highI64 || (a.highI64 == b.highI64 && a.lowI64 <= b.lowI64);
+		if(isNaN(a) || isNaN(b)) { return isNaN(a) && isNaN(b); }
+		return a.highI64 < b.highI64 || (a.highI64 == b.highI64 && a.lowU64 <= b.lowU64);
 	}
 
 	inline bool operator==(I128 a, I128 b)
 	{
-		if(isNaN(a) || isNaN(b)) { return false; }
+		// NaN == NaN is true (unlike IEEE floats)
 		return a.highI64 == b.highI64 && a.lowU64 == b.lowU64;
 	}
 
 	inline bool operator!=(I128 a, I128 b)
 	{
-		if(isNaN(a) || isNaN(b)) { return true; }
 		return a.highI64 != b.highI64 || a.lowU64 != b.lowU64;
-	}
-
-	inline I128& I128::operator=(const I128& copyee)
-	{
-		if(this != &copyee)
-		{
-			lowU64 = copyee.lowU64;
-			highU64 = copyee.highU64;
-		}
-		return *this;
 	}
 
 	inline I128 I128::udivmod(I128 n, I128 d, I128& outRemainder)
@@ -585,4 +647,70 @@ namespace WAVM {
 		outRemainder = r;
 		return q;
 	}
+
+	inline ToCharsResult toChars(char* outBegin, char* outEnd, I128 value)
+	{
+		if(outBegin >= outEnd) { return {outEnd, true}; }
+
+		char* ptr = outBegin;
+		if(isNaN(value))
+		{
+			if(outEnd - ptr < 1) { return {ptr, true}; }
+			*ptr++ = 'N';
+			if(outEnd - ptr < 1) { return {ptr, true}; }
+			*ptr++ = 'a';
+			if(outEnd - ptr < 1) { return {ptr, true}; }
+			*ptr++ = 'N';
+			return {ptr, false};
+		}
+
+		const bool negative = value < 0;
+		if(negative)
+		{
+			if(ptr >= outEnd) { return {outEnd, true}; }
+			*ptr++ = '-';
+			value = -value;
+		}
+
+		I128 zero(0);
+		if(value == zero)
+		{
+			if(ptr >= outEnd) { return {outEnd, true}; }
+			*ptr++ = '0';
+			return {ptr, false};
+		}
+
+		// Collect digits in reverse order
+		char* digitStart = ptr;
+		while(value != zero)
+		{
+			if(ptr >= outEnd) { return {outEnd, true}; }
+			I128 digit = value % I128(10);
+			*ptr++ = '0' + char(U64(digit));
+			value = value / I128(10);
+		}
+
+		// Reverse the digits
+		char* digitEnd = ptr - 1;
+		while(digitStart < digitEnd)
+		{
+			char tmp = *digitStart;
+			*digitStart = *digitEnd;
+			*digitEnd = tmp;
+			++digitStart;
+			--digitEnd;
+		}
+
+		return {ptr, false};
+	}
+
+	template<typename Int, typename> Int clampedCast(I128 value)
+	{
+		WAVM_ASSERT(!isNaN(value));
+		if(value < std::numeric_limits<Int>::min()) { return std::numeric_limits<Int>::min(); }
+		if(value > std::numeric_limits<Int>::max()) { return std::numeric_limits<Int>::max(); }
+		return Int(value);
+	}
 }
+
+#endif // WAVM_INLINE_IMPL_I128IMPL_H

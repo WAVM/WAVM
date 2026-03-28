@@ -1,16 +1,15 @@
-#include <cxxabi.h>
+#if WAVM_PLATFORM_POSIX
+
 #include <dlfcn.h>
 #include <stdio.h>
 #include <atomic>
-#include <string>
-#include "POSIXPrivate.h"
+#include <cinttypes>
+#include <cstdint>
+#include <cstring>
 #include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Config.h"
 #include "WAVM/Platform/Diagnostics.h"
-
-#if WAVM_ENABLE_UNWIND
-#define UNW_LOCAL_ONLY
-#include "libunwind.h"
-#endif
 
 #if WAVM_ENABLE_ASAN                                                                               \
 	&& (defined(HAS_SANITIZER_PRINT_MEMORY_PROFILE_1)                                              \
@@ -29,35 +28,21 @@ extern "C" const char* __asan_default_options()
 		   ":replace_intrin=false";
 }
 
-CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
+extern "C" const char* __tsan_default_options()
 {
-	CallStack result;
-
-#if WAVM_ENABLE_UNWIND
-	unw_context_t context;
-	WAVM_ERROR_UNLESS(!unw_getcontext(&context));
-
-	unw_cursor_t cursor;
-
-	WAVM_ERROR_UNLESS(!unw_init_local(&cursor, &context));
-	for(Uptr frameIndex = 0; !result.frames.isFull() && unw_step(&cursor) > 0; ++frameIndex)
-	{
-		if(frameIndex >= numOmittedFramesFromTop)
-		{
-			unw_word_t ip;
-			WAVM_ERROR_UNLESS(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
-			result.frames.push_back(CallStack::Frame{frameIndex == 0 ? ip : (ip - 1)});
-		}
-	}
-#endif
-
-	return result;
+	// WAVM handles signals itself for WebAssembly traps.
+	// Disable TSAN's signal interception to avoid conflicts with our signal handlers
+	// and stack unwinding through JIT-compiled code.
+	return "handle_segv=0"
+		   ":handle_sigbus=0"
+		   ":handle_sigfpe=0";
 }
 
 bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSource)
 {
 #if defined(__linux__) || defined(__APPLE__)
 	// Look up static symbol information for the address.
+	// dladdr is async-signal-safe on Linux and macOS.
 	Dl_info symbolInfo;
 	if(dladdr((void*)ip, &symbolInfo))
 	{
@@ -65,25 +50,12 @@ bool Platform::getInstructionSourceByAddress(Uptr ip, InstructionSource& outSour
 		outSource.module = symbolInfo.dli_fname;
 		if(!symbolInfo.dli_sname)
 		{
-			outSource.function = std::string();
 			outSource.instructionOffset = ip - reinterpret_cast<Uptr>(symbolInfo.dli_fbase);
 		}
 		else
 		{
-			if(symbolInfo.dli_sname[0] == '_')
-			{
-				int demangleStatus = 0;
-				if(char* demangledBuffer
-				   = abi::__cxa_demangle(symbolInfo.dli_sname, nullptr, nullptr, &demangleStatus))
-				{
-					outSource.function = demangledBuffer;
-					free(demangledBuffer);
-				}
-			}
-			else
-			{
-				outSource.function = symbolInfo.dli_sname;
-			}
+			// Skip demangling in signal-safe path; use the raw symbol name.
+			outSource.function = symbolInfo.dli_sname;
 			outSource.instructionOffset = ip - reinterpret_cast<Uptr>(symbolInfo.dli_saddr);
 		}
 		return true;
@@ -111,3 +83,5 @@ void Platform::printMemoryProfile()
 void Platform::registerVirtualAllocation(Uptr numBytes) { numCommittedPageBytes += numBytes; }
 
 void Platform::deregisterVirtualAllocation(Uptr numBytes) { numCommittedPageBytes -= numBytes; }
+
+#endif // WAVM_PLATFORM_POSIX
