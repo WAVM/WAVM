@@ -60,7 +60,9 @@ namespace WAVM { namespace Platform {
 		friend struct UnwindState;
 		const U8* unwindData = nullptr;
 		Uptr unwindDataSize = 0;
+#ifdef __APPLE__
 		U32 compactEncoding = 0;
+#endif
 	};
 
 	// UnwindState holds platform-specific unwind context and cursor.
@@ -110,7 +112,9 @@ namespace WAVM { namespace Platform {
 		U8 opcode = 0;
 		U32 reg = 0;
 		I64 operand = 0;
-		[[maybe_unused]] U32 compactEncoding = 0;
+#ifdef __APPLE__
+		U32 compactEncoding = 0;
+#endif
 	};
 
 }}
