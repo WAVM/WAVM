@@ -172,7 +172,21 @@ class CoverageReportTask(Task):
         if result.returncode != 0:
             return TaskResult(False, result.format_failure("llvm-cov export failed"))
 
-        lcov_path.write_text(result.stdout)
+        # Strip the source-dir prefix from SF lines so that LCOV files are
+        # portable across platforms. The -ffile-prefix-map flag produces relative
+        # paths in debug info; -compilation-dir resolves them back to absolute.
+        # Reverting to relative here lets the cross-platform merge step (which
+        # runs genhtml on a Linux runner) find files in its own checkout.
+        source_prefix = source_dir_str.rstrip("/") + "/"
+        lcov_lines = []
+        for line in result.stdout.splitlines():
+            if line.startswith("SF:"):
+                path = line[3:].replace("\\", "/")
+                if path.startswith(source_prefix):
+                    path = path[len(source_prefix):]
+                line = f"SF:{path}"
+            lcov_lines.append(line)
+        lcov_path.write_text("\n".join(lcov_lines) + "\n")
 
         # Generate text report (annotated source with per-line hit counts)
         text_cmd: list[Union[str, Path]] = [
@@ -265,7 +279,8 @@ def cmd_merge_coverage(args: argparse.Namespace, ctx: CommandContext) -> int:
     if shutil.which("genhtml"):
         report_dir = output_dir / "combined-coverage-report"
         result = run_command(
-            ["genhtml", str(combined_lcov), "--output-directory", str(report_dir)],
+            ["genhtml", str(combined_lcov), "--output-directory", str(report_dir),
+             "--ignore-errors", "source", "--synthesize-missing"],
             timeout=300,
         )
         if result.returncode == 0:
