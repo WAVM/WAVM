@@ -49,21 +49,33 @@
 (assert_invalid (module (global v128 (f64.const 0))) "invalid initializer expression")
 (assert_invalid (module (global $i32 i32 (i32.const 0)) (global v128 (global.get $i32))) "invalid initializer expression")
 
+;; v128.const initializer decoded from binary (opcode 0xfd 0x0c)
 (module binary
-  "\00asm"
-  "\01\00\00\00"       ;; 1 section
-  "\06"                ;; global section
-  "\16"                ;; 22 bytes
+  "\00asm\01\00\00\00"
+  "\01\05"             ;; type section, 5 bytes
+  "\01"                ;; 1 type
+  "\60\00\01\7b"       ;; () -> v128
+  "\03\02"             ;; function section, 2 bytes
+  "\01"                ;; 1 function
+  "\00"                ;; type 0
+  "\06\16"             ;; global section, 22 bytes
   "\01"                ;; 1 global
-  "\7b"                ;; v128
-  "\00"                ;; immutable
-  "\fd\02"             ;; v128.const
+  "\7b\00"             ;; v128, immutable
+  "\fd\0c"             ;; v128.const
   "\00\01\02\03"       ;; literal bytes 0-3
   "\04\05\06\07"       ;; literal bytes 4-7
   "\08\09\0a\0b"       ;; literal bytes 8-11
   "\0c\0d\0e\0f"       ;; literal bytes 12-15
   "\0b"                ;; end
+  "\07\07"             ;; export section, 7 bytes
+  "\01"                ;; 1 export
+  "\03get"             ;; name
+  "\00\00"             ;; function 0
+  "\0a\06"             ;; code section, 6 bytes
+  "\01"                ;; 1 body
+  "\04\00\23\00\0b"    ;; body: no locals, global.get 0, end
 )
+(assert_return (invoke "get") (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
 
 (assert_malformed
   (module binary
