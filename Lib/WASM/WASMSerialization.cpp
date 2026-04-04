@@ -41,6 +41,12 @@ WAVM_FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 	{
 		U32 opcodeVarUInt;
 		serializeVarUInt32(stream, opcodeVarUInt);
+		if(opcodeVarUInt > 0xff)
+		{
+			throw FatalSerializationException(std::string("unknown opcode (")
+											  + std::to_string(Uptr(opcodeU8)) + " "
+											  + std::to_string(opcodeVarUInt) + ")");
+		}
 		opcode = Opcode((U32(opcodeU8) << 8) | opcodeVarUInt);
 	}
 }

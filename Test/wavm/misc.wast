@@ -1,3 +1,25 @@
+;; Unassigned single-byte opcodes must be rejected (#355, #356, #357)
+
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\01\04\01\60\00\00"               ;; type section: (func)
+    "\03\02\01\00"                     ;; function section: func 0 is type 0
+    "\0a\05\01\03\00\ec\0b"           ;; code section: body contains opcode 0xec
+  )
+  "unknown opcode"
+)
+
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\01\04\01\60\00\00"               ;; type section: (func)
+    "\03\02\01\00"                     ;; function section: func 0 is type 0
+    "\0a\05\01\03\00\f9\0b"           ;; code section: body contains opcode 0xf9
+  )
+  "unknown opcode"
+)
+
 ;; Test that NaNs without any significand bits set are rejected
 
 (module quote "(func (f32.const +nan:0x1) drop)")
