@@ -224,6 +224,21 @@
 	"\01\00"                             ;;   1 byte of data
 )
 
+;; memory.init with dropped segment: OOB dest should trap even with zero count
+(module
+  (memory 1)
+  (data "test")
+  (func (export "memory.init")
+    (param $dest i32) (param $src i32) (param $len i32)
+    (memory.init 0 (local.get $dest) (local.get $src) (local.get $len)))
+  (func (export "data.drop") (data.drop 0)))
+
+(assert_return (invoke "memory.init" (i32.const 0) (i32.const 0) (i32.const 4)))
+(assert_return (invoke "data.drop"))
+(assert_return (invoke "memory.init" (i32.const 0) (i32.const 0) (i32.const 0)))
+(assert_trap (invoke "memory.init" (i32.const 0) (i32.const 0) (i32.const 1)) "out of bounds data segment access")
+(assert_trap (invoke "memory.init" (i32.const 0xffffffff) (i32.const 0) (i32.const 0)) "out of bounds memory access")
+
 ;; Test using memory.fill to zero memory.
 
 (module
@@ -506,6 +521,11 @@
 (assert_return (invoke "elem.drop 1"))
 (assert_return (invoke "elem.drop 1"))
 (assert_trap   (invoke "table.init 1" (i32.const 0) (i32.const 0) (i32.const 2)) "out of bounds elem segment access")
+
+;; table.init with dropped segment: OOB dest should trap even with zero count (#360)
+(assert_trap   (invoke "table.init 0" (i32.const 0xffffffff) (i32.const 0) (i32.const 0)) "out of bounds table access")
+(assert_trap   (invoke "table.init 1" (i32.const 0xffffffff) (i32.const 0) (i32.const 0)) "out of bounds table access")
+(assert_return (invoke "table.init 0" (i32.const 0) (i32.const 0) (i32.const 0)))
 
 ;; table.init with (ref.null) elems
 

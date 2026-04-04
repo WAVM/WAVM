@@ -398,6 +398,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						   {instance, dataSegmentIndex, sourceOffset},
 						   1);
 		}
+		if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
+		{
+			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
+		}
 	}
 	else
 	{
