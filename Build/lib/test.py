@@ -320,6 +320,7 @@ def get_tests() -> list[TestDef]:
                         "--max-threads=" + _fuzz_max_threads,
                         "{corpora_dir}/instantiate",
                     ],
+                    timeout=1200,
                 )
             ],
             requires_fuzz_corpora_and_fuzz_targets=True,
