@@ -613,6 +613,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						   {instance, elemSegmentIndex, sourceIndex},
 						   1);
 		}
+		if(destIndex > getTableNumElements(table))
+		{
+			throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(destIndex)});
+		}
 	}
 	else
 	{
