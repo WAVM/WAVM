@@ -375,7 +375,9 @@ Uptr UnwindProcInfo::decodeUnwindOps(UnwindOp* outOps, Uptr maxOps) const
 			outOps[numOps].opcode = decoded.opcode;
 			outOps[numOps].reg = decoded.reg;
 			outOps[numOps].operand = decoded.operand;
+#ifdef __APPLE__
 			outOps[numOps].compactEncoding = 0;
+#endif
 		}
 		++numOps;
 

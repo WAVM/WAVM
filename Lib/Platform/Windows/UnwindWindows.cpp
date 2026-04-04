@@ -294,7 +294,6 @@ bool UnwindState::getProcInfo(UnwindProcInfo& outInfo) const
 #endif
 
 	outInfo.unwindDataSize = 0;
-	outInfo.compactEncoding = 0;
 
 	return true;
 }
@@ -634,7 +633,6 @@ Uptr UnwindProcInfo::decodeUnwindOps(UnwindOp* outOps, Uptr maxOps) const
 		outOps[dest].opcode = decoded.type;
 		outOps[dest].reg = decoded.reg;
 		outOps[dest].operand = decoded.operand;
-		outOps[dest].compactEncoding = 0;
 
 		byteOffset += consumed;
 		if(isEnd) { break; }
@@ -829,7 +827,6 @@ Uptr UnwindProcInfo::decodeUnwindOps(UnwindOp* outOps, Uptr maxOps) const
 		outOps[writeIndex].opcode = slot.opcode;
 		outOps[writeIndex].reg = slot.reg;
 		outOps[writeIndex].operand = I64(slot.offset);
-		outOps[writeIndex].compactEncoding = 0;
 	}
 
 	return numOps;
