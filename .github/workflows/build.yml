@@ -78,6 +78,36 @@ jobs:
       - id: get
         run: echo "configs=$(python3 Build/dev.py --target-arch x64 list-configs | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
 
+  # Check if nightly release is needed (schedule only)
+  check-nightly:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      has-changes: ${{ steps.check.outputs.has-changes }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_tag=$(gh release list --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
+          if [ -z "$latest_tag" ]; then
+            echo "No existing releases found; will publish nightly."
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+          else
+            latest_sha=$(git rev-list -n 1 "$latest_tag" 2>/dev/null || echo "")
+            head_sha=$(git rev-parse HEAD)
+            if [ "$head_sha" != "$latest_sha" ]; then
+              echo "HEAD ($head_sha) differs from latest release $latest_tag ($latest_sha); will publish nightly."
+              echo "has-changes=true" >> $GITHUB_OUTPUT
+            else
+              echo "HEAD ($head_sha) matches latest release $latest_tag; skipping nightly."
+              echo "has-changes=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   lint:
     runs-on: ubuntu-latest
     container: ghcr.io/wavm/builder-linux-x64:latest
@@ -598,10 +628,14 @@ jobs:
           retention-days: 7
         continue-on-error: true
 
-  # Publish release (tags only)
+  # Publish release (version tags or nightly)
   publish:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: >-
+      startsWith(github.ref, 'refs/tags/')
+      || (github.event_name == 'schedule'
+          && needs.check-nightly.outputs.has-changes == 'true')
     needs:
+      - check-nightly
       - linux-x64-test-distros
       - linux-x64-test-deb
       - linux-x64-test-rpm
@@ -617,16 +651,37 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: VERSION
+          sparse-checkout-cone-mode: false
+      - name: Determine release info
+        id: release-info
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            echo "tag=$tag" >> $GITHUB_OUTPUT
+            echo "version=$tag" >> $GITHUB_OUTPUT
+            expected="${tag#v}"
+            actual="$(cat VERSION)"
+            if [ "$expected" != "$actual" ]; then
+              echo "::error::VERSION file ($actual) does not match tag ($tag)"
+              exit 1
+            fi
+          else
+            date_str="$(date -u +%Y-%m-%d)"
+            echo "tag=nightly/${date_str}" >> $GITHUB_OUTPUT
+            echo "version=nightly-${date_str}" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/download-artifact@v8
         with:
           pattern: '*-LTO-*-packages'
           path: artifacts
       - name: Rename packages with platform and version
         run: |
-          version="${GITHUB_REF#refs/tags/}"
+          version="${{ steps.release-info.outputs.version }}"
           for dir in artifacts/*/; do
             dirname="$(basename "$dir")"
-            # Extract platform-arch from artifact name (e.g. linux-x64, macos-arm64)
             platform_arch="${dirname%-LTO-*-packages}"
             for f in "$dir"wavm-package.*; do
               [ -e "$f" ] || continue
@@ -638,7 +693,8 @@ jobs:
           ls -la artifacts/
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.release-info.outputs.tag }}
           target_commitish: ${{ github.sha }}
           files: artifacts/*
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
           generate_release_notes: true
