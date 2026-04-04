@@ -587,8 +587,8 @@ struct FunctionValidationContext
 	void local_tee(GetOrSetVariableImm<false> imm)
 	{
 		const ValueType localType = validateLocalIndex(imm.variableIndex);
-		const ValueType operandType = popAndValidateOperand("local.tee", localType);
-		pushOperand(operandType);
+		popAndValidateOperand("local.tee", localType);
+		pushOperand(localType);
 	}
 
 	void global_get(GetOrSetVariableImm<true> imm)
