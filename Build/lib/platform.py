@@ -462,20 +462,22 @@ def run_command(
 # =============================================================================
 
 
-_DOWNLOAD_MAX_RETRIES = 3
-_DOWNLOAD_RETRY_DELAY = 5  # seconds
+_DOWNLOAD_MAX_RETRIES = 5
+_DOWNLOAD_INITIAL_DELAY = 5  # seconds; doubled after each retry
 
 
 def _download_with_retry(url: str, dest: Path) -> None:
     """Download a URL to a local file, retrying on transient errors."""
+    delay = _DOWNLOAD_INITIAL_DELAY
     for attempt in range(_DOWNLOAD_MAX_RETRIES):
         try:
             urllib.request.urlretrieve(url, dest)
             return
         except (urllib.error.URLError, ConnectionError, OSError) as e:
             if attempt + 1 < _DOWNLOAD_MAX_RETRIES:
-                output.print(f"download: {e} (retrying in {_DOWNLOAD_RETRY_DELAY}s)")
-                time.sleep(_DOWNLOAD_RETRY_DELAY)
+                output.print(f"download: {e} (retrying in {delay}s)")
+                time.sleep(delay)
+                delay *= 2
             else:
                 raise
 
