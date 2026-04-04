@@ -659,15 +659,22 @@ void serialize(Stream& stream,
 			   const FunctionDef&,
 			   const ModuleSerializationState& moduleState)
 {
-	// Use the lower 6 bits of a varuint32 to encode alignment, and the 7th bit as a flag for
-	// whether a memory index is present.
+	constexpr U32 hasMemoryIndexFlag = 0x40;
+	constexpr U32 maxAlignmentLog2 = 0x3f;
+
+	// The memarg encoding uses a varuint32 where the lower 6 bits are the alignment (log2).
+	// With multi-memory, bit 6 indicates a memory index follows.
 	U32 alignmentLog2AndFlags = imm.alignmentLog2;
-	if(!Stream::isInput && imm.memoryIndex != 0) { alignmentLog2AndFlags |= 0x40; }
+	if(!Stream::isInput && imm.memoryIndex != 0) { alignmentLog2AndFlags |= hasMemoryIndexFlag; }
 	serializeVarUInt32(stream, alignmentLog2AndFlags);
 
-	imm.alignmentLog2 = alignmentLog2AndFlags & 0x3f;
-	if(imm.alignmentLog2 >= 16) { throw FatalSerializationException("Invalid alignment"); }
-	imm.alignmentLog2 = (U8)(alignmentLog2AndFlags & 0x3f);
+	const U32 alignmentLog2 = moduleState.module.featureSpec.multipleMemories
+								  ? (alignmentLog2AndFlags & ~hasMemoryIndexFlag)
+								  : alignmentLog2AndFlags;
+	const bool hasMemoryIndex = moduleState.module.featureSpec.multipleMemories
+								&& !!(alignmentLog2AndFlags & hasMemoryIndexFlag);
+	if(alignmentLog2 > maxAlignmentLog2) { throw FatalSerializationException("Invalid alignment"); }
+	imm.alignmentLog2 = static_cast<U8>(alignmentLog2);
 
 	if(moduleState.module.featureSpec.memory64) { serializeVarUInt64(stream, imm.offset); }
 	else
@@ -675,7 +682,7 @@ void serialize(Stream& stream,
 		serializeVarUInt32(stream, imm.offset);
 	}
 
-	if(alignmentLog2AndFlags & 0x40) { serializeVarUInt32(stream, imm.memoryIndex); }
+	if(hasMemoryIndex) { serializeVarUInt32(stream, imm.memoryIndex); }
 	else
 	{
 		imm.memoryIndex = 0;
