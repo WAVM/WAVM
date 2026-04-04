@@ -385,6 +385,14 @@ WAST_TEST_DIRS = [
         },
     ),
     WASTTestDir(
+        "Test/wavm/issues",
+        "wavm/issues/",
+        [
+            "--strict-assert-invalid",
+            "--strict-assert-malformed",
+        ],
+    ),
+    WASTTestDir(
         "Test/WebAssembly/spec",
         "WebAssembly/spec/",
         ["--test-cloning"],
